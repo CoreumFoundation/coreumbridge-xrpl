@@ -93,7 +93,7 @@ implemented in the relayer. The multi-signing account and smart contracts are th
 
 ## Workflows
 
-<!-- Source: https://app.diagrams.net/#G1wo-tO72N9Iww-iASw0DEk3NgA9-XQ93g -->
+<!-- Source: https://drive.google.com/file/d/1wo-tO72N9Iww-iASw0DEk3NgA9-XQ93g/view -->
 
 ### Send from XRPL to coreum
 
