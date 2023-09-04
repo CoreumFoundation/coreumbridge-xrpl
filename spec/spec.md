@@ -48,8 +48,18 @@ contract.
 
 The signing queue is a queue that contains bridge operations that should be signed before sending to XRPL. Each
 operation has a type, associated ID (unique identifier/hash of the operation data in the scope of type), list of trusted
-addresses, and their signatures. Once the operation is fully confirmed it goes to the outgoing to be executed by
-relayers on the XRPL side.
+addresses, and their signatures. Once the operation received enought signature it marks it as `require confirmation`
+operating and still keeps receiving signature.
+
+###### Signing confirmation queue
+
+Onece the signing threshold is reached, the operation is marked as an operation which require the signature
+confirmations from the relayers. Each relayer takes all signatures from the operation confirms them and if weight of the
+confirmed signatures reaches the threshold it sends the signatures confirmation message with all confirmed signatures.
+One the contract receives enough signature confirmations it moves the operation to the outgoing queue.  
+The `signing confirmation` is protection against malicious signers. If the weight of malicious signatures is less that
+threshold, the bridge is still able to relayer transactions. The same mechanis will be used for the keys rotation to
+remove the malicious signatures acceess.
 
 ##### Outgoing queue
 
@@ -57,13 +67,13 @@ The outgoing queue is similar to the execution queue, the only difference is tha
 relayer to understand that they need to execute the outgoing transaction and confirm the execution. Once the operation
 is fully confirmed the relayers won’t stop trying to send the corresponding transaction on the XRPL side.
 
-#### Sequence provider
+#### Tickets provider
 
 The XRPL tickets allow us to execute the transactions with non-sequential sequence numbers, hence we can execute
-multiple transactions in parallel. The process is connected to the sequence number allocation. When any process
-allocates the sequence number and the free sequence length is less than max allowed the contract generates the operation
+multiple transactions in parallel. The process is connected to the tickets provider. When any process
+allocates the ticket and the free sequence length is less than max allowed the contract generates the operation
 to increase the amount, and once the operation is confirmed increase the free slots on the contract as well. Check the
-[sequence number allocation workflow](#sequence-number-allocation) for more details.
+[ticket allocation workflow](#ticket-allocation) for more details.
 
 #### Tokens sending
 
@@ -103,9 +113,9 @@ implemented in the relayer. The multi-signing account and smart contracts are th
 
 ![Send from coreum to XRPL ](./img/send-from-coreum-to-XRPL.png)
 
-### Sequence number allocation
+### Ticket allocation
 
-![Sequence number allocation](./img/sequence-number-allocation.png)
+![Ticket allocation](./img/ticket-allocation.png)
 
 
 
