@@ -71,7 +71,7 @@ is fully confirmed the relayers stop trying to send the corresponding transactio
 
 The XRPL tickets allow us to execute the transactions with non-sequential sequence numbers, hence we can execute
 multiple transactions in parallel. The process is connected to the tickets provider. When any process
-allocates the ticket and the free sequence length is less than max allowed the contract generates the operation
+allocates the ticket and the free tickets length is less than max allowed the contract generates the operation
 to increase the amount, and once the operation is confirmed increase the free slots on the contract as well. Check the
 [ticket allocation workflow](#ticket-allocation) for more details.
 
