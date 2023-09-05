@@ -15,7 +15,7 @@ in case it is the coreum token representation issued by the address).
 ### Bridge contract
 
 The bridge contract is the major state transition of the bridge. It holds the operations state and protects the
-execution using the trusted addresses voting mechanism.
+execution using the trusted addresses voting/signing mechanisms.
 
 #### Tokens registry
 
@@ -48,24 +48,24 @@ contract.
 
 The signing queue is a queue that contains bridge operations that should be signed before sending to XRPL. Each
 operation has a type, associated ID (unique identifier/hash of the operation data in the scope of type), list of trusted
-addresses, and their signatures. Once the operation received enought signature it marks it as `require confirmation`
-operating and still keeps receiving signature.
+addresses, and their signatures. Once the operation receives enough signatures it changes its state to `require confirmation`
+operating and still keeps receiving signatures.
 
 ###### Signing confirmation queue
 
-Onece the signing threshold is reached, the operation is marked as an operation which require the signature
+Once the signing threshold is reached, the operation is marked as an operation which requires the signature
 confirmations from the relayers. Each relayer takes all signatures from the operation confirms them and if weight of the
 confirmed signatures reaches the threshold it sends the signatures confirmation message with all confirmed signatures.
-One the contract receives enough signature confirmations it moves the operation to the outgoing queue.  
-The `signing confirmation` is protection against malicious signers. If the weight of malicious signatures is less that
-threshold, the bridge is still able to relayer transactions. The same mechanis will be used for the keys rotation to
-remove the malicious signatures acceess.
+Once the contract receives enough signature confirmations it moves the operation to the outgoing queue.  
+The `signing confirmation` is protection against malicious signers. If the weight of malicious signatures is less than
+threshold, the bridge is still able to relayer transactions. The same mechanism will be used for the keys rotation to
+remove the malicious signers access.
 
 ##### Outgoing queue
 
 The outgoing queue is similar to the execution queue, the only difference is that the queue is the data source for the
-relayer to understand that they need to execute the outgoing transaction and confirm the execution. Once the operation
-is fully confirmed the relayers won’t stop trying to send the corresponding transaction on the XRPL side.
+relayers to understand that they need to execute the outgoing transaction and confirm the execution. Once the operation
+is fully confirmed the relayers stop trying to send the corresponding transaction on the XRPL side.
 
 #### Tickets provider
 
