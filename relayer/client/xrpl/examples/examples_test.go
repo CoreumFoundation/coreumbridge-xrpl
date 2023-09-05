@@ -48,7 +48,7 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 	recipientAccount := recipientSeed.AccountId(ecdsaKeyType, recipientKeySeq)
 	t.Logf("Recipient account: %s", recipientAccount)
 
-	// send XRP coins from issuer to recipient (if account is new you need to send 10 XRP to active it)
+	// send XRP coins from issuer to recipient (if account is new you need to send 10 XRP to activate it)
 	xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 	require.NoError(t, err)
 	xrpPaymentTx := rippledata.Payment{
