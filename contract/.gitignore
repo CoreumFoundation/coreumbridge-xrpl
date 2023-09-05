@@ -1,0 +1,9 @@
+# Build results
+/target
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+\#*\#
+.\#*
