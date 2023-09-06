@@ -44,7 +44,7 @@ pub struct Token {
     //How much commission does this token have
     pub commission: Decimal,
     //Fee charged by bridge (in subunits)
-    pub fee: u64,
+    //pub fee: u64,
     //If token is bridgeable or not
     pub enabled: bool,
 }
