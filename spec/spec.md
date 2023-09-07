@@ -21,7 +21,7 @@ settings of the bridge.
 
 #### Tokens registry
 
-Before the bridging, a token (XRPL or coruem) should be manually registered for the bridging. The tokes that are not
+Before the bridging, a token (XRPL or coreum) should be manually registered for the bridging. The tokes that are not
 registered can't be bridged.
 
 ##### XRPL native tokens registration
@@ -68,8 +68,8 @@ relayers execute the same transaction and at the same time they receive a specif
 go to the next item in the queue.
 An additional sub-process of each relayer observes all multi-signing account transactions and once it reaches that
 submitted transaction (matched by the ID in memo) it provides evidence with transaction status and data (using the
-evidence queue). Once the
-such evidence is confirmed, the tx result and data will be passed to the next step of a workflow.
+evidence queue). Once such evidence is confirmed, the tx result and data will be passed to the next step of a workflow,
+and operation removed from the signing queue.
 
 ##### Operations deduplication
 
@@ -99,7 +99,7 @@ The contract receives the `send-to-coreum` request and starts the corresponding 
 
 ##### Sending of tokens to XRPL
 
-The multis-signing account receives coins for a user, a relayer observes the transaction and initiates
+The multi-signing account receives coins for a user, a relayer observes the transaction and initiates
 the  [workflow](#send-from-coreum-to-xrpl).
 
 ##### Fees
