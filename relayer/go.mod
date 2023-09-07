@@ -2,13 +2,10 @@ module github.com/CoreumFoundation/xrpl-bridge-v2/relayer
 
 go 1.21.0
 
-// TODO remove once PR with the changes is accepped
-replace github.com/rubblelabs/ripple => github.com/dzmitryhil/rubblelabs-ripple v0.0.0-20230907064606-ff00ce4e5a55
-
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.0
 	github.com/pkg/errors v0.9.1
-	github.com/rubblelabs/ripple v0.0.0-20230906094910-7739c2f347e3
+	github.com/rubblelabs/ripple v0.0.0-20230907071013-ff021a3b5408
 	github.com/samber/lo v1.38.1
 	github.com/stretchr/testify v1.8.4
 )
