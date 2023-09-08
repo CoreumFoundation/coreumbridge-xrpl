@@ -31,37 +31,91 @@ var (
 	seedPhrase4 = "shVSrqJcPstHAzbSJJqZ2yuWuWH4Y" // 0 key : rfXoPtE851hbUaFCgLioXAecCLAJngbod2
 )
 
+// ********** Wallet **********
+
+type Wallet struct {
+	Key      ripplecrypto.Key
+	Sequence *uint32
+	Account  rippledata.Account
+}
+
+func NewWalletFromSeedPhrase(seedPhrase string) (Wallet, error) {
+	seed, err := rippledata.NewSeedFromAddress(seedPhrase)
+	if err != nil {
+		return Wallet{}, err
+	}
+
+	key := seed.Key(ecdsaKeyType)
+	seq := lo.ToPtr(uint32(0))
+	account := seed.AccountId(ecdsaKeyType, seq)
+
+	return Wallet{
+		Key:      key,
+		Sequence: seq,
+		Account:  account,
+	}, nil
+}
+
+func GenWallet() (Wallet, error) {
+	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	b := make([]byte, 10)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+
+	familySeed, err := ripplecrypto.GenerateFamilySeed(string(b))
+	if err != nil {
+		panic(err)
+	}
+	seed, err := rippledata.NewSeedFromAddress(familySeed.String())
+	if err != nil {
+		panic(err)
+	}
+
+	return NewWalletFromSeedPhrase(seed.String())
+}
+
+func (w Wallet) MultiSign(tx rippledata.MultiSignable) (rippledata.Signer, error) {
+	if err := rippledata.MultiSign(tx, w.Key, w.Sequence, w.Account); err != nil {
+		return rippledata.Signer{}, err
+	}
+
+	return rippledata.Signer{
+		Signer: rippledata.SignerItem{
+			Account:       w.Account,
+			TxnSignature:  tx.GetSignature(),
+			SigningPubKey: tx.GetPublicKey(),
+		},
+	}, nil
+}
+
+// ********** Tests **********
+
 func TestXRPAndIssuedTokensPayment(t *testing.T) {
 	remote, err := ripplewebsockets.NewRemote(testnetHost)
 	require.NoError(t, err)
 	defer remote.Close()
 
-	issuerSeed, err := rippledata.NewSeedFromAddress(seedPhrase1)
+	issuerWallet, err := NewWalletFromSeedPhrase(seedPhrase1)
 	require.NoError(t, err)
-	issuerKey := issuerSeed.Key(ecdsaKeyType)
-	issuerKeySeq := lo.ToPtr(uint32(0))
-	issuerAccount := issuerSeed.AccountId(ecdsaKeyType, issuerKeySeq)
-	t.Logf("Issuer account: %s", issuerAccount)
+	t.Logf("Issuer account: %s", issuerWallet.Account)
 
-	recipientSeed, err := rippledata.NewSeedFromAddress(seedPhrase2)
+	recipientWallet, err := NewWalletFromSeedPhrase(seedPhrase2)
 	require.NoError(t, err)
-	recipientKey := recipientSeed.Key(ecdsaKeyType)
-	recipientKeySeq := lo.ToPtr(uint32(0))
-	recipientAccount := recipientSeed.AccountId(ecdsaKeyType, recipientKeySeq)
-	t.Logf("Recipient account: %s", recipientAccount)
+	t.Logf("Recipient account: %s", recipientWallet.Account)
 
 	// send XRP coins from issuer to recipient (if account is new you need to send 10 XRP to activate it)
 	xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 	require.NoError(t, err)
 	xrpPaymentTx := rippledata.Payment{
-		Destination: recipientAccount,
+		Destination: recipientWallet.Account,
 		Amount:      *xrpAmount,
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
 
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &xrpPaymentTx, issuerAccount, issuerKey, issuerKeySeq))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &xrpPaymentTx, issuerWallet))
 
 	// allow the FOO coin issued by the issuer to be received by the recipient
 	const fooCurrencyCode = "FOO"
@@ -73,31 +127,31 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 		LimitAmount: rippledata.Amount{
 			Value:    fooCurrencyTrustsetValue,
 			Currency: fooCurrency,
-			Issuer:   issuerAccount,
+			Issuer:   issuerWallet.Account,
 		},
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.TRUST_SET,
 		},
 	}
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &fooCurrencyTrustsetTx, recipientAccount, recipientKey, recipientKeySeq))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &fooCurrencyTrustsetTx, recipientWallet))
 
 	// send/issue the FOO token
 	fooAmount, err := rippledata.NewValue("100000", false)
 	require.NoError(t, err)
 	fooPaymentTx := rippledata.Payment{
-		Destination: recipientAccount,
+		Destination: recipientWallet.Account,
 		Amount: rippledata.Amount{
 			Value:    fooAmount,
 			Currency: fooCurrency,
-			Issuer:   issuerAccount,
+			Issuer:   issuerWallet.Account,
 		},
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	t.Logf("Recipinet account balance before: %s", getAccountBalance(t, remote, recipientAccount))
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &fooPaymentTx, issuerAccount, issuerKey, issuerKeySeq))
-	t.Logf("Recipinet account balance after: %s", getAccountBalance(t, remote, recipientAccount))
+	t.Logf("Recipinet account balance before: %s", getAccountBalance(t, remote, recipientWallet.Account))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &fooPaymentTx, issuerWallet))
+	t.Logf("Recipinet account balance after: %s", getAccountBalance(t, remote, recipientWallet.Account))
 }
 
 func TestMultisigPayment(t *testing.T) {
@@ -105,36 +159,40 @@ func TestMultisigPayment(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigKey, multisigKeySeq, multisigAccount := getSignerSet(t, seedPhrase1)
-	t.Logf("Multisig account: %s", multisigAccount)
+	multisigWallet, err := NewWalletFromSeedPhrase(seedPhrase1)
+	require.NoError(t, err)
+	t.Logf("Multisig account: %s", multisigWallet.Account)
 
-	signer1Key, signer1KeySeq, signer1Account := getSignerSet(t, seedPhrase2)
-	t.Logf("Signer1 account: %s", signer1Account)
+	wallet1, err := NewWalletFromSeedPhrase(seedPhrase2)
+	require.NoError(t, err)
+	t.Logf("Wallet1 account: %s", wallet1.Account)
 
-	signer2Key, signer2KeySeq, signer2Account := getSignerSet(t, seedPhrase3)
-	t.Logf("Signer2 account: %s", signer2Account)
+	wallet2, err := NewWalletFromSeedPhrase(seedPhrase3)
+	require.NoError(t, err)
+	t.Logf("Wallet2 account: %s", wallet2.Account)
 
-	signer3Key, signer3KeySeq, signer3Account := getSignerSet(t, seedPhrase4)
-	t.Logf("Signer3 account: %s", signer3Account)
+	wallet3, err := NewWalletFromSeedPhrase(seedPhrase4)
+	require.NoError(t, err)
+	t.Logf("Wallet3 account: %s", wallet3.Account)
 
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum: 2, // weighted threshold
 		SignerEntries: []rippledata.SignerEntry{
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &signer1Account,
+					Account:      &wallet1.Account,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &signer2Account,
+					Account:      &wallet2.Account,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &signer3Account,
+					Account:      &wallet3.Account,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
@@ -143,53 +201,37 @@ func TestMultisigPayment(t *testing.T) {
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigAccount, multisigKey, multisigKeySeq))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigWallet))
 	t.Logf("The signers set is updated")
 
-	signedXrpPaymentTx1 := buildXrpPaymentTxForMultiSigning(t, remote, multisigAccount, signer1Account)
-	require.NoError(t, rippledata.MultiSign(&signedXrpPaymentTx1, signer1Key, signer1KeySeq, signer1Account))
-	signer1 := rippledata.Signer{
-		Signer: rippledata.SignerItem{
-			Account:       signer1Account,
-			TxnSignature:  signedXrpPaymentTx1.TxnSignature,
-			SigningPubKey: signedXrpPaymentTx1.SigningPubKey,
-		},
-	}
+	xrplPaymentTx := buildXrpPaymentTxForMultiSigning(t, remote, multisigWallet.Account, wallet1.Account)
+	signer1, err := wallet1.MultiSign(&xrplPaymentTx)
+	require.NoError(t, err)
 
-	signedXrpPaymentTx2 := buildXrpPaymentTxForMultiSigning(t, remote, multisigAccount, signer1Account)
-	require.NoError(t, rippledata.MultiSign(&signedXrpPaymentTx2, signer2Key, signer2KeySeq, signer2Account))
-	signer2 := rippledata.Signer{
-		Signer: rippledata.SignerItem{
-			Account:       signer2Account,
-			TxnSignature:  signedXrpPaymentTx2.TxnSignature,
-			SigningPubKey: signedXrpPaymentTx2.SigningPubKey,
-		},
-	}
+	xrplPaymentTx = buildXrpPaymentTxForMultiSigning(t, remote, multisigWallet.Account, wallet1.Account)
+	signer2, err := wallet2.MultiSign(&xrplPaymentTx)
+	require.NoError(t, err)
 
-	signedXrpPaymentTx3 := buildXrpPaymentTxForMultiSigning(t, remote, multisigAccount, signer1Account)
-	require.NoError(t, rippledata.MultiSign(&signedXrpPaymentTx3, signer3Key, signer3KeySeq, signer3Account))
-	signer3 := rippledata.Signer{
-		Signer: rippledata.SignerItem{
-			Account:       signer3Account,
-			TxnSignature:  signedXrpPaymentTx3.TxnSignature,
-			SigningPubKey: signedXrpPaymentTx3.SigningPubKey,
-		},
-	}
+	xrplPaymentTx = buildXrpPaymentTxForMultiSigning(t, remote, multisigWallet.Account, wallet1.Account)
+	signer3, err := wallet3.MultiSign(&xrplPaymentTx)
+	require.NoError(t, err)
 
-	xrpPaymentTxTwoSigners := buildXrpPaymentTxForMultiSigning(t, remote, multisigAccount, signer1Account)
+	xrpPaymentTxTwoSigners := buildXrpPaymentTxForMultiSigning(t, remote, multisigWallet.Account, wallet1.Account)
 	require.NoError(t, rippledata.SetSigners(&xrpPaymentTxTwoSigners, []rippledata.Signer{
 		signer1,
 		signer2,
 	}...))
 
-	xrpPaymentTxThreeSigners := buildXrpPaymentTxForMultiSigning(t, remote, multisigAccount, signer1Account)
+	xrpPaymentTxThreeSigners := buildXrpPaymentTxForMultiSigning(t, remote, multisigWallet.Account, wallet1.Account)
 	require.NoError(t, rippledata.SetSigners(&xrpPaymentTxThreeSigners, []rippledata.Signer{
 		signer1,
 		signer2,
 		signer3,
 	}...))
 
+	// compare hashes
 	t.Logf("TwoSignersHash/ThreeSignersHash: %s/%s", xrpPaymentTxTwoSigners.Hash, xrpPaymentTxThreeSigners.Hash)
+	require.NotEqual(t, xrpPaymentTxTwoSigners.Hash.String(), xrpPaymentTxThreeSigners.Hash.String())
 
 	t.Logf("Recipinet account balance before: %s", getAccountBalance(t, remote, xrpPaymentTxTwoSigners.Destination))
 	require.NoError(t, submitTx(t, remote, &xrpPaymentTxTwoSigners))
@@ -204,11 +246,13 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	senderKey, senderKeySeq, senderAccount := getSignerSet(t, seedPhrase1)
-	t.Logf("Sender account: %s", senderAccount)
+	senderWallet, err := NewWalletFromSeedPhrase(seedPhrase1)
+	require.NoError(t, err)
+	t.Logf("Sender account: %s", senderWallet.Account)
 
-	_, _, recipientAccount := getSignerSet(t, seedPhrase2)
-	t.Logf("Recipient account: %s", recipientAccount)
+	recipientWallet, err := NewWalletFromSeedPhrase(seedPhrase2)
+	require.NoError(t, err)
+	t.Logf("Recipient account: %s", recipientWallet.Account)
 
 	ticketsToCreate := 1
 	createTicketsTx := rippledata.TicketCreate{
@@ -217,7 +261,7 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 			TransactionType: rippledata.TICKET_CREATE,
 		},
 	}
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &createTicketsTx, senderAccount, senderKey, senderKeySeq))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &createTicketsTx, senderWallet))
 	txRes, err := remote.Tx(*createTicketsTx.GetHash())
 	require.NoError(t, err)
 
@@ -232,11 +276,11 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 			TransactionType: rippledata.TICKET_CREATE,
 		},
 	}
-	autoFillTx(t, remote, &createTicketsTx, senderAccount)
+	autoFillTx(t, remote, &createTicketsTx, senderWallet.Account)
 	// reset sequence and add ticket
 	createTicketsTx.TxBase.Sequence = 0
 	createTicketsTx.TicketSequence = createdTickets[0].TicketSequence
-	require.NoError(t, signAndSubmitTx(t, remote, &createTicketsTx, senderKey, senderKeySeq))
+	require.NoError(t, signAndSubmitTx(t, remote, &createTicketsTx, senderWallet))
 
 	txRes, err = remote.Tx(*createTicketsTx.GetHash())
 	require.NoError(t, err)
@@ -248,20 +292,20 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 	require.NoError(t, err)
 	xrpPaymentTx := rippledata.Payment{
-		Destination: recipientAccount,
+		Destination: recipientWallet.Account,
 		Amount:      *xrpAmount,
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	autoFillTx(t, remote, &xrpPaymentTx, senderAccount)
+	autoFillTx(t, remote, &xrpPaymentTx, senderWallet.Account)
 	// reset sequence and add ticket
 	xrpPaymentTx.TxBase.Sequence = 0
 	xrpPaymentTx.TicketSequence = createdTickets[0].TicketSequence
 
-	t.Logf("Recipinet account balance before: %s", getAccountBalance(t, remote, recipientAccount))
-	require.NoError(t, signAndSubmitTx(t, remote, &xrpPaymentTx, senderKey, senderKeySeq))
-	t.Logf("Recipinet account balance after: %s", getAccountBalance(t, remote, recipientAccount))
+	t.Logf("Recipinet account balance before: %s", getAccountBalance(t, remote, recipientWallet.Account))
+	require.NoError(t, signAndSubmitTx(t, remote, &xrpPaymentTx, senderWallet))
+	t.Logf("Recipinet account balance after: %s", getAccountBalance(t, remote, recipientWallet.Account))
 
 	// try to use tickets for the transactions without the trust-line
 	const newFooCurrencyCode = "NFO"
@@ -272,37 +316,37 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	require.NoError(t, err)
 	ticketForFailingTx := createdTickets[1].TicketSequence
 	fooPaymentTx := rippledata.Payment{
-		Destination: recipientAccount,
+		Destination: recipientWallet.Account,
 		Amount: rippledata.Amount{
 			Value:    fooAmount,
 			Currency: fooCurrency,
-			Issuer:   senderAccount,
+			Issuer:   senderWallet.Account,
 		},
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	autoFillTx(t, remote, &fooPaymentTx, senderAccount)
+	autoFillTx(t, remote, &fooPaymentTx, senderWallet.Account)
 	// reset sequence and add ticket
 	fooPaymentTx.TxBase.Sequence = 0
 	fooPaymentTx.TicketSequence = ticketForFailingTx
 	// there is no trust set so the tx should fail and use the ticket
-	require.ErrorContains(t, signAndSubmitTx(t, remote, &fooPaymentTx, senderKey, senderKeySeq), "Path could not send partial amount")
+	require.ErrorContains(t, signAndSubmitTx(t, remote, &fooPaymentTx, senderWallet), "Path could not send partial amount")
 
 	// try to reuse the ticket for the success tx
 	xrpPaymentTx = rippledata.Payment{
-		Destination: recipientAccount,
+		Destination: recipientWallet.Account,
 		Amount:      *xrpAmount,
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	autoFillTx(t, remote, &xrpPaymentTx, senderAccount)
+	autoFillTx(t, remote, &xrpPaymentTx, senderWallet.Account)
 	// reset sequence and add ticket
 	xrpPaymentTx.TxBase.Sequence = 0
 	xrpPaymentTx.TicketSequence = ticketForFailingTx
 	// the ticket is used in prev failed transaction so can't be used here
-	require.ErrorContains(t, signAndSubmitTx(t, remote, &fooPaymentTx, senderKey, senderKeySeq), "Ticket is not in ledger")
+	require.ErrorContains(t, signAndSubmitTx(t, remote, &fooPaymentTx, senderWallet), "Ticket is not in ledger")
 }
 
 func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
@@ -310,18 +354,20 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigKey, multisigKeySeq, multisigAccount := getSignerSet(t, seedPhrase1)
-	t.Logf("Multisig account: %s", multisigAccount)
+	multisigWallet, err := NewWalletFromSeedPhrase(seedPhrase1)
+	require.NoError(t, err)
+	t.Logf("Multisig account: %s", multisigWallet.Account)
 
-	signer1Key, signer1KeySeq, signer1Account := getSignerSet(t, seedPhrase2)
-	t.Logf("Signer1 account: %s", signer1Account)
+	wallet1, err := NewWalletFromSeedPhrase(seedPhrase2)
+	require.NoError(t, err)
+	t.Logf("Wallet1 account: %s", wallet1.Account)
 
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum: 1, // weighted threshold
 		SignerEntries: []rippledata.SignerEntry{
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &signer1Account,
+					Account:      &wallet1.Account,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
@@ -330,36 +376,17 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigAccount, multisigKey, multisigKeySeq))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigWallet))
 	t.Logf("The signers set is updated")
 
-	ticketsToCreate := 1
-	buildCreateTicketsTx := func() rippledata.TicketCreate {
-		tx := rippledata.TicketCreate{
-			TicketCount: lo.ToPtr(uint32(ticketsToCreate)),
-			TxBase: rippledata.TxBase{
-				TransactionType: rippledata.TICKET_CREATE,
-			},
-		}
-		autoFillTx(t, remote, &tx, multisigAccount)
-		// important for the multi-signing
-		tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+	ticketsToCreate := uint32(1)
+	createTicketsTx := buildCreateTicketsTxForMultiSigning(t, remote, ticketsToCreate, nil, multisigWallet.Account)
+	signer1, err := wallet1.MultiSign(&createTicketsTx)
+	require.NoError(t, err)
 
-		return tx
-	}
-
-	createTicketsTx1 := buildCreateTicketsTx()
-	require.NoError(t, rippledata.MultiSign(&createTicketsTx1, signer1Key, signer1KeySeq, signer1Account))
-
-	createTicketsTx := buildCreateTicketsTx()
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(t, remote, ticketsToCreate, nil, multisigWallet.Account)
 	require.NoError(t, rippledata.SetSigners(&createTicketsTx, []rippledata.Signer{
-		{
-			Signer: rippledata.SignerItem{
-				Account:       signer1Account,
-				TxnSignature:  createTicketsTx1.TxnSignature,
-				SigningPubKey: createTicketsTx1.SigningPubKey,
-			},
-		},
+		signer1,
 	}...))
 
 	require.NoError(t, submitTx(t, remote, &createTicketsTx))
@@ -368,46 +395,24 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 	require.NoError(t, err)
 
 	createdTickets := extractTicketsFromMeta(txRes)
-	require.Len(t, createdTickets, ticketsToCreate)
+	require.Len(t, createdTickets, int(ticketsToCreate))
 
-	buildCreateTicketsWithTicketTx := func() rippledata.TicketCreate {
-		tx := rippledata.TicketCreate{
-			TicketCount: lo.ToPtr(uint32(ticketsToCreate)),
-			TxBase: rippledata.TxBase{
-				TransactionType: rippledata.TICKET_CREATE,
-			},
-		}
-		autoFillTx(t, remote, &tx, multisigAccount)
-		// important for the multi-signing
-		tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
-		// reset sequence and add ticket
-		tx.TxBase.Sequence = 0
-		tx.TicketSequence = createdTickets[0].TicketSequence
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(t, remote, ticketsToCreate, createdTickets[0].TicketSequence, multisigWallet.Account)
+	signer1, err = wallet1.MultiSign(&createTicketsTx)
+	require.NoError(t, err)
 
-		return tx
-	}
-
-	createTicketsWithTicketTx1 := buildCreateTicketsWithTicketTx()
-	require.NoError(t, rippledata.MultiSign(&createTicketsWithTicketTx1, signer1Key, signer1KeySeq, signer1Account))
-
-	createTicketsWithTicketTx := buildCreateTicketsWithTicketTx()
-	require.NoError(t, rippledata.SetSigners(&createTicketsWithTicketTx, []rippledata.Signer{
-		{
-			Signer: rippledata.SignerItem{
-				Account:       signer1Account,
-				TxnSignature:  createTicketsWithTicketTx1.TxnSignature,
-				SigningPubKey: createTicketsWithTicketTx1.SigningPubKey,
-			},
-		},
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(t, remote, ticketsToCreate, createdTickets[0].TicketSequence, multisigWallet.Account)
+	require.NoError(t, rippledata.SetSigners(&createTicketsTx, []rippledata.Signer{
+		signer1,
 	}...))
 
-	require.NoError(t, submitTx(t, remote, &createTicketsWithTicketTx))
+	require.NoError(t, submitTx(t, remote, &createTicketsTx))
 
-	txRes, err = remote.Tx(*createTicketsWithTicketTx.GetHash())
+	txRes, err = remote.Tx(*createTicketsTx.GetHash())
 	require.NoError(t, err)
 
 	createdTickets = extractTicketsFromMeta(txRes)
-	require.Len(t, createdTickets, ticketsToCreate)
+	require.Len(t, createdTickets, int(ticketsToCreate))
 }
 
 func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
@@ -415,21 +420,24 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigKey, multisigKeySeq, multisigAccount := getSignerSet(t, seedPhrase1)
-	t.Logf("Multisig account: %s", multisigAccount)
+	multisigWallet, err := NewWalletFromSeedPhrase(seedPhrase1)
+	require.NoError(t, err)
+	t.Logf("Multisig account: %s", multisigWallet.Account)
 
-	signer1Key, signer1KeySeq, signer1Account := getSignerSet(t, seedPhrase2)
-	t.Logf("Signer1 account: %s", signer1Account)
+	wallet1, err := NewWalletFromSeedPhrase(seedPhrase2)
+	require.NoError(t, err)
+	t.Logf("Wallet1 account: %s", wallet1.Account)
 
-	signer2Key, signer2KeySeq, signer2Account := getSignerSet(t, seedPhrase3)
-	t.Logf("Signer2 account: %s", signer2Account)
+	wallet2, err := NewWalletFromSeedPhrase(seedPhrase3)
+	require.NoError(t, err)
+	t.Logf("Wallet2 account: %s", wallet2.Account)
 
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum: 1, // weighted threshold
 		SignerEntries: []rippledata.SignerEntry{
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &signer1Account,
+					Account:      &wallet1.Account,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
@@ -438,144 +446,56 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigAccount, multisigKey, multisigKeySeq))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigWallet))
 
-	ticketsToCreate := 2
-	buildCreateTicketsTx := func() rippledata.TicketCreate {
-		tx := rippledata.TicketCreate{
-			TicketCount: lo.ToPtr(uint32(ticketsToCreate)),
-			TxBase: rippledata.TxBase{
-				TransactionType: rippledata.TICKET_CREATE,
-			},
-		}
-		autoFillTx(t, remote, &tx, multisigAccount)
-		// important for the multi-signing
-		tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+	ticketsToCreate := uint32(2)
 
-		return tx
-	}
+	createTicketsTx := buildCreateTicketsTxForMultiSigning(t, remote, ticketsToCreate, nil, multisigWallet.Account)
+	signer1, err := wallet1.MultiSign(&createTicketsTx)
+	require.NoError(t, err)
 
-	createTicketsTx1 := buildCreateTicketsTx()
-	require.NoError(t, rippledata.MultiSign(&createTicketsTx1, signer1Key, signer1KeySeq, signer1Account))
-
-	createTicketsTx := buildCreateTicketsTx()
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(t, remote, ticketsToCreate, nil, multisigWallet.Account)
 	require.NoError(t, rippledata.SetSigners(&createTicketsTx, []rippledata.Signer{
-		{
-			Signer: rippledata.SignerItem{
-				Account:       signer1Account,
-				TxnSignature:  createTicketsTx1.TxnSignature,
-				SigningPubKey: createTicketsTx1.SigningPubKey,
-			},
-		},
+		signer1,
 	}...))
-
 	require.NoError(t, submitTx(t, remote, &createTicketsTx))
 
 	txRes, err := remote.Tx(*createTicketsTx.GetHash())
 	require.NoError(t, err)
 
 	createdTickets := extractTicketsFromMeta(txRes)
-	require.Len(t, createdTickets, ticketsToCreate)
+	require.Len(t, createdTickets, int(ticketsToCreate))
 
-	// use created tickets to rotate keys
-	buildUpdateSignerListSetTx := func() rippledata.SignerListSet {
-		tx := rippledata.SignerListSet{
-			SignerQuorum: 1, // weighted threshold
-			SignerEntries: []rippledata.SignerEntry{
-				{
-					SignerEntry: rippledata.SignerEntryItem{
-						Account:      &signer2Account,
-						SignerWeight: lo.ToPtr(uint16(1)),
-					},
-				},
-			},
-			TxBase: rippledata.TxBase{
-				TransactionType: rippledata.SIGNER_LIST_SET,
-			},
-		}
-		autoFillTx(t, remote, &tx, multisigAccount)
-		// important for the multi-signing
-		tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
-		// reset sequence and add ticket
-		tx.TxBase.Sequence = 0
-		tx.TicketSequence = createdTickets[0].TicketSequence
+	updateSignerListSetTx := buildUpdateSignerListSetTxForMultiSigning(t, remote, wallet2.Account, createdTickets[0].TicketSequence, multisigWallet.Account)
+	signer1, err = wallet1.MultiSign(&updateSignerListSetTx)
+	require.NoError(t, err)
 
-		return tx
-	}
-
-	updateSignerListSetTx1 := buildUpdateSignerListSetTx()
-	require.NoError(t, rippledata.MultiSign(&updateSignerListSetTx1, signer1Key, signer1KeySeq, signer1Account))
-
-	updateSignerListSetTx := buildUpdateSignerListSetTx()
+	updateSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(t, remote, wallet2.Account, createdTickets[0].TicketSequence, multisigWallet.Account)
 	require.NoError(t, rippledata.SetSigners(&updateSignerListSetTx, []rippledata.Signer{
-		{
-			Signer: rippledata.SignerItem{
-				Account:       signer1Account,
-				TxnSignature:  updateSignerListSetTx1.TxnSignature,
-				SigningPubKey: updateSignerListSetTx1.SigningPubKey,
-			},
-		},
+		signer1,
 	}...))
-
 	require.NoError(t, submitTx(t, remote, &updateSignerListSetTx))
 
-	// use created tickets to rotate keys
-	buildRestoreSignerListSetTx := func() rippledata.SignerListSet {
-		tx := rippledata.SignerListSet{
-			SignerQuorum: 1, // weighted threshold
-			SignerEntries: []rippledata.SignerEntry{
-				{
-					SignerEntry: rippledata.SignerEntryItem{
-						Account:      &signer1Account,
-						SignerWeight: lo.ToPtr(uint16(1)),
-					},
-				},
-			},
-			TxBase: rippledata.TxBase{
-				TransactionType: rippledata.SIGNER_LIST_SET,
-			},
-		}
-		autoFillTx(t, remote, &tx, multisigAccount)
-		// important for the multi-signing
-		tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
-		// reset sequence and add ticket
-		tx.TxBase.Sequence = 0
-		tx.TicketSequence = createdTickets[1].TicketSequence
-
-		return tx
-	}
-
 	// try to sign and send with previous signer
-	restoreSignerListSetTx1 := buildRestoreSignerListSetTx()
-	require.NoError(t, rippledata.MultiSign(&restoreSignerListSetTx1, signer1Key, signer1KeySeq, signer1Account))
+	restoreSignerListSetTx := buildUpdateSignerListSetTxForMultiSigning(t, remote, wallet1.Account, createdTickets[1].TicketSequence, multisigWallet.Account)
+	signer1, err = wallet1.MultiSign(&restoreSignerListSetTx)
+	require.NoError(t, err)
 
-	restoreSignerListSetTx := buildRestoreSignerListSetTx()
+	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(t, remote, wallet1.Account, createdTickets[1].TicketSequence, multisigWallet.Account)
 	require.NoError(t, rippledata.SetSigners(&restoreSignerListSetTx, []rippledata.Signer{
-		{
-			Signer: rippledata.SignerItem{
-				Account:       signer2Account,
-				TxnSignature:  restoreSignerListSetTx1.TxnSignature,
-				SigningPubKey: restoreSignerListSetTx1.SigningPubKey,
-			},
-		},
+		signer1,
 	}...))
-	require.ErrorContains(t, submitTx(t, remote, &restoreSignerListSetTx), "Invalid signature on account")
+	require.ErrorContains(t, submitTx(t, remote, &restoreSignerListSetTx), "A signature is provided for a non-signer")
 
 	// build and send with correct signer
-	restoreSignerListSetTx1 = buildRestoreSignerListSetTx()
-	require.NoError(t, rippledata.MultiSign(&restoreSignerListSetTx1, signer2Key, signer2KeySeq, signer2Account))
+	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(t, remote, wallet1.Account, createdTickets[1].TicketSequence, multisigWallet.Account)
+	signer2, err := wallet2.MultiSign(&restoreSignerListSetTx)
+	require.NoError(t, err)
 
-	restoreSignerListSetTx = buildRestoreSignerListSetTx()
+	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(t, remote, wallet1.Account, createdTickets[1].TicketSequence, multisigWallet.Account)
 	require.NoError(t, rippledata.SetSigners(&restoreSignerListSetTx, []rippledata.Signer{
-		{
-			Signer: rippledata.SignerItem{
-				Account:       signer2Account,
-				TxnSignature:  restoreSignerListSetTx1.TxnSignature,
-				SigningPubKey: restoreSignerListSetTx1.SigningPubKey,
-			},
-		},
+		signer2,
 	}...))
-
 	require.NoError(t, submitTx(t, remote, &restoreSignerListSetTx))
 }
 
@@ -584,28 +504,31 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigKeyToDisable, multisigKeySeq, multisigAccount := getSignerSet(t, genSeed().String())
-	t.Logf("Multisig account: %s", multisigAccount)
-	fundAccount(t, remote, multisigAccount, "20000000")
+	multisigWalletToDisable, err := GenWallet()
+	require.NoError(t, err)
+	t.Logf("Multisig account: %s", multisigWalletToDisable.Account)
+	fundAccount(t, remote, multisigWalletToDisable.Account, "20000000")
 
-	signer1Key, signer1KeySeq, signer1Account := getSignerSet(t, seedPhrase2)
-	t.Logf("Signer1 account: %s", signer1Account)
+	wallet1, err := NewWalletFromSeedPhrase(seedPhrase2)
+	require.NoError(t, err)
+	t.Logf("Wallet1 account: %s", wallet1.Account)
 
-	signer2Key, signer2KeySeq, signer2Account := getSignerSet(t, seedPhrase3)
-	t.Logf("Signer2 account: %s", signer2Account)
+	wallet2, err := NewWalletFromSeedPhrase(seedPhrase3)
+	require.NoError(t, err)
+	t.Logf("Wallet2 account: %s", wallet2.Account)
 
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum: 2, // weighted threshold
 		SignerEntries: []rippledata.SignerEntry{
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &signer1Account,
+					Account:      &wallet1.Account,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &signer2Account,
+					Account:      &wallet2.Account,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
@@ -614,45 +537,33 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigAccount, multisigKeyToDisable, multisigKeySeq))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigWalletToDisable))
 	t.Logf("The signers set is updated")
 
 	// disable master key now to be able to use multi-signing only
 	disableMasterKeyTx := rippledata.AccountSet{
 		TxBase: rippledata.TxBase{
-			Account:         multisigAccount,
+			Account:         multisigWalletToDisable.Account,
 			TransactionType: rippledata.ACCOUNT_SET,
 		},
 		SetFlag: lo.ToPtr(uint32(4)),
 	}
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &disableMasterKeyTx, multisigAccount, multisigKeyToDisable, multisigKeySeq))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &disableMasterKeyTx, multisigWalletToDisable))
 	t.Logf("The master key is disabled")
 
 	// try to update signers one more time
-	require.ErrorContains(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigAccount, multisigKeyToDisable, multisigKeySeq), "Master key is disabled")
+	require.ErrorContains(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigWalletToDisable), "Master key is disabled")
 
 	// now use multi-signing for the account
-	signedXrpPaymentTx1 := buildXrpPaymentTxForMultiSigning(t, remote, multisigAccount, signer1Account)
-	require.NoError(t, rippledata.MultiSign(&signedXrpPaymentTx1, signer1Key, signer1KeySeq, signer1Account))
-	signer1 := rippledata.Signer{
-		Signer: rippledata.SignerItem{
-			Account:       signer1Account,
-			TxnSignature:  signedXrpPaymentTx1.TxnSignature,
-			SigningPubKey: signedXrpPaymentTx1.SigningPubKey,
-		},
-	}
+	xrpPaymentTx := buildXrpPaymentTxForMultiSigning(t, remote, multisigWalletToDisable.Account, wallet1.Account)
+	signer1, err := wallet1.MultiSign(&xrpPaymentTx)
+	require.NoError(t, err)
 
-	signedXrpPaymentTx2 := buildXrpPaymentTxForMultiSigning(t, remote, multisigAccount, signer1Account)
-	require.NoError(t, rippledata.MultiSign(&signedXrpPaymentTx2, signer2Key, signer2KeySeq, signer2Account))
-	signer2 := rippledata.Signer{
-		Signer: rippledata.SignerItem{
-			Account:       signer2Account,
-			TxnSignature:  signedXrpPaymentTx2.TxnSignature,
-			SigningPubKey: signedXrpPaymentTx2.SigningPubKey,
-		},
-	}
+	xrpPaymentTx = buildXrpPaymentTxForMultiSigning(t, remote, multisigWalletToDisable.Account, wallet1.Account)
+	signer2, err := wallet2.MultiSign(&xrpPaymentTx)
+	require.NoError(t, err)
 
-	xrpPaymentTx := buildXrpPaymentTxForMultiSigning(t, remote, multisigAccount, signer1Account)
+	xrpPaymentTx = buildXrpPaymentTxForMultiSigning(t, remote, multisigWalletToDisable.Account, wallet1.Account)
 	require.NoError(t, rippledata.SetSigners(&xrpPaymentTx, []rippledata.Signer{
 		signer1,
 		signer2,
@@ -661,16 +572,6 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 	t.Logf("Recipinet account balance before: %s", getAccountBalance(t, remote, xrpPaymentTx.Destination))
 	require.NoError(t, submitTx(t, remote, &xrpPaymentTx))
 	t.Logf("Recipinet account balance after: %s", getAccountBalance(t, remote, xrpPaymentTx.Destination))
-}
-
-func getSignerSet(t *testing.T, seedPhrase string) (ripplecrypto.Key, *uint32, rippledata.Account) {
-	seed, err := rippledata.NewSeedFromAddress(seedPhrase)
-	require.NoError(t, err)
-	key := seed.Key(ecdsaKeyType)
-	seq := lo.ToPtr(uint32(0))
-	account := seed.AccountId(ecdsaKeyType, seq)
-
-	return key, seq, account
 }
 
 func getAccountBalance(t *testing.T, remote *ripplewebsockets.Remote, acc rippledata.Account) map[string]rippledata.Amount {
@@ -700,26 +601,23 @@ func autoFillSignAndSubmitTx(
 	t *testing.T,
 	remote *ripplewebsockets.Remote,
 	tx rippledata.Transaction,
-	sender rippledata.Account,
-	key ripplecrypto.Key,
-	keySeq *uint32,
+	wallet Wallet,
 ) error {
 	t.Helper()
 
-	autoFillTx(t, remote, tx, sender)
-	return signAndSubmitTx(t, remote, tx, key, keySeq)
+	autoFillTx(t, remote, tx, wallet.Account)
+	return signAndSubmitTx(t, remote, tx, wallet)
 }
 
 func signAndSubmitTx(
 	t *testing.T,
 	remote *ripplewebsockets.Remote,
 	tx rippledata.Transaction,
-	key ripplecrypto.Key,
-	keySeq *uint32,
+	wallet Wallet,
 ) error {
 	t.Helper()
 
-	require.NoError(t, rippledata.Sign(tx, key, keySeq))
+	require.NoError(t, rippledata.Sign(tx, wallet.Key, wallet.Sequence))
 	return submitTx(t, remote, tx)
 }
 
@@ -805,55 +703,91 @@ func fundAccount(t *testing.T, remote *ripplewebsockets.Remote, acc rippledata.A
 		},
 	}
 
-	faucetSeed, err := rippledata.NewSeedFromAddress(seedPhrase1)
+	wallet, err := NewWalletFromSeedPhrase(seedPhrase1)
 	require.NoError(t, err)
-	faucetKey := faucetSeed.Key(ecdsaKeyType)
-	faucetKeySeq := lo.ToPtr(uint32(0))
-	faucetAccount := faucetSeed.AccountId(ecdsaKeyType, faucetKeySeq)
-	t.Logf("Funding account: %s", acc)
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &fundXrpTx, faucetAccount, faucetKey, faucetKeySeq))
+	t.Logf("Funding account: %s", wallet.Account)
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &fundXrpTx, wallet))
 	t.Logf("The account %s is funded", acc)
 }
 
-func buildXrpPaymentTxForMultiSigning(t *testing.T, remote *ripplewebsockets.Remote, from, to rippledata.Account) rippledata.Payment {
+func buildXrpPaymentTxForMultiSigning(
+	t *testing.T,
+	remote *ripplewebsockets.Remote,
+	from, to rippledata.Account,
+) rippledata.Payment {
 	t.Helper()
 
 	xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 	require.NoError(t, err)
 
-	xrpPaymentTx := rippledata.Payment{
+	tx := rippledata.Payment{
 		Destination: to,
 		Amount:      *xrpAmount,
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	autoFillTx(t, remote, &xrpPaymentTx, from)
+	autoFillTx(t, remote, &tx, from)
 	// important for the multi-signing
-	xrpPaymentTx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	return xrpPaymentTx
+	return tx
 }
 
-func genSeed() *rippledata.Seed {
-	familySeed, err := ripplecrypto.GenerateFamilySeed(randString(10))
-	if err != nil {
-		panic(err)
+func buildCreateTicketsTxForMultiSigning(
+	t *testing.T,
+	remote *ripplewebsockets.Remote,
+	ticketsToCreate uint32,
+	ticketSeq *uint32,
+	from rippledata.Account,
+) rippledata.TicketCreate {
+	tx := rippledata.TicketCreate{
+		TicketCount: lo.ToPtr(uint32(ticketsToCreate)),
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.TICKET_CREATE,
+		},
 	}
-	seed, err := rippledata.NewSeedFromAddress(familySeed.String())
-	if err != nil {
-		panic(err)
-	}
+	autoFillTx(t, remote, &tx, from)
 
-	return seed
+	if ticketSeq != nil {
+		tx.Sequence = 0
+		tx.TicketSequence = ticketSeq
+	}
+	// important for the multi-signing
+	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+
+	return tx
 }
 
-func randString(n int) string {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+func buildUpdateSignerListSetTxForMultiSigning(
+	t *testing.T,
+	remote *ripplewebsockets.Remote,
+	signerAcc rippledata.Account,
+	ticketSeq *uint32,
+	from rippledata.Account,
+) rippledata.SignerListSet {
+	tx := rippledata.SignerListSet{
+		SignerQuorum: 1, // weighted threshold
+		SignerEntries: []rippledata.SignerEntry{
+			{
+				SignerEntry: rippledata.SignerEntryItem{
+					Account:      &signerAcc,
+					SignerWeight: lo.ToPtr(uint16(1)),
+				},
+			},
+		},
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.SIGNER_LIST_SET,
+		},
 	}
-	return string(b)
+	autoFillTx(t, remote, &tx, from)
+	// important for the multi-signing
+	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+
+	if ticketSeq != nil {
+		tx.Sequence = 0
+		tx.TicketSequence = ticketSeq
+	}
+
+	return tx
 }

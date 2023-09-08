@@ -2,6 +2,8 @@ module github.com/CoreumFoundation/xrpl-bridge-v2/relayer
 
 go 1.21
 
+replace github.com/rubblelabs/ripple => github.com/dzmitryhil/rubblelabs-ripple v0.0.0-20230908134241-1d6176a8f47b
+
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.0
 	github.com/pkg/errors v0.9.1
