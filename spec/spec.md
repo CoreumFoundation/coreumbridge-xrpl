@@ -35,6 +35,18 @@ registration, the contract triggers the `submit-trust-set-for-xrpl-token` operat
 to receive that token.
 Check [register-token workflow](#register-token) for more details.
 
+##### XRP token registration
+
+The XRP token is registered in the token registry on the contract instantiation. That token doesn't have an issuer and
+currency but has a specific flag/type indication that this is the XRP token. That token can be enabled or disabled by
+the admin similar to other tokens.
+The XRP token has a bit of a different nature than other tokens. That token doesn't need approval (TrustSet) to be
+received and is used by the multi-signing account to pay fees. Since the balance for fees and received balance are not
+separated, the relayers check that there is enough balance on the multi-signing account minus the balance issued on the
+contract minus some tokens on top (to cover pending transactions) to cover the fees before the transaction submission.
+That doesn't guarantee that relayers don't spend locked coins, but minimises that risk. The additional monitoring of
+that fee-balance might also minimise that risk.
+
 ##### Coreum native tokens registration
 
 All tokens issued on the coreum that can be bridged from the coreum to XRPL and back must have a representation on the
@@ -125,8 +137,16 @@ token might be changed during the time, so the fee should be changed accordingly
 All accounts that can interact with the contract or multi-signing account are registered on the contract. And can be
 rotated using the key rotation workflow. The workflow is triggered by the admin. The admin provides
 the new relayer coreum addresses, XRPL public keys and signing/evidence threshold.
+It is possible to start the keys rotation workflow in case the contract is disabled, but there is not keys rotation
+in-process. That option gives and admin an ability to rotate the keys in case the contract is disabled because of the
+malicious relayer, or the malicious relayer disabled it.
 
 Check [workflow](#rotate-keys) for more details.
+
+##### Kill switch
+
+It is possible for any relayer or administrator to disable the bridge contract at any time. The reason for it might be
+unexpected behavior on any bridge component. 
 
 ### Relayer
 
