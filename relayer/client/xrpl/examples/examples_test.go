@@ -25,7 +25,7 @@ var (
 	testnetHost  = "wss://s.altnet.rippletest.net:51233/"
 	ecdsaKeyType = rippledata.ECDSA
 
-	seedPhrase1 = "ssWU9edn2TGCByJAa6CXbAAsCkNzQ" // 0 key : rwPpi6BnAxvvEu75m8GtGtFRDFvMAUuiG3
+	seedPhrase1 = "sneZuwbLynqsZQtRuDa7yt6maJbuR" // 0 key : rwPpi6BnAxvvEu75m8GtGtFRDFvMAUuiG3
 	seedPhrase2 = "ss9D9iMVnq78mKPGwhHGxc4x8wJqY" // 0 key : rhFXgxqXMChyath7CkCHc2J8jJxPu8JftS
 	seedPhrase3 = "ssr6XnquehSA89CndWo98dGYJBLtK" // 0 key : rQBLm9DqSQS6Z3ARvGm8JDcuXmH3zrWBXC
 	seedPhrase4 = "shVSrqJcPstHAzbSJJqZ2yuWuWH4Y" // 0 key : rfXoPtE851hbUaFCgLioXAecCLAJngbod2
@@ -33,6 +33,7 @@ var (
 
 func TestXRPAndIssuedTokensPayment(t *testing.T) {
 	remote, err := ripplewebsockets.NewRemote(testnetHost)
+	require.NoError(t, err)
 	defer remote.Close()
 
 	issuerSeed, err := rippledata.NewSeedFromAddress(seedPhrase1)
@@ -101,34 +102,19 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 
 func TestMultisigPayment(t *testing.T) {
 	remote, err := ripplewebsockets.NewRemote(testnetHost)
+	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigSeed, err := rippledata.NewSeedFromAddress(seedPhrase1)
-	require.NoError(t, err)
-	multisigKey := multisigSeed.Key(ecdsaKeyType)
-	multisigKeySeq := lo.ToPtr(uint32(0))
-	multisigAccount := multisigSeed.AccountId(ecdsaKeyType, multisigKeySeq)
+	multisigKey, multisigKeySeq, multisigAccount := getSignerSet(t, seedPhrase1)
 	t.Logf("Multisig account: %s", multisigAccount)
 
-	signer1Seed, err := rippledata.NewSeedFromAddress(seedPhrase2)
-	require.NoError(t, err)
-	signer1Key := signer1Seed.Key(ecdsaKeyType)
-	signer1KeySeq := lo.ToPtr(uint32(0))
-	signer1Account := signer1Seed.AccountId(ecdsaKeyType, signer1KeySeq)
+	signer1Key, signer1KeySeq, signer1Account := getSignerSet(t, seedPhrase2)
 	t.Logf("Signer1 account: %s", signer1Account)
 
-	signer2Seed, err := rippledata.NewSeedFromAddress(seedPhrase3)
-	require.NoError(t, err)
-	signer2Key := signer2Seed.Key(ecdsaKeyType)
-	signer2KeySeq := lo.ToPtr(uint32(0))
-	signer2Account := signer2Seed.AccountId(ecdsaKeyType, signer2KeySeq)
+	signer2Key, signer2KeySeq, signer2Account := getSignerSet(t, seedPhrase3)
 	t.Logf("Signer2 account: %s", signer2Account)
 
-	signer3Seed, err := rippledata.NewSeedFromAddress(seedPhrase4)
-	require.NoError(t, err)
-	signer3Key := signer3Seed.Key(ecdsaKeyType)
-	signer3KeySeq := lo.ToPtr(uint32(0))
-	signer3Account := signer3Seed.AccountId(ecdsaKeyType, signer3KeySeq)
+	signer3Key, signer3KeySeq, signer3Account := getSignerSet(t, seedPhrase4)
 	t.Logf("Signer3 account: %s", signer3Account)
 
 	signerListSetTx := rippledata.SignerListSet{
@@ -215,19 +201,13 @@ func TestMultisigPayment(t *testing.T) {
 
 func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	remote, err := ripplewebsockets.NewRemote(testnetHost)
+	require.NoError(t, err)
 	defer remote.Close()
 
-	senderSeed, err := rippledata.NewSeedFromAddress(seedPhrase1)
-	require.NoError(t, err)
-	senderKey := senderSeed.Key(ecdsaKeyType)
-	senderKeySeq := lo.ToPtr(uint32(0))
-	senderAccount := senderSeed.AccountId(ecdsaKeyType, senderKeySeq)
+	senderKey, senderKeySeq, senderAccount := getSignerSet(t, seedPhrase1)
 	t.Logf("Sender account: %s", senderAccount)
 
-	recipientSeed, err := rippledata.NewSeedFromAddress(seedPhrase2)
-	require.NoError(t, err)
-	recipientKeySeq := lo.ToPtr(uint32(0))
-	recipientAccount := recipientSeed.AccountId(ecdsaKeyType, recipientKeySeq)
+	_, _, recipientAccount := getSignerSet(t, seedPhrase2)
 	t.Logf("Recipient account: %s", recipientAccount)
 
 	ticketsToCreate := 1
@@ -327,20 +307,13 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 
 func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 	remote, err := ripplewebsockets.NewRemote(testnetHost)
+	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigSeed, err := rippledata.NewSeedFromAddress(seedPhrase1)
-	require.NoError(t, err)
-	multisigKey := multisigSeed.Key(ecdsaKeyType)
-	multisigKeySeq := lo.ToPtr(uint32(0))
-	multisigAccount := multisigSeed.AccountId(ecdsaKeyType, multisigKeySeq)
+	multisigKey, multisigKeySeq, multisigAccount := getSignerSet(t, seedPhrase1)
 	t.Logf("Multisig account: %s", multisigAccount)
 
-	signer1Seed, err := rippledata.NewSeedFromAddress(seedPhrase2)
-	require.NoError(t, err)
-	signer1Key := signer1Seed.Key(ecdsaKeyType)
-	signer1KeySeq := lo.ToPtr(uint32(0))
-	signer1Account := signer1Seed.AccountId(ecdsaKeyType, signer1KeySeq)
+	signer1Key, signer1KeySeq, signer1Account := getSignerSet(t, seedPhrase2)
 	t.Logf("Signer1 account: %s", signer1Account)
 
 	signerListSetTx := rippledata.SignerListSet{
@@ -439,27 +412,16 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 
 func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 	remote, err := ripplewebsockets.NewRemote(testnetHost)
+	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigSeed, err := rippledata.NewSeedFromAddress(seedPhrase1)
-	require.NoError(t, err)
-	multisigKey := multisigSeed.Key(ecdsaKeyType)
-	multisigKeySeq := lo.ToPtr(uint32(0))
-	multisigAccount := multisigSeed.AccountId(ecdsaKeyType, multisigKeySeq)
+	multisigKey, multisigKeySeq, multisigAccount := getSignerSet(t, seedPhrase1)
 	t.Logf("Multisig account: %s", multisigAccount)
 
-	signer1Seed, err := rippledata.NewSeedFromAddress(seedPhrase2)
-	require.NoError(t, err)
-	signer1Key := signer1Seed.Key(ecdsaKeyType)
-	signer1KeySeq := lo.ToPtr(uint32(0))
-	signer1Account := signer1Seed.AccountId(ecdsaKeyType, signer1KeySeq)
+	signer1Key, signer1KeySeq, signer1Account := getSignerSet(t, seedPhrase2)
 	t.Logf("Signer1 account: %s", signer1Account)
 
-	signer2Seed, err := rippledata.NewSeedFromAddress(seedPhrase3)
-	require.NoError(t, err)
-	signer2Key := signer2Seed.Key(ecdsaKeyType)
-	signer2KeySeq := lo.ToPtr(uint32(0))
-	signer2Account := signer2Seed.AccountId(ecdsaKeyType, signer2KeySeq)
+	signer2Key, signer2KeySeq, signer2Account := getSignerSet(t, seedPhrase3)
 	t.Logf("Signer2 account: %s", signer2Account)
 
 	signerListSetTx := rippledata.SignerListSet{
@@ -619,28 +581,17 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 
 func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 	remote, err := ripplewebsockets.NewRemote(testnetHost)
+	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigSeed := genSeed()
-	require.NoError(t, err)
-	multisigKey := multisigSeed.Key(ecdsaKeyType)
-	multisigKeySeq := lo.ToPtr(uint32(0))
-	multisigAccount := multisigSeed.AccountId(ecdsaKeyType, multisigKeySeq)
+	multisigKeyToDisable, multisigKeySeq, multisigAccount := getSignerSet(t, genSeed().String())
 	t.Logf("Multisig account: %s", multisigAccount)
 	fundAccount(t, remote, multisigAccount, "20000000")
 
-	signer1Seed, err := rippledata.NewSeedFromAddress(seedPhrase2)
-	require.NoError(t, err)
-	signer1Key := signer1Seed.Key(ecdsaKeyType)
-	signer1KeySeq := lo.ToPtr(uint32(0))
-	signer1Account := signer1Seed.AccountId(ecdsaKeyType, signer1KeySeq)
+	signer1Key, signer1KeySeq, signer1Account := getSignerSet(t, seedPhrase2)
 	t.Logf("Signer1 account: %s", signer1Account)
 
-	signer2Seed, err := rippledata.NewSeedFromAddress(seedPhrase3)
-	require.NoError(t, err)
-	signer2Key := signer2Seed.Key(ecdsaKeyType)
-	signer2KeySeq := lo.ToPtr(uint32(0))
-	signer2Account := signer2Seed.AccountId(ecdsaKeyType, signer2KeySeq)
+	signer2Key, signer2KeySeq, signer2Account := getSignerSet(t, seedPhrase3)
 	t.Logf("Signer2 account: %s", signer2Account)
 
 	signerListSetTx := rippledata.SignerListSet{
@@ -663,7 +614,7 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigAccount, multisigKey, multisigKeySeq))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigAccount, multisigKeyToDisable, multisigKeySeq))
 	t.Logf("The signers set is updated")
 
 	// disable master key now to be able to use multi-signing only
@@ -674,11 +625,11 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 		},
 		SetFlag: lo.ToPtr(uint32(4)),
 	}
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &disableMasterKeyTx, multisigAccount, multisigKey, multisigKeySeq))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &disableMasterKeyTx, multisigAccount, multisigKeyToDisable, multisigKeySeq))
 	t.Logf("The master key is disabled")
 
 	// try to update signers one more time
-	require.ErrorContains(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigAccount, multisigKey, multisigKeySeq), "Master key is disabled")
+	require.ErrorContains(t, autoFillSignAndSubmitTx(t, remote, &signerListSetTx, multisigAccount, multisigKeyToDisable, multisigKeySeq), "Master key is disabled")
 
 	// now use multi-signing for the account
 	signedXrpPaymentTx1 := buildXrpPaymentTxForMultiSigning(t, remote, multisigAccount, signer1Account)
@@ -710,6 +661,16 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 	t.Logf("Recipinet account balance before: %s", getAccountBalance(t, remote, xrpPaymentTx.Destination))
 	require.NoError(t, submitTx(t, remote, &xrpPaymentTx))
 	t.Logf("Recipinet account balance after: %s", getAccountBalance(t, remote, xrpPaymentTx.Destination))
+}
+
+func getSignerSet(t *testing.T, seedPhrase string) (ripplecrypto.Key, *uint32, rippledata.Account) {
+	seed, err := rippledata.NewSeedFromAddress(seedPhrase)
+	require.NoError(t, err)
+	key := seed.Key(ecdsaKeyType)
+	seq := lo.ToPtr(uint32(0))
+	account := seed.AccountId(ecdsaKeyType, seq)
+
+	return key, seq, account
 }
 
 func getAccountBalance(t *testing.T, remote *ripplewebsockets.Remote, acc rippledata.Account) map[string]rippledata.Amount {

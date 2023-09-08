@@ -1,6 +1,6 @@
 module github.com/CoreumFoundation/xrpl-bridge-v2/relayer
 
-go 1.21.0
+go 1.21
 
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.0
