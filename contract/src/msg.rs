@@ -1,0 +1,83 @@
+use core::fmt;
+
+use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Addr;
+use cw_ownable::cw_ownable_execute;
+
+use crate::state::{Config, TokenCoreum, TokenXRP};
+
+#[cw_serde]
+pub struct InstantiateMsg {
+    pub admin: Addr,
+    //Addresses allowed to relay messages
+    pub relayers: Vec<Addr>,
+    //How many relayers need to sign the message.
+    pub threshold: u32,
+    //If ticket count goes under this amount, contract will ask for more tickets.
+    pub min_tickets: u32,
+}
+
+#[cw_serde]
+pub enum Side {
+    Coreum,
+    Xrpl,
+}
+
+impl fmt::Display for Side {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Side::Coreum => write!(f, "Coreum"),
+            Side::Xrpl => write!(f, "XRPL"),
+        }
+    }
+}
+
+#[cw_ownable_execute]
+#[cw_serde]
+pub enum ExecuteMsg {}
+
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum QueryMsg {
+    #[returns(Config)]
+    Config {},
+    #[returns(XprlTokensResponse)]
+    XrplTokens {
+        offset: Option<u64>,
+        limit: Option<u32>,
+    },
+    #[returns(CoreumTokensResponse)]
+    CoreumTokens {
+        offset: Option<u64>,
+        limit: Option<u32>,
+    },
+    #[returns(XprlTokenResponse)]
+    XrplToken {
+        issuer: String,
+        currency: String,
+    },
+    #[returns(CoreumTokenResponse)]
+    CoreumToken {
+        denom: String,
+    },
+}
+
+#[cw_serde]
+pub struct XprlTokensResponse {
+    pub tokens: Vec<TokenXRP>,
+}
+
+#[cw_serde]
+pub struct CoreumTokensResponse {
+    pub tokens: Vec<TokenCoreum>,
+}
+
+#[cw_serde]
+pub struct XprlTokenResponse {
+    pub token: TokenXRP,
+}
+
+#[cw_serde]
+pub struct CoreumTokenResponse {
+    pub token: TokenCoreum,
+}
