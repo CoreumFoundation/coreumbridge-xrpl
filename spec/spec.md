@@ -51,7 +51,9 @@ that fee-balance might also minimise that risk.
 
 All tokens issued on the coreum that can be bridged from the coreum to XRPL and back must have a representation on the
 XRPL, managed by the multi-signing account. Such tokens should be registered by admin on the contract side with the
-coreum denom, decimals, XRPL currency and fees.
+coreum denom and fees. The decimals will be fetched from the denom metadata and XRPL currency uniquely generated using
+the denom.
+
 Check [workflow](#register-token) for more details.
 
 ##### Token enabling/disabling
@@ -146,7 +148,7 @@ Check [workflow](#rotate-keys) for more details.
 ##### Kill switch
 
 It is possible for any relayer or administrator to disable the bridge contract at any time. The reason for it might be
-unexpected behavior on any bridge component. 
+unexpected behavior on any bridge component.
 
 ### Relayer
 
