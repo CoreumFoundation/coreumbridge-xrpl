@@ -17,7 +17,7 @@ use cosmwasm_std::{
     StdResult, Uint128,
 };
 use cw2::set_contract_version;
-use cw_ownable::{initialize_owner, Action};
+use cw_ownable::{initialize_owner, Action, get_ownership};
 
 // version info for migration info
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -124,6 +124,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_xprl_token(deps, issuer, currency)?)
         }
         QueryMsg::CoreumToken { denom } => to_binary(&query_coreum_token(deps, denom)?),
+        QueryMsg::Ownership {} => to_binary(&get_ownership(deps.storage)?)
     }
 }
 
