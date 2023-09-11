@@ -1,5 +1,3 @@
-use core::fmt;
-
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Addr;
 use cw_ownable::cw_ownable_execute;
@@ -11,25 +9,10 @@ pub struct InstantiateMsg {
     pub admin: Addr,
     //Addresses allowed to relay messages
     pub relayers: Vec<Addr>,
-    //How many relayers need to sign the message.
-    pub threshold: u32,
+    //How many relayers need to provide evidence for a message.
+    pub evidence_threshold: u32,
     //If ticket count goes under this amount, contract will ask for more tickets.
     pub min_tickets: u32,
-}
-
-#[cw_serde]
-pub enum Side {
-    Coreum,
-    Xrpl,
-}
-
-impl fmt::Display for Side {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Side::Coreum => write!(f, "Coreum"),
-            Side::Xrpl => write!(f, "XRPL"),
-        }
-    }
 }
 
 #[cw_ownable_execute]
@@ -52,14 +35,9 @@ pub enum QueryMsg {
         limit: Option<u32>,
     },
     #[returns(XprlTokenResponse)]
-    XrplToken {
-        issuer: String,
-        currency: String,
-    },
+    XrplToken { issuer: String, currency: String },
     #[returns(CoreumTokenResponse)]
-    CoreumToken {
-        denom: String,
-    },
+    CoreumToken { denom: String },
 }
 
 #[cw_serde]

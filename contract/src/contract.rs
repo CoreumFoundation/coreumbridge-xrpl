@@ -24,6 +24,7 @@ const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const DEFAULT_MAX_LIMIT: u32 = 250;
+const XRP_SYMBOL: &str = "xrp";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -44,21 +45,20 @@ pub fn instantiate(
     }
 
     //Threshold can't be more than number of relayers
-    if msg.threshold > msg.relayers.len().try_into().unwrap() {
+    if msg.evidence_threshold > msg.relayers.len().try_into().unwrap() {
         return Err(ContractError::InvalidThreshold {});
     }
 
     let config = Config {
         relayers: msg.relayers,
-        threshold: msg.threshold,
-        min_tickets: msg.min_tickets,
+        evidence_threshold: msg.evidence_threshold,
     };
 
     CONFIG.save(deps.storage, &config)?;
 
     let xrp_issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
-        symbol: "xrp".to_string(),
-        subunit: "xrp".to_string(),
+        symbol: XRP_SYMBOL.to_string(),
+        subunit: XRP_SYMBOL.to_string(),
         precision: 15,
         initial_amount: Uint128::zero(),
         description: None,
@@ -67,17 +67,17 @@ pub fn instantiate(
         send_commission_rate: Some("0.0".to_string()),
     }));
 
-    let xrp_in_coreum = format!("{}-{}", "xrp", env.contract.address).to_lowercase();
+    let xrp_in_coreum = format!("{}-{}", XRP_SYMBOL, env.contract.address).to_lowercase();
 
     //We save the link between the denom in the Coreum chain and the denom in XPRL, so that when we receive
     //a token we can inform the relayers of what is being sent back.
     let token = TokenXRP {
-        issuer: "xrp".to_string(),
-        currency: "xrp".to_string(),
+        issuer: XRP_SYMBOL.to_string(),
+        currency: XRP_SYMBOL.to_string(),
         coreum_denom: xrp_in_coreum,
     };
 
-    TOKENS_XRPL.save(deps.storage, "xrp".to_string(), &token)?;
+    TOKENS_XRPL.save(deps.storage, XRP_SYMBOL.to_string(), &token)?;
 
     Ok(Response::new()
         .add_attribute("action", "bridge_instantiation")

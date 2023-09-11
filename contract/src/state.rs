@@ -24,8 +24,7 @@ impl TopKey {
 #[cw_serde]
 pub struct Config {
     pub relayers: Vec<Addr>,
-    pub threshold: u32,
-    pub min_tickets: u32,
+    pub evidence_threshold: u32,
 }
 
 #[cw_serde]
@@ -47,4 +46,3 @@ pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
 pub const TOKENS_COREUM: Map<String, TokenCoreum> = Map::new(TopKey::TokensCoreum.as_str());
 //Tokens registered from XPRL side - key is issuer+currency on XPRL
 pub const TOKENS_XRPL: Map<String, TokenXRP> = Map::new(TopKey::TokensXRPL.as_str());
-
