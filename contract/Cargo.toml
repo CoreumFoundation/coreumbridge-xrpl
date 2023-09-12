@@ -1,0 +1,32 @@
+[package]
+name = "coreumbridge-xrpl"
+version = "0.1.0"
+authors = ["Coreum"]
+edition = "2021"
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
+overflow-checks = true
+
+[dependencies]
+coreum-wasm-sdk = "0.1.4"
+cosmwasm-schema = "1.4.0"
+cosmwasm-std = "1.4.0"
+cw-ownable = "0.5.1"
+cw-storage-plus = "1.1.0"
+cw2 = "1.1.0"
+thiserror = "1.0.48"
