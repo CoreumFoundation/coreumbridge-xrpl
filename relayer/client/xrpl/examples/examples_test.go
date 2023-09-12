@@ -10,25 +10,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/pkg/errors"
 	ripplecrypto "github.com/rubblelabs/ripple/crypto"
 	rippledata "github.com/rubblelabs/ripple/data"
 	ripplewebsockets "github.com/rubblelabs/ripple/websockets"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
+
+	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 )
 
 var (
-	xrpCurrency = "XRP"
-
-	testnetHost  = "wss://s.altnet.rippletest.net:51233/"
-	ecdsaKeyType = rippledata.ECDSA
-
-	seedPhrase1 = "sneZuwbLynqsZQtRuDa7yt6maJbuR" // 0 key : rwPpi6BnAxvvEu75m8GtGtFRDFvMAUuiG3
-	seedPhrase2 = "ss9D9iMVnq78mKPGwhHGxc4x8wJqY" // 0 key : rhFXgxqXMChyath7CkCHc2J8jJxPu8JftS
-	seedPhrase3 = "ssr6XnquehSA89CndWo98dGYJBLtK" // 0 key : rQBLm9DqSQS6Z3ARvGm8JDcuXmH3zrWBXC
-	seedPhrase4 = "shVSrqJcPstHAzbSJJqZ2yuWuWH4Y" // 0 key : rfXoPtE851hbUaFCgLioXAecCLAJngbod2
+	xrpCurrency      = "XRP"
+	testnetHost      = "ws://localhost:6006/"
+	ecdsaKeyType     = rippledata.ECDSA
+	faucetSeedPhrase = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb"
 )
 
 // ********** Wallet **********
@@ -56,25 +52,6 @@ func NewWalletFromSeedPhrase(seedPhrase string) (Wallet, error) {
 	}, nil
 }
 
-func GenWallet() (Wallet, error) {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	b := make([]byte, 10)
-	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
-	}
-
-	familySeed, err := ripplecrypto.GenerateFamilySeed(string(b))
-	if err != nil {
-		panic(err)
-	}
-	seed, err := rippledata.NewSeedFromAddress(familySeed.String())
-	if err != nil {
-		panic(err)
-	}
-
-	return NewWalletFromSeedPhrase(seed.String())
-}
-
 func (w Wallet) MultiSign(tx rippledata.MultiSignable) (rippledata.Signer, error) {
 	if err := rippledata.MultiSign(tx, w.Key, w.Sequence, w.Account); err != nil {
 		return rippledata.Signer{}, err
@@ -96,12 +73,10 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	issuerWallet, err := NewWalletFromSeedPhrase(seedPhrase1)
-	require.NoError(t, err)
+	issuerWallet := genWallet(t, remote, 10_000000)
 	t.Logf("Issuer account: %s", issuerWallet.Account)
 
-	recipientWallet, err := NewWalletFromSeedPhrase(seedPhrase2)
-	require.NoError(t, err)
+	recipientWallet := genWallet(t, remote, 0)
 	t.Logf("Recipient account: %s", recipientWallet.Account)
 
 	// send XRP coins from issuer to recipient (if account is new you need to send 10 XRP to activate it)
@@ -121,11 +96,11 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 	const fooCurrencyCode = "FOO"
 	fooCurrency, err := rippledata.NewCurrency(fooCurrencyCode)
 	require.NoError(t, err)
-	fooCurrencyTrustsetValue, err := rippledata.NewValue("10000000000000000", false)
+	fooCurrencyTrustSetValue, err := rippledata.NewValue("10000000000000000", false)
 	require.NoError(t, err)
-	fooCurrencyTrustsetTx := rippledata.TrustSet{
+	fooCurrencyTrustSetTx := rippledata.TrustSet{
 		LimitAmount: rippledata.Amount{
-			Value:    fooCurrencyTrustsetValue,
+			Value:    fooCurrencyTrustSetValue,
 			Currency: fooCurrency,
 			Issuer:   issuerWallet.Account,
 		},
@@ -133,7 +108,7 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 			TransactionType: rippledata.TRUST_SET,
 		},
 	}
-	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &fooCurrencyTrustsetTx, recipientWallet))
+	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &fooCurrencyTrustSetTx, recipientWallet))
 
 	// send/issue the FOO token
 	fooAmount, err := rippledata.NewValue("100000", false)
@@ -159,19 +134,16 @@ func TestMultisigPayment(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigWallet, err := NewWalletFromSeedPhrase(seedPhrase1)
-	require.NoError(t, err)
+	multisigWallet := genWallet(t, remote, 10_000000)
 	t.Logf("Multisig account: %s", multisigWallet.Account)
 
-	wallet1, err := NewWalletFromSeedPhrase(seedPhrase2)
-	require.NoError(t, err)
+	wallet1 := genWallet(t, remote, 0)
 	t.Logf("Wallet1 account: %s", wallet1.Account)
 
-	wallet2, err := NewWalletFromSeedPhrase(seedPhrase3)
-	require.NoError(t, err)
+	wallet2 := genWallet(t, remote, 0)
 	t.Logf("Wallet2 account: %s", wallet2.Account)
 
-	wallet3, err := NewWalletFromSeedPhrase(seedPhrase4)
+	wallet3 := genWallet(t, remote, 0)
 	require.NoError(t, err)
 	t.Logf("Wallet3 account: %s", wallet3.Account)
 
@@ -246,12 +218,10 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	senderWallet, err := NewWalletFromSeedPhrase(seedPhrase1)
-	require.NoError(t, err)
+	senderWallet := genWallet(t, remote, 10_000000)
 	t.Logf("Sender account: %s", senderWallet.Account)
 
-	recipientWallet, err := NewWalletFromSeedPhrase(seedPhrase2)
-	require.NoError(t, err)
+	recipientWallet := genWallet(t, remote, 0)
 	t.Logf("Recipient account: %s", recipientWallet.Account)
 
 	ticketsToCreate := 1
@@ -354,12 +324,10 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigWallet, err := NewWalletFromSeedPhrase(seedPhrase1)
-	require.NoError(t, err)
+	multisigWallet := genWallet(t, remote, 10_000000)
 	t.Logf("Multisig account: %s", multisigWallet.Account)
 
-	wallet1, err := NewWalletFromSeedPhrase(seedPhrase2)
-	require.NoError(t, err)
+	wallet1 := genWallet(t, remote, 0)
 	t.Logf("Wallet1 account: %s", wallet1.Account)
 
 	signerListSetTx := rippledata.SignerListSet{
@@ -420,16 +388,13 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigWallet, err := NewWalletFromSeedPhrase(seedPhrase1)
-	require.NoError(t, err)
+	multisigWallet := genWallet(t, remote, 10_000000)
 	t.Logf("Multisig account: %s", multisigWallet.Account)
 
-	wallet1, err := NewWalletFromSeedPhrase(seedPhrase2)
-	require.NoError(t, err)
+	wallet1 := genWallet(t, remote, 0)
 	t.Logf("Wallet1 account: %s", wallet1.Account)
 
-	wallet2, err := NewWalletFromSeedPhrase(seedPhrase3)
-	require.NoError(t, err)
+	wallet2 := genWallet(t, remote, 0)
 	t.Logf("Wallet2 account: %s", wallet2.Account)
 
 	signerListSetTx := rippledata.SignerListSet{
@@ -504,17 +469,13 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 	require.NoError(t, err)
 	defer remote.Close()
 
-	multisigWalletToDisable, err := GenWallet()
-	require.NoError(t, err)
+	multisigWalletToDisable := genWallet(t, remote, 10_000000)
 	t.Logf("Multisig account: %s", multisigWalletToDisable.Account)
-	fundAccount(t, remote, multisigWalletToDisable.Account, "20000000")
 
-	wallet1, err := NewWalletFromSeedPhrase(seedPhrase2)
-	require.NoError(t, err)
+	wallet1 := genWallet(t, remote, 0)
 	t.Logf("Wallet1 account: %s", wallet1.Account)
 
-	wallet2, err := NewWalletFromSeedPhrase(seedPhrase3)
-	require.NoError(t, err)
+	wallet2 := genWallet(t, remote, 0)
 	t.Logf("Wallet2 account: %s", wallet2.Account)
 
 	signerListSetTx := rippledata.SignerListSet{
@@ -690,7 +651,31 @@ func extractTicketsFromMeta(txRes *ripplewebsockets.TxResult) []*rippledata.Tick
 	return createdTickets
 }
 
-func fundAccount(t *testing.T, remote *ripplewebsockets.Remote, acc rippledata.Account, amount string) {
+func genWallet(t *testing.T, remote *ripplewebsockets.Remote, amount int64) Wallet {
+	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	b := make([]byte, 10)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+
+	familySeed, err := ripplecrypto.GenerateFamilySeed(string(b))
+	if err != nil {
+		panic(err)
+	}
+	seed, err := rippledata.NewSeedFromAddress(familySeed.String())
+	if err != nil {
+		panic(err)
+	}
+
+	wallet, err := NewWalletFromSeedPhrase(seed.String())
+	require.NoError(t, err)
+
+	fundAccount(t, remote, wallet.Account, amount+10_000000) // 10XRP to active
+
+	return wallet
+}
+
+func fundAccount(t *testing.T, remote *ripplewebsockets.Remote, acc rippledata.Account, amount int64) {
 	t.Helper()
 
 	xrpAmount, err := rippledata.NewAmount(amount)
@@ -703,9 +688,9 @@ func fundAccount(t *testing.T, remote *ripplewebsockets.Remote, acc rippledata.A
 		},
 	}
 
-	wallet, err := NewWalletFromSeedPhrase(seedPhrase1)
+	wallet, err := NewWalletFromSeedPhrase(faucetSeedPhrase)
 	require.NoError(t, err)
-	t.Logf("Funding account: %s", wallet.Account)
+	t.Logf("Funding account, account address: %s, amount: %d", acc, amount)
 	require.NoError(t, autoFillSignAndSubmitTx(t, remote, &fundXrpTx, wallet))
 	t.Logf("The account %s is funded", acc)
 }
