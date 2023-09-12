@@ -59,7 +59,7 @@ pub fn instantiate(
     let xrp_issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
         symbol: XRP_SYMBOL.to_string(),
         subunit: XRP_SYMBOL.to_string(),
-        precision: 15,
+        precision: 6,
         initial_amount: Uint128::zero(),
         description: None,
         features: Some(vec![MINTING, BURNING, IBC]),
