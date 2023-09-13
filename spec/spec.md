@@ -10,96 +10,151 @@ The spec describes the technical solution of the XRPL two-way bridge.
 
 The account holds the tokens issued on the XRPL on its balance. Depending on workflow it either uses the received tokens
 balance to send to XRPL accounts (in case the account is not an issuer) or mints and sends the tokens to XRPL accounts (
-in case it is the coreum token representation issued by the address).
+in case it is the coreum token representation issued by the address). The account uses the multi-signing and public keys
+associated with each relayer from the contract for the transactions signing.
 
 ### Bridge contract
 
 The bridge contract is the major state transition of the bridge. It holds the operations state and protects the
-execution using the trusted addresses voting/signing mechanisms.
+execution using the trusted addresses voting/signing mechanisms. Also, it has an admin account that can change the
+settings of the bridge.
 
 #### Tokens registry
 
-Before the bridging, the token (XRPL or coruem) should be manually registered for the bridging. The tokes that are not
+Before the bridging, a token (XRPL or coreum) should be manually registered for the bridging. The tokes that are not
 registered can't be bridged.
 
-##### Coreum tokens registration/issuance
+##### XRPL native tokens registration
 
-All tokens issued on XRPL that are able to be bridged from the XRPL to the coreum and back must have a representation on
-the coreum. Such tokens should be registered on the contract side with the name, decimals, and fee rules. During the
-registration, the contract will issue a token and will be responsible for its minting.
+All tokens issued on XRPL that can be bridged from the XRPL to the coreum and back must have a representation on the
+coreum. Such tokens should be registered by admin on the contract side with the XRPL issuer, XRPL currency, and fees.
+The token's denom/subunit should be built uniquely using the XRPL issuer and XRPL currency. The decimals
+are the same for all such tokens. Required features are minting, burning, and IBC.
+During the registration, the contract issues a token and will be responsible for its minting later. After the
+registration, the contract triggers the `submit-trust-set-for-xrpl-token` operation to allow the multi-signing account
+to receive that token.
+Check [register-token workflow](#register-token) for more details.
 
-##### XRPL tokens registration/issuance
+##### XRP token registration
 
-All tokens issued on the coreum that are able to be bridged from the coreum to XRPL and back must have a representation
-on the XRPL, managed by the multi-signing account. Such tokens should be chosen manually on the contract side. The
-contract will be able to fetch the name and decimals based on the denom and trigger the XRPL token issuance flow to
-issue the coreum token representation on the XRPL.
+The XRP token is registered in the token registry on the contract instantiation. That token doesn't have an issuer and
+currency but has a specific flag/type indication that this is the XRP token. That token can be enabled or disabled by
+the admin similar to other tokens.
+The XRP token has a bit of a different nature than other tokens. That token doesn't need approval (TrustSet) to be
+received and is used by the multi-signing account to pay fees. Since the balance for fees and received balance are not
+separated, the relayers check that there is enough balance on the multi-signing account minus the balance issued on the
+contract minus some tokens on top (to cover pending transactions) to cover the fees before the transaction submission.
+That doesn't guarantee that relayers don't spend locked coins, but minimises that risk. The additional monitoring of
+that fee-balance might also minimise that risk.
+
+##### Coreum native tokens registration
+
+All tokens issued on the coreum that can be bridged from the coreum to XRPL and back must have a representation on the
+XRPL, managed by the multi-signing account. Such tokens should be registered by admin on the contract side with the
+coreum denom and fees. The decimals will be fetched from the denom metadata and XRPL currency uniquely generated using
+the denom.
+
+Check [workflow](#register-token) for more details.
+
+##### Token enabling/disabling
+
+Any token can be disabled and enabled at any time by that admin. Any new workflow with the disabled token is prohibited
+by the contract, the pending operations should be completed.
 
 #### Operation queues
 
-##### Execution queue
+##### Evidence queue
 
-The execution queue is a queue that contains bridge operations which should be confirmed before execution. Each
-operation has a type, associated ID (unique identifier/hash of the operation data in the scope of type), and list of
-trusted addresses that confirm that operation. Once the operation is fully confirmed it will be executed by the smart
-contract.
+The evidence queue is a queue that contains bridge operations which should be confirmed before execution. Each operation
+has a type, associated ID (unique identifier/hash of the operation data in the scope of type), and a list of trusted
+relayer addresses that provide the evidence. Once the contract receives enough evidences it removes the operation from
+the queue and passes its data to the next step of a workflow.
 
 ##### Signing queue
 
-The signing queue is a queue that contains bridge operations that should be signed before sending to XRPL. Each
-operation has a type, associated ID (unique identifier/hash of the operation data in the scope of type), list of trusted
-addresses, and their signatures. Once the operation receives enough signatures it changes its state to `require confirmation`
-operating and still keeps receiving signatures.
+The signing queue is a queue that contains bridge operations that should be signed before sending to XRPL and later
+sent. Each operation has a type, associated ID (unique identifier/hash of the operation data in the scope of type), and
+a list of signatures. Each relayer picks such operation, signs it and provides the signature for it. The operation keeps
+receiving signatures and shares them with other relayers (using the contract). Each relayer validates the provided
+signatures, filters valid, and checks whether it's possible to submit the transaction. If it is possible it builds the
+transaction with valid signatures (the operation ID is in the memo) and submits the transaction to the XRPL. If multiple
+relayers execute the same transaction and at the same time they receive a specific error which is an indicator for them,
+go to the next item in the queue.
+An additional sub-process of each relayer observes all multi-signing account transactions and once it reaches that
+submitted transaction (matched by the ID in memo) it provides evidence with transaction status and data (using the
+evidence queue). Once such evidence is confirmed, the tx result and data will be passed to the next step of a workflow,
+and operation removed from the signing queue.
 
-###### Signing confirmation queue
+##### Operations deduplication
 
-Once the signing threshold is reached, the operation is marked as an operation which requires the signature
-confirmations from the relayers. Each relayer takes all signatures from the operation confirms them and if weight of the
-confirmed signatures reaches the threshold it sends the signatures confirmation message with all confirmed signatures.
-Once the contract receives enough signature confirmations it moves the operation to the outgoing queue.  
-The `signing confirmation` is protection against malicious signers. If the weight of malicious signatures is less than
-threshold, the bridge is still able to relayer transactions. The same mechanism will be used for the keys rotation to
-remove the malicious signers access.
+The contract queues always have an operation ID which is built from the operation data. We do it to make the processing
+idempotent. And let some operations be safely re-processed at any time.
 
-##### Outgoing queue
+#### Ticket allocation
 
-The outgoing queue is similar to the execution queue, the only difference is that the queue is the data source for the
-relayers to understand that they need to execute the outgoing transaction and confirm the execution. Once the operation
-is fully confirmed the relayers stop trying to send the corresponding transaction on the XRPL side.
+##### Ticket allocation process
 
-#### Tickets provider
+The XRPL tickets allow us to execute a transaction with non-sequential sequence numbers, hence we can execute multiple
+transactions in parallel. When any workflow allocates the ticket and the free ticket length is less than max allowed the
+contract triggers the `submit-increase-tickets` operation to increase the amount. Once the operation is confirmed, the
+contract increases the free slots on the contract as well (based on the tx result).
+Check [workflow](#allocate-ticket) for more details.
 
-The XRPL tickets allow us to execute the transactions with non-sequential sequence numbers, hence we can execute
-multiple transactions in parallel. The process is connected to the tickets provider. When any process
-allocates the ticket and the free tickets length is less than max allowed the contract generates the operation
-to increase the amount, and once the operation is confirmed increase the free slots on the contract as well. Check the
-[ticket allocation workflow](#ticket-allocation) for more details.
+##### Manual ticket allocation
+
+The admin can update free slots for the tickets manually by calling the contract. That process is a backup process for
+the initial version of the bridge, for the cases of XRPL errors during the ticket allocation.
 
 #### Tokens sending
 
 ##### Sending of tokens from XRPL
 
-The contract receives the `Send to coreum` request and starts the corresponding [workflow](#send-from-xrpl-to-coreum).
+The contract receives the `send-to-coreum` request and starts the corresponding [workflow](#send-from-xrpl-to-coreum).
 
 ##### Sending of tokens to XRPL
 
-The contract receives the `Send to xrpl` request and starts the corresponding [workflow](#send-from-coreum-to-xrpl).
+The multi-signing account receives coins for a user, a relayer observes the transaction and initiates
+the  [workflow](#send-from-coreum-to-xrpl).
 
 ##### Fees
 
-Each token in the registry contains the fee config which consists of fee from XRPL to coreum and fee from coreum to
-XRPL. Both fees will be taken from the amount a user sends. The fees are distributed across the signer addresses after
-the successful execution of the sending.
+###### Fee changing
 
-#### Keys registration and rotation
+Each token in the registry contains the fee config which consists of a bridging fee and a network fee. The bridging fee
+is the fee that relayers earn for the transaction relaying. That fee covers their costs and provides some profit on top.
+The network fee is the fee for the tokens which charge the commission for the transfer. That fee will be used to send
+the locked tokens back in case they are locked either on the contract or on the multi-signing address. Both fees will be
+taken from the amount a user sends.
+The bridging fees are distributed across the relayer addresses
+after the successful execution of the sending, and locked until a relayer manually requests it. After such a request the
+accumulated bridging fee will be distributed equally to the current relayer addresses.
 
-All accounts that are able to interact with queues are registered on the contract. And can be rotated.
+###### Fee re-config
+
+The admin can change the token fees config at any time. Mostly it's required for the bridging fee since the price of the
+token might be changed during the time, so the fee should be changed accordingly.
+
+#### Keys rotation
+
+All accounts that can interact with the contract or multi-signing account are registered on the contract. And can be
+rotated using the key rotation workflow. The workflow is triggered by the admin. The admin provides
+the new relayer coreum addresses, XRPL public keys and signing/evidence threshold.
+It is possible to start the keys rotation workflow in case the contract is disabled, but there is not keys rotation
+in-process. That option gives and admin an ability to rotate the keys in case the contract is disabled because of the
+malicious relayer, or the malicious relayer disabled it.
+
+Check [workflow](#rotate-keys) for more details.
+
+##### Kill switch
+
+It is possible for any relayer or administrator to disable the bridge contract at any time. The reason for it might be
+unexpected behavior on any bridge component.
 
 ### Relayer
 
 The relayer is a connector of the multi-signing account on XRPL chain and smart contract. There are multiple instances
 of relayers, one for each key pair in the smart contract and multi-signing account. Most of the workflows are
-implemented in the relayer. The multi-signing account and smart contracts are the data sources for them.
+implemented as event processing produced by the contract and multi-signing account.
 
 ## Workflows
 
@@ -111,16 +166,22 @@ implemented in the relayer. The multi-signing account and smart contracts are th
 
 ### Send from coreum to XRPL
 
-![Send from coreum to XRPL ](./img/send-from-coreum-to-XRPL.png)
+![Send from coreum to XRPL](./img/send-from-coreum-to-XRPL.png)
 
-### Ticket allocation
+### Register token
 
-![Ticket allocation](./img/ticket-allocation.png)
+![Register token](./img/register-token.png)
 
+### Allocate-ticket
 
+![Allocate-ticket](./img/allocate-ticket.png)
 
+### Submit XRPL transaction
 
+![Submission XRPL transaction](./img/submit-xrpl-tx.png)
 
+### Rotate keys
 
+![Rotate keys](./img/rotate-keys.png)
 
 
