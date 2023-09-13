@@ -1,4 +1,4 @@
-# XRPL two-way bridge spec.
+# Coreumbrdige XRPL spec.
 
 The spec describes the technical solution of the XRPL two-way bridge.
 
@@ -17,7 +17,7 @@ associated with each relayer from the contract for the transactions signing.
 
 The bridge contract is the major state transition of the bridge. It holds the operations state and protects the
 execution using the trusted addresses voting/signing mechanisms. Also, it has an admin account that can change the
-settings of the bridge.
+settings of the bridge and execute the workflows' recovery.
 
 #### Tokens registry
 
@@ -29,11 +29,10 @@ registered can't be bridged.
 All tokens issued on XRPL that can be bridged from the XRPL to the coreum and back must have a representation on the
 coreum. Such tokens should be registered by admin on the contract side with the XRPL issuer, XRPL currency, and fees.
 The token's denom/subunit should be built uniquely using the XRPL issuer and XRPL currency. The decimals
-are the same for all such tokens. Required features are minting, burning, and IBC.
+are the same for all such tokens. Required features for the issuance are minting, burning, and IBC.
 During the registration, the contract issues a token and will be responsible for its minting later. After the
 registration, the contract triggers the `submit-trust-set-for-xrpl-token` operation to allow the multi-signing account
-to receive that token.
-Check [register-token workflow](#register-token) for more details.
+to receive that token. Check [register-token workflow](#register-token) for more details.
 
 ##### XRP token registration
 
@@ -51,15 +50,14 @@ that fee-balance might also minimise that risk.
 
 All tokens issued on the coreum that can be bridged from the coreum to XRPL and back must have a representation on the
 XRPL, managed by the multi-signing account. Such tokens should be registered by admin on the contract side with the
-coreum denom and fees. The decimals will be fetched from the denom metadata and XRPL currency uniquely generated using
-the denom.
+coreum denom and fees. The XRPL currency uniquely generated using the denom.
 
 Check [workflow](#register-token) for more details.
 
 ##### Token enabling/disabling
 
 Any token can be disabled and enabled at any time by that admin. Any new workflow with the disabled token is prohibited
-by the contract, the pending operations should be completed.
+by the contract, the pending operations should be completed. 
 
 #### Operation queues
 
@@ -100,11 +98,6 @@ contract triggers the `submit-increase-tickets` operation to increase the amount
 contract increases the free slots on the contract as well (based on the tx result).
 Check [workflow](#allocate-ticket) for more details.
 
-##### Manual ticket allocation
-
-The admin can update free slots for the tickets manually by calling the contract. That process is a backup process for
-the initial version of the bridge, for the cases of XRPL errors during the ticket allocation.
-
 #### Tokens sending
 
 ##### Sending of tokens from XRPL
@@ -141,9 +134,7 @@ rotated using the key rotation workflow. The workflow is triggered by the admin.
 the new relayer coreum addresses, XRPL public keys and signing/evidence threshold.
 It is possible to start the keys rotation workflow in case the contract is disabled, but there is not keys rotation
 in-process. That option gives and admin an ability to rotate the keys in case the contract is disabled because of the
-malicious relayer, or the malicious relayer disabled it.
-
-Check [workflow](#rotate-keys) for more details.
+malicious relayer, or the malicious relayer disabled it. Check [workflow](#rotate-keys) for more details.
 
 ##### Kill switch
 
