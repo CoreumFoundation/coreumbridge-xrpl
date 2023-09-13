@@ -58,8 +58,8 @@ Check [workflow](#register-token) for more details.
 
 ##### Token enabling/disabling
 
-Any token can be disabled and enabled at any time by that admin. Any operation with the disabled token is prohibited by
-the contract.
+Any token can be disabled and enabled at any time by that admin. Any new workflow with the disabled token is prohibited
+by the contract, the pending operations should be completed.
 
 #### Operation queues
 
