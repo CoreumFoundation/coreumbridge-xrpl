@@ -183,5 +183,3 @@ implemented as event processing produced by the contract and multi-signing accou
 ### Rotate keys
 
 ![Rotate keys](./img/rotate-keys.png)
-
-
