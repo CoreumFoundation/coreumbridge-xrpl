@@ -50,7 +50,7 @@ that fee-balance might also minimise that risk.
 
 All tokens issued on the coreum that can be bridged from the coreum to XRPL and back must have a representation on the
 XRPL, managed by the multi-signing account. Such tokens should be registered by admin on the contract side with the
-coreum denom and fees. The XRPL currency uniquely generated using the denom.
+coreum denom and fees. The XRPL currency is uniquely generated using the denom.
 
 Check [workflow](#register-token) for more details.
 
