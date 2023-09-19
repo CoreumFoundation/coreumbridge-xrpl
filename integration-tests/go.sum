@@ -1,5 +1,5 @@
-github.com/CoreumFoundation/coreum-tools v0.4.0 h1:ATmoiaDdcoGx1TqheTekkNEYb3u0fpp1H4+Qnxz3dmg=
-github.com/CoreumFoundation/coreum-tools v0.4.0/go.mod h1:VD93vCHkxYaT/RhOesXTFgd/GQDW54tr0BqGi5JU1c0=
+github.com/CoreumFoundation/coreum-tools v0.4.1-0.20230919073720-bbe20b4ce859 h1:L5uC344ZQVwUwRdLLW3/J6HYPBGBCwjZH99fEezV6bU=
+github.com/CoreumFoundation/coreum-tools v0.4.1-0.20230919073720-bbe20b4ce859/go.mod h1:VD93vCHkxYaT/RhOesXTFgd/GQDW54tr0BqGi5JU1c0=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/bits-and-blooms/bitset v1.2.1 h1:M+/hrU9xlMp7t4TyTDQW97d3tRPVuKFC6zBEK16QnXY=

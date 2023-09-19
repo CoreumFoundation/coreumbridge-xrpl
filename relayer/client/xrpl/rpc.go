@@ -156,7 +156,7 @@ func (c *RPCClient) AccountInfo(ctx context.Context, acc rippledata.Account) (Ac
 		Account: acc,
 	}
 	var result AccountInfoResult
-	if err := c.callPRC(ctx, "account_info", params, &result); err != nil {
+	if err := c.callRPC(ctx, "account_info", params, &result); err != nil {
 		return AccountInfoResult{}, err
 	}
 
@@ -177,7 +177,7 @@ func (c *RPCClient) AccountLines(
 		LedgerIndex: ledgerIndex,
 	}
 	var result AccountLinesResult
-	if err := c.callPRC(ctx, "account_lines", params, &result); err != nil {
+	if err := c.callRPC(ctx, "account_lines", params, &result); err != nil {
 		return AccountLinesResult{}, err
 	}
 
@@ -194,7 +194,7 @@ func (c *RPCClient) Submit(ctx context.Context, tx rippledata.Transaction) (Subm
 		TxBlob: fmt.Sprintf("%X", raw),
 	}
 	var result SubmitResult
-	if err := c.callPRC(ctx, "submit", params, &result); err != nil {
+	if err := c.callRPC(ctx, "submit", params, &result); err != nil {
 		return SubmitResult{}, err
 	}
 
@@ -207,14 +207,14 @@ func (c *RPCClient) Tx(ctx context.Context, hash rippledata.Hash256) (TxResult, 
 		Transaction: hash,
 	}
 	var result TxResult
-	if err := c.callPRC(ctx, "tx", params, &result); err != nil {
+	if err := c.callRPC(ctx, "tx", params, &result); err != nil {
 		return TxResult{}, err
 	}
 
 	return result, nil
 }
 
-func (c *RPCClient) callPRC(ctx context.Context, method string, params, result any) error {
+func (c *RPCClient) callRPC(ctx context.Context, method string, params, result any) error {
 	request := rpcRequest{
 		Method: method,
 		Params: []any{

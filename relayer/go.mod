@@ -3,7 +3,6 @@ module github.com/CoreumFoundation/coreumbridge-xrpl/relayer
 go 1.21
 
 require (
-	github.com/CoreumFoundation/coreum-tools v0.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
 	github.com/samber/lo v1.38.1

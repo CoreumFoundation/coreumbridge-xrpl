@@ -5,7 +5,8 @@ go 1.21
 replace github.com/CoreumFoundation/coreumbridge-xrpl/relayer => ../relayer
 
 require (
-	github.com/CoreumFoundation/coreum-tools v0.4.0
+	// FIXME update after the PR merge
+	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20230919073720-bbe20b4ce859
 	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
