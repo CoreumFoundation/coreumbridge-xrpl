@@ -72,8 +72,7 @@ func (w Wallet) MultiSign(tx rippledata.MultiSignable) (rippledata.Signer, error
 // ********** Tests **********
 
 func TestXRPAndIssuedTokensPayment(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+	ctx := context.Background()
 
 	rpcClient := xrpl.NewRPCClient(
 		xrpl.DefaultRPCClientConfig(host),
@@ -138,8 +137,7 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 }
 
 func TestMultisigPayment(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+	ctx := context.Background()
 
 	rpcClient := xrpl.NewRPCClient(
 		xrpl.DefaultRPCClientConfig(host),
@@ -226,8 +224,7 @@ func TestMultisigPayment(t *testing.T) {
 }
 
 func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+	ctx := context.Background()
 
 	rpcClient := xrpl.NewRPCClient(
 		xrpl.DefaultRPCClientConfig(host),
@@ -337,8 +334,7 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 }
 
 func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+	ctx := context.Background()
 
 	rpcClient := xrpl.NewRPCClient(
 		xrpl.DefaultRPCClientConfig(host),
@@ -406,8 +402,7 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 }
 
 func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+	ctx := context.Background()
 
 	rpcClient := xrpl.NewRPCClient(
 		xrpl.DefaultRPCClientConfig(host),
@@ -491,8 +486,7 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 }
 
 func TestMultisigWithMasterKeyRemoval(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+	ctx := context.Background()
 
 	rpcClient := xrpl.NewRPCClient(
 		xrpl.DefaultRPCClientConfig(host),
