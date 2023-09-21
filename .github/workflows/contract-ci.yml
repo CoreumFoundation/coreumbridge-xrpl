@@ -5,7 +5,6 @@ on:
       branches: ["master"]
     pull_request:
       branches: ["master"]
-      
     workflow_dispatch:
 
 env:
@@ -17,7 +16,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      
       - name: Optimize contract
         run: |
           cd contract
@@ -36,3 +34,4 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
         working-directory: contract
+        
