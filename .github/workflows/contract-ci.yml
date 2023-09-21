@@ -1,0 +1,38 @@
+name: contract-ci
+
+on:
+    push:
+      branches: ["master"]
+    pull_request:
+      branches: ["master"]
+      
+    workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Optimize contract
+        run: |
+          cd contract
+          docker run --rm -v "$(pwd)":/code \
+            --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target \
+            --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+            cosmwasm/rust-optimizer:0.14.0
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+      - name: Run clippy
+        run: cargo clippy --verbose
+        working-directory: contract
+      - name: Build
+        run: cargo build --verbose
+        working-directory: contract
+      - name: Run tests
+        run: cargo test --verbose
+        working-directory: contract
