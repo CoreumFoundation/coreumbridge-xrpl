@@ -1,4 +1,4 @@
-# XRPL Bridge v2
+# Coreumbrdige XRPL
 
 Two-way Coreum XRPL bridge.
 
