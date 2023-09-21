@@ -17,7 +17,7 @@ import (
 	"github.com/CoreumFoundation/coreum/v3/pkg/client"
 	"github.com/CoreumFoundation/coreum/v3/pkg/config"
 	"github.com/CoreumFoundation/coreum/v3/pkg/config/constant"
-	"github.com/CoreumFoundation/coreum/v3/pkg/znet"
+	coreumtestutilintegration "github.com/CoreumFoundation/coreum/v3/testutil/integration"
 	feemodeltypes "github.com/CoreumFoundation/coreum/v3/x/feemodel/types"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client/xrpl"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
@@ -38,12 +38,12 @@ var (
 
 // Chains struct holds chains required for the testing.
 type Chains struct {
-	Coreum znet.CoreumChain
+	Coreum coreumtestutilintegration.CoreumChain
 	XRPL   XRPLChain
 }
 
 func init() {
-	flag.StringVar(&coreumGRPCAddress, "coreum-grpc-address", "localhost:9090", "GRPC address of cored node started by znet")
+	flag.StringVar(&coreumGRPCAddress, "coreum-grpc-address", "localhost:9090", "GRPC address of cored node started by coreumtestutilintegration")
 	flag.StringVar(&coreumFundingMnemonic, "coreum-funding-mnemonic", "sad hobby filter tray ordinary gap half web cat hard call mystery describe member round trend friend beyond such clap frozen segment fan mistake", "Funding coreum account mnemonic required by tests")
 	flag.StringVar(&xrplRPCAddress, "xrpl-rpc-address", "http://localhost:5005", "RPC address of xrpl node")
 	flag.StringVar(&xrplFundingSeed, "xrpl-funding-seed", "snoPBrXtMeMyMHUVTgbuqAfg1SUTb", "Funding XRPL account seed required by tests")
@@ -59,8 +59,8 @@ func init() {
 
 	// ********** Coreum **********
 
-	coreumGRPCClient := znet.DialGRPCClient(coreumGRPCAddress)
-	coreumSettings := znet.QueryChainSettings(queryCtx, coreumGRPCClient)
+	coreumGRPCClient := coreumtestutilintegration.DialGRPCClient(coreumGRPCAddress)
+	coreumSettings := coreumtestutilintegration.QueryChainSettings(queryCtx, coreumGRPCClient)
 
 	coreumClientCtx := client.NewContext(getTestContextConfig(), app.ModuleBasics).
 		WithGRPCClient(coreumGRPCClient)
@@ -74,7 +74,7 @@ func init() {
 
 	config.SetSDKConfig(coreumSettings.AddressPrefix, constant.CoinType)
 
-	chains.Coreum = znet.NewCoreumChain(znet.NewChain(
+	chains.Coreum = coreumtestutilintegration.NewCoreumChain(coreumtestutilintegration.NewChain(
 		coreumGRPCClient,
 		nil,
 		coreumSettings,
