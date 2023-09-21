@@ -10,6 +10,7 @@ library = []
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+doctest = false
 
 [profile.release]
 opt-level = 3

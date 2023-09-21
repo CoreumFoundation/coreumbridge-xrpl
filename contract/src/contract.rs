@@ -77,7 +77,7 @@ pub fn instantiate(
 
     TOKENS_XRPL.save(
         deps.storage,
-        format!("{}{}", XRP_SYMBOL.to_string(), XRP_SYMBOL.to_string()),
+        format!("{}{}", XRP_SYMBOL, XRP_SYMBOL),
         &token,
     )?;
 
