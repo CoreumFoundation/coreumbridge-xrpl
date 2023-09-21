@@ -16,3 +16,15 @@ fmt:
 .PHONY: lint
 lint:
 	crust lint/current-dir
+
+.PHONY: test-integration
+test-integration:
+	@go test -v --tags=integrationtests -mod=readonly -parallel=4 ./integration-tests
+
+.PHONY: restart-dev-env
+restart-dev-env:
+	crust znet remove && crust znet start --profiles=integration-tests-modules,xrpl --timeout-commit 0.5s
+
+.PHONY: rebuild-dev-env
+rebuild-dev-env:
+	crust build images

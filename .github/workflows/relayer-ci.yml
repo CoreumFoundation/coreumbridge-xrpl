@@ -1,0 +1,111 @@
+name: relayer-ci
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    - cron: '0 1 * * 1' # At 01:00 on Monday
+  workflow_dispatch:
+
+jobs:
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        ci_step: [
+          "lint",
+          "integration tests",
+        ]
+        include:
+          - ci_step: "lint"
+            command: "make lint"
+            go-cache: true
+            wasm-cache: true
+            linter-cache: true
+            docker-cache: false
+          - ci_step: "integration tests"
+            command: "make rebuild-dev-env && make restart-dev-env && make test-integration"
+            go-cache: true
+            wasm-cache: true
+            linter-cache: false
+            docker-cache: true
+
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Go version used to build crust tool
+        run: go version
+      - name: Checkout coreumbridge-xrpl
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+          path: coreumbridge-xrpl
+      - name: Checkout crust
+        uses: actions/checkout@v3
+        with:
+          repository: CoreumFoundation/crust
+          path: crust
+      - name: Checkout coreum
+        uses: actions/checkout@v3
+        with:
+          repository: CoreumFoundation/coreum
+          path: coreum
+      - name: Set up crust
+        run: echo "$(pwd)/crust/bin" >> $GITHUB_PATH
+      - name: Setup go cache
+        uses: actions/cache@v3
+        if: ${{ matrix.go-cache }}
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      - name: Setup WASM cache
+        uses: actions/cache@v3
+        if: ${{ matrix.wasm-cache }}
+        with:
+          # we need to exclude code-hashes.json from the rest, since the invalidation condition for it is not
+          # same as WASM cache, but it is same as smart contract artifacts.
+          path: |
+            ~/.cache/crust/wasm
+            !/.cache/crust/wasm/code-hashes.json
+          key: ${{ runner.os }}-wasm-cache-${{ hashFiles('~/.cache/crust/wasm/**/*.rs') }}
+      - name: Setup linter cache
+        uses: actions/cache@v3
+        if: ${{ matrix.linter-cache }}
+        with:
+          path: ~/.cache/golangci-lint
+          key: ${{ runner.os }}-linter-cache
+      - name: Get Date
+        id: get-year-week
+        run: |
+          echo "date=$(/bin/date -u "+%Y-%U")" >> $GITHUB_OUTPUT
+        shell: bash
+      - name: Set docker cache
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        if: ${{ matrix.docker-cache }}
+        continue-on-error: true
+        with:
+          key: ${{ runner.os }}-docker-v2-${{ steps.get-year-week.outputs.date }} # year-week key
+      - name: Set crust binaries cache
+        uses: actions/cache@v3
+        continue-on-error: true
+        with:
+          path: ~/.cache/crust/bin
+          key: ${{ runner.os }}-bin-${{ steps.get-year-week.outputs.date }} # year-week key
+      - name: Setup smart contract build cache
+        uses: actions/cache@v3
+        with:
+          # we need to cache code-hashes.json under the same key as the artifacts, since the invalidation condition
+          # for both of them are the same.
+          path: |
+            ${{ github.workspace }}/coreum/integration-tests/contracts/**/artifacts/* 
+            ~/.cache/crust/wasm/code-hashes.json
+          key: ${{ runner.os }}-cache-smart-contracts-${{ hashFiles('./coreum/**/*.rs') }}
+        if: ${{ matrix.wasm-cache }}
+      - name: Run ${{ matrix.ci_step }}
+        working-directory: ./coreumbridge-xrpl/relayer
+        run: ${{ matrix.command }}
+      - name: Dump docker logs on failure
+        if: failure()
+        uses: jwalton/gh-docker-logs@v2
