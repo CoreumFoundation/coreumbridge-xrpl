@@ -1,10 +1,8 @@
-use std::vec;
-
 use crate::{
     error::ContractError,
     msg::{
         CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-        XprlTokenResponse, XprlTokensResponse,
+        XrplTokenResponse, XrplTokensResponse,
     },
     state::{Config, TokenCoreum, TokenXRP, CONFIG, TOKENS_COREUM, TOKENS_XRPL},
 };
@@ -17,7 +15,7 @@ use cosmwasm_std::{
     StdResult, Uint128,
 };
 use cw2::set_contract_version;
-use cw_ownable::{initialize_owner, Action, get_ownership};
+use cw_ownable::{get_ownership, initialize_owner, Action};
 
 // version info for migration info
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -77,7 +75,11 @@ pub fn instantiate(
         coreum_denom: xrp_in_coreum,
     };
 
-    TOKENS_XRPL.save(deps.storage, XRP_SYMBOL.to_string(), &token)?;
+    TOKENS_XRPL.save(
+        deps.storage,
+        format!("{}{}", XRP_SYMBOL.to_string(), XRP_SYMBOL.to_string()),
+        &token,
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", "bridge_instantiation")
@@ -124,7 +126,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_xprl_token(deps, issuer, currency)?)
         }
         QueryMsg::CoreumToken { denom } => to_binary(&query_coreum_token(deps, denom)?),
-        QueryMsg::Ownership {} => to_binary(&get_ownership(deps.storage)?)
+        QueryMsg::Ownership {} => to_binary(&get_ownership(deps.storage)?),
     }
 }
 
@@ -137,7 +139,7 @@ fn query_xprl_tokens(
     deps: Deps,
     offset: Option<u64>,
     limit: Option<u32>,
-) -> StdResult<XprlTokensResponse> {
+) -> StdResult<XrplTokensResponse> {
     let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
     let offset = offset.unwrap_or(0);
     let tokens: Vec<TokenXRP> = TOKENS_XRPL
@@ -148,7 +150,7 @@ fn query_xprl_tokens(
         .map(|(_, v)| v)
         .collect();
 
-    Ok(XprlTokensResponse { tokens })
+    Ok(XrplTokensResponse { tokens })
 }
 
 fn query_coreum_tokens(
@@ -169,12 +171,12 @@ fn query_coreum_tokens(
     Ok(CoreumTokensResponse { tokens })
 }
 
-fn query_xprl_token(deps: Deps, issuer: String, currency: String) -> StdResult<XprlTokenResponse> {
+fn query_xprl_token(deps: Deps, issuer: String, currency: String) -> StdResult<XrplTokenResponse> {
     let mut key = issuer;
     key.push_str(&currency);
     let token = TOKENS_XRPL.load(deps.storage, key)?;
 
-    Ok(XprlTokenResponse { token })
+    Ok(XrplTokenResponse { token })
 }
 
 fn query_coreum_token(deps: Deps, denom: String) -> StdResult<CoreumTokenResponse> {

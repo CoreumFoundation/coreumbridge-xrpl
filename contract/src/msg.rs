@@ -25,7 +25,7 @@ pub enum ExecuteMsg {}
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
-    #[returns(XprlTokensResponse)]
+    #[returns(XrplTokensResponse)]
     XrplTokens {
         offset: Option<u64>,
         limit: Option<u32>,
@@ -35,14 +35,14 @@ pub enum QueryMsg {
         offset: Option<u64>,
         limit: Option<u32>,
     },
-    #[returns(XprlTokenResponse)]
+    #[returns(XrplTokenResponse)]
     XrplToken { issuer: String, currency: String },
     #[returns(CoreumTokenResponse)]
     CoreumToken { denom: String },
 }
 
 #[cw_serde]
-pub struct XprlTokensResponse {
+pub struct XrplTokensResponse {
     pub tokens: Vec<TokenXRP>,
 }
 
@@ -52,7 +52,7 @@ pub struct CoreumTokensResponse {
 }
 
 #[cw_serde]
-pub struct XprlTokenResponse {
+pub struct XrplTokenResponse {
     pub token: TokenXRP,
 }
 
