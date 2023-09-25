@@ -14,8 +14,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/http"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client/xrpl"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
 const (
@@ -71,24 +73,44 @@ func (w XRPLWallet) MultiSign(tx rippledata.MultiSignable) (rippledata.Signer, e
 
 // ********** XRPLChain **********
 
+// XRPLChainConfig is a config required for the XRPL chain to be created.
+type XRPLChainConfig struct {
+	RPCAddress  string
+	FundingSeed string
+}
+
 // XRPLChain is XRPL chain for the testing.
 type XRPLChain struct {
+	cfg           XRPLChainConfig
 	fundingWallet XRPLWallet
 	rpcClient     *xrpl.RPCClient
 	fundMu        *sync.Mutex
 }
 
 // NewXRPLChain returns the new instance of the XRPL chain.
-func NewXRPLChain(xrplFundingSeed string, rpcClient *xrpl.RPCClient) (XRPLChain, error) {
-	fundingWallet, err := NewXRPLWalletFromSeedPhrase(xrplFundingSeed)
+func NewXRPLChain(cfg XRPLChainConfig, log logger.Logger) (XRPLChain, error) {
+	fundingWallet, err := NewXRPLWalletFromSeedPhrase(cfg.FundingSeed)
 	if err != nil {
 		return XRPLChain{}, err
 	}
+
+	rpcClient := xrpl.NewRPCClient(
+		xrpl.DefaultRPCClientConfig(cfg.RPCAddress),
+		log,
+		http.NewRetryableClient(http.DefaultClientConfig()),
+	)
+
 	return XRPLChain{
+		cfg:           cfg,
 		fundingWallet: fundingWallet,
 		rpcClient:     rpcClient,
 		fundMu:        &sync.Mutex{},
 	}, nil
+}
+
+// Config returns the chain config.
+func (c XRPLChain) Config() XRPLChainConfig {
+	return c.cfg
 }
 
 // RPCClient returns the XRPL RPC client.
@@ -234,6 +256,29 @@ func (c XRPLChain) GetAccountBalances(ctx context.Context, t *testing.T, acc rip
 	}
 
 	return amounts
+}
+
+// AwaitLedger awaits for ledger index.
+func (c XRPLChain) AwaitLedger(ctx context.Context, t *testing.T, ledgerIndex int64) {
+	t.Helper()
+
+	t.Logf("Waiting for the ledger:%d", ledgerIndex)
+	retryCtx, retryCtxCancel := context.WithTimeout(ctx, time.Minute)
+	defer retryCtxCancel()
+	require.NoError(t, retry.Do(retryCtx, 250*time.Millisecond, func() error {
+		reqCtx, reqCtxCancel := context.WithTimeout(retryCtx, 3*time.Second)
+		defer reqCtxCancel()
+		res, err := c.rpcClient.LedgerCurrent(reqCtx)
+		if err != nil {
+			return retry.Retryable(err)
+		}
+
+		if res.LedgerCurrentIndex < ledgerIndex {
+			return retry.Retryable(errors.Errorf("ledger has not passed, current:%d, expected:%d", res.LedgerCurrentIndex, ledgerIndex))
+		}
+
+		return nil
+	}))
 }
 
 // ExtractTicketsFromMeta extracts tickets info from the tx metadata.

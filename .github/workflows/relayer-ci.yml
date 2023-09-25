@@ -19,7 +19,7 @@ jobs:
         ]
         include:
           - ci_step: "lint"
-            command: "make lint"
+            command: "make go-lint"
             go-cache: true
             wasm-cache: true
             linter-cache: true
