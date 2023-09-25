@@ -57,7 +57,7 @@ Check [workflow](#register-token) for more details.
 ##### Token enabling/disabling
 
 Any token can be disabled and enabled at any time by that admin. Any new workflow with the disabled token is prohibited
-by the contract, the pending operations should be completed. 
+by the contract, the pending operations should be completed.
 
 #### Operation queues
 
@@ -93,9 +93,12 @@ idempotent. And let some operations be safely re-processed at any time.
 ##### Ticket allocation process
 
 The XRPL tickets allow us to execute a transaction with non-sequential sequence numbers, hence we can execute multiple
-transactions in parallel. When any workflow allocates the ticket and the free ticket length is less than max allowed the
-contract triggers the `submit-increase-tickets` operation to increase the amount. Once the operation is confirmed, the
+transactions in parallel. Any workflow can allocate a ticket and the ticket allocation mechanism either returns a tocket
+number or errors out, in case of lack of the free tickets. The ticket re-allocation will be triggered by the tx
+conformation (Submit XRPL transaction last step) once the used tickets count is gather that allowed threshold. The
+contract initiates the `submit-increase-tickets` operation to increase the amount. Once the operation is confirmed, the
 contract increases the free slots on the contract as well (based on the tx result).
+
 Check [workflow](#allocate-ticket) for more details.
 
 #### Tokens sending
