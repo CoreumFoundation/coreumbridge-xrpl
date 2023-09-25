@@ -1,7 +1,7 @@
 //go:build integrationtests
 // +build integrationtests
 
-package integrationtests
+package client_test
 
 import (
 	"context"
@@ -10,12 +10,14 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
+
+	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 )
 
 func TestXRPAndIssuedTokensPayment(t *testing.T) {
 	t.Parallel()
 
-	ctx, chains := NewTestingContext(t)
+	ctx, chains := integrationtests.NewTestingContext(t)
 
 	issuerWallet := chains.XRPL.GenWallet(ctx, t, 10)
 	t.Logf("Issuer account: %s", issuerWallet.Account)
@@ -23,7 +25,6 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 	recipientWallet := chains.XRPL.GenWallet(ctx, t, 0)
 	t.Logf("Recipient account: %s", recipientWallet.Account)
 
-	// send XRP coins from issuer to recipient (if account is new you need to send 10 XRP to activate it)
 	xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 	require.NoError(t, err)
 	xrpPaymentTx := rippledata.Payment{
@@ -76,7 +77,7 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 func TestMultisigPayment(t *testing.T) {
 	t.Parallel()
 
-	ctx, chains := NewTestingContext(t)
+	ctx, chains := integrationtests.NewTestingContext(t)
 
 	multisigWallet := chains.XRPL.GenWallet(ctx, t, 10)
 	t.Logf("Multisig account: %s", multisigWallet.Account)
@@ -159,7 +160,7 @@ func TestMultisigPayment(t *testing.T) {
 func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	t.Parallel()
 
-	ctx, chains := NewTestingContext(t)
+	ctx, chains := integrationtests.NewTestingContext(t)
 
 	senderWallet := chains.XRPL.GenWallet(ctx, t, 10)
 	t.Logf("Sender account: %s", senderWallet.Account)
@@ -178,7 +179,7 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	txRes, err := chains.XRPL.RPCClient().Tx(ctx, *createTicketsTx.GetHash())
 	require.NoError(t, err)
 
-	createdTickets := ExtractTicketsFromMeta(txRes)
+	createdTickets := integrationtests.ExtractTicketsFromMeta(txRes)
 	require.Len(t, createdTickets, ticketsToCreate)
 
 	// create tickets with ticket
@@ -198,7 +199,7 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	txRes, err = chains.XRPL.RPCClient().Tx(ctx, *createTicketsTx.GetHash())
 	require.NoError(t, err)
 
-	createdTickets = ExtractTicketsFromMeta(txRes)
+	createdTickets = integrationtests.ExtractTicketsFromMeta(txRes)
 	require.Len(t, createdTickets, ticketsToCreate)
 
 	// send XRP coins from sender to recipient with ticket
@@ -265,7 +266,7 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 	t.Parallel()
 
-	ctx, chains := NewTestingContext(t)
+	ctx, chains := integrationtests.NewTestingContext(t)
 
 	multisigWallet := chains.XRPL.GenWallet(ctx, t, 10)
 	t.Logf("Multisig account: %s", multisigWallet.Account)
@@ -305,7 +306,7 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 	txRes, err := chains.XRPL.RPCClient().Tx(ctx, *createTicketsTx.GetHash())
 	require.NoError(t, err)
 
-	createdTickets := ExtractTicketsFromMeta(txRes)
+	createdTickets := integrationtests.ExtractTicketsFromMeta(txRes)
 	require.Len(t, createdTickets, int(ticketsToCreate))
 
 	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, createdTickets[0].TicketSequence, multisigWallet.Account)
@@ -322,14 +323,14 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 	txRes, err = chains.XRPL.RPCClient().Tx(ctx, *createTicketsTx.GetHash())
 	require.NoError(t, err)
 
-	createdTickets = ExtractTicketsFromMeta(txRes)
+	createdTickets = integrationtests.ExtractTicketsFromMeta(txRes)
 	require.Len(t, createdTickets, int(ticketsToCreate))
 }
 
 func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 	t.Parallel()
 
-	ctx, chains := NewTestingContext(t)
+	ctx, chains := integrationtests.NewTestingContext(t)
 
 	multisigWallet := chains.XRPL.GenWallet(ctx, t, 10)
 	t.Logf("Multisig account: %s", multisigWallet.Account)
@@ -371,7 +372,7 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 	txRes, err := chains.XRPL.RPCClient().Tx(ctx, *createTicketsTx.GetHash())
 	require.NoError(t, err)
 
-	createdTickets := ExtractTicketsFromMeta(txRes)
+	createdTickets := integrationtests.ExtractTicketsFromMeta(txRes)
 	require.Len(t, createdTickets, int(ticketsToCreate))
 
 	updateSignerListSetTx := buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, wallet2.Account, createdTickets[0].TicketSequence, multisigWallet.Account)
@@ -410,7 +411,7 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 	t.Parallel()
 
-	ctx, chains := NewTestingContext(t)
+	ctx, chains := integrationtests.NewTestingContext(t)
 
 	multisigWalletToDisable := chains.XRPL.GenWallet(ctx, t, 10)
 	t.Logf("Multisig account: %s", multisigWalletToDisable.Account)
@@ -478,10 +479,49 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 	t.Logf("Recipinet account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, xrpPaymentTx.Destination))
 }
 
+func TestLedgerCurrent(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+	currentLedger, err := chains.XRPL.RPCClient().LedgerCurrent(ctx)
+	require.NoError(t, err)
+	require.Greater(t, currentLedger.LedgerCurrentIndex, int64(0))
+}
+
+func TestAccountTx(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	senderWallet := chains.XRPL.GenWallet(ctx, t, 10)
+	t.Logf("Sender account: %s", senderWallet.Account)
+
+	recipientWallet := chains.XRPL.GenWallet(ctx, t, 0)
+	t.Logf("Recipient account: %s", recipientWallet.Account)
+
+	// send 4 txs from is the sender to the recipient
+	for i := 0; i < 4; i++ {
+		xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
+		require.NoError(t, err)
+		xrpPaymentTx := rippledata.Payment{
+			Destination: recipientWallet.Account,
+			Amount:      *xrpAmount,
+			TxBase: rippledata.TxBase{
+				TransactionType: rippledata.PAYMENT,
+			},
+		}
+		require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderWallet))
+	}
+
+	accountTxRes, err := chains.XRPL.RPCClient().AccountTx(ctx, senderWallet.Account, -1, -1, nil)
+	require.NoError(t, err)
+	require.Len(t, accountTxRes.Transactions, 5) // faucet send + 4 more
+}
+
 func buildXrpPaymentTxForMultiSigning(
 	ctx context.Context,
 	t *testing.T,
-	xrplChain XRPLChain,
+	xrplChain integrationtests.XRPLChain,
 	from, to rippledata.Account,
 ) rippledata.Payment {
 	t.Helper()
@@ -506,7 +546,7 @@ func buildXrpPaymentTxForMultiSigning(
 func buildCreateTicketsTxForMultiSigning(
 	ctx context.Context,
 	t *testing.T,
-	xrplChain XRPLChain,
+	xrplChain integrationtests.XRPLChain,
 	ticketsToCreate uint32,
 	ticketSeq *uint32,
 	from rippledata.Account,
@@ -534,7 +574,7 @@ func buildCreateTicketsTxForMultiSigning(
 func buildUpdateSignerListSetTxForMultiSigning(
 	ctx context.Context,
 	t *testing.T,
-	xrplChain XRPLChain,
+	xrplChain integrationtests.XRPLChain,
 	signerAcc rippledata.Account,
 	ticketSeq *uint32,
 	from rippledata.Account,

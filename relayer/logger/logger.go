@@ -9,7 +9,7 @@ type Field struct {
 	Type      FieldType
 	Integer   int64
 	String    string
-	Interface interface{}
+	Interface any
 }
 
 // A FieldType indicates which member of the Field union struct should be used and how it should be serialized.
@@ -23,10 +23,28 @@ type Logger interface {
 	Error(msg string, fields ...Field)
 }
 
-// NewFiled takes a key and an arbitrary value and chooses the best way to represent them as a field, falling back to a
+// AnyFiled takes a key and an arbitrary value and chooses the best way to represent them as a field, falling back to a
 // reflection-based approach only if necessary.
-func NewFiled(key string, value interface{}) Field {
-	zapFiled := zap.Any(key, value)
+func AnyFiled(key string, value any) Field {
+	return convertZapFieldToField(zap.Any(key, value))
+}
+
+// StringFiled constructs a field with the given key and value.
+func StringFiled(key, value string) Field {
+	return convertZapFieldToField(zap.String(key, value))
+}
+
+// Int64Filed constructs a field with the given key and value.
+func Int64Filed(key string, value int64) Field {
+	return convertZapFieldToField(zap.Int64(key, value))
+}
+
+// Error is shorthand for the common idiom NamedError("error", err).
+func Error(err error) Field {
+	return convertZapFieldToField(zap.Error(err))
+}
+
+func convertZapFieldToField(zapFiled zap.Field) Field {
 	return Field{
 		Key:       zapFiled.Key,
 		Type:      FieldType(zapFiled.Type),
