@@ -15,7 +15,7 @@ use cosmwasm_std::{
     StdResult, Uint128,
 };
 use cw2::set_contract_version;
-use cw_ownable::{get_ownership, initialize_owner, Action};
+use cw_ownable::{get_ownership, initialize_owner, Action, assert_owner};
 
 // version info for migration info
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -98,6 +98,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateOwnership(action) => update_ownership(deps, env, info, action),
+        ExecuteMsg::RegisterCoreumToken { denom } => register_coreum_token(deps, denom, info),
     }
 }
 
@@ -109,6 +110,15 @@ fn update_ownership(
 ) -> Result<Response, ContractError> {
     let ownership = cw_ownable::update_ownership(deps, &env.block, &info.sender, action)?;
     Ok(Response::new().add_attributes(ownership.into_attributes()))
+}
+
+fn register_coreum_token(
+    deps: DepsMut,
+    _denom: String,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    assert_owner(deps.storage, &info.sender)?;
+    Ok(Response::new())
 }
 
 // ********** Queries **********

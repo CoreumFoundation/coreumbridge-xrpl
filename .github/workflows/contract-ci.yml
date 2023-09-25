@@ -1,23 +1,19 @@
 name: contract-ci
-
 on:
-    push:
-      branches: ["master"]
-    pull_request:
-      branches: ["master"]
-    workflow_dispatch:
-
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
 env:
   CARGO_TERM_COLOR: always
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
       - name: Optimize contract
-      # TODO: Update it to Make file command
+        # TODO: Update it to Make file command
         run: |
           cd contract
           docker run --rm -v "$(pwd)":/code \
@@ -33,4 +29,3 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
         working-directory: contract
-        

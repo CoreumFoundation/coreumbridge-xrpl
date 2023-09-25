@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Addr;
+use cosmwasm_std::{Addr, Empty};
 use cw_storage_plus::{Item, Map};
 
 /// Top level storage key. Values must not conflict.
@@ -9,6 +9,8 @@ pub enum TopKey {
     Config = b'c',
     TokensCoreum = b'1',
     TokensXRPL = b'2',
+    XRPLCurrencies = b'X',
+    CoreumDenoms = b'C',
 }
 
 impl TopKey {
@@ -38,7 +40,7 @@ pub struct TokenXRP {
 pub struct TokenCoreum {
     pub denom: String,
     pub decimals: u32,
-    pub xprl_currency: String,
+    pub xrpl_currency: String,
 }
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
@@ -46,3 +48,7 @@ pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
 pub const TOKENS_COREUM: Map<String, TokenCoreum> = Map::new(TopKey::TokensCoreum.as_str());
 //Tokens registered from XPRL side - key is issuer+currency on XPRL
 pub const TOKENS_XRPL: Map<String, TokenXRP> = Map::new(TopKey::TokensXRPL.as_str());
+// XRPL-Currencies used
+pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
+// Coreum denoms used
+pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());

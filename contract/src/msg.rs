@@ -17,7 +17,9 @@ pub struct InstantiateMsg {
 
 #[cw_ownable_execute]
 #[cw_serde]
-pub enum ExecuteMsg {}
+pub enum ExecuteMsg {
+    RegisterCoreumToken { denom: String },
+}
 
 #[cw_ownable_query]
 #[cw_serde]
