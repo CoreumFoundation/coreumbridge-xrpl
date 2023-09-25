@@ -9,8 +9,8 @@ pub enum TopKey {
     Config = b'c',
     TokensCoreum = b'1',
     TokensXRPL = b'2',
-    XRPLCurrencies = b'X',
-    CoreumDenoms = b'C',
+    XRPLCurrencies = b'3',
+    CoreumDenoms = b'4',
 }
 
 impl TopKey {
