@@ -12,4 +12,7 @@ pub enum ContractError {
 
     #[error("Threshold can not be higher than amount of relayers")]
     InvalidThreshold {},
+
+    #[error("Token {} already registered", denom)]
+    TokenAlreadyRegistered { denom: String },
 }
