@@ -8,7 +8,10 @@ mod tests {
     use cosmwasm_std::{coin, coins, Addr};
 
     use crate::{
-        msg::{ExecuteMsg, InstantiateMsg, QueryMsg, XrplTokensResponse, XrplTokenResponse},
+        msg::{
+            CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+            XrplTokenResponse, XrplTokensResponse,
+        },
         state::Config,
     };
     const FEE_DENOM: &str = "ucore";
@@ -20,7 +23,7 @@ mod tests {
         admin: Addr,
         relayers: Vec<Addr>,
         evidence_threshold: u32,
-        min_tickets: u32,
+        max_used_tickets: u32,
     ) -> String {
         let wasm_byte_code = std::fs::read("./artifacts/coreumbridge_xrpl.wasm").unwrap();
         let code_id = wasm
@@ -34,7 +37,7 @@ mod tests {
                 admin,
                 relayers,
                 evidence_threshold,
-                min_tickets,
+                max_used_tickets,
             },
             None,
             "label".into(),
@@ -67,6 +70,23 @@ mod tests {
         );
         assert!(!contract_addr.is_empty());
 
+        // We check that trying to instantiate with invalid issue fee fails.
+        let error = wasm
+            .instantiate(
+                1,
+                &InstantiateMsg {
+                    admin: Addr::unchecked(signer.address()),
+                    relayers: vec![Addr::unchecked(signer.address())],
+                    evidence_threshold: 1,
+                    max_used_tickets: 50,
+                },
+                None,
+                "label".into(),
+                &coins(10, FEE_DENOM),
+                &signer,
+            )
+            .unwrap_err();
+
         // We query the issued token by the contract instantiation (XRP)
         let query_response = assetft
             .query_tokens(&QueryTokensRequest {
@@ -74,6 +94,10 @@ mod tests {
                 issuer: contract_addr.clone(),
             })
             .unwrap();
+
+        assert!(error
+            .to_string()
+            .contains("Need to send exactly the issue fee amount"));
 
         assert_eq!(
             query_response.tokens[0],
@@ -241,12 +265,69 @@ mod tests {
         let query_xrpl_token = wasm
             .query::<QueryMsg, XrplTokenResponse>(
                 &contract_addr,
-                &QueryMsg::XrplToken { issuer: XRP_SYMBOL.to_string(), currency: XRP_SYMBOL.to_string() }
+                &QueryMsg::XrplToken {
+                    issuer: XRP_SYMBOL.to_string(),
+                    currency: XRP_SYMBOL.to_string(),
+                },
             )
             .unwrap();
         assert_eq!(
             query_xrpl_token.token.coreum_denom,
             format!("{}-{}", XRP_SYMBOL, &contract_addr.to_lowercase())
         );
+    }
+
+    #[test]
+    fn register_coreum_token() {
+        let app = CoreumTestApp::new();
+        let signer = app
+            .init_account(&coins(100_000_000_000, FEE_DENOM))
+            .unwrap();
+
+        let wasm = Wasm::new(&app);
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            vec![Addr::unchecked(signer.address())],
+            1,
+            50,
+        );
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterCoreumToken {
+                denom: "random_denom".to_string(),
+                decimals: 6,
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        //Query 1 token
+        let query_coreum_token = wasm
+            .query::<QueryMsg, CoreumTokenResponse>(
+                &contract_addr,
+                &QueryMsg::CoreumToken {
+                    denom: "random_denom".to_string(),
+                },
+            )
+            .unwrap();
+        assert_eq!(query_coreum_token.token.xrpl_currency.len(), 10);
+
+        //Query all tokens
+        let query_coreum_tokens = wasm
+            .query::<QueryMsg, CoreumTokensResponse>(
+                &contract_addr,
+                &QueryMsg::CoreumTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(query_coreum_tokens.tokens.len(), 1);
+        assert_eq!(query_coreum_tokens.tokens[0].denom, "random_denom".to_string());
     }
 }

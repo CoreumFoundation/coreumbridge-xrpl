@@ -4,18 +4,22 @@ use crate::{
         CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
         XrplTokenResponse, XrplTokensResponse,
     },
-    state::{Config, TokenCoreum, TokenXRP, CONFIG, TOKENS_COREUM, TOKENS_XRPL},
+    state::{Config, TokenCoreum, TokenXRP, CONFIG, TOKENS_COREUM, TOKENS_XRPL, XRPL_CURRENCIES},
 };
+use base64::{engine::general_purpose, Engine as _};
 use coreum_wasm_sdk::{
-    assetft::{Msg::Issue, BURNING, IBC, MINTING},
-    core::{CoreumMsg, CoreumResult},
+    assetft::{Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
+    core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Order, Response,
-    StdResult, Uint128,
+    entry_point, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Order,
+    Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
-use cw_ownable::{get_ownership, initialize_owner, Action, assert_owner};
+use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
+use cw_utils::one_coin;
+use sha2::{Digest, Sha256};
+use std::str;
 
 // version info for migration info
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -26,7 +30,7 @@ const XRP_SYMBOL: &str = "xrp";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<CoreumQueries>,
     env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
@@ -40,6 +44,15 @@ pub fn instantiate(
 
     for address in msg.relayers.clone() {
         deps.api.addr_validate(address.as_ref())?;
+    }
+
+    // We want to check that exactly the issue fee was sent, not more.
+    let query_params_res: ParamsResponse = deps
+        .querier
+        .query(&CoreumQueries::AssetFT(Query::Params {}).into())?;
+
+    if query_params_res.params.issue_fee != one_coin(&info)? {
+        return Err(ContractError::InvalidIssueFee {});
     }
 
     //Threshold can't be more than number of relayers
@@ -67,7 +80,7 @@ pub fn instantiate(
 
     let xrp_in_coreum = format!("{}-{}", XRP_SYMBOL, env.contract.address).to_lowercase();
 
-    //We save the link between the denom in the Coreum chain and the denom in XPRL, so that when we receive
+    //We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
     //a token we can inform the relayers of what is being sent back.
     let token = TokenXRP {
         issuer: XRP_SYMBOL.to_string(),
@@ -98,7 +111,9 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateOwnership(action) => update_ownership(deps, env, info, action),
-        ExecuteMsg::RegisterCoreumToken { denom } => register_coreum_token(deps, denom, info),
+        ExecuteMsg::RegisterCoreumToken { denom, decimals } => {
+            register_coreum_token(deps, env, denom, decimals, info.sender)
+        }
     }
 }
 
@@ -114,11 +129,52 @@ fn update_ownership(
 
 fn register_coreum_token(
     deps: DepsMut,
-    _denom: String,
-    info: MessageInfo,
+    env: Env,
+    denom: String,
+    decimals: u32,
+    sender: Addr,
 ) -> Result<Response, ContractError> {
-    assert_owner(deps.storage, &info.sender)?;
-    Ok(Response::new())
+    assert_owner(deps.storage, &sender)?;
+
+    if TOKENS_COREUM.has(deps.storage, denom.clone()) {
+        return Err(ContractError::CoreumTokenAlreadyRegistered {
+            denom: denom.clone(),
+        });
+    }
+
+    // We generate a random currency creating a Sha256 hash of the denom, the decimals and the current time
+    let mut hasher = Sha256::new();
+
+    hasher
+        .update(format!("{}{}{}", denom.clone(), decimals, env.block.time.seconds()).into_bytes());
+
+    let output = hasher.finalize();
+
+    // We encode the hash in base64 and take the first 10 characters
+    let xrpl_currency = general_purpose::STANDARD_NO_PAD
+        .encode(output)
+        .get(0..10)
+        .unwrap()
+        .to_string()
+        .to_lowercase();
+
+    if XRPL_CURRENCIES.has(deps.storage, xrpl_currency.clone()) {
+        return Err(ContractError::RegistrationFailure {});
+    }
+    XRPL_CURRENCIES.save(deps.storage, xrpl_currency.clone(), &Empty {})?;
+
+    let token = TokenCoreum {
+        denom: denom.clone(),
+        decimals,
+        xrpl_currency: xrpl_currency.clone(),
+    };
+    TOKENS_COREUM.save(deps.storage, denom.clone(), &token)?;
+
+    Ok(Response::new()
+        .add_attribute("action", "register_coreum_token")
+        .add_attribute("denom", denom)
+        .add_attribute("decimals", decimals.to_string())
+        .add_attribute("xrpl_currency_for_denom", xrpl_currency))
 }
 
 // ********** Queries **********
@@ -127,13 +183,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::XrplTokens { offset, limit } => {
-            to_binary(&query_xprl_tokens(deps, offset, limit)?)
+            to_binary(&query_xrpl_tokens(deps, offset, limit)?)
         }
         QueryMsg::CoreumTokens { offset, limit } => {
             to_binary(&query_coreum_tokens(deps, offset, limit)?)
         }
         QueryMsg::XrplToken { issuer, currency } => {
-            to_binary(&query_xprl_token(deps, issuer, currency)?)
+            to_binary(&query_xrpl_token(deps, issuer, currency)?)
         }
         QueryMsg::CoreumToken { denom } => to_binary(&query_coreum_token(deps, denom)?),
         QueryMsg::Ownership {} => to_binary(&get_ownership(deps.storage)?),
@@ -145,7 +201,7 @@ fn query_config(deps: Deps) -> StdResult<Config> {
     Ok(config)
 }
 
-fn query_xprl_tokens(
+fn query_xrpl_tokens(
     deps: Deps,
     offset: Option<u64>,
     limit: Option<u32>,
@@ -181,7 +237,7 @@ fn query_coreum_tokens(
     Ok(CoreumTokensResponse { tokens })
 }
 
-fn query_xprl_token(deps: Deps, issuer: String, currency: String) -> StdResult<XrplTokenResponse> {
+fn query_xrpl_token(deps: Deps, issuer: String, currency: String) -> StdResult<XrplTokenResponse> {
     let mut key = issuer;
     key.push_str(&currency);
     let token = TOKENS_XRPL.load(deps.storage, key)?;

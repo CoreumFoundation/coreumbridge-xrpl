@@ -1,4 +1,4 @@
-# Coreum-XPRL-Bridge
+# Coreum-XRPL-Bridge
 
 To compile the contract, you can run:
 

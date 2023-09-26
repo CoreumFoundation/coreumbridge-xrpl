@@ -46,9 +46,7 @@ pub struct TokenCoreum {
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
 //Tokens registered from Coreum side - key is denom on Coreum chain
 pub const TOKENS_COREUM: Map<String, TokenCoreum> = Map::new(TopKey::TokensCoreum.as_str());
-//Tokens registered from XPRL side - key is issuer+currency on XPRL
+//Tokens registered from XRPL side - key is issuer+currency on XRPL
 pub const TOKENS_XRPL: Map<String, TokenXRP> = Map::new(TopKey::TokensXRPL.as_str());
 // XRPL-Currencies used
 pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
-// Coreum denoms used
-pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());

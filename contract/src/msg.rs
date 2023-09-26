@@ -9,16 +9,16 @@ pub struct InstantiateMsg {
     pub admin: Addr,
     //Addresses allowed to relay messages
     pub relayers: Vec<Addr>,
-    //How many relayers need to provide evidence for a message.
+    //How many relayers need to provide evidence for a message
     pub evidence_threshold: u32,
-    //If ticket count goes under this amount, contract will ask for more tickets.
-    pub min_tickets: u32,
+    //If used tickets go over this amount we need to request new ones
+    pub max_used_tickets: u32,
 }
 
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
-    RegisterCoreumToken { denom: String },
+    RegisterCoreumToken { denom: String, decimals: u32 },
 }
 
 #[cw_ownable_query]
