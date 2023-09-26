@@ -315,7 +315,8 @@ mod tests {
                 },
             )
             .unwrap();
-        assert_eq!(query_coreum_token.token.xrpl_currency.len(), 10);
+        assert_eq!(query_coreum_token.token.xrpl_currency.len(), 16);
+        assert!(query_coreum_token.token.xrpl_currency.starts_with("coreum"));
 
         //Query all tokens
         let query_coreum_tokens = wasm

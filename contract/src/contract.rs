@@ -151,12 +151,14 @@ fn register_coreum_token(
     let output = hasher.finalize();
 
     // We encode the hash in base64 and take the first 10 characters
-    let xrpl_currency = general_purpose::STANDARD_NO_PAD
+    let base64_string = general_purpose::STANDARD_NO_PAD
         .encode(output)
         .get(0..10)
         .unwrap()
         .to_string()
         .to_lowercase();
+
+    let xrpl_currency = format!("{}{}", "coreum", base64_string);
 
     if XRPL_CURRENCIES.has(deps.storage, xrpl_currency.clone()) {
         return Err(ContractError::RegistrationFailure {});
