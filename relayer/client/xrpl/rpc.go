@@ -45,7 +45,7 @@ type AccountInfoResult struct {
 type AccountLinesRequest struct {
 	Account     rippledata.Account  `json:"account"`
 	Limit       uint32              `json:"limit"`
-	LedgerIndex interface{}         `json:"ledger_index,omitempty"`
+	LedgerIndex any                 `json:"ledger_index,omitempty"`
 	Marker      *rippledata.Hash256 `json:"marker,omitempty"`
 	Result      *AccountLinesResult `json:"result,omitempty"`
 }
@@ -69,7 +69,7 @@ type SubmitResult struct {
 	EngineResultCode    int                          `json:"engine_result_code"`
 	EngineResultMessage string                       `json:"engine_result_message"`
 	TxBlob              string                       `json:"tx_blob"`
-	Tx                  interface{}                  `json:"tx_json"`
+	Tx                  any                          `json:"tx_json"`
 }
 
 // TxRequest is `tx` method request.
@@ -77,7 +77,7 @@ type TxRequest struct {
 	Transaction rippledata.Hash256 `json:"transaction"`
 }
 
-// TxResult is tx` method result.
+// TxResult is `tx` method result.
 type TxResult struct {
 	Validated bool `json:"validated"`
 	rippledata.TransactionWithMetaData
@@ -86,9 +86,9 @@ type TxResult struct {
 // UnmarshalJSON is a shim to populate the Validated field before passing control on to
 // TransactionWithMetaData.UnmarshalJSON.
 func (txr *TxResult) UnmarshalJSON(b []byte) error {
-	var extract map[string]interface{}
+	var extract map[string]any
 	if err := json.Unmarshal(b, &extract); err != nil {
-		return errors.Errorf("faild to Unmarshal to map[string]interface{}")
+		return errors.Errorf("faild to Unmarshal to map[string]any")
 	}
 	validated, ok := extract["validated"]
 	if ok {
@@ -100,6 +100,33 @@ func (txr *TxResult) UnmarshalJSON(b []byte) error {
 	}
 
 	return json.Unmarshal(b, &txr.TransactionWithMetaData)
+}
+
+// LedgerCurrentResult is `ledger_current` method request.
+//
+//nolint:tagliatelle //contract spec
+type LedgerCurrentResult struct {
+	LedgerCurrentIndex int64  `json:"ledger_current_index"`
+	Status             string `json:"status"`
+}
+
+// AccountTxRequest is `account_tx` method request.
+//
+//nolint:tagliatelle //contract spec
+type AccountTxRequest struct {
+	Account   rippledata.Account `json:"account"`
+	MinLedger int64              `json:"ledger_index_min"`
+	MaxLedger int64              `json:"ledger_index_max"`
+	Binary    bool               `json:"binary,omitempty"`
+	Forward   bool               `json:"forward,omitempty"`
+	Limit     uint32             `json:"limit,omitempty"`
+	Marker    map[string]any     `json:"marker,omitempty"`
+}
+
+// AccountTxResult is `account_tx` method result.
+type AccountTxResult struct {
+	Marker       map[string]any              `json:"marker,omitempty"`
+	Transactions rippledata.TransactionSlice `json:"transactions,omitempty"`
 }
 
 // ******************** RPC transport objects ********************
@@ -167,7 +194,7 @@ func (c *RPCClient) AccountInfo(ctx context.Context, acc rippledata.Account) (Ac
 func (c *RPCClient) AccountLines(
 	ctx context.Context,
 	account rippledata.Account,
-	ledgerIndex interface{},
+	ledgerIndex any,
 	marker *rippledata.Hash256,
 ) (AccountLinesResult, error) {
 	params := AccountLinesRequest{
@@ -214,6 +241,37 @@ func (c *RPCClient) Tx(ctx context.Context, hash rippledata.Hash256) (TxResult, 
 	return result, nil
 }
 
+// LedgerCurrent returns information about current ledger.
+func (c *RPCClient) LedgerCurrent(ctx context.Context) (LedgerCurrentResult, error) {
+	var result LedgerCurrentResult
+	if err := c.callRPC(ctx, "ledger_current", struct{}{}, &result); err != nil {
+		return LedgerCurrentResult{}, err
+	}
+
+	return result, nil
+}
+
+// AccountTx returns paginated account transactions.
+// Use minLedger -1 for the earliest ledger available.
+// Use maxLedger -1 for the most recent validated ledger.
+func (c *RPCClient) AccountTx(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (AccountTxResult, error) {
+	params := AccountTxRequest{
+		Account:   account,
+		MinLedger: minLedger,
+		MaxLedger: maxLedger,
+		Binary:    false,
+		Forward:   false,
+		Limit:     c.cfg.PageLimit,
+		Marker:    marker,
+	}
+	var result AccountTxResult
+	if err := c.callRPC(ctx, "account_tx", params, &result); err != nil {
+		return AccountTxResult{}, err
+	}
+
+	return result, nil
+}
+
 func (c *RPCClient) callRPC(ctx context.Context, method string, params, result any) error {
 	request := rpcRequest{
 		Method: method,
@@ -221,10 +279,10 @@ func (c *RPCClient) callRPC(ctx context.Context, method string, params, result a
 			params,
 		},
 	}
-	c.log.Debug("Executing XRPL RPC request", logger.NewFiled("request", request))
+	c.log.Debug("Executing XRPL RPC request", logger.AnyFiled("request", request))
 
 	err := c.httpClient.DoJSON(ctx, http.MethodPost, c.cfg.URL, request, func(resBytes []byte) error {
-		c.log.Debug("Received XRPL RPC result", logger.NewFiled("result", string(resBytes)))
+		c.log.Debug("Received XRPL RPC result", logger.StringFiled("result", string(resBytes)))
 		errResponse := rpcResponse{
 			Result: &RPCError{},
 		}
