@@ -21,8 +21,7 @@ replace (
 require (
 	cosmossdk.io/math v1.1.2
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20230920110418-b30366f1b19b
-	// TODO(dzmitryhil) update with the master once it is merged
-	github.com/CoreumFoundation/coreum/v3 v3.0.0-20230921140203-3e716cbeec41
+	github.com/CoreumFoundation/coreum/v3 v3.0.0-20230926091045-52c8d17ce588
 	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
 	github.com/samber/lo v1.38.1

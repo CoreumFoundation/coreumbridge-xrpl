@@ -104,7 +104,7 @@ jobs:
           key: ${{ runner.os }}-cache-smart-contracts-${{ hashFiles('./coreum/**/*.rs') }}
         if: ${{ matrix.wasm-cache }}
       - name: Run ${{ matrix.ci_step }}
-        working-directory: ./coreumbridge-xrpl/relayer
+        working-directory: ./coreumbridge-xrpl
         run: ${{ matrix.command }}
       - name: Dump docker logs on failure
         if: failure()
