@@ -87,6 +87,10 @@ mod tests {
             )
             .unwrap_err();
 
+        assert!(error
+            .to_string()
+            .contains("Need to send exactly the issue fee amount"));
+
         // We query the issued token by the contract instantiation (XRP)
         let query_response = assetft
             .query_tokens(&QueryTokensRequest {
@@ -94,10 +98,6 @@ mod tests {
                 issuer: contract_addr.clone(),
             })
             .unwrap();
-
-        assert!(error
-            .to_string()
-            .contains("Need to send exactly the issue fee amount"));
 
         assert_eq!(
             query_response.tokens[0],
@@ -328,6 +328,9 @@ mod tests {
             )
             .unwrap();
         assert_eq!(query_coreum_tokens.tokens.len(), 1);
-        assert_eq!(query_coreum_tokens.tokens[0].denom, "random_denom".to_string());
+        assert_eq!(
+            query_coreum_tokens.tokens[0].denom,
+            "random_denom".to_string()
+        );
     }
 }
