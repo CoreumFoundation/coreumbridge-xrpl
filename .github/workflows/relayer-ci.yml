@@ -15,6 +15,7 @@ jobs:
       matrix:
         ci_step: [
           "lint",
+          "test",
           "integration tests",
         ]
         include:
@@ -23,6 +24,12 @@ jobs:
             go-cache: true
             wasm-cache: true
             linter-cache: true
+            docker-cache: false
+          - ci_step: "lint"
+            command: "make test-relayer"
+            go-cache: true
+            wasm-cache: true
+            linter-cache: false
             docker-cache: false
           - ci_step: "integration tests"
             command: "make rebuild-dev-env && make restart-dev-env && make test-integration"

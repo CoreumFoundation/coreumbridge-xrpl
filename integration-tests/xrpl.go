@@ -2,20 +2,25 @@ package integrationtests
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
-	ripplecrypto "github.com/rubblelabs/ripple/crypto"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/http"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
+	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
+	creumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
+	coreumkeyring "github.com/CoreumFoundation/coreum/v3/pkg/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client/xrpl"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
@@ -26,50 +31,10 @@ const (
 
 	xrplTxFee                   = "100"
 	xrplRserveToActivateAccount = float64(10)
-	ecdsaKeyType                = rippledata.ECDSA
+
+	ecdsaKeyType         = rippledata.ECDSA
+	faucetKeyringKeyName = "faucet"
 )
-
-// ********** Wallet **********
-
-// XRPLWallet is XRPL wallet.
-type XRPLWallet struct {
-	Key      ripplecrypto.Key
-	Sequence *uint32
-	Account  rippledata.Account
-}
-
-// NewXRPLWalletFromSeedPhrase returns the XRPLWallet generated for the provided seed.
-func NewXRPLWalletFromSeedPhrase(seedPhrase string) (XRPLWallet, error) {
-	seed, err := rippledata.NewSeedFromAddress(seedPhrase)
-	if err != nil {
-		return XRPLWallet{}, errors.Wrapf(err, "failed to create wallet from seed")
-	}
-
-	key := seed.Key(ecdsaKeyType)
-	seq := lo.ToPtr(uint32(0))
-	account := seed.AccountId(ecdsaKeyType, seq)
-
-	return XRPLWallet{
-		Key:      key,
-		Sequence: seq,
-		Account:  account,
-	}, nil
-}
-
-// MultiSign multi-signs the transaction and returns the signer.
-func (w XRPLWallet) MultiSign(tx rippledata.MultiSignable) (rippledata.Signer, error) {
-	if err := rippledata.MultiSign(tx, w.Key, w.Sequence, w.Account); err != nil {
-		return rippledata.Signer{}, err
-	}
-
-	return rippledata.Signer{
-		Signer: rippledata.SignerItem{
-			Account:       w.Account,
-			TxnSignature:  tx.GetSignature(),
-			SigningPubKey: tx.GetPublicKey(),
-		},
-	}, nil
-}
 
 // ********** XRPLChain **********
 
@@ -81,17 +46,21 @@ type XRPLChainConfig struct {
 
 // XRPLChain is XRPL chain for the testing.
 type XRPLChain struct {
-	cfg           XRPLChainConfig
-	fundingWallet XRPLWallet
-	rpcClient     *xrpl.RPCClient
-	fundMu        *sync.Mutex
+	cfg       XRPLChainConfig
+	signer    *xrpl.KeyringTxSigner
+	rpcClient *xrpl.RPCClient
+	fundMu    *sync.Mutex
 }
 
 // NewXRPLChain returns the new instance of the XRPL chain.
 func NewXRPLChain(cfg XRPLChainConfig, log logger.Logger) (XRPLChain, error) {
-	fundingWallet, err := NewXRPLWalletFromSeedPhrase(cfg.FundingSeed)
+	kr := createInMemoryKeyring()
+	faucetPrivateKey, err := extractPrivateKeyFromSeed(cfg.FundingSeed)
 	if err != nil {
 		return XRPLChain{}, err
+	}
+	if err := kr.ImportPrivKeyHex(faucetKeyringKeyName, faucetPrivateKey, string(hd.Secp256k1Type)); err != nil {
+		return XRPLChain{}, errors.Wrapf(err, "failed to import private key to keyring")
 	}
 
 	rpcClient := xrpl.NewRPCClient(
@@ -100,11 +69,13 @@ func NewXRPLChain(cfg XRPLChainConfig, log logger.Logger) (XRPLChain, error) {
 		http.NewRetryableClient(http.DefaultClientConfig()),
 	)
 
+	signer := xrpl.NewKeyringTxSigner(kr)
+
 	return XRPLChain{
-		cfg:           cfg,
-		fundingWallet: fundingWallet,
-		rpcClient:     rpcClient,
-		fundMu:        &sync.Mutex{},
+		cfg:       cfg,
+		signer:    signer,
+		rpcClient: rpcClient,
+		fundMu:    &sync.Mutex{},
 	}, nil
 }
 
@@ -118,31 +89,43 @@ func (c XRPLChain) RPCClient() *xrpl.RPCClient {
 	return c.rpcClient
 }
 
-// GenWallet generates the active wallet with the initial provided amount.
-func (c XRPLChain) GenWallet(ctx context.Context, t *testing.T, amount float64) XRPLWallet {
+// GenAccount generates the active signer with the initial provided amount.
+func (c XRPLChain) GenAccount(ctx context.Context, t *testing.T, amount float64) rippledata.Account {
 	t.Helper()
 
-	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	b := make([]byte, 10)
-	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
-	}
-
-	familySeed, err := ripplecrypto.GenerateFamilySeed(string(b))
-	if err != nil {
-		panic(err)
-	}
-	seed, err := rippledata.NewSeedFromAddress(familySeed.String())
-	if err != nil {
-		panic(err)
-	}
-
-	wallet, err := NewXRPLWalletFromSeedPhrase(seed.String())
+	const signerKeyName = "signer"
+	kr := createInMemoryKeyring()
+	_, mnemonic, err := kr.NewMnemonic(
+		signerKeyName,
+		keyring.English,
+		sdk.GetConfig().GetFullBIP44Path(),
+		"",
+		hd.Secp256k1,
+	)
+	require.NoError(t, err)
+	acc, err := xrpl.NewKeyringTxSigner(kr).Account(signerKeyName)
 	require.NoError(t, err)
 
-	c.FundAccount(ctx, t, wallet.Account, amount+xrplRserveToActivateAccount)
+	// reimport with the key as signer address
+	_, err = c.signer.GetKeyring().NewAccount(
+		acc.String(),
+		mnemonic,
+		"",
+		sdk.GetConfig().GetFullBIP44Path(),
+		hd.Secp256k1,
+	)
+	require.NoError(t, err)
 
-	return wallet
+	c.FundAccount(ctx, t, acc, amount+xrplRserveToActivateAccount)
+
+	return acc
+}
+
+// ActivateAccount funds the provided account with the amount required for the activation.
+func (c XRPLChain) ActivateAccount(ctx context.Context, t *testing.T, acc rippledata.Account) {
+	t.Helper()
+
+	c.FundAccount(ctx, t, acc, xrplRserveToActivateAccount)
 }
 
 // FundAccount funds the provided account with the provided amount.
@@ -162,24 +145,38 @@ func (c XRPLChain) FundAccount(ctx context.Context, t *testing.T, acc rippledata
 		},
 	}
 
+	fundingAcc, err := c.signer.Account(faucetKeyringKeyName)
+	require.NoError(t, err)
+	c.AutoFillTx(ctx, t, &fundXrpTx, fundingAcc)
+	require.NoError(t, c.signer.Sign(&fundXrpTx, faucetKeyringKeyName))
+
 	t.Logf("Funding account, account address: %s, amount: %f", acc, amount)
-	require.NoError(t, c.AutoFillSignAndSubmitTx(ctx, t, &fundXrpTx, c.fundingWallet))
+	require.NoError(t, c.SubmitTx(ctx, t, &fundXrpTx))
 	t.Logf("The account %s is funded", acc)
 }
 
 // AutoFillSignAndSubmitTx autofills the transaction and submits it.
-func (c XRPLChain) AutoFillSignAndSubmitTx(ctx context.Context, t *testing.T, tx rippledata.Transaction, wallet XRPLWallet) error {
+func (c XRPLChain) AutoFillSignAndSubmitTx(ctx context.Context, t *testing.T, tx rippledata.Transaction, acc rippledata.Account) error {
 	t.Helper()
 
-	c.AutoFillTx(ctx, t, tx, wallet.Account)
-	return c.SignAndSubmitTx(ctx, t, tx, wallet)
+	c.AutoFillTx(ctx, t, tx, acc)
+	return c.SignAndSubmitTx(ctx, t, tx, acc)
 }
 
-// SignAndSubmitTx signs the transaction from the wallet and submits it.
-func (c XRPLChain) SignAndSubmitTx(ctx context.Context, t *testing.T, tx rippledata.Transaction, wallet XRPLWallet) error {
+// Multisign signs the transaction for the multi-signing.
+func (c XRPLChain) Multisign(t *testing.T, tx rippledata.MultiSignable, acc rippledata.Account) rippledata.Signer {
 	t.Helper()
 
-	require.NoError(t, rippledata.Sign(tx, wallet.Key, wallet.Sequence))
+	txSigner, err := c.signer.MultiSign(tx, acc.String())
+	require.NoError(t, err)
+	return txSigner
+}
+
+// SignAndSubmitTx signs the transaction from the signer and submits it.
+func (c XRPLChain) SignAndSubmitTx(ctx context.Context, t *testing.T, tx rippledata.Transaction, acc rippledata.Account) error {
+	t.Helper()
+
+	require.NoError(t, c.signer.Sign(tx, acc.String()))
 	return c.SubmitTx(ctx, t, tx)
 }
 
@@ -279,6 +276,20 @@ func (c XRPLChain) AwaitLedger(ctx context.Context, t *testing.T, ledgerIndex in
 
 		return nil
 	}))
+}
+
+func extractPrivateKeyFromSeed(seedPhrase string) (string, error) {
+	seed, err := rippledata.NewSeedFromAddress(seedPhrase)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to create rippledata seed from seed phrase")
+	}
+	key := seed.Key(ecdsaKeyType)
+	return hex.EncodeToString(key.Private(lo.ToPtr(uint32(0)))), nil
+}
+
+func createInMemoryKeyring() keyring.Keyring {
+	encodingConfig := creumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
+	return coreumkeyring.NewConcurrentSafeKeyring(keyring.NewInMemory(encodingConfig.Codec))
 }
 
 // ExtractTicketsFromMeta extracts tickets info from the tx metadata.

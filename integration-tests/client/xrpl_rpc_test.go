@@ -19,23 +19,23 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	issuerWallet := chains.XRPL.GenWallet(ctx, t, 10)
-	t.Logf("Issuer account: %s", issuerWallet.Account)
+	issuerAcc := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Issuer account: %s", issuerAcc)
 
-	recipientWallet := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Recipient account: %s", recipientWallet.Account)
+	recipientAcc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Recipient account: %s", recipientAcc)
 
 	xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 	require.NoError(t, err)
 	xrpPaymentTx := rippledata.Payment{
-		Destination: recipientWallet.Account,
+		Destination: recipientAcc,
 		Amount:      *xrpAmount,
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
 
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, issuerWallet))
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, issuerAcc))
 
 	// allow the FOO coin issued by the issuer to be received by the recipient
 	const fooCurrencyCode = "FOO"
@@ -47,31 +47,31 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 		LimitAmount: rippledata.Amount{
 			Value:    fooCurrencyTrustSetValue,
 			Currency: fooCurrency,
-			Issuer:   issuerWallet.Account,
+			Issuer:   issuerAcc,
 		},
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.TRUST_SET,
 		},
 	}
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooCurrencyTrustSetTx, recipientWallet))
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooCurrencyTrustSetTx, recipientAcc))
 
 	// send/issue the FOO token
 	fooAmount, err := rippledata.NewValue("100000", false)
 	require.NoError(t, err)
 	fooPaymentTx := rippledata.Payment{
-		Destination: recipientWallet.Account,
+		Destination: recipientAcc,
 		Amount: rippledata.Amount{
 			Value:    fooAmount,
 			Currency: fooCurrency,
-			Issuer:   issuerWallet.Account,
+			Issuer:   issuerAcc,
 		},
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	t.Logf("Recipinet account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientWallet.Account))
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooPaymentTx, issuerWallet))
-	t.Logf("Recipinet account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientWallet.Account))
+	t.Logf("Recipinet account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooPaymentTx, issuerAcc))
+	t.Logf("Recipinet account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
 }
 
 func TestMultisigPayment(t *testing.T) {
@@ -79,36 +79,36 @@ func TestMultisigPayment(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	multisigWallet := chains.XRPL.GenWallet(ctx, t, 10)
-	t.Logf("Multisig account: %s", multisigWallet.Account)
+	multisigAcc := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Multisig account: %s", multisigAcc)
 
-	wallet1 := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Wallet1 account: %s", wallet1.Account)
+	signer1Acc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Signer1 account: %s", signer1Acc)
 
-	wallet2 := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Wallet2 account: %s", wallet2.Account)
+	signer2Acc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Signer2 account: %s", signer2Acc)
 
-	wallet3 := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Wallet3 account: %s", wallet3.Account)
+	signer3Acc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Signer3 account: %s", signer3Acc)
 
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum: 2, // weighted threshold
 		SignerEntries: []rippledata.SignerEntry{
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &wallet1.Account,
+					Account:      &signer1Acc,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &wallet2.Account,
+					Account:      &signer2Acc,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &wallet3.Account,
+					Account:      &signer3Acc,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
@@ -117,28 +117,25 @@ func TestMultisigPayment(t *testing.T) {
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigWallet))
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigAcc))
 	t.Logf("The signers set is updated")
 
-	xrplPaymentTx := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigWallet.Account, wallet1.Account)
-	signer1, err := wallet1.MultiSign(&xrplPaymentTx)
-	require.NoError(t, err)
+	xrplPaymentTx := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAcc, signer1Acc)
+	signer1 := chains.XRPL.Multisign(t, &xrplPaymentTx, signer1Acc)
 
-	xrplPaymentTx = buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigWallet.Account, wallet1.Account)
-	signer2, err := wallet2.MultiSign(&xrplPaymentTx)
-	require.NoError(t, err)
+	xrplPaymentTx = buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAcc, signer1Acc)
+	signer2 := chains.XRPL.Multisign(t, &xrplPaymentTx, signer2Acc)
 
-	xrplPaymentTx = buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigWallet.Account, wallet1.Account)
-	signer3, err := wallet3.MultiSign(&xrplPaymentTx)
-	require.NoError(t, err)
+	xrplPaymentTx = buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAcc, signer1Acc)
+	signer3 := chains.XRPL.Multisign(t, &xrplPaymentTx, signer3Acc)
 
-	xrpPaymentTxTwoSigners := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigWallet.Account, wallet1.Account)
+	xrpPaymentTxTwoSigners := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAcc, signer1Acc)
 	require.NoError(t, rippledata.SetSigners(&xrpPaymentTxTwoSigners, []rippledata.Signer{
 		signer1,
 		signer2,
 	}...))
 
-	xrpPaymentTxThreeSigners := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigWallet.Account, wallet1.Account)
+	xrpPaymentTxThreeSigners := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAcc, signer1Acc)
 	require.NoError(t, rippledata.SetSigners(&xrpPaymentTxThreeSigners, []rippledata.Signer{
 		signer1,
 		signer2,
@@ -162,11 +159,11 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	senderWallet := chains.XRPL.GenWallet(ctx, t, 10)
-	t.Logf("Sender account: %s", senderWallet.Account)
+	senderAcc := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Sender account: %s", senderAcc)
 
-	recipientWallet := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Recipient account: %s", recipientWallet.Account)
+	recipientAcc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Recipient account: %s", recipientAcc)
 
 	ticketsToCreate := 1
 	createTicketsTx := rippledata.TicketCreate{
@@ -175,7 +172,7 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 			TransactionType: rippledata.TICKET_CREATE,
 		},
 	}
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &createTicketsTx, senderWallet))
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &createTicketsTx, senderAcc))
 	txRes, err := chains.XRPL.RPCClient().Tx(ctx, *createTicketsTx.GetHash())
 	require.NoError(t, err)
 
@@ -190,11 +187,11 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 			TransactionType: rippledata.TICKET_CREATE,
 		},
 	}
-	chains.XRPL.AutoFillTx(ctx, t, &createTicketsTx, senderWallet.Account)
+	chains.XRPL.AutoFillTx(ctx, t, &createTicketsTx, senderAcc)
 	// reset sequence and add ticket
 	createTicketsTx.TxBase.Sequence = 0
 	createTicketsTx.TicketSequence = createdTickets[0].TicketSequence
-	require.NoError(t, chains.XRPL.SignAndSubmitTx(ctx, t, &createTicketsTx, senderWallet))
+	require.NoError(t, chains.XRPL.SignAndSubmitTx(ctx, t, &createTicketsTx, senderAcc))
 
 	txRes, err = chains.XRPL.RPCClient().Tx(ctx, *createTicketsTx.GetHash())
 	require.NoError(t, err)
@@ -206,20 +203,20 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 	require.NoError(t, err)
 	xrpPaymentTx := rippledata.Payment{
-		Destination: recipientWallet.Account,
+		Destination: recipientAcc,
 		Amount:      *xrpAmount,
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	chains.XRPL.AutoFillTx(ctx, t, &xrpPaymentTx, senderWallet.Account)
+	chains.XRPL.AutoFillTx(ctx, t, &xrpPaymentTx, senderAcc)
 	// reset sequence and add ticket
 	xrpPaymentTx.TxBase.Sequence = 0
 	xrpPaymentTx.TicketSequence = createdTickets[0].TicketSequence
 
-	t.Logf("Recipinet account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientWallet.Account))
-	require.NoError(t, chains.XRPL.SignAndSubmitTx(ctx, t, &xrpPaymentTx, senderWallet))
-	t.Logf("Recipinet account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientWallet.Account))
+	t.Logf("Recipinet account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
+	require.NoError(t, chains.XRPL.SignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
+	t.Logf("Recipinet account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
 
 	// try to use tickets for the transactions without the trust-line
 	const newFooCurrencyCode = "NFO"
@@ -230,37 +227,37 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	require.NoError(t, err)
 	ticketForFailingTx := createdTickets[1].TicketSequence
 	fooPaymentTx := rippledata.Payment{
-		Destination: recipientWallet.Account,
+		Destination: recipientAcc,
 		Amount: rippledata.Amount{
 			Value:    fooAmount,
 			Currency: fooCurrency,
-			Issuer:   senderWallet.Account,
+			Issuer:   senderAcc,
 		},
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	chains.XRPL.AutoFillTx(ctx, t, &fooPaymentTx, senderWallet.Account)
+	chains.XRPL.AutoFillTx(ctx, t, &fooPaymentTx, senderAcc)
 	// reset sequence and add ticket
 	fooPaymentTx.TxBase.Sequence = 0
 	fooPaymentTx.TicketSequence = ticketForFailingTx
 	// there is no trust set so the tx should fail and use the ticket
-	require.ErrorContains(t, chains.XRPL.SignAndSubmitTx(ctx, t, &fooPaymentTx, senderWallet), "Path could not send partial amount")
+	require.ErrorContains(t, chains.XRPL.SignAndSubmitTx(ctx, t, &fooPaymentTx, senderAcc), "Path could not send partial amount")
 
 	// try to reuse the ticket for the success tx
 	xrpPaymentTx = rippledata.Payment{
-		Destination: recipientWallet.Account,
+		Destination: recipientAcc,
 		Amount:      *xrpAmount,
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	chains.XRPL.AutoFillTx(ctx, t, &xrpPaymentTx, senderWallet.Account)
+	chains.XRPL.AutoFillTx(ctx, t, &xrpPaymentTx, senderAcc)
 	// reset sequence and add ticket
 	xrpPaymentTx.TxBase.Sequence = 0
 	xrpPaymentTx.TicketSequence = ticketForFailingTx
 	// the ticket is used in prev failed transaction so can't be used here
-	require.ErrorContains(t, chains.XRPL.SignAndSubmitTx(ctx, t, &fooPaymentTx, senderWallet), "Ticket is not in ledger")
+	require.ErrorContains(t, chains.XRPL.SignAndSubmitTx(ctx, t, &fooPaymentTx, senderAcc), "Ticket is not in ledger")
 }
 
 func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
@@ -268,18 +265,18 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	multisigWallet := chains.XRPL.GenWallet(ctx, t, 10)
-	t.Logf("Multisig account: %s", multisigWallet.Account)
+	multisigAcc := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Multisig account: %s", multisigAcc)
 
-	wallet1 := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Wallet1 account: %s", wallet1.Account)
+	signer1Acc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Signer1 account: %s", signer1Acc)
 
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum: 1, // weighted threshold
 		SignerEntries: []rippledata.SignerEntry{
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &wallet1.Account,
+					Account:      &signer1Acc,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
@@ -288,15 +285,14 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigWallet))
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigAcc))
 	t.Logf("The signers set is updated")
 
 	ticketsToCreate := uint32(1)
-	createTicketsTx := buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigWallet.Account)
-	signer1, err := wallet1.MultiSign(&createTicketsTx)
-	require.NoError(t, err)
+	createTicketsTx := buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigAcc)
+	signer1 := chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
 
-	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigWallet.Account)
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigAcc)
 	require.NoError(t, rippledata.SetSigners(&createTicketsTx, []rippledata.Signer{
 		signer1,
 	}...))
@@ -309,11 +305,11 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 	createdTickets := integrationtests.ExtractTicketsFromMeta(txRes)
 	require.Len(t, createdTickets, int(ticketsToCreate))
 
-	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, createdTickets[0].TicketSequence, multisigWallet.Account)
-	signer1, err = wallet1.MultiSign(&createTicketsTx)
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, createdTickets[0].TicketSequence, multisigAcc)
+	signer1 = chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
 	require.NoError(t, err)
 
-	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, createdTickets[0].TicketSequence, multisigWallet.Account)
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, createdTickets[0].TicketSequence, multisigAcc)
 	require.NoError(t, rippledata.SetSigners(&createTicketsTx, []rippledata.Signer{
 		signer1,
 	}...))
@@ -332,21 +328,21 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	multisigWallet := chains.XRPL.GenWallet(ctx, t, 10)
-	t.Logf("Multisig account: %s", multisigWallet.Account)
+	multisigAcc := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Multisig account: %s", multisigAcc)
 
-	wallet1 := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Wallet1 account: %s", wallet1.Account)
+	signer1Acc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Signer1 account: %s", signer1Acc)
 
-	wallet2 := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Wallet2 account: %s", wallet2.Account)
+	signer2Acc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Signer2 account: %s", signer2Acc)
 
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum: 1, // weighted threshold
 		SignerEntries: []rippledata.SignerEntry{
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &wallet1.Account,
+					Account:      &signer1Acc,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
@@ -355,15 +351,14 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigWallet))
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigAcc))
 
 	ticketsToCreate := uint32(2)
 
-	createTicketsTx := buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigWallet.Account)
-	signer1, err := wallet1.MultiSign(&createTicketsTx)
-	require.NoError(t, err)
+	createTicketsTx := buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigAcc)
+	signer1 := chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
 
-	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigWallet.Account)
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigAcc)
 	require.NoError(t, rippledata.SetSigners(&createTicketsTx, []rippledata.Signer{
 		signer1,
 	}...))
@@ -375,33 +370,30 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 	createdTickets := integrationtests.ExtractTicketsFromMeta(txRes)
 	require.Len(t, createdTickets, int(ticketsToCreate))
 
-	updateSignerListSetTx := buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, wallet2.Account, createdTickets[0].TicketSequence, multisigWallet.Account)
-	signer1, err = wallet1.MultiSign(&updateSignerListSetTx)
-	require.NoError(t, err)
+	updateSignerListSetTx := buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, signer2Acc, createdTickets[0].TicketSequence, multisigAcc)
+	signer1 = chains.XRPL.Multisign(t, &updateSignerListSetTx, signer1Acc)
 
-	updateSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, wallet2.Account, createdTickets[0].TicketSequence, multisigWallet.Account)
+	updateSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, signer2Acc, createdTickets[0].TicketSequence, multisigAcc)
 	require.NoError(t, rippledata.SetSigners(&updateSignerListSetTx, []rippledata.Signer{
 		signer1,
 	}...))
 	require.NoError(t, chains.XRPL.SubmitTx(ctx, t, &updateSignerListSetTx))
 
 	// try to sign and send with previous signer
-	restoreSignerListSetTx := buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, wallet1.Account, createdTickets[1].TicketSequence, multisigWallet.Account)
-	signer1, err = wallet1.MultiSign(&restoreSignerListSetTx)
-	require.NoError(t, err)
+	restoreSignerListSetTx := buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, signer1Acc, createdTickets[1].TicketSequence, multisigAcc)
+	signer1 = chains.XRPL.Multisign(t, &restoreSignerListSetTx, signer1Acc)
 
-	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, wallet1.Account, createdTickets[1].TicketSequence, multisigWallet.Account)
+	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, signer1Acc, createdTickets[1].TicketSequence, multisigAcc)
 	require.NoError(t, rippledata.SetSigners(&restoreSignerListSetTx, []rippledata.Signer{
 		signer1,
 	}...))
 	require.ErrorContains(t, chains.XRPL.SubmitTx(ctx, t, &restoreSignerListSetTx), "A signature is provided for a non-signer")
 
 	// build and send with correct signer
-	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, wallet1.Account, createdTickets[1].TicketSequence, multisigWallet.Account)
-	signer2, err := wallet2.MultiSign(&restoreSignerListSetTx)
-	require.NoError(t, err)
+	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, signer1Acc, createdTickets[1].TicketSequence, multisigAcc)
+	signer2 := chains.XRPL.Multisign(t, &restoreSignerListSetTx, signer2Acc)
 
-	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, wallet1.Account, createdTickets[1].TicketSequence, multisigWallet.Account)
+	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, signer1Acc, createdTickets[1].TicketSequence, multisigAcc)
 	require.NoError(t, rippledata.SetSigners(&restoreSignerListSetTx, []rippledata.Signer{
 		signer2,
 	}...))
@@ -413,27 +405,27 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	multisigWalletToDisable := chains.XRPL.GenWallet(ctx, t, 10)
-	t.Logf("Multisig account: %s", multisigWalletToDisable.Account)
+	multisigAccToDisable := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Multisig account: %s", multisigAccToDisable)
 
-	wallet1 := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Wallet1 account: %s", wallet1.Account)
+	signer1Acc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Signer1 account: %s", signer1Acc)
 
-	wallet2 := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Wallet2 account: %s", wallet2.Account)
+	signer2Acc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Signer2 account: %s", signer2Acc)
 
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum: 2, // weighted threshold
 		SignerEntries: []rippledata.SignerEntry{
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &wallet1.Account,
+					Account:      &signer1Acc,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
 			{
 				SignerEntry: rippledata.SignerEntryItem{
-					Account:      &wallet2.Account,
+					Account:      &signer2Acc,
 					SignerWeight: lo.ToPtr(uint16(1)),
 				},
 			},
@@ -442,33 +434,31 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigWalletToDisable))
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigAccToDisable))
 	t.Logf("The signers set is updated")
 
 	// disable master key now to be able to use multi-signing only
 	disableMasterKeyTx := rippledata.AccountSet{
 		TxBase: rippledata.TxBase{
-			Account:         multisigWalletToDisable.Account,
+			Account:         multisigAccToDisable,
 			TransactionType: rippledata.ACCOUNT_SET,
 		},
 		SetFlag: lo.ToPtr(uint32(4)),
 	}
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &disableMasterKeyTx, multisigWalletToDisable))
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &disableMasterKeyTx, multisigAccToDisable))
 	t.Logf("The master key is disabled")
 
 	// try to update signers one more time
-	require.ErrorContains(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigWalletToDisable), "Master key is disabled")
+	require.ErrorContains(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigAccToDisable), "Master key is disabled")
 
 	// now use multi-signing for the account
-	xrpPaymentTx := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigWalletToDisable.Account, wallet1.Account)
-	signer1, err := wallet1.MultiSign(&xrpPaymentTx)
-	require.NoError(t, err)
+	xrpPaymentTx := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAccToDisable, signer1Acc)
+	signer1 := chains.XRPL.Multisign(t, &xrpPaymentTx, signer1Acc)
 
-	xrpPaymentTx = buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigWalletToDisable.Account, wallet1.Account)
-	signer2, err := wallet2.MultiSign(&xrpPaymentTx)
-	require.NoError(t, err)
+	xrpPaymentTx = buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAccToDisable, signer1Acc)
+	signer2 := chains.XRPL.Multisign(t, &xrpPaymentTx, signer2Acc)
 
-	xrpPaymentTx = buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigWalletToDisable.Account, wallet1.Account)
+	xrpPaymentTx = buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAccToDisable, signer1Acc)
 	require.NoError(t, rippledata.SetSigners(&xrpPaymentTx, []rippledata.Signer{
 		signer1,
 		signer2,
@@ -493,27 +483,27 @@ func TestAccountTx(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	senderWallet := chains.XRPL.GenWallet(ctx, t, 10)
-	t.Logf("Sender account: %s", senderWallet.Account)
+	senderAcc := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Sender account: %s", senderAcc)
 
-	recipientWallet := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Recipient account: %s", recipientWallet.Account)
+	recipientAcc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Recipient account: %s", recipientAcc)
 
 	// send 4 txs from is the sender to the recipient
 	for i := 0; i < 4; i++ {
 		xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 		require.NoError(t, err)
 		xrpPaymentTx := rippledata.Payment{
-			Destination: recipientWallet.Account,
+			Destination: recipientAcc,
 			Amount:      *xrpAmount,
 			TxBase: rippledata.TxBase{
 				TransactionType: rippledata.PAYMENT,
 			},
 		}
-		require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderWallet))
+		require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
 	}
 
-	accountTxRes, err := chains.XRPL.RPCClient().AccountTx(ctx, senderWallet.Account, -1, -1, nil)
+	accountTxRes, err := chains.XRPL.RPCClient().AccountTx(ctx, senderAcc, -1, -1, nil)
 	require.NoError(t, err)
 	require.Len(t, accountTxRes.Transactions, 5) // faucet send + 4 more
 }
