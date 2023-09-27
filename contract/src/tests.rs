@@ -15,7 +15,8 @@ mod tests {
         state::Config,
     };
     const FEE_DENOM: &str = "ucore";
-    const XRP_SYMBOL: &str = "xrp";
+    const XRP_SYMBOL: &str = "XRL";
+    const XRP_SUBUNIT: &str = "drop";
 
     fn store_and_instantiate(
         wasm: &Wasm<'_, CoreumTestApp>,
@@ -98,10 +99,10 @@ mod tests {
         assert_eq!(
             query_response.tokens[0],
             Token {
-                denom: format!("{}-{}", XRP_SYMBOL, contract_addr.to_lowercase()),
+                denom: format!("{}-{}", XRP_SUBUNIT, contract_addr.to_lowercase()),
                 issuer: contract_addr.clone(),
                 symbol: XRP_SYMBOL.to_string(),
-                subunit: XRP_SYMBOL.to_string(),
+                subunit: XRP_SUBUNIT.to_string(),
                 precision: 6,
                 description: "".to_string(),
                 globally_frozen: false,
@@ -233,7 +234,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             query_xrpl_tokens.tokens[0].coreum_denom,
-            format!("{}-{}", XRP_SYMBOL, &contract_addr.to_lowercase())
+            format!("{}-{}", XRP_SUBUNIT, &contract_addr.to_lowercase())
         );
     }
 
@@ -258,14 +259,14 @@ mod tests {
             .query::<QueryMsg, XrplTokenResponse>(
                 &contract_addr,
                 &QueryMsg::XrplToken {
-                    issuer: XRP_SYMBOL.to_string(),
-                    currency: XRP_SYMBOL.to_string(),
+                    issuer: None,
+                    currency: None,
                 },
             )
             .unwrap();
         assert_eq!(
             query_xrpl_token.token.coreum_denom,
-            format!("{}-{}", XRP_SYMBOL, &contract_addr.to_lowercase())
+            format!("{}-{}", XRP_SUBUNIT, &contract_addr.to_lowercase())
         );
     }
 

@@ -31,8 +31,8 @@ pub struct Config {
 
 #[cw_serde]
 pub struct TokenXRP {
-    pub issuer: String,
-    pub currency: String,
+    pub issuer: Option<String>,
+    pub currency: Option<String>,
     pub coreum_denom: String,
 }
 

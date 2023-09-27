@@ -36,7 +36,7 @@ pub enum QueryMsg {
         limit: Option<u32>,
     },
     #[returns(XrplTokenResponse)]
-    XrplToken { issuer: String, currency: String },
+    XrplToken { issuer: Option<String>, currency: Option<String> },
     #[returns(CoreumTokenResponse)]
     CoreumToken { denom: String },
 }

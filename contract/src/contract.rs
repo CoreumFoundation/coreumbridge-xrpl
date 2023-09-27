@@ -4,7 +4,10 @@ use crate::{
         CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
         XrplTokenResponse, XrplTokensResponse,
     },
-    state::{Config, TokenCoreum, TokenXRP, CONFIG, TOKENS_COREUM, TOKENS_XRPL, XRPL_CURRENCIES, ContractActions},
+    state::{
+        Config, ContractActions, TokenCoreum, TokenXRP, CONFIG, TOKENS_COREUM, TOKENS_XRPL,
+        XRPL_CURRENCIES,
+    },
 };
 use base64::{engine::general_purpose, Engine as _};
 use coreum_wasm_sdk::{
@@ -26,7 +29,9 @@ const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const DEFAULT_MAX_LIMIT: u32 = 250;
-const XRP_SYMBOL: &str = "xrp";
+const XRP_SYMBOL: &str = "XRL";
+const XRP_SUBUNIT: &str = "drop";
+
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -70,7 +75,7 @@ pub fn instantiate(
 
     let xrp_issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
         symbol: XRP_SYMBOL.to_string(),
-        subunit: XRP_SYMBOL.to_string(),
+        subunit: XRP_SUBUNIT.to_string(),
         precision: 6,
         initial_amount: Uint128::zero(),
         description: None,
@@ -79,21 +84,17 @@ pub fn instantiate(
         send_commission_rate: Some("0.0".to_string()),
     }));
 
-    let xrp_in_coreum = format!("{}-{}", XRP_SYMBOL, env.contract.address).to_lowercase();
+    let xrp_in_coreum = format!("{}-{}", XRP_SUBUNIT, env.contract.address).to_lowercase();
 
     //We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
     //a token we can inform the relayers of what is being sent back.
     let token = TokenXRP {
-        issuer: XRP_SYMBOL.to_string(),
-        currency: XRP_SYMBOL.to_string(),
+        issuer: None,
+        currency: None,
         coreum_denom: xrp_in_coreum,
     };
 
-    TOKENS_XRPL.save(
-        deps.storage,
-        format!("{}{}", XRP_SYMBOL, XRP_SYMBOL),
-        &token,
-    )?;
+    TOKENS_XRPL.save(deps.storage, XRP_SYMBOL.to_string(), &token)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::Instantiation.as_str())
@@ -240,9 +241,19 @@ fn query_coreum_tokens(
     Ok(CoreumTokensResponse { tokens })
 }
 
-fn query_xrpl_token(deps: Deps, issuer: String, currency: String) -> StdResult<XrplTokenResponse> {
-    let mut key = issuer;
-    key.push_str(&currency);
+fn query_xrpl_token(
+    deps: Deps,
+    issuer: Option<String>,
+    currency: Option<String>,
+) -> StdResult<XrplTokenResponse> {
+    let mut key;
+    if issuer.is_none() && currency.is_none() {
+        key = XRP_SYMBOL.to_string();
+    } else {
+        key = issuer.unwrap();
+        key.push_str(&currency.unwrap());
+    }
+
     let token = TOKENS_XRPL.load(deps.storage, key)?;
 
     Ok(XrplTokenResponse { token })
