@@ -4,7 +4,7 @@ use crate::{
         CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
         XrplTokenResponse, XrplTokensResponse,
     },
-    state::{Config, TokenCoreum, TokenXRP, CONFIG, TOKENS_COREUM, TOKENS_XRPL, XRPL_CURRENCIES},
+    state::{Config, TokenCoreum, TokenXRP, CONFIG, TOKENS_COREUM, TOKENS_XRPL, XRPL_CURRENCIES, ContractActions},
 };
 use base64::{engine::general_purpose, Engine as _};
 use coreum_wasm_sdk::{
@@ -27,6 +27,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const DEFAULT_MAX_LIMIT: u32 = 250;
 const XRP_SYMBOL: &str = "xrp";
+const COREUM_PREFIX: &str = "coreum";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -95,7 +96,7 @@ pub fn instantiate(
     )?;
 
     Ok(Response::new()
-        .add_attribute("action", "bridge_instantiation")
+        .add_attribute("action", ContractActions::Instantiation.as_str())
         .add_attribute("contract_name", CONTRACT_NAME)
         .add_attribute("contract_version", CONTRACT_VERSION)
         .add_attribute("admin", info.sender)
@@ -158,7 +159,7 @@ fn register_coreum_token(
         .to_string()
         .to_lowercase();
 
-    let xrpl_currency = format!("{}{}", "coreum", base64_string);
+    let xrpl_currency = format!("{}{}", COREUM_PREFIX, base64_string);
 
     if XRPL_CURRENCIES.has(deps.storage, xrpl_currency.clone()) {
         return Err(ContractError::RegistrationFailure {});
@@ -173,7 +174,7 @@ fn register_coreum_token(
     TOKENS_COREUM.save(deps.storage, denom.clone(), &token)?;
 
     Ok(Response::new()
-        .add_attribute("action", "register_coreum_token")
+        .add_attribute("action", ContractActions::RegisterCoreumToken.as_str())
         .add_attribute("denom", denom)
         .add_attribute("decimals", decimals.to_string())
         .add_attribute("xrpl_currency_for_denom", xrpl_currency))

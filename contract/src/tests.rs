@@ -295,10 +295,12 @@ mod tests {
             50,
         );
 
+        let test_denom = "random_denom".to_string();
+
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterCoreumToken {
-                denom: "random_denom".to_string(),
+                denom: test_denom.clone(),
                 decimals: 6,
             },
             &vec![],
@@ -311,7 +313,7 @@ mod tests {
             .query::<QueryMsg, CoreumTokenResponse>(
                 &contract_addr,
                 &QueryMsg::CoreumToken {
-                    denom: "random_denom".to_string(),
+                    denom: test_denom.clone(),
                 },
             )
             .unwrap();
@@ -331,7 +333,7 @@ mod tests {
         assert_eq!(query_coreum_tokens.tokens.len(), 1);
         assert_eq!(
             query_coreum_tokens.tokens[0].denom,
-            "random_denom".to_string()
+            test_denom
         );
     }
 }
