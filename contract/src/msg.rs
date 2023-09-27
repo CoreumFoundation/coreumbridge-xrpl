@@ -11,8 +11,6 @@ pub struct InstantiateMsg {
     pub relayers: Vec<Addr>,
     //How many relayers need to provide evidence for a message
     pub evidence_threshold: u32,
-    //If used tickets go over this amount we need to request new ones
-    pub max_used_tickets: u32,
 }
 
 #[cw_ownable_execute]

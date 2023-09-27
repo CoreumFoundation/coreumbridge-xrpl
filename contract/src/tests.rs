@@ -23,7 +23,6 @@ mod tests {
         owner: Addr,
         relayers: Vec<Addr>,
         evidence_threshold: u32,
-        max_used_tickets: u32,
     ) -> String {
         let wasm_byte_code = std::fs::read("./artifacts/coreumbridge_xrpl.wasm").unwrap();
         let code_id = wasm
@@ -37,7 +36,6 @@ mod tests {
                 owner,
                 relayers,
                 evidence_threshold,
-                max_used_tickets,
             },
             None,
             "label".into(),
@@ -66,7 +64,6 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
-            50,
         );
         assert!(!contract_addr.is_empty());
 
@@ -78,7 +75,6 @@ mod tests {
                     owner: Addr::unchecked(signer.address()),
                     relayers: vec![Addr::unchecked(signer.address())],
                     evidence_threshold: 1,
-                    max_used_tickets: 50,
                 },
                 None,
                 "label".into(),
@@ -139,7 +135,6 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
-            50,
         );
 
         //Query current admin
@@ -198,7 +193,6 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
-            50,
         );
 
         let query_config = wasm
@@ -226,7 +220,6 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
-            50,
         );
 
         let query_xrpl_tokens = wasm
@@ -259,7 +252,6 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
-            50,
         );
 
         let query_xrpl_token = wasm
@@ -292,7 +284,6 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
-            50,
         );
 
         let test_denom = "random_denom".to_string();
