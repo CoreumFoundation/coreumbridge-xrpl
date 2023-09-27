@@ -6,7 +6,7 @@ use crate::state::{Config, TokenCoreum, TokenXRP};
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub admin: Addr,
+    pub owner: Addr,
     //Addresses allowed to relay messages
     pub relayers: Vec<Addr>,
     //How many relayers need to provide evidence for a message

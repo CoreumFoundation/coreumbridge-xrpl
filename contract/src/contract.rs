@@ -40,7 +40,7 @@ pub fn instantiate(
     initialize_owner(
         deps.storage,
         deps.api,
-        Some(deps.api.addr_validate(msg.admin.as_ref())?.as_ref()),
+        Some(deps.api.addr_validate(msg.owner.as_ref())?.as_ref()),
     )?;
 
     for address in msg.relayers.clone() {

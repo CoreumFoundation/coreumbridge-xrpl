@@ -20,7 +20,7 @@ mod tests {
     fn store_and_instantiate(
         wasm: &Wasm<'_, CoreumTestApp>,
         signer: &SigningAccount,
-        admin: Addr,
+        owner: Addr,
         relayers: Vec<Addr>,
         evidence_threshold: u32,
         max_used_tickets: u32,
@@ -34,7 +34,7 @@ mod tests {
         wasm.instantiate(
             code_id,
             &InstantiateMsg {
-                admin,
+                owner,
                 relayers,
                 evidence_threshold,
                 max_used_tickets,
@@ -75,7 +75,7 @@ mod tests {
             .instantiate(
                 1,
                 &InstantiateMsg {
-                    admin: Addr::unchecked(signer.address()),
+                    owner: Addr::unchecked(signer.address()),
                     relayers: vec![Addr::unchecked(signer.address())],
                     evidence_threshold: 1,
                     max_used_tickets: 50,
