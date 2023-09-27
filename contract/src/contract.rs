@@ -27,7 +27,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const DEFAULT_MAX_LIMIT: u32 = 250;
 const XRP_SYMBOL: &str = "xrp";
-const COREUM_PREFIX: &str = "coreum";
+const COREUM_CURRENCY_PREFIX: &str = "coreum";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -159,7 +159,7 @@ fn register_coreum_token(
         .to_string()
         .to_lowercase();
 
-    let xrpl_currency = format!("{}{}", COREUM_PREFIX, base64_string);
+    let xrpl_currency = format!("{}{}", COREUM_CURRENCY_PREFIX, base64_string);
 
     if XRPL_CURRENCIES.has(deps.storage, xrpl_currency.clone()) {
         return Err(ContractError::RegistrationFailure {});
