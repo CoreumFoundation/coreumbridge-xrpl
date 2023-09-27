@@ -21,8 +21,8 @@ import (
 	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
 	creumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
 	coreumkeyring "github.com/CoreumFoundation/coreum/v3/pkg/keyring"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client/xrpl"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 const (

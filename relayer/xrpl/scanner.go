@@ -11,7 +11,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
-//go:generate mockgen -destination=scanner_mocks.go -package=xrpl . RPCTxProvider
+//go:generate mockgen -destination=scanner_mocks_test.go -package=xrpl_test . RPCTxProvider
 
 // RPCTxProvider is RPC transactions provider.
 type RPCTxProvider interface {

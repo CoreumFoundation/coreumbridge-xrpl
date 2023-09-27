@@ -45,7 +45,7 @@ func init() {
 	if err != nil {
 		panic(errors.WithStack(err))
 	}
-	log := logger.NewZapLogger(zapDevLogger)
+	log := logger.NewZapLoggerFromLogger(zapDevLogger)
 	chains.Log = log
 
 	coreumChain, err := NewCoreumChain(coreumCfg)

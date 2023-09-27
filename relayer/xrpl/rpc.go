@@ -1,4 +1,4 @@
-//nolint:tagliatelle //contract spec
+//nolint:tagliatelle // contract spec
 package xrpl
 
 import (
@@ -103,16 +103,12 @@ func (txr *TxResult) UnmarshalJSON(b []byte) error {
 }
 
 // LedgerCurrentResult is `ledger_current` method request.
-//
-//nolint:tagliatelle //contract spec
 type LedgerCurrentResult struct {
 	LedgerCurrentIndex int64  `json:"ledger_current_index"`
 	Status             string `json:"status"`
 }
 
 // AccountTxRequest is `account_tx` method request.
-//
-//nolint:tagliatelle //contract spec
 type AccountTxRequest struct {
 	Account   rippledata.Account `json:"account"`
 	MinLedger int64              `json:"ledger_index_min"`

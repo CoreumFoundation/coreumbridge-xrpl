@@ -1,4 +1,4 @@
-package xrpl
+package xrpl_test
 
 import (
 	"context"
@@ -15,9 +15,12 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestAccountScanner_ScanTxs(t *testing.T) {
+	t.Parallel()
+
 	// set the time to prevent infinite test
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	t.Cleanup(cancel)
@@ -29,27 +32,27 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		cfg           AccountScannerConfig
-		rpcTxProvider func(ctrl *gomock.Controller) RPCTxProvider
+		cfg           xrpl.AccountScannerConfig
+		rpcTxProvider func(ctrl *gomock.Controller) xrpl.RPCTxProvider
 		wantTxHashes  []string
 		wantErr       bool
 	}{
 		{
 			name: "full_scan_positive_with_retry_two_pages",
-			cfg: AccountScannerConfig{
+			cfg: xrpl.AccountScannerConfig{
 				Account:         *account,
 				FullScanEnabled: true,
 				RetryDelay:      time.Millisecond,
 			},
-			rpcTxProvider: func(ctrl *gomock.Controller) RPCTxProvider {
+			rpcTxProvider: func(ctrl *gomock.Controller) xrpl.RPCTxProvider {
 				mockedProvider := NewMockRPCTxProvider(ctrl)
 				callNumber := 0
 				mockedProvider.EXPECT().AccountTx(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (AccountTxResult, error) {
+					func(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (xrpl.AccountTxResult, error) {
 						callNumber++
 						switch callNumber {
 						case 1:
-							return AccountTxResult{
+							return xrpl.AccountTxResult{
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"1": 1,
 									"2": 2,
@@ -59,9 +62,9 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 							}, nil
 						// emulate error
 						case 2:
-							return AccountTxResult{}, errors.New("error")
+							return xrpl.AccountTxResult{}, errors.New("error")
 						case 3:
-							return AccountTxResult{
+							return xrpl.AccountTxResult{
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"4": 3,
 									"5": 4,
@@ -80,28 +83,28 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 		},
 		{
 			name: "recent_scan_positive_with_retry_four_pages",
-			cfg: AccountScannerConfig{
+			cfg: xrpl.AccountScannerConfig{
 				Account:           *account,
 				RecentScanEnabled: true,
 				RecentScanWindow:  10,
 				RepeatRecentScan:  true,
 				RetryDelay:        time.Millisecond,
 			},
-			rpcTxProvider: func(ctrl *gomock.Controller) RPCTxProvider {
+			rpcTxProvider: func(ctrl *gomock.Controller) xrpl.RPCTxProvider {
 				mockedProvider := NewMockRPCTxProvider(ctrl)
 
-				mockedProvider.EXPECT().LedgerCurrent(ctx).Return(LedgerCurrentResult{
+				mockedProvider.EXPECT().LedgerCurrent(ctx).Return(xrpl.LedgerCurrentResult{
 					LedgerCurrentIndex: 100,
 				}, nil)
 
 				callNumber := 0
 				mockedProvider.EXPECT().AccountTx(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (AccountTxResult, error) {
+					func(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (xrpl.AccountTxResult, error) {
 						callNumber++
 						switch callNumber {
 						case 1:
 							require.Equal(t, int64(100-10), minLedger)
-							return AccountTxResult{
+							return xrpl.AccountTxResult{
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"1": 90,
 									"2": 91,
@@ -112,7 +115,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 							}, nil
 						case 2:
 							require.Equal(t, int64(100-10), minLedger)
-							return AccountTxResult{
+							return xrpl.AccountTxResult{
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"5": 92,
 								}),
@@ -121,10 +124,10 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 							}, nil
 						case 3:
 							require.Equal(t, int64(93), minLedger)
-							return AccountTxResult{}, errors.New("error")
+							return xrpl.AccountTxResult{}, errors.New("error")
 						case 4:
 							require.Equal(t, int64(93), minLedger)
-							return AccountTxResult{
+							return xrpl.AccountTxResult{
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"6": 93,
 								}),
@@ -133,7 +136,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 							}, nil
 						case 5:
 							require.Equal(t, int64(94), minLedger)
-							return AccountTxResult{
+							return xrpl.AccountTxResult{
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"7": 94,
 								}),
@@ -153,13 +156,15 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			zapDevLogger, err := zap.NewDevelopment()
 			require.NoError(t, err)
 			rpcTxProvider := tt.rpcTxProvider(ctrl)
 
-			s := NewAccountScanner(tt.cfg, logger.NewZapLogger(zapDevLogger), rpcTxProvider)
+			s := xrpl.NewAccountScanner(tt.cfg, logger.NewZapLoggerFromLogger(zapDevLogger), rpcTxProvider)
 			txsCh := make(chan rippledata.Transaction)
 			if err := s.ScanTxs(ctx, txsCh); (err != nil) != tt.wantErr {
 				t.Errorf("ScanTxs() error = %v, wantErr %v", err, tt.wantErr)
