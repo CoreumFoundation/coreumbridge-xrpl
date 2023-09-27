@@ -25,6 +25,10 @@ go-lint:
 test-integration:
 	cd integration-tests && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./...
 
+.PHONY: test-relayer
+test-relayer:
+	cd relayer && go test -v -mod=readonly -parallel=4 ./...
+
 .PHONY: restart-dev-env
 restart-dev-env:
 	crust znet remove && crust znet start --profiles=integration-tests-modules,xrpl --timeout-commit 0.5s

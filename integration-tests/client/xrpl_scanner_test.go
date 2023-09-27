@@ -23,14 +23,14 @@ func TestFullHistoryScanAccountTx(t *testing.T) {
 
 	const txsCount = 20
 
-	senderWallet := chains.XRPL.GenWallet(ctx, t, 100)
-	t.Logf("Sender account: %s", senderWallet.Account)
+	senderAcc := chains.XRPL.GenAccount(ctx, t, 100)
+	t.Logf("Sender account: %s", senderAcc)
 
-	recipientWallet := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Recipient account: %s", recipientWallet.Account)
+	recipientAcc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Recipient account: %s", recipientAcc)
 
 	// generate txs
-	writtenTxHashes := sendMultipleTxs(ctx, t, txsCount, senderWallet, recipientWallet, chains.XRPL)
+	writtenTxHashes := sendMultipleTxs(ctx, t, txsCount, senderAcc, recipientAcc, chains.XRPL)
 
 	rpcClientConfig := xrpl.DefaultRPCClientConfig(chains.XRPL.Config().RPCAddress)
 	// update the page limit to low to emulate multiple pages
@@ -40,9 +40,10 @@ func TestFullHistoryScanAccountTx(t *testing.T) {
 		chains.Log,
 		http.NewRetryableClient(http.DefaultClientConfig()),
 	)
+
 	// enable just historical scan
 	scannerCfg := xrpl.AccountScannerConfig{
-		Account:           senderWallet.Account,
+		Account:           senderAcc,
 		RecentScanEnabled: false,
 		FullScanEnabled:   true,
 		RetryDelay:        time.Second,
@@ -63,11 +64,11 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 
 	const txsCount = 20
 
-	senderWallet := chains.XRPL.GenWallet(ctx, t, 100)
-	t.Logf("Sender account: %s", senderWallet.Account)
+	senderAcc := chains.XRPL.GenAccount(ctx, t, 100)
+	t.Logf("Sender account: %s", senderAcc)
 
-	recipientWallet := chains.XRPL.GenWallet(ctx, t, 0)
-	t.Logf("Recipient account: %s", recipientWallet.Account)
+	recipientAcc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Recipient account: %s", recipientAcc)
 
 	rpcClientConfig := xrpl.DefaultRPCClientConfig(chains.XRPL.Config().RPCAddress)
 	// update the page limit to low to emulate multiple pages
@@ -80,7 +81,7 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 
 	// update config to use recent scan only
 	scannerCfg := xrpl.AccountScannerConfig{
-		Account:           senderWallet.Account,
+		Account:           senderAcc,
 		RecentScanEnabled: true,
 		RecentScanWindow:  5,
 		RepeatRecentScan:  true,
@@ -100,7 +101,7 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 	writeDone := make(chan struct{})
 	go func() {
 		defer close(writeDone)
-		writtenTxHashes = sendMultipleTxs(ctx, t, 20, senderWallet, recipientWallet, chains.XRPL)
+		writtenTxHashes = sendMultipleTxs(ctx, t, 20, senderAcc, recipientAcc, chains.XRPL)
 	}()
 
 	txsCh := make(chan rippledata.Transaction, txsCount)
@@ -122,7 +123,7 @@ func sendMultipleTxs(
 	ctx context.Context,
 	t *testing.T,
 	count int,
-	senderWallet, recipientWallet integrationtests.XRPLWallet,
+	senderAcc, recipientAcc rippledata.Account,
 	xrplChain integrationtests.XRPLChain,
 ) map[string]struct{} {
 	writtenTxHashes := make(map[string]struct{})
@@ -130,13 +131,13 @@ func sendMultipleTxs(
 		xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 		require.NoError(t, err)
 		xrpPaymentTx := rippledata.Payment{
-			Destination: recipientWallet.Account,
+			Destination: recipientAcc,
 			Amount:      *xrpAmount,
 			TxBase: rippledata.TxBase{
 				TransactionType: rippledata.PAYMENT,
 			},
 		}
-		require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderWallet))
+		require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
 		writtenTxHashes[xrpPaymentTx.Hash.String()] = struct{}{}
 	}
 	t.Logf("Successfully sent %d transactions", len(writtenTxHashes))
