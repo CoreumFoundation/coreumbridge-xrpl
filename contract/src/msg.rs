@@ -24,7 +24,6 @@ pub enum ExecuteMsg {
     RegisterXRPLToken {
         issuer: String,
         currency: String,
-        decimals: u32,
     },
 }
 
