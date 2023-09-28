@@ -50,10 +50,13 @@ pub const TOKENS_COREUM: Map<String, TokenCoreum> = Map::new(TopKey::TokensCoreu
 pub const TOKENS_XRPL: Map<String, TokenXRP> = Map::new(TopKey::TokensXRPL.as_str());
 // XRPL-Currencies used
 pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
+// Coreum denoms used
+pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());
 
 pub enum ContractActions {
     Instantiation,
     RegisterCoreumToken,
+    RegisterXRPLToken
 }
 
 impl ContractActions {
@@ -61,6 +64,7 @@ impl ContractActions {
         match self {
             ContractActions::Instantiation => "bridge_instantiation",
             ContractActions::RegisterCoreumToken => "register_coreum_token",
+            ContractActions::RegisterXRPLToken => "register_xrpl_token",
         }
     }
 }

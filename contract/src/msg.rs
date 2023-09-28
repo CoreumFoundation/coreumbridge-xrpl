@@ -2,6 +2,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Addr;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
+#[allow(unused_imports)]
 use crate::state::{Config, TokenCoreum, TokenXRP};
 
 #[cw_serde]
@@ -16,7 +17,15 @@ pub struct InstantiateMsg {
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
-    RegisterCoreumToken { denom: String, decimals: u32 },
+    RegisterCoreumToken {
+        denom: String,
+        decimals: u32,
+    },
+    RegisterXRPLToken {
+        issuer: String,
+        currency: String,
+        decimals: u32,
+    },
 }
 
 #[cw_ownable_query]
@@ -36,7 +45,10 @@ pub enum QueryMsg {
         limit: Option<u32>,
     },
     #[returns(XrplTokenResponse)]
-    XrplToken { issuer: Option<String>, currency: Option<String> },
+    XrplToken {
+        issuer: Option<String>,
+        currency: Option<String>,
+    },
     #[returns(CoreumTokenResponse)]
     CoreumToken { denom: String },
 }
