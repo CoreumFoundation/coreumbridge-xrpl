@@ -13,7 +13,7 @@ import (
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/http"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client/xrpl"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestFullHistoryScanAccountTx(t *testing.T) {

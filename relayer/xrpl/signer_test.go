@@ -1,4 +1,4 @@
-package xrpl
+package xrpl_test
 
 import (
 	"testing"
@@ -11,9 +11,12 @@ import (
 
 	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
 	creumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestKeyringTxSigner_Sign_And_MultiSign(t *testing.T) {
+	t.Parallel()
+
 	encodingConfig := creumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
 	kr := keyring.NewInMemory(encodingConfig.Codec)
 	const keyName = "xrpl"
@@ -26,7 +29,7 @@ func TestKeyringTxSigner_Sign_And_MultiSign(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	signer := NewKeyringTxSigner(kr)
+	signer := xrpl.NewKeyringTxSigner(kr)
 	signerAcc, err := signer.Account(keyName)
 	require.NoError(t, err)
 	// check that account is expected correct
