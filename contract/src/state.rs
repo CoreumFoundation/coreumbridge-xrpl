@@ -30,14 +30,14 @@ pub struct Config {
 }
 
 #[cw_serde]
-pub struct TokenXRP {
+pub struct XRPToken {
     pub issuer: Option<String>,
     pub currency: Option<String>,
     pub coreum_denom: String,
 }
 
 #[cw_serde]
-pub struct TokenCoreum {
+pub struct CoreumToken {
     pub denom: String,
     pub decimals: u32,
     pub xrpl_currency: String,
@@ -45,9 +45,9 @@ pub struct TokenCoreum {
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
 //Tokens registered from Coreum side - key is denom on Coreum chain
-pub const COREUM_TOKENS: Map<String, TokenCoreum> = Map::new(TopKey::CoreumTokens.as_str());
+pub const COREUM_TOKENS: Map<String, CoreumToken> = Map::new(TopKey::CoreumTokens.as_str());
 //Tokens registered from XRPL side - key is issuer+currency on XRPL
-pub const XRPL_TOKENS: Map<String, TokenXRP> = Map::new(TopKey::XRPLTokens.as_str());
+pub const XRPL_TOKENS: Map<String, XRPToken> = Map::new(TopKey::XRPLTokens.as_str());
 // XRPL-Currencies used
 pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
 // Coreum denoms used

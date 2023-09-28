@@ -5,7 +5,7 @@ use crate::{
         XrplTokenResponse, XrplTokensResponse,
     },
     state::{
-        Config, ContractActions, TokenCoreum, TokenXRP, CONFIG, COREUM_DENOMS, COREUM_TOKENS,
+        Config, ContractActions, CoreumToken, XRPToken, CONFIG, COREUM_DENOMS, COREUM_TOKENS,
         XRPL_CURRENCIES, XRPL_TOKENS,
     },
 };
@@ -83,7 +83,7 @@ pub fn instantiate(
 
     //We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
     //a token we can inform the relayers of what is being sent back.
-    let token = TokenXRP {
+    let token = XRPToken {
         issuer: None,
         currency: None,
         coreum_denom: xrp_in_coreum,
@@ -165,7 +165,7 @@ fn register_coreum_token(
     }
     XRPL_CURRENCIES.save(deps.storage, xrpl_currency.clone(), &Empty {})?;
 
-    let token = TokenCoreum {
+    let token = CoreumToken {
         denom: denom.clone(),
         decimals,
         xrpl_currency: xrpl_currency.clone(),
@@ -245,7 +245,7 @@ fn register_xrpl_token(
 
     COREUM_DENOMS.save(deps.storage, denom.clone(), &Empty {})?;
 
-    let token = TokenXRP {
+    let token = XRPToken {
         issuer: Some(issuer.clone()),
         currency: Some(currency.clone()),
         coreum_denom: denom.clone(),
@@ -292,7 +292,7 @@ fn query_xrpl_tokens(
 ) -> StdResult<XrplTokensResponse> {
     let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
     let offset = offset.unwrap_or(0);
-    let tokens: Vec<TokenXRP> = XRPL_TOKENS
+    let tokens: Vec<XRPToken> = XRPL_TOKENS
         .range(deps.storage, None, None, Order::Ascending)
         .skip(offset as usize)
         .take(limit as usize)
@@ -310,7 +310,7 @@ fn query_coreum_tokens(
 ) -> StdResult<CoreumTokensResponse> {
     let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
     let offset = offset.unwrap_or(0);
-    let tokens: Vec<TokenCoreum> = COREUM_TOKENS
+    let tokens: Vec<CoreumToken> = COREUM_TOKENS
         .range(deps.storage, None, None, Order::Ascending)
         .skip(offset as usize)
         .take(limit as usize)
@@ -350,7 +350,7 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
         .querier
         .query(&CoreumQueries::AssetFT(Query::Params {}).into())?;
 
-    if query_params_res.params.issue_fee != one_coin(&info)? {
+    if query_params_res.params.issue_fee != one_coin(info)? {
         return Err(ContractError::InvalidIssueFee {});
     }
 

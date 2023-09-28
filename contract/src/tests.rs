@@ -8,6 +8,7 @@ mod tests {
     use cosmwasm_std::{coin, coins, Addr};
 
     use crate::{
+        error::ContractError,
         msg::{
             CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
             XrplTokenResponse, XrplTokensResponse,
@@ -94,7 +95,7 @@ mod tests {
 
         assert!(error
             .to_string()
-            .contains("Need to send exactly the issue fee amount"));
+            .contains(ContractError::InvalidIssueFee {}.to_string().as_str()));
 
         // We query the issued token by the contract instantiation (XRP)
         let query_response = assetft
@@ -199,9 +200,11 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(transfer_error
-            .to_string()
-            .contains("Caller is not the contract's current owner"));
+        assert!(transfer_error.to_string().contains(
+            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
+                .to_string()
+                .as_str()
+        ));
     }
 
     #[test]
@@ -341,9 +344,13 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(register_error
+        assert!(register_error.to_string().contains(
+            ContractError::CoreumTokenAlreadyRegistered {
+                denom: test_tokens[0].clone()
+            }
             .to_string()
-            .contains(format!("Token {} already registered", test_tokens[0]).as_str()));
+            .as_str()
+        ));
 
         //Query 1 token
         let query_coreum_token = wasm
@@ -443,7 +450,7 @@ mod tests {
 
         assert!(register_error
             .to_string()
-            .contains("Need to send exactly the issue fee amount"));
+            .contains(ContractError::InvalidIssueFee {}.to_string().as_str()));
 
         //Register two tokens correctly
         for token in test_tokens.clone() {
@@ -490,10 +497,11 @@ mod tests {
             .unwrap_err();
 
         assert!(register_error.to_string().contains(
-            format!(
-                "Token with issuer: {} and currency: {} is already registered",
-                test_tokens[0].issuer, test_tokens[0].currency
-            )
+            ContractError::XrplTokenAlreadyRegistered {
+                issuer: test_tokens[0].issuer.clone(),
+                currency: test_tokens[0].currency.clone()
+            }
+            .to_string()
             .as_str()
         ));
 
@@ -609,9 +617,11 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(transfer_error
-            .to_string()
-            .contains("Caller is not the contract's current owner"));
+        assert!(transfer_error.to_string().contains(
+            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
+                .to_string()
+                .as_str()
+        ));
 
         //Try registering a coreum token as not_owner, should fail
         let register_coreum_error = wasm
@@ -626,9 +636,11 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(register_coreum_error
-            .to_string()
-            .contains("Caller is not the contract's current owner"));
+        assert!(register_coreum_error.to_string().contains(
+            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
+                .to_string()
+                .as_str()
+        ));
 
         //Try registering an XRPL token as not_owner, should fail
         let register_xrpl_error = wasm
@@ -643,8 +655,10 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(register_xrpl_error
-            .to_string()
-            .contains("Caller is not the contract's current owner"));
+        assert!(register_xrpl_error.to_string().contains(
+            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
+                .to_string()
+                .as_str()
+        ));
     }
 }
