@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -21,7 +20,7 @@ import (
 
 const (
 	compiledContractFilePath = "../../contract/artifacts/coreumbridge_xrpl.wasm"
-	xrp                      = "xrp"
+	xrp                      = "XRP"
 	drop                     = "drop"
 )
 
@@ -63,7 +62,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 	require.Equal(t, assetfttypes.Token{
 		Denom:              coreumDenom,
 		Issuer:             contractAddress.String(),
-		Symbol:             strings.ToUpper(xrp),
+		Symbol:             xrp,
 		Subunit:            drop,
 		Precision:          6,
 		Description:        "",
