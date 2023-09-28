@@ -12,9 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Optimize contract
-        run: make build-contract
       - name: Run clippy
         run: make lint-contract
       - name: Run tests
         run: make test-contract
+      - name: Build contract
+        run: make build-contract

@@ -27,7 +27,7 @@ lint-go:
 
 .PHONY: lint-contract
 lint-contract:
-	cd $(CONTRACT_DIR) && cargo clippy --verbose
+	cd $(CONTRACT_DIR) && cargo clippy --verbose -- -D warnings
 
 .PHONY: test-integration
 test-integration:

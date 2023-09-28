@@ -154,7 +154,7 @@ func TestRegisterCoreumToken(t *testing.T) {
 
 	// try to register the same denom one more time
 	_, err = contractClient.RegisterCoreumToken(ctx, owner, denom1, denom1Decimals)
-	require.True(t, coreum.IsAlreadyRegisteredError(err))
+	require.True(t, coreum.IsCoreumTokenAlreadyRegisteredError(err))
 
 	coreumTokens, err := contractClient.GetCoreumTokens(ctx)
 	require.NoError(t, err)

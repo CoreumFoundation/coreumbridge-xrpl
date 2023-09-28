@@ -42,8 +42,8 @@ const (
 )
 
 const (
-	notOwnerString          = "Caller is not the contract's current owner"
-	alreadyRegisteredString = "already registered"
+	notOwnerErrorString                     = "Caller is not the contract's current owner"
+	coreumTokenAlreadyRegisteredErrorString = "CoreumTokenAlreadyRegistered"
 )
 
 // InstantiationConfig holds attributes used for the contract instantiation.
@@ -453,12 +453,12 @@ func (c *ContractClient) getTxFactory() client.Factory {
 
 // IsNotOwnerError returns true if error is `not owner` error.
 func IsNotOwnerError(err error) bool {
-	return isError(err, notOwnerString)
+	return isError(err, notOwnerErrorString)
 }
 
-// IsAlreadyRegisteredError returns true if error is `already registered` error.
-func IsAlreadyRegisteredError(err error) bool {
-	return isError(err, alreadyRegisteredString)
+// IsCoreumTokenAlreadyRegisteredError returns true if error is `CoreumTokenAlreadyRegistered` error.
+func IsCoreumTokenAlreadyRegisteredError(err error) bool {
+	return isError(err, coreumTokenAlreadyRegisteredErrorString)
 }
 
 func isError(err error, errorString string) bool {
