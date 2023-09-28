@@ -317,13 +317,16 @@ dependencies = [
 name = "coreumbridge-xrpl"
 version = "0.1.0"
 dependencies = [
+ "base64 0.21.4",
  "coreum-test-tube",
  "coreum-wasm-sdk",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
  "cw-storage-plus",
+ "cw-utils",
  "cw2",
+ "sha2 0.10.7",
  "thiserror",
 ]
 

@@ -31,8 +31,8 @@ pub struct Config {
 
 #[cw_serde]
 pub struct TokenXRP {
-    pub issuer: String,
-    pub currency: String,
+    pub issuer: Option<String>,
+    pub currency: Option<String>,
     pub coreum_denom: String,
 }
 
@@ -46,9 +46,21 @@ pub struct TokenCoreum {
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
 //Tokens registered from Coreum side - key is denom on Coreum chain
 pub const TOKENS_COREUM: Map<String, TokenCoreum> = Map::new(TopKey::TokensCoreum.as_str());
-//Tokens registered from XPRL side - key is issuer+currency on XPRL
+//Tokens registered from XRPL side - key is issuer+currency on XRPL
 pub const TOKENS_XRPL: Map<String, TokenXRP> = Map::new(TopKey::TokensXRPL.as_str());
 // XRPL-Currencies used
 pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
-// Coreum denoms used
-pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());
+
+pub enum ContractActions {
+    Instantiation,
+    RegisterCoreumToken,
+}
+
+impl ContractActions {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ContractActions::Instantiation => "bridge_instantiation",
+            ContractActions::RegisterCoreumToken => "register_coreum_token",
+        }
+    }
+}
