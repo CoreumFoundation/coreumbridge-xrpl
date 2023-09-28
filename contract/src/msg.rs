@@ -6,19 +6,17 @@ use crate::state::{Config, TokenCoreum, TokenXRP};
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub admin: Addr,
+    pub owner: Addr,
     //Addresses allowed to relay messages
     pub relayers: Vec<Addr>,
-    //How many relayers need to provide evidence for a message.
+    //How many relayers need to provide evidence for a message
     pub evidence_threshold: u32,
-    //If ticket count goes under this amount, contract will ask for more tickets.
-    pub min_tickets: u32,
 }
 
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
-    RegisterCoreumToken { denom: String },
+    RegisterCoreumToken { denom: String, decimals: u32 },
 }
 
 #[cw_ownable_query]
@@ -38,7 +36,7 @@ pub enum QueryMsg {
         limit: Option<u32>,
     },
     #[returns(XrplTokenResponse)]
-    XrplToken { issuer: String, currency: String },
+    XrplToken { issuer: Option<String>, currency: Option<String> },
     #[returns(CoreumTokenResponse)]
     CoreumToken { denom: String },
 }
