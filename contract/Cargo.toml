@@ -24,7 +24,6 @@ incremental = false
 overflow-checks = true
 
 [dependencies]
-base64 = "0.21.4"
 coreum-wasm-sdk = "0.2.0"
 cosmwasm-schema = "1.4.0"
 cosmwasm-std = "1.4.0"
@@ -32,6 +31,7 @@ cw-ownable = "0.5.1"
 cw-storage-plus = "1.1.0"
 cw-utils = "1.0.1"
 cw2 = "1.1.0"
+hex = "0.4.3"
 sha2 = "0.10.7"
 thiserror = "1.0.48"
 

@@ -8,6 +8,7 @@ mod tests {
     use cosmwasm_std::{coin, coins, Addr};
 
     use crate::{
+        error::ContractError,
         msg::{
             CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
             XrplTokenResponse, XrplTokensResponse,
@@ -17,6 +18,14 @@ mod tests {
     const FEE_DENOM: &str = "ucore";
     const XRP_SYMBOL: &str = "XRP";
     const XRP_SUBUNIT: &str = "drop";
+    const COREUM_CURRENCY_PREFIX: &str = "coreum";
+    const XRPL_DENOM_PREFIX: &str = "xrpl";
+
+    #[derive(Clone)]
+    struct XrplToken {
+        pub issuer: String,
+        pub currency: String,
+    }
 
     fn store_and_instantiate(
         wasm: &Wasm<'_, CoreumTestApp>,
@@ -86,7 +95,7 @@ mod tests {
 
         assert!(error
             .to_string()
-            .contains("Need to send exactly the issue fee amount"));
+            .contains(ContractError::InvalidIssueFee {}.to_string().as_str()));
 
         // We query the issued token by the contract instantiation (XRP)
         let query_response = assetft
@@ -125,7 +134,7 @@ mod tests {
             .init_account(&coins(100_000_000_000, FEE_DENOM))
             .unwrap();
 
-        let new_admin = app
+        let new_owner = app
             .init_account(&coins(100_000_000_000, FEE_DENOM))
             .unwrap();
         let wasm = Wasm::new(&app);
@@ -138,21 +147,21 @@ mod tests {
             1,
         );
 
-        //Query current admin
-        let query_admin = wasm
+        //Query current owner
+        let query_owner = wasm
             .query::<QueryMsg, cw_ownable::Ownership<String>>(
                 &contract_addr,
                 &QueryMsg::Ownership {},
             )
             .unwrap();
 
-        assert_eq!(query_admin.owner.unwrap(), signer.address().to_string());
+        assert_eq!(query_owner.owner.unwrap(), signer.address().to_string());
 
-        // Current admin is going to transfer ownership to another address (new_admin)
+        // Current owner is going to transfer ownership to another address (new_owner)
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
-                new_owner: new_admin.address(),
+                new_owner: new_owner.address(),
                 expiry: None,
             }),
             &vec![],
@@ -160,23 +169,42 @@ mod tests {
         )
         .unwrap();
 
-        // New admin is going to accept the ownership
+        // New owner is going to accept the ownership
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::UpdateOwnership(cw_ownable::Action::AcceptOwnership {}),
             &vec![],
-            &new_admin,
+            &new_owner,
         )
         .unwrap();
 
-        let query_admin = wasm
+        let query_owner = wasm
             .query::<QueryMsg, cw_ownable::Ownership<String>>(
                 &contract_addr,
                 &QueryMsg::Ownership {},
             )
             .unwrap();
 
-        assert_eq!(query_admin.owner.unwrap(), new_admin.address().to_string());
+        assert_eq!(query_owner.owner.unwrap(), new_owner.address().to_string());
+
+        //Try transfering from old owner again, should fail
+        let transfer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
+                    new_owner: new_owner.address(),
+                    expiry: None,
+                }),
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(transfer_error.to_string().contains(
+            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
+                .to_string()
+                .as_str()
+        ));
     }
 
     #[test]
@@ -287,30 +315,57 @@ mod tests {
             1,
         );
 
-        let test_denom = "random_denom".to_string();
+        let test_tokens = vec!["test_denom1".to_string(), "test_denom2".to_string()];
 
-        wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::RegisterCoreumToken {
-                denom: test_denom.clone(),
-                decimals: 6,
-            },
-            &vec![],
-            &signer,
-        )
-        .unwrap();
+        //Register two tokens correctly
+        for token in test_tokens.clone() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: token,
+                    decimals: 6,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap();
+        }
+
+        //Register 1 token with same denom, should fail
+        let register_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: test_tokens[0].clone(),
+                    decimals: 6,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(register_error.to_string().contains(
+            ContractError::CoreumTokenAlreadyRegistered {
+                denom: test_tokens[0].clone()
+            }
+            .to_string()
+            .as_str()
+        ));
 
         //Query 1 token
         let query_coreum_token = wasm
             .query::<QueryMsg, CoreumTokenResponse>(
                 &contract_addr,
                 &QueryMsg::CoreumToken {
-                    denom: test_denom.clone(),
+                    denom: test_tokens[0].clone(),
                 },
             )
             .unwrap();
         assert_eq!(query_coreum_token.token.xrpl_currency.len(), 16);
-        assert!(query_coreum_token.token.xrpl_currency.starts_with("coreum"));
+        assert!(query_coreum_token
+            .token
+            .xrpl_currency
+            .starts_with(COREUM_CURRENCY_PREFIX));
 
         //Query all tokens
         let query_coreum_tokens = wasm
@@ -322,10 +377,288 @@ mod tests {
                 },
             )
             .unwrap();
+        assert_eq!(query_coreum_tokens.tokens.len(), 2);
+        assert_eq!(query_coreum_tokens.tokens[0].denom, test_tokens[0]);
+
+        //Query tokens with limit
+        let query_coreum_tokens = wasm
+            .query::<QueryMsg, CoreumTokensResponse>(
+                &contract_addr,
+                &QueryMsg::CoreumTokens {
+                    offset: None,
+                    limit: Some(1),
+                },
+            )
+            .unwrap();
         assert_eq!(query_coreum_tokens.tokens.len(), 1);
-        assert_eq!(
-            query_coreum_tokens.tokens[0].denom,
-            test_denom
+        assert_eq!(query_coreum_tokens.tokens[0].denom, test_tokens[0]);
+
+        //Query tokens with pagination
+        let query_coreum_tokens = wasm
+            .query::<QueryMsg, CoreumTokensResponse>(
+                &contract_addr,
+                &QueryMsg::CoreumTokens {
+                    offset: Some(1),
+                    limit: Some(1),
+                },
+            )
+            .unwrap();
+        assert_eq!(query_coreum_tokens.tokens.len(), 1);
+        assert_eq!(query_coreum_tokens.tokens[0].denom, test_tokens[1]);
+    }
+
+    #[test]
+    fn register_xrpl_token() {
+        let app = CoreumTestApp::new();
+        let signer = app
+            .init_account(&coins(100_000_000_000, FEE_DENOM))
+            .unwrap();
+
+        let wasm = Wasm::new(&app);
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            vec![Addr::unchecked(signer.address())],
+            1,
         );
+
+        let test_tokens = vec![
+            XrplToken {
+                issuer: "issuer1".to_string(),
+                currency: "currency1".to_string(),
+            },
+            XrplToken {
+                issuer: "issuer2".to_string(),
+                currency: "currency2".to_string(),
+            },
+        ];
+
+        //Register token with incorrect fee (too much), should fail
+        let register_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[0].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                },
+                &coins(20_000_000, FEE_DENOM),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(register_error
+            .to_string()
+            .contains(ContractError::InvalidIssueFee {}.to_string().as_str()));
+
+        //Register two tokens correctly
+        for token in test_tokens.clone() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: token.issuer,
+                    currency: token.currency,
+                },
+                &coins(10_000_000, FEE_DENOM),
+                &signer,
+            )
+            .unwrap();
+        }
+
+        // Check tokens are in the bank module
+        let assetft = AssetFT::new(&app);
+        let query_response = assetft
+            .query_tokens(&QueryTokensRequest {
+                pagination: None,
+                issuer: contract_addr.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(query_response.tokens.len(), 3);
+        assert!(query_response.tokens[1]
+            .denom
+            .starts_with(XRPL_DENOM_PREFIX),);
+        assert!(query_response.tokens[2]
+            .denom
+            .starts_with(XRPL_DENOM_PREFIX),);
+
+        //Register 1 token with same issuer+currency, should fail
+        let register_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[0].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                },
+                &coins(10_000_000, FEE_DENOM),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(register_error.to_string().contains(
+            ContractError::XrplTokenAlreadyRegistered {
+                issuer: test_tokens[0].issuer.clone(),
+                currency: test_tokens[0].currency.clone()
+            }
+            .to_string()
+            .as_str()
+        ));
+
+        //Query 1 token
+        let query_token = wasm
+            .query::<QueryMsg, XrplTokenResponse>(
+                &contract_addr,
+                &QueryMsg::XrplToken {
+                    issuer: Some(test_tokens[0].issuer.clone()),
+                    currency: Some(test_tokens[0].currency.clone()),
+                },
+            )
+            .unwrap();
+        assert!(query_token
+            .token
+            .coreum_denom
+            .ends_with(contract_addr.to_lowercase().as_str()));
+
+        //Query all tokens
+        let query_xrpl_tokens = wasm
+            .query::<QueryMsg, XrplTokensResponse>(
+                &contract_addr,
+                &QueryMsg::XrplTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(query_xrpl_tokens.tokens.len(), 3);
+
+        //Query all tokens with limit
+        let query_xrpl_tokens = wasm
+            .query::<QueryMsg, XrplTokensResponse>(
+                &contract_addr,
+                &QueryMsg::XrplTokens {
+                    offset: None,
+                    limit: Some(1),
+                },
+            )
+            .unwrap();
+        assert_eq!(query_xrpl_tokens.tokens.len(), 1);
+        assert_eq!(
+            query_xrpl_tokens.tokens[0].coreum_denom,
+            format!("{}-{}", XRP_SUBUNIT, &contract_addr.to_lowercase())
+        );
+
+        //Query all tokens with pagination
+        let query_xrpl_tokens = wasm
+            .query::<QueryMsg, XrplTokensResponse>(
+                &contract_addr,
+                &QueryMsg::XrplTokens {
+                    offset: Some(1),
+                    limit: Some(2),
+                },
+            )
+            .unwrap();
+        assert_eq!(query_xrpl_tokens.tokens.len(), 2);
+        assert!(query_xrpl_tokens.tokens[0]
+            .coreum_denom
+            .starts_with(XRPL_DENOM_PREFIX));
+        assert_eq!(
+            query_xrpl_tokens.tokens[0].issuer.clone().unwrap(),
+            test_tokens[0].issuer
+        );
+        assert_eq!(
+            query_xrpl_tokens.tokens[0].currency.clone().unwrap(),
+            test_tokens[0].currency
+        );
+        assert!(query_xrpl_tokens.tokens[1]
+            .coreum_denom
+            .starts_with(XRPL_DENOM_PREFIX));
+        assert_eq!(
+            query_xrpl_tokens.tokens[1].issuer.clone().unwrap(),
+            test_tokens[1].issuer
+        );
+        assert_eq!(
+            query_xrpl_tokens.tokens[1].currency.clone().unwrap(),
+            test_tokens[1].currency
+        );
+    }
+
+    #[test]
+    fn unauthorized_access() {
+        let app = CoreumTestApp::new();
+        let signer = app
+            .init_account(&coins(100_000_000_000, FEE_DENOM))
+            .unwrap();
+
+        let not_owner = app
+            .init_account(&coins(100_000_000_000, FEE_DENOM))
+            .unwrap();
+
+        let wasm = Wasm::new(&app);
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            vec![Addr::unchecked(signer.address())],
+            1,
+        );
+
+        //Try transfering from user that is not owner, should fail
+        let transfer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
+                    new_owner: not_owner.address(),
+                    expiry: None,
+                }),
+                &vec![],
+                &not_owner,
+            )
+            .unwrap_err();
+
+        assert!(transfer_error.to_string().contains(
+            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
+                .to_string()
+                .as_str()
+        ));
+
+        //Try registering a coreum token as not_owner, should fail
+        let register_coreum_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: "random_denom".to_string(),
+                    decimals: 6,
+                },
+                &vec![],
+                &not_owner,
+            )
+            .unwrap_err();
+
+        assert!(register_coreum_error.to_string().contains(
+            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
+                .to_string()
+                .as_str()
+        ));
+
+        //Try registering an XRPL token as not_owner, should fail
+        let register_xrpl_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: "issuer".to_string(),
+                    currency: "currency".to_string(),
+                },
+                &coins(10_000_000, FEE_DENOM),
+                &not_owner,
+            )
+            .unwrap_err();
+
+        assert!(register_xrpl_error.to_string().contains(
+            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
+                .to_string()
+                .as_str()
+        ));
     }
 }

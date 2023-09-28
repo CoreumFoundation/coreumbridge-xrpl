@@ -2,7 +2,8 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Addr;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
-use crate::state::{Config, TokenCoreum, TokenXRPL};
+#[allow(unused_imports)]
+use crate::state::{Config, CoreumToken, XRPLToken};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -16,7 +17,14 @@ pub struct InstantiateMsg {
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
-    RegisterCoreumToken { denom: String, decimals: u32 },
+    RegisterCoreumToken {
+        denom: String,
+        decimals: u32,
+    },
+    RegisterXRPLToken {
+        issuer: String,
+        currency: String,
+    },
 }
 
 #[cw_ownable_query]
@@ -36,27 +44,30 @@ pub enum QueryMsg {
         limit: Option<u32>,
     },
     #[returns(XrplTokenResponse)]
-    XrplToken { issuer: Option<String>, currency: Option<String> },
+    XrplToken {
+        issuer: Option<String>,
+        currency: Option<String>,
+    },
     #[returns(CoreumTokenResponse)]
     CoreumToken { denom: String },
 }
 
 #[cw_serde]
 pub struct XrplTokensResponse {
-    pub tokens: Vec<TokenXRPL>,
+    pub tokens: Vec<XRPLToken>,
 }
 
 #[cw_serde]
 pub struct CoreumTokensResponse {
-    pub tokens: Vec<TokenCoreum>,
+    pub tokens: Vec<CoreumToken>,
 }
 
 #[cw_serde]
 pub struct XrplTokenResponse {
-    pub token: TokenXRPL,
+    pub token: XRPLToken,
 }
 
 #[cw_serde]
 pub struct CoreumTokenResponse {
-    pub token: TokenCoreum,
+    pub token: CoreumToken,
 }
