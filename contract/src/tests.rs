@@ -16,7 +16,7 @@ mod tests {
         state::Config,
     };
     const FEE_DENOM: &str = "ucore";
-    const XRP_SYMBOL: &str = "XRL";
+    const XRP_SYMBOL: &str = "XRP";
     const XRP_SUBUNIT: &str = "drop";
     const COREUM_CURRENCY_PREFIX: &str = "coreum";
     const XRPL_DENOM_PREFIX: &str = "xrpl";

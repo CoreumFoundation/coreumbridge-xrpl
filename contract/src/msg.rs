@@ -3,7 +3,7 @@ use cosmwasm_std::Addr;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[allow(unused_imports)]
-use crate::state::{Config, CoreumToken, XRPToken};
+use crate::state::{Config, CoreumToken, XRPLToken};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -54,7 +54,7 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub struct XrplTokensResponse {
-    pub tokens: Vec<XRPToken>,
+    pub tokens: Vec<XRPLToken>,
 }
 
 #[cw_serde]
@@ -64,7 +64,7 @@ pub struct CoreumTokensResponse {
 
 #[cw_serde]
 pub struct XrplTokenResponse {
-    pub token: XRPToken,
+    pub token: XRPLToken,
 }
 
 #[cw_serde]
