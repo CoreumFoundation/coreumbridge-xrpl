@@ -7,8 +7,8 @@ use cw_storage_plus::{Item, Map};
 #[repr(u8)]
 pub enum TopKey {
     Config = b'c',
-    TokensCoreum = b'1',
-    TokensXRPL = b'2',
+    CoreumTokens = b'1',
+    XRPLTokens = b'2',
     XRPLCurrencies = b'3',
     CoreumDenoms = b'4',
 }
@@ -30,14 +30,14 @@ pub struct Config {
 }
 
 #[cw_serde]
-pub struct TokenXRP {
+pub struct XRPLToken {
     pub issuer: Option<String>,
     pub currency: Option<String>,
     pub coreum_denom: String,
 }
 
 #[cw_serde]
-pub struct TokenCoreum {
+pub struct CoreumToken {
     pub denom: String,
     pub decimals: u32,
     pub xrpl_currency: String,
@@ -45,15 +45,18 @@ pub struct TokenCoreum {
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
 //Tokens registered from Coreum side - key is denom on Coreum chain
-pub const TOKENS_COREUM: Map<String, TokenCoreum> = Map::new(TopKey::TokensCoreum.as_str());
+pub const COREUM_TOKENS: Map<String, CoreumToken> = Map::new(TopKey::CoreumTokens.as_str());
 //Tokens registered from XRPL side - key is issuer+currency on XRPL
-pub const TOKENS_XRPL: Map<String, TokenXRP> = Map::new(TopKey::TokensXRPL.as_str());
+pub const XRPL_TOKENS: Map<String, XRPLToken> = Map::new(TopKey::XRPLTokens.as_str());
 // XRPL-Currencies used
 pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
+// Coreum denoms used
+pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());
 
 pub enum ContractActions {
     Instantiation,
     RegisterCoreumToken,
+    RegisterXRPLToken
 }
 
 impl ContractActions {
@@ -61,6 +64,7 @@ impl ContractActions {
         match self {
             ContractActions::Instantiation => "bridge_instantiation",
             ContractActions::RegisterCoreumToken => "register_coreum_token",
+            ContractActions::RegisterXRPLToken => "register_xrpl_token",
         }
     }
 }

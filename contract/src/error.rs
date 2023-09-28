@@ -14,15 +14,18 @@ pub enum ContractError {
     #[error("Payment error: {0}")]
     Payment(#[from] PaymentError),
 
-    #[error("Threshold can not be higher than amount of relayers")]
+    #[error("InvalidThreshold: Threshold can not be higher than amount of relayers")]
     InvalidThreshold {},
 
-    #[error("Token {} already registered", denom)]
+    #[error("CoreumTokenAlreadyRegistered: Token {} already registered", denom)]
     CoreumTokenAlreadyRegistered { denom: String },
 
-    #[error("Need to send exactly the issue fee amount")]
+    #[error("XrplTokenAlreadyRegistered: Token with issuer: {} and currency: {} is already registered", issuer, currency)]
+    XrplTokenAlreadyRegistered { issuer: String, currency: String },
+
+    #[error("InvalidIssueFee: Need to send exactly the issue fee amount")]
     InvalidIssueFee {},
 
-    #[error("Random XRPL currency generated already exists, please try again")]
+    #[error("RegistrationFailure: Random currency/denom generated already exists, please try again")]
     RegistrationFailure {},
 }
