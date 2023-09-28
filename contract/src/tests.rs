@@ -15,7 +15,7 @@ mod tests {
         state::Config,
     };
     const FEE_DENOM: &str = "ucore";
-    const XRP_SYMBOL: &str = "XRL";
+    const XRP_SYMBOL: &str = "XRP";
     const XRP_SUBUNIT: &str = "drop";
 
     fn store_and_instantiate(

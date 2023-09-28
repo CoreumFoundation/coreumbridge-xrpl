@@ -5,7 +5,7 @@ use crate::{
         XrplTokenResponse, XrplTokensResponse,
     },
     state::{
-        Config, ContractActions, TokenCoreum, TokenXRP, CONFIG, TOKENS_COREUM, TOKENS_XRPL,
+        Config, ContractActions, TokenCoreum, TokenXRPL, CONFIG, TOKENS_COREUM, TOKENS_XRPL,
         XRPL_CURRENCIES,
     },
 };
@@ -29,7 +29,7 @@ const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const DEFAULT_MAX_LIMIT: u32 = 250;
-const XRP_SYMBOL: &str = "XRL";
+const XRP_SYMBOL: &str = "XRP";
 const XRP_SUBUNIT: &str = "drop";
 
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
@@ -88,7 +88,7 @@ pub fn instantiate(
 
     //We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
     //a token we can inform the relayers of what is being sent back.
-    let token = TokenXRP {
+    let token = TokenXRPL {
         issuer: None,
         currency: None,
         coreum_denom: xrp_in_coreum,
@@ -212,7 +212,7 @@ fn query_xrpl_tokens(
 ) -> StdResult<XrplTokensResponse> {
     let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
     let offset = offset.unwrap_or(0);
-    let tokens: Vec<TokenXRP> = TOKENS_XRPL
+    let tokens: Vec<TokenXRPL> = TOKENS_XRPL
         .range(deps.storage, None, None, Order::Ascending)
         .skip(offset as usize)
         .take(limit as usize)

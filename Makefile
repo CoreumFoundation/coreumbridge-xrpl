@@ -1,33 +1,45 @@
 GO_IMPORT_PREFIX=github.com/CoreumFoundation
 GO_SCAN_FILES := $(shell find . -type f -name '*.go' -not -name '*mock.go' -not -name '*_gen.go' -not -path "*/vendor/*")
-
+ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+CONTRACT_DIR:=$(ROOT_DIR)/contract
+INTEGRATION_TESTS_DIR:=$(ROOT_DIR)/integration-tests
+RELAYER_DIR:=$(ROOT_DIR)/relayer
 ###############################################################################
 ###                               Development                               ###
 ###############################################################################
 
-.PHONY: go-fmt
-go-fmt:
+.PHONY: fmt-go
+fmt-go:
 	which gofumpt || go install mvdan.cc/gofumpt@v0.5.0
 	which gogroup || go install github.com/vasi-stripe/gogroup/cmd/gogroup@v0.0.0-20200806161525-b5d7f67a97b5
 	gofumpt -lang=v2.1 -extra -w $(GO_SCAN_FILES)
 	gogroup -order std,other,prefix=$(GO_IMPORT_PREFIX) -rewrite $(GO_SCAN_FILES)
 
-.PHONY: go-mockgen
-go-mockgen:
+.PHONY: mockgen-go
+mockgen-go:
 	which mockgen || go install github.com/golang/mock/mockgen@v1.6.0
-	cd relayer && go generate ./...
+	cd $(RELAYER_DIR) && go generate ./...
 
-.PHONY: go-lint
-go-lint:
-	crust lint/current-dir
+.PHONY: lint-go
+lint-go:
+	cd $(RELAYER_DIR) && crust lint/current-dir
+	cd $(INTEGRATION_TESTS_DIR) && crust lint/current-dir
+
+.PHONY: lint-contract
+lint-contract:
+	cd $(CONTRACT_DIR) && cargo clippy --verbose
 
 .PHONY: test-integration
 test-integration:
-	cd integration-tests && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./...
+	cd $(INTEGRATION_TESTS_DIR) && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./...
 
 .PHONY: test-relayer
 test-relayer:
-	cd relayer && go test -v -mod=readonly -parallel=4 ./...
+	cd $(RELAYER_DIR) && go test -v -mod=readonly -parallel=4 ./...
+
+.PHONY: test-contract
+test-contract:
+	cd $(CONTRACT_DIR) && cargo test --verbose
 
 .PHONY: restart-dev-env
 restart-dev-env:
@@ -36,3 +48,10 @@ restart-dev-env:
 .PHONY: rebuild-dev-env
 rebuild-dev-env:
 	crust build images
+
+.PHONY: build-contract
+build-contract:
+	docker run --user $(id -u):$(id -g) --rm -v $(CONTRACT_DIR):/code \
+      --mount type=volume,source="contract_cache",target=/code/target \
+      --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+       cosmwasm/rust-optimizer:0.14.0
