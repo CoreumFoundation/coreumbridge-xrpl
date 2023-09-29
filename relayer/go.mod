@@ -19,7 +19,8 @@ replace (
 
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20230920110418-b30366f1b19b
-	github.com/CoreumFoundation/coreum/v3 v3.0.0-20230921140203-3e716cbeec41
+	github.com/CoreumFoundation/coreum/v3 v3.0.0-20230927145524-8849da9847b3
+	github.com/CosmWasm/wasmd v0.41.0
 	github.com/cosmos/cosmos-sdk v0.47.5
 	github.com/golang/mock v1.6.0
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
@@ -59,7 +60,6 @@ require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
 	github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d // indirect
-	github.com/CosmWasm/wasmd v0.41.0 // indirect
 	github.com/CosmWasm/wasmvm v1.3.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/aws/aws-sdk-go v1.44.203 // indirect

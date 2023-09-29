@@ -139,7 +139,7 @@ fn register_coreum_token(
 
     if COREUM_TOKENS.has(deps.storage, denom.clone()) {
         return Err(ContractError::CoreumTokenAlreadyRegistered {
-            denom: denom.clone(),
+            denom,
         });
     }
 
@@ -147,7 +147,7 @@ fn register_coreum_token(
     let mut hasher = Sha256::new();
 
     hasher
-        .update(format!("{}{}{}", denom.clone(), decimals, env.block.time.seconds()).into_bytes());
+        .update(format!("{}{}{}", denom, decimals, env.block.time.seconds()).into_bytes());
 
     let output = hasher.finalize();
 
@@ -204,7 +204,7 @@ fn register_xrpl_token(
     hasher.update(
         format!(
             "{}{}{}{}",
-            issuer.clone(),
+            issuer,
             currency.clone(),
             XRPL_TOKENS_DECIMALS,
             env.block.time.seconds()
@@ -225,7 +225,7 @@ fn register_xrpl_token(
     let symbol_and_subunit = format!("{}{}", XRPL_DENOM_PREFIX, hex_string);
 
     let issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
-        symbol: symbol_and_subunit.clone().to_uppercase(),
+        symbol: symbol_and_subunit.to_uppercase(),
         subunit: symbol_and_subunit.clone(),
         precision: XRPL_TOKENS_DECIMALS,
         initial_amount: Uint128::zero(),

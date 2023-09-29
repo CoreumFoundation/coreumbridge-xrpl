@@ -20,7 +20,7 @@ jobs:
         ]
         include:
           - ci_step: "lint"
-            command: "make go-lint"
+            command: "make lint-go"
             go-cache: true
             wasm-cache: true
             linter-cache: true
@@ -32,7 +32,7 @@ jobs:
             linter-cache: false
             docker-cache: false
           - ci_step: "integration tests"
-            command: "make rebuild-dev-env && make restart-dev-env && make test-integration"
+            command: "make build-contract && make rebuild-dev-env && make restart-dev-env && make test-integration"
             go-cache: true
             wasm-cache: true
             linter-cache: false

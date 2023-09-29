@@ -39,6 +39,11 @@ func Int64Filed(key string, value int64) Field {
 	return convertZapFieldToField(zap.Int64(key, value))
 }
 
+// Uint64Filed constructs a field with the given key and value.
+func Uint64Filed(key string, value uint64) Field {
+	return convertZapFieldToField(zap.Uint64(key, value))
+}
+
 // Error is shorthand for the common idiom NamedError("error", err).
 func Error(err error) Field {
 	return convertZapFieldToField(zap.Error(err))
