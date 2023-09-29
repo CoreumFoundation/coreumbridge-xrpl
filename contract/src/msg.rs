@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Addr;
+use cosmwasm_std::{Addr, Uint128};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[allow(unused_imports)]
@@ -24,6 +24,13 @@ pub enum ExecuteMsg {
     RegisterXRPLToken {
         issuer: String,
         currency: String,
+    },
+    SendFromXRPLToCoreum {
+        hash: String,
+        issuer: String,
+        currency: String,
+        amount: Uint128,
+        recipient: Addr,
     },
 }
 

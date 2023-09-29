@@ -3,9 +3,9 @@ mod tests {
     use coreum_test_tube::{Account, AssetFT, CoreumTestApp, Module, SigningAccount, Wasm};
     use coreum_wasm_sdk::{
         assetft::{BURNING, IBC, MINTING},
-        types::coreum::asset::ft::v1::{QueryTokensRequest, Token},
+        types::coreum::asset::ft::v1::{QueryBalanceRequest, QueryTokensRequest, Token},
     };
-    use cosmwasm_std::{coin, coins, Addr};
+    use cosmwasm_std::{coin, coins, Addr, Uint128};
 
     use crate::{
         error::ContractError,
@@ -584,6 +584,260 @@ mod tests {
     }
 
     #[test]
+    fn send_from_xrpl_to_coreum() {
+        let app = CoreumTestApp::new();
+        let accounts = app
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), 4)
+            .unwrap();
+
+        let signer = accounts.get(0).unwrap();
+        let relayer1 = accounts.get(1).unwrap();
+        let relayer2 = accounts.get(2).unwrap();
+        let receiver = accounts.get(3).unwrap();
+
+        let wasm = Wasm::new(&app);
+        let assetft = AssetFT::new(&app);
+
+        //Test with 1 relayer and 1 evidence threshold first
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            signer,
+            Addr::unchecked(signer.address()),
+            vec![Addr::unchecked(relayer1.address())],
+            1,
+        );
+
+        let test_tokens = vec![XRPLToken {
+            issuer: "issuer1".to_string(),
+            currency: "currency1".to_string(),
+        }];
+
+        //Register a token
+        for token in test_tokens.clone() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: token.issuer,
+                    currency: token.currency,
+                },
+                &coins(10_000_000, FEE_DENOM),
+                signer,
+            )
+            .unwrap();
+        }
+
+        let query_xrpl_token = wasm
+            .query::<QueryMsg, XRPLTokenResponse>(
+                &contract_addr,
+                &QueryMsg::XRPLToken {
+                    issuer: Some(test_tokens[0].issuer.clone()),
+                    currency: Some(test_tokens[0].currency.clone()),
+                },
+            )
+            .unwrap();
+
+        let denom = query_xrpl_token.token.coreum_denom;
+        let hash = "random_hash".to_string();
+        let amount = Uint128::from(100 as u128);
+
+        //Bridge with 1 relayer should immediately mint and send to the receiver address
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendFromXRPLToCoreum {
+                hash: hash.clone(),
+                issuer: test_tokens[0].issuer.clone(),
+                currency: test_tokens[0].currency.clone(),
+                amount: amount.clone(),
+                recipient: Addr::unchecked(receiver.address()),
+            },
+            &[],
+            relayer1,
+        )
+        .unwrap();
+
+        let request_balance = assetft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, amount.to_string());
+
+        //Test with more than 1 relayer
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            signer,
+            Addr::unchecked(signer.address()),
+            vec![
+                Addr::unchecked(relayer1.address()),
+                Addr::unchecked(relayer2.address()),
+            ],
+            2,
+        );
+
+        //Register a token
+        for token in test_tokens.clone() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: token.issuer,
+                    currency: token.currency,
+                },
+                &coins(10_000_000, FEE_DENOM),
+                signer,
+            )
+            .unwrap();
+        }
+
+        let query_xrpl_token = wasm
+            .query::<QueryMsg, XRPLTokenResponse>(
+                &contract_addr,
+                &QueryMsg::XRPLToken {
+                    issuer: Some(test_tokens[0].issuer.clone()),
+                    currency: Some(test_tokens[0].currency.clone()),
+                },
+            )
+            .unwrap();
+
+        let denom = query_xrpl_token.token.coreum_denom;
+
+        //Trying to send from an address that is not a relayer should fail
+        let relayer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendFromXRPLToCoreum {
+                    hash: hash.clone(),
+                    issuer: test_tokens[0].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                    amount: amount.clone(),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
+                &[],
+                signer,
+            )
+            .unwrap_err();
+
+        assert!(relayer_error
+            .to_string()
+            .contains(ContractError::UnauthorizedOperation {}.to_string().as_str()));
+
+        //Trying to send a token that is not previously registered should also fail
+        let relayer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendFromXRPLToCoreum {
+                    hash: hash.clone(),
+                    issuer: "not_registered".to_string(),
+                    currency: "not_registered".to_string(),
+                    amount: amount.clone(),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
+                &[],
+                relayer1,
+            )
+            .unwrap_err();
+
+        assert!(relayer_error
+            .to_string()
+            .contains(ContractError::TokenNotRegistered {}.to_string().as_str()));
+
+        //First relayer to execute should not trigger a mint and send
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendFromXRPLToCoreum {
+                hash: hash.clone(),
+                issuer: test_tokens[0].issuer.clone(),
+                currency: test_tokens[0].currency.clone(),
+                amount: amount.clone(),
+                recipient: Addr::unchecked(receiver.address()),
+            },
+            &[],
+            relayer1,
+        )
+        .unwrap();
+
+        //Balance should be 0
+        let request_balance = assetft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "0".to_string());
+
+        //Relaying again from same relayer should trigger an error
+        let relayer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendFromXRPLToCoreum {
+                    hash: hash.clone(),
+                    issuer: test_tokens[0].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                    amount: amount.clone(),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
+                &[],
+                relayer1,
+            )
+            .unwrap_err();
+
+        assert!(relayer_error.to_string().contains(
+            ContractError::EvidenceAlreadyProvided {}
+                .to_string()
+                .as_str()
+        ));
+
+        //Second relayer to execute should trigger a mint and send
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendFromXRPLToCoreum {
+                hash: hash.clone(),
+                issuer: test_tokens[0].issuer.clone(),
+                currency: test_tokens[0].currency.clone(),
+                amount: amount.clone(),
+                recipient: Addr::unchecked(receiver.address()),
+            },
+            &[],
+            relayer2,
+        )
+        .unwrap();
+
+        //Balance should be 0
+        let request_balance = assetft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, amount.to_string());
+
+        //Trying to relay again will trigger an error because operation is already executed
+        let relayer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendFromXRPLToCoreum {
+                    hash: hash.clone(),
+                    issuer: test_tokens[0].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                    amount: amount.clone(),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
+                &[],
+                relayer2,
+            )
+            .unwrap_err();
+
+        assert!(relayer_error.to_string().contains(
+            ContractError::OperationAlreadyExecuted {}
+                .to_string()
+                .as_str()
+        ));
+    }
+
+    #[test]
     fn unauthorized_access() {
         let app = CoreumTestApp::new();
         let signer = app
@@ -660,5 +914,25 @@ mod tests {
                 .to_string()
                 .as_str()
         ));
+
+        //Trying to send from an address that is not a relayer should fail
+        let relayer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendFromXRPLToCoreum {
+                    hash: "random_hash".to_string(),
+                    issuer: "random_issuer".to_string(),
+                    currency: "random_currency".to_string(),
+                    amount: Uint128::from(100 as u128),
+                    recipient: Addr::unchecked(signer.address()),
+                },
+                &[],
+                &not_owner,
+            )
+            .unwrap_err();
+
+        assert!(relayer_error
+            .to_string()
+            .contains(ContractError::UnauthorizedOperation {}.to_string().as_str()));
     }
 }

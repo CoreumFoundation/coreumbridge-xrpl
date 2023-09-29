@@ -20,12 +20,32 @@ pub enum ContractError {
     #[error("CoreumTokenAlreadyRegistered: Token {} already registered", denom)]
     CoreumTokenAlreadyRegistered { denom: String },
 
-    #[error("XRPLTokenAlreadyRegistered: Token with issuer: {} and currency: {} is already registered", issuer, currency)]
+    #[error(
+        "XRPLTokenAlreadyRegistered: Token with issuer: {} and currency: {} is already registered",
+        issuer,
+        currency
+    )]
     XRPLTokenAlreadyRegistered { issuer: String, currency: String },
 
     #[error("InvalidIssueFee: Need to send exactly the issue fee amount")]
     InvalidIssueFee {},
 
-    #[error("RegistrationFailure: Random currency/denom generated already exists, please try again")]
+    #[error(
+        "RegistrationFailure: Random currency/denom generated already exists, please try again"
+    )]
     RegistrationFailure {},
+
+    #[error("UnauthorizedOperation: Sender is not a valid relayer")]
+    UnauthorizedOperation {},
+
+    #[error("TokenNotRegistered: This token must be registered first before bridging")]
+    TokenNotRegistered {},
+
+    #[error("OperationAlreadyExecuted: This operation has already been executed, no need to keep relaying")]
+    OperationAlreadyExecuted {},
+
+    #[error(
+        "EvidenceAlreadyProvided: This relayer already provided its evidence for this operation"
+    )]
+    EvidenceAlreadyProvided {},
 }
