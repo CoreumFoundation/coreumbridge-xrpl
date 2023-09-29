@@ -42,11 +42,11 @@ test-contract:
 
 .PHONY: restart-dev-env
 restart-dev-env:
-	crust znet remove && crust znet start --profiles=integration-tests-modules,xrpl --timeout-commit 0.5s
+	crust znet remove && crust znet start --profiles=3cored,xrpl --timeout-commit 0.5s
 
 .PHONY: rebuild-dev-env
 rebuild-dev-env:
-	crust build images
+	crust build/crust images/cored
 
 .PHONY: build-contract
 build-contract:
