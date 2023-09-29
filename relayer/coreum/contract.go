@@ -37,7 +37,7 @@ type QueryMethod string
 const (
 	QueryMethodConfig       QueryMethod = "config"
 	QueryMethodOwnership    QueryMethod = "ownership"
-	QueryMethodXRPLTokens   QueryMethod = "xrpl_tokens"
+	QueryMethodXRPLTokens   QueryMethod = "XRPL_tokens"
 	QueryMethodCoreumTokens QueryMethod = "coreum_tokens"
 )
 

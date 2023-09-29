@@ -7,6 +7,8 @@ use cw_storage_plus::{Item, Map};
 #[repr(u8)]
 pub enum TopKey {
     Config = b'c',
+    Evidences = b'E',
+    ExecutedOperations = b'O',
     CoreumTokens = b'1',
     XRPLTokens = b'2',
     XRPLCurrencies = b'3',
@@ -52,11 +54,16 @@ pub const XRPL_TOKENS: Map<String, XRPLToken> = Map::new(TopKey::XRPLTokens.as_s
 pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
 // Coreum denoms used
 pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());
+// Evidences, when enough evidences are collected, hashes are moved to completed operations
+pub const EVIDENCES: Map<String, Evidences> = Map::new(TopKey::Evidences.as_str());
+// Completed operations so that we don't process the same operation twice
+pub const EXECUTED_OPERATIONS: Map<String, Empty> = Map::new(TopKey::ExecutedOperations.as_str());
 
 pub enum ContractActions {
     Instantiation,
     RegisterCoreumToken,
-    RegisterXRPLToken
+    RegisterXRPLToken,
+    SendFromXRPLToCoreum,
 }
 
 impl ContractActions {
@@ -65,6 +72,24 @@ impl ContractActions {
             ContractActions::Instantiation => "bridge_instantiation",
             ContractActions::RegisterCoreumToken => "register_coreum_token",
             ContractActions::RegisterXRPLToken => "register_xrpl_token",
+            ContractActions::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
+        }
+    }
+}
+
+#[cw_serde]
+pub struct Evidences {
+    pub relayers: Vec<Addr>,
+}
+
+pub enum Operation {
+    XRPLToCoreum,
+}
+
+impl Operation {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Operation::XRPLToCoreum => "xrpl_to_coreum",
         }
     }
 }
