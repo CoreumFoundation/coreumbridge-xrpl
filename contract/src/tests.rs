@@ -897,6 +897,31 @@ mod tests {
                 .to_string()
                 .as_str()
         ));
+
+        let new_amount = Uint128::from(150 as u128);
+        //Trying to relay a different operation with same hash will trigger an error
+        let relayer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::AcceptEvidence {
+                    evidence: Evidence::XRPLToCoreum {
+                        tx_hash: hash.clone(),
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
+                        amount: new_amount.clone(),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                relayer1,
+            )
+            .unwrap_err();
+
+        assert!(relayer_error.to_string().contains(
+            ContractError::OperationAlreadyExecuted {}
+                .to_string()
+                .as_str()
+        ));
     }
 
     #[test]
