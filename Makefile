@@ -22,8 +22,7 @@ mockgen-go:
 
 .PHONY: lint-go
 lint-go:
-	cd $(RELAYER_DIR) && crust lint/current-dir
-	cd $(INTEGRATION_TESTS_DIR) && crust lint/current-dir
+	crust lint/current-dir
 
 .PHONY: lint-contract
 lint-contract:
@@ -31,11 +30,11 @@ lint-contract:
 
 .PHONY: test-integration
 test-integration:
-	cd $(INTEGRATION_TESTS_DIR) && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./...
+	cd $(INTEGRATION_TESTS_DIR) && go clean -testcache && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./...
 
 .PHONY: test-relayer
 test-relayer:
-	cd $(RELAYER_DIR) && go test -v -mod=readonly -parallel=4 ./...
+	cd $(RELAYER_DIR) && go clean -testcache && go test -v -mod=readonly -parallel=4 ./...
 
 .PHONY: test-contract
 test-contract:
@@ -43,11 +42,11 @@ test-contract:
 
 .PHONY: restart-dev-env
 restart-dev-env:
-	crust znet remove && crust znet start --profiles=integration-tests-modules,xrpl --timeout-commit 0.5s
+	crust znet remove && crust znet start --profiles=3cored,xrpl --timeout-commit 0.5s
 
 .PHONY: rebuild-dev-env
 rebuild-dev-env:
-	crust build images
+	crust build/crust images/cored
 
 .PHONY: build-contract
 build-contract:

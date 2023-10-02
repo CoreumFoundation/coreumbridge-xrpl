@@ -26,8 +26,9 @@ type ExecMethod string
 
 // ExecMethods.
 const (
-	ExecMethodRegisterCoreumToken ExecMethod = "register_coreum_token"
 	ExecMethodUpdateOwnership     ExecMethod = "update_ownership"
+	ExecMethodRegisterCoreumToken ExecMethod = "register_coreum_token"
+	ExecMethodRegisterXRPLToken   ExecMethod = "register_x_r_p_l_token"
 )
 
 // QueryMethod is contract query method.
@@ -37,13 +38,14 @@ type QueryMethod string
 const (
 	QueryMethodConfig       QueryMethod = "config"
 	QueryMethodOwnership    QueryMethod = "ownership"
-	QueryMethodXRPLTokens   QueryMethod = "xrpl_tokens"
+	QueryMethodXRPLTokens   QueryMethod = "x_r_p_l_tokens"
 	QueryMethodCoreumTokens QueryMethod = "coreum_tokens"
 )
 
 const (
 	notOwnerErrorString                     = "Caller is not the contract's current owner"
 	coreumTokenAlreadyRegisteredErrorString = "CoreumTokenAlreadyRegistered"
+	xrplTokenAlreadyRegisteredErrorString   = "XRPLTokenAlreadyRegistered"
 )
 
 // InstantiationConfig holds attributes used for the contract instantiation.
@@ -90,15 +92,20 @@ type instantiateRequest struct {
 	EvidenceThreshold int              `json:"evidence_threshold"`
 }
 
+type transferOwnershipRequest struct {
+	TransferOwnership struct {
+		NewOwner sdk.AccAddress `json:"new_owner"`
+	} `json:"transfer_ownership"`
+}
+
 type registerCoreumTokenRequest struct {
 	Denom    string `json:"denom"`
 	Decimals uint32 `json:"decimals"`
 }
 
-type transferOwnershipRequest struct {
-	TransferOwnership struct {
-		NewOwner sdk.AccAddress `json:"new_owner"`
-	} `json:"transfer_ownership"`
+type registerXRPLTokenRequest struct {
+	Issuer   string `json:"issuer"`
+	Currency string `json:"currency"`
 }
 
 type xrplTokensResponse struct {
@@ -112,6 +119,11 @@ type coreumTokensResponse struct {
 type pagingRequest struct {
 	Offset *uint64 `json:"offset"`
 	Limit  *uint32 `json:"limit"`
+}
+
+type execRequest struct {
+	Body  any
+	Funds sdk.Coins
 }
 
 // ******************** Client ********************
@@ -238,12 +250,13 @@ func (c *ContractClient) GetContractAddress() sdk.AccAddress {
 
 // ******************** Execute ********************
 
-// RegisterCoreumToken executes `register_coreum_token` method.
-func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.AccAddress, denom string, decimals uint32) (*sdk.TxResponse, error) {
-	txRes, err := c.execute(ctx, sender, map[ExecMethod]registerCoreumTokenRequest{
-		ExecMethodRegisterCoreumToken: {
-			Denom:    denom,
-			Decimals: decimals,
+// TransferOwnership executes `update_ownership` method with transfer action.
+func (c *ContractClient) TransferOwnership(ctx context.Context, sender, newOwner sdk.AccAddress) (*sdk.TxResponse, error) {
+	req := transferOwnershipRequest{}
+	req.TransferOwnership.NewOwner = newOwner
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]transferOwnershipRequest{
+			ExecMethodUpdateOwnership: req,
 		},
 	})
 	if err != nil {
@@ -253,12 +266,38 @@ func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.Acc
 	return txRes, nil
 }
 
-// TransferOwnership executes `update_ownership` method with transfer action.
-func (c *ContractClient) TransferOwnership(ctx context.Context, sender, newOwner sdk.AccAddress) (*sdk.TxResponse, error) {
-	req := transferOwnershipRequest{}
-	req.TransferOwnership.NewOwner = newOwner
-	txRes, err := c.execute(ctx, sender, map[ExecMethod]transferOwnershipRequest{
-		ExecMethodUpdateOwnership: req,
+// RegisterCoreumToken executes `register_coreum_token` method.
+func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.AccAddress, denom string, decimals uint32) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]registerCoreumTokenRequest{
+			ExecMethodRegisterCoreumToken: {
+				Denom:    denom,
+				Decimals: decimals,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// RegisterXRPLToken executes `register_xrpl_token` method.
+func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAddress, issuer, currency string) (*sdk.TxResponse, error) {
+	fee, err := c.queryAssetFTIssueFee(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]registerXRPLTokenRequest{
+			ExecMethodRegisterXRPLToken: {
+				Issuer:   issuer,
+				Currency: currency,
+			},
+		},
+		Funds: sdk.NewCoins(fee),
 	})
 	if err != nil {
 		return nil, err
@@ -268,9 +307,11 @@ func (c *ContractClient) TransferOwnership(ctx context.Context, sender, newOwner
 }
 
 // AcceptOwnership executes `update_ownership` method with accept action.
-func (c *ContractClient) AcceptOwnership(ctx context.Context, sender, newOwner sdk.AccAddress) (*sdk.TxResponse, error) {
-	txRes, err := c.execute(ctx, sender, map[ExecMethod]string{
-		ExecMethodUpdateOwnership: "accept_ownership",
+func (c *ContractClient) AcceptOwnership(ctx context.Context, sender sdk.AccAddress) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]string{
+			ExecMethodUpdateOwnership: "accept_ownership",
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -386,29 +427,30 @@ func (c *ContractClient) queryAssetFTIssueFee(ctx context.Context) (sdk.Coin, er
 	return assetFtParamsRes.Params.IssueFee, nil
 }
 
-func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, requests ...any) (*sdk.TxResponse, error) {
+func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, requests ...execRequest) (*sdk.TxResponse, error) {
 	if c.cfg.ContractAddress == nil {
 		return nil, errors.New("failed to execute with empty contract address")
 	}
 
 	msgs := make([]sdk.Msg, 0, len(requests))
 	for _, req := range requests {
-		payload, err := json.Marshal(req)
+		payload, err := json.Marshal(req.Body)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to marshal payload, requiest:%v", requests...)
+			return nil, errors.Wrapf(err, "failed to marshal payload, requiest:%v", req.Body)
 		}
 		c.log.Debug("Executing contract", logger.StringFiled("payload", string(payload)))
 		msg := &wasmtypes.MsgExecuteContract{
 			Sender:   sender.String(),
 			Contract: c.cfg.ContractAddress.String(),
 			Msg:      payload,
+			Funds:    req.Funds,
 		}
 		msgs = append(msgs, msg)
 	}
 
 	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgs...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute transaction, requiest:%v", requests...)
+		return nil, errors.Wrapf(err, "failed to execute transaction, requiests:%v", requests)
 	}
 	return res, nil
 }
@@ -459,6 +501,11 @@ func IsNotOwnerError(err error) bool {
 // IsCoreumTokenAlreadyRegisteredError returns true if error is `CoreumTokenAlreadyRegistered` error.
 func IsCoreumTokenAlreadyRegisteredError(err error) bool {
 	return isError(err, coreumTokenAlreadyRegisteredErrorString)
+}
+
+// IsXRPLTokenAlreadyRegisteredError returns true if error is `XRPLTokenAlreadyRegistered` error.
+func IsXRPLTokenAlreadyRegisteredError(err error) bool {
+	return isError(err, xrplTokenAlreadyRegisteredErrorString)
 }
 
 func isError(err error, errorString string) bool {

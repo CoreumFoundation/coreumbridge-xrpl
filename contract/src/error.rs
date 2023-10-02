@@ -19,7 +19,7 @@ pub enum ContractError {
 
     #[error("CoreumTokenAlreadyRegistered: Token {} already registered", denom)]
     CoreumTokenAlreadyRegistered { denom: String },
-
+  
     #[error(
         "XRPLTokenAlreadyRegistered: Token with issuer: {} and currency: {} is already registered",
         issuer,
