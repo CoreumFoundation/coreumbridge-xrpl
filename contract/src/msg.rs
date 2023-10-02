@@ -33,8 +33,8 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
-    #[returns(XrplTokensResponse)]
-    XrplTokens {
+    #[returns(XRPLTokensResponse)]
+    XRPLTokens {
         offset: Option<u64>,
         limit: Option<u32>,
     },
@@ -43,8 +43,8 @@ pub enum QueryMsg {
         offset: Option<u64>,
         limit: Option<u32>,
     },
-    #[returns(XrplTokenResponse)]
-    XrplToken {
+    #[returns(XRPLTokenResponse)]
+    XRPLToken {
         issuer: Option<String>,
         currency: Option<String>,
     },
@@ -53,7 +53,7 @@ pub enum QueryMsg {
 }
 
 #[cw_serde]
-pub struct XrplTokensResponse {
+pub struct XRPLTokensResponse {
     pub tokens: Vec<XRPLToken>,
 }
 
@@ -63,7 +63,7 @@ pub struct CoreumTokensResponse {
 }
 
 #[cw_serde]
-pub struct XrplTokenResponse {
+pub struct XRPLTokenResponse {
     pub token: XRPLToken,
 }
 

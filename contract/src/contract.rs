@@ -2,7 +2,7 @@ use crate::{
     error::ContractError,
     msg::{
         CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-        XrplTokenResponse, XrplTokensResponse,
+        XRPLTokenResponse, XRPLTokensResponse,
     },
     state::{
         Config, ContractActions, CoreumToken, XRPLToken, CONFIG, COREUM_DENOMS, COREUM_TOKENS,
@@ -195,7 +195,7 @@ fn register_xrpl_token(
     key.push_str(currency.as_str());
 
     if XRPL_TOKENS.has(deps.storage, key.clone()) {
-        return Err(ContractError::XrplTokenAlreadyRegistered { issuer, currency });
+        return Err(ContractError::XRPLTokenAlreadyRegistered { issuer, currency });
     }
 
     // We generate a random denom creating a Sha256 hash of the issuer, currency, decimals and current time
@@ -266,13 +266,13 @@ fn register_xrpl_token(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::XrplTokens { offset, limit } => {
+        QueryMsg::XRPLTokens { offset, limit } => {
             to_binary(&query_xrpl_tokens(deps, offset, limit)?)
         }
         QueryMsg::CoreumTokens { offset, limit } => {
             to_binary(&query_coreum_tokens(deps, offset, limit)?)
         }
-        QueryMsg::XrplToken { issuer, currency } => {
+        QueryMsg::XRPLToken { issuer, currency } => {
             to_binary(&query_xrpl_token(deps, issuer, currency)?)
         }
         QueryMsg::CoreumToken { denom } => to_binary(&query_coreum_token(deps, denom)?),
@@ -289,7 +289,7 @@ fn query_xrpl_tokens(
     deps: Deps,
     offset: Option<u64>,
     limit: Option<u32>,
-) -> StdResult<XrplTokensResponse> {
+) -> StdResult<XRPLTokensResponse> {
     let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
     let offset = offset.unwrap_or(0);
     let tokens: Vec<XRPLToken> = XRPL_TOKENS
@@ -300,7 +300,7 @@ fn query_xrpl_tokens(
         .map(|(_, v)| v)
         .collect();
 
-    Ok(XrplTokensResponse { tokens })
+    Ok(XRPLTokensResponse { tokens })
 }
 
 fn query_coreum_tokens(
@@ -325,7 +325,7 @@ fn query_xrpl_token(
     deps: Deps,
     issuer: Option<String>,
     currency: Option<String>,
-) -> StdResult<XrplTokenResponse> {
+) -> StdResult<XRPLTokenResponse> {
     let mut key;
     if issuer.is_none() && currency.is_none() {
         key = XRP_SYMBOL.to_string();
@@ -336,7 +336,7 @@ fn query_xrpl_token(
 
     let token = XRPL_TOKENS.load(deps.storage, key)?;
 
-    Ok(XrplTokenResponse { token })
+    Ok(XRPLTokenResponse { token })
 }
 
 fn query_coreum_token(deps: Deps, denom: String) -> StdResult<CoreumTokenResponse> {

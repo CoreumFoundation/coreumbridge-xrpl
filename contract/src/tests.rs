@@ -11,7 +11,7 @@ mod tests {
         error::ContractError,
         msg::{
             CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-            XrplTokenResponse, XrplTokensResponse,
+            XRPLTokenResponse, XRPLTokensResponse,
         },
         state::Config,
     };
@@ -22,7 +22,7 @@ mod tests {
     const XRPL_DENOM_PREFIX: &str = "xrpl";
 
     #[derive(Clone)]
-    struct XrplToken {
+    struct XRPLToken {
         pub issuer: String,
         pub currency: String,
     }
@@ -252,9 +252,9 @@ mod tests {
         );
 
         let query_xrpl_tokens = wasm
-            .query::<QueryMsg, XrplTokensResponse>(
+            .query::<QueryMsg, XRPLTokensResponse>(
                 &contract_addr,
-                &QueryMsg::XrplTokens {
+                &QueryMsg::XRPLTokens {
                     offset: None,
                     limit: None,
                 },
@@ -284,9 +284,9 @@ mod tests {
         );
 
         let query_xrpl_token = wasm
-            .query::<QueryMsg, XrplTokenResponse>(
+            .query::<QueryMsg, XRPLTokenResponse>(
                 &contract_addr,
-                &QueryMsg::XrplToken {
+                &QueryMsg::XRPLToken {
                     issuer: None,
                     currency: None,
                 },
@@ -425,11 +425,11 @@ mod tests {
         );
 
         let test_tokens = vec![
-            XrplToken {
+            XRPLToken {
                 issuer: "issuer1".to_string(),
                 currency: "currency1".to_string(),
             },
-            XrplToken {
+            XRPLToken {
                 issuer: "issuer2".to_string(),
                 currency: "currency2".to_string(),
             },
@@ -497,7 +497,7 @@ mod tests {
             .unwrap_err();
 
         assert!(register_error.to_string().contains(
-            ContractError::XrplTokenAlreadyRegistered {
+            ContractError::XRPLTokenAlreadyRegistered {
                 issuer: test_tokens[0].issuer.clone(),
                 currency: test_tokens[0].currency.clone()
             }
@@ -507,9 +507,9 @@ mod tests {
 
         //Query 1 token
         let query_token = wasm
-            .query::<QueryMsg, XrplTokenResponse>(
+            .query::<QueryMsg, XRPLTokenResponse>(
                 &contract_addr,
-                &QueryMsg::XrplToken {
+                &QueryMsg::XRPLToken {
                     issuer: Some(test_tokens[0].issuer.clone()),
                     currency: Some(test_tokens[0].currency.clone()),
                 },
@@ -522,9 +522,9 @@ mod tests {
 
         //Query all tokens
         let query_xrpl_tokens = wasm
-            .query::<QueryMsg, XrplTokensResponse>(
+            .query::<QueryMsg, XRPLTokensResponse>(
                 &contract_addr,
-                &QueryMsg::XrplTokens {
+                &QueryMsg::XRPLTokens {
                     offset: None,
                     limit: None,
                 },
@@ -534,9 +534,9 @@ mod tests {
 
         //Query all tokens with limit
         let query_xrpl_tokens = wasm
-            .query::<QueryMsg, XrplTokensResponse>(
+            .query::<QueryMsg, XRPLTokensResponse>(
                 &contract_addr,
-                &QueryMsg::XrplTokens {
+                &QueryMsg::XRPLTokens {
                     offset: None,
                     limit: Some(1),
                 },
@@ -550,9 +550,9 @@ mod tests {
 
         //Query all tokens with pagination
         let query_xrpl_tokens = wasm
-            .query::<QueryMsg, XrplTokensResponse>(
+            .query::<QueryMsg, XRPLTokensResponse>(
                 &contract_addr,
-                &QueryMsg::XrplTokens {
+                &QueryMsg::XRPLTokens {
                     offset: Some(1),
                     limit: Some(2),
                 },
