@@ -1,12 +1,13 @@
 use crate::{
     error::ContractError,
+    evidence::{Evidence, hash_bytes, handle_evidence},
     msg::{
         CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
         XRPLTokenResponse, XRPLTokensResponse,
     },
     state::{
-        Config, ContractActions, CoreumToken, Evidences, Operation, XRPLToken, CONFIG,
-        COREUM_DENOMS, COREUM_TOKENS, EVIDENCES, EXECUTED_OPERATIONS, XRPL_CURRENCIES, XRPL_TOKENS,
+        Config, ContractActions, CoreumToken, XRPLToken, CONFIG,
+        COREUM_DENOMS, COREUM_TOKENS, XRPL_CURRENCIES, XRPL_TOKENS,
     },
 };
 use coreum_wasm_sdk::{
@@ -115,21 +116,9 @@ pub fn execute(
         ExecuteMsg::RegisterXRPLToken { issuer, currency } => {
             register_xrpl_token(deps, env, issuer, currency, info)
         }
-        ExecuteMsg::SendFromXRPLToCoreum {
-            hash,
-            issuer,
-            currency,
-            amount,
-            recipient,
-        } => send_from_xrpl_to_coreum(
-            deps.into_empty(),
-            info.sender,
-            hash,
-            issuer,
-            currency,
-            amount,
-            recipient,
-        ),
+        ExecuteMsg::AcceptEvidence { evidence } => {
+            accept_evidence(deps.into_empty(), info.sender, evidence)
+        }
     }
 }
 
@@ -158,7 +147,7 @@ fn register_coreum_token(
 
     // We generate a random currency creating a Sha256 hash of the denom, the decimals and the current time
     let to_hash = format!("{}{}{}", denom, decimals, env.block.time.seconds()).into_bytes();
-    let hex_string = hasher(to_hash)
+    let hex_string = hash_bytes(to_hash)
         .get(0..10)
         .unwrap()
         .to_string()
@@ -267,57 +256,51 @@ fn register_xrpl_token(
         .add_attribute("denom", denom))
 }
 
-fn send_from_xrpl_to_coreum(
-    deps: DepsMut,
-    sender: Addr,
-    hash: String,
-    issuer: String,
-    currency: String,
-    amount: Uint128,
-    recipient: Addr,
-) -> CoreumResult<ContractError> {
+fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
     if !config.relayers.contains(&sender) {
         return Err(ContractError::UnauthorizedOperation {});
     }
 
-    //Create issuer+currency key to find denom on coreum.
-    let mut key = issuer.clone();
-    key.push_str(currency.as_str());
+    let denom;
 
-    let denom = XRPL_TOKENS
-        .load(deps.storage, key)
-        .map_err(|_| ContractError::TokenNotRegistered {})?;
+    match evidence.clone() {
+        Evidence::XRPLToCoreum {
+            issuer, currency, ..
+        } => {
+            //Create issuer+currency key to find denom on coreum.
+            let mut key = issuer.clone();
+            key.push_str(currency.as_str());
 
-    // We generate the hash of the transaction which will be used as evidence for this relayer
-    let to_hash = format!(
-        "{}{}{}{}{}{}",
-        hash,
-        issuer,
-        currency,
-        amount,
-        recipient,
-        Operation::XRPLToCoreum.as_str()
-    )
-    .into_bytes();
-    let hex_string = hasher(to_hash);
+            denom = XRPL_TOKENS
+                .load(deps.storage, key)
+                .map_err(|_| ContractError::TokenNotRegistered {})?;
+        }
+    }
 
     let mut response = Response::new();
 
-    let threshold_reached = evidences_handler(deps, sender, hex_string)?;
+    let threshold_reached = handle_evidence(deps, sender, evidence.get_hash(), evidence.get_tx_hash())?;
 
     if threshold_reached {
-        response = add_mint_and_send(response, amount, denom.coreum_denom, recipient.clone());
+        match evidence {
+            Evidence::XRPLToCoreum { tx_hash, issuer, currency, amount, recipient } => {
+                response = add_mint_and_send(response, amount, denom.coreum_denom, recipient.clone());
+                response = response
+                .add_attribute("action", ContractActions::SendFromXRPLToCoreum.as_str())
+                .add_attribute("hash", tx_hash)
+                .add_attribute("issuer", issuer)
+                .add_attribute("currency", currency)
+                .add_attribute("amount", amount.to_string())
+                .add_attribute("recipient", recipient.to_string())
+                .add_attribute("threshold_reached", threshold_reached.to_string())
+            },
+        }
     }
+        
 
-    Ok(response
-        .add_attribute("action", ContractActions::SendFromXRPLToCoreum.as_str())
-        .add_attribute("hash", hash)
-        .add_attribute("issuer", issuer)
-        .add_attribute("currency", currency)
-        .add_attribute("amount", amount.to_string())
-        .add_attribute("recipient", recipient.to_string()))
+    Ok(response)
 }
 
 // ********** Queries **********
@@ -434,57 +417,4 @@ fn add_mint_and_send(
     });
 
     response.add_messages([mint_msg, send_msg])
-}
-
-fn hasher(bytes: Vec<u8>) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    let output = hasher.finalize();
-    hex::encode(output)
-}
-
-fn evidences_handler(
-    deps: DepsMut,
-    sender: Addr,
-    evidence: String,
-) -> Result<bool, ContractError> {
-    let mut threshold_reached = false;
-
-    if EXECUTED_OPERATIONS.has(deps.storage, evidence.clone()) {
-        return Err(ContractError::OperationAlreadyExecuted {});
-    }
-    let config = CONFIG.load(deps.storage)?;
-    // Get the evidences that we already have of this current operation
-    let evidences = EVIDENCES.may_load(deps.storage, evidence.clone())?;
-
-    //There are already evidences from previous relayers
-    if let Some(mut evidences) = evidences {
-        if evidences.relayers.contains(&sender) {
-            return Err(ContractError::EvidenceAlreadyProvided {});
-        }
-
-        if evidences.relayers.len() + 1 == config.evidence_threshold as usize {
-            //We have enough evidences, we can execute the operation
-            EXECUTED_OPERATIONS.save(deps.storage, evidence.clone(), &Empty {})?;
-            EVIDENCES.remove(deps.storage, evidence.clone());
-            //We send the tokens to the recipient
-            threshold_reached = true;
-        } else {
-            evidences.relayers.push(sender.clone());
-            EVIDENCES.save(deps.storage, evidence.clone(), &evidences)?;
-        }
-    //First relayer to provide evidence
-    } else if config.evidence_threshold == 1 {
-        //We have enough evidences, we can execute the operation
-        EXECUTED_OPERATIONS.save(deps.storage, evidence.clone(), &Empty {})?;
-        //We send the tokens to the recipient
-        threshold_reached = true;
-    } else {
-        let evidences = Evidences {
-            relayers: vec![sender.clone()],
-        };
-        EVIDENCES.save(deps.storage, evidence.clone(), &evidences)?;
-    }
-
-    Ok(threshold_reached)
 }

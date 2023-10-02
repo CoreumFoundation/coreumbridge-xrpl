@@ -57,7 +57,7 @@ pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_s
 // Evidences, when enough evidences are collected, hashes are moved to completed operations
 pub const EVIDENCES: Map<String, Evidences> = Map::new(TopKey::Evidences.as_str());
 // Completed operations so that we don't process the same operation twice
-pub const EXECUTED_OPERATIONS: Map<String, Empty> = Map::new(TopKey::ExecutedOperations.as_str());
+pub const EXECUTED_OPERATIONS: Map<String, String> = Map::new(TopKey::ExecutedOperations.as_str());
 
 pub enum ContractActions {
     Instantiation,

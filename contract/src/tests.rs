@@ -9,6 +9,7 @@ mod tests {
 
     use crate::{
         error::ContractError,
+        evidence::Evidence,
         msg::{
             CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
             XRPLTokenResponse, XRPLTokensResponse,
@@ -643,12 +644,14 @@ mod tests {
         //Bridge with 1 relayer should immediately mint and send to the receiver address
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendFromXRPLToCoreum {
-                hash: hash.clone(),
-                issuer: test_tokens[0].issuer.clone(),
-                currency: test_tokens[0].currency.clone(),
-                amount: amount.clone(),
-                recipient: Addr::unchecked(receiver.address()),
+            &ExecuteMsg::AcceptEvidence {
+                evidence: Evidence::XRPLToCoreum {
+                    tx_hash: hash.clone(),
+                    issuer: test_tokens[0].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                    amount: amount.clone(),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
             },
             &[],
             relayer1,
@@ -706,12 +709,14 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendFromXRPLToCoreum {
-                    hash: hash.clone(),
-                    issuer: test_tokens[0].issuer.clone(),
-                    currency: test_tokens[0].currency.clone(),
-                    amount: amount.clone(),
-                    recipient: Addr::unchecked(receiver.address()),
+                &ExecuteMsg::AcceptEvidence {
+                    evidence: Evidence::XRPLToCoreum {
+                        tx_hash: hash.clone(),
+                        issuer: test_tokens[0].issuer.clone(),
+                        currency: test_tokens[0].currency.clone(),
+                        amount: amount.clone(),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
                 },
                 &[],
                 signer,
@@ -726,12 +731,14 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendFromXRPLToCoreum {
-                    hash: hash.clone(),
-                    issuer: "not_registered".to_string(),
-                    currency: "not_registered".to_string(),
-                    amount: amount.clone(),
-                    recipient: Addr::unchecked(receiver.address()),
+                &ExecuteMsg::AcceptEvidence {
+                    evidence: Evidence::XRPLToCoreum {
+                        tx_hash: hash.clone(),
+                        issuer: "not_registered".to_string(),
+                        currency: "not_registered".to_string(),
+                        amount: amount.clone(),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
                 },
                 &[],
                 relayer1,
@@ -745,12 +752,14 @@ mod tests {
         //First relayer to execute should not trigger a mint and send
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendFromXRPLToCoreum {
-                hash: hash.clone(),
-                issuer: test_tokens[0].issuer.clone(),
-                currency: test_tokens[0].currency.clone(),
-                amount: amount.clone(),
-                recipient: Addr::unchecked(receiver.address()),
+            &ExecuteMsg::AcceptEvidence {
+                evidence: Evidence::XRPLToCoreum {
+                    tx_hash: hash.clone(),
+                    issuer: test_tokens[0].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                    amount: amount.clone(),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
             },
             &[],
             relayer1,
@@ -771,12 +780,14 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendFromXRPLToCoreum {
-                    hash: hash.clone(),
-                    issuer: test_tokens[0].issuer.clone(),
-                    currency: test_tokens[0].currency.clone(),
-                    amount: amount.clone(),
-                    recipient: Addr::unchecked(receiver.address()),
+                &ExecuteMsg::AcceptEvidence {
+                    evidence: Evidence::XRPLToCoreum {
+                        tx_hash: hash.clone(),
+                        issuer: test_tokens[0].issuer.clone(),
+                        currency: test_tokens[0].currency.clone(),
+                        amount: amount.clone(),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
                 },
                 &[],
                 relayer1,
@@ -792,12 +803,14 @@ mod tests {
         //Second relayer to execute should trigger a mint and send
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendFromXRPLToCoreum {
-                hash: hash.clone(),
-                issuer: test_tokens[0].issuer.clone(),
-                currency: test_tokens[0].currency.clone(),
-                amount: amount.clone(),
-                recipient: Addr::unchecked(receiver.address()),
+            &ExecuteMsg::AcceptEvidence {
+                evidence: Evidence::XRPLToCoreum {
+                    tx_hash: hash.clone(),
+                    issuer: test_tokens[0].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                    amount: amount.clone(),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
             },
             &[],
             relayer2,
@@ -818,12 +831,14 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendFromXRPLToCoreum {
-                    hash: hash.clone(),
-                    issuer: test_tokens[0].issuer.clone(),
-                    currency: test_tokens[0].currency.clone(),
-                    amount: amount.clone(),
-                    recipient: Addr::unchecked(receiver.address()),
+                &ExecuteMsg::AcceptEvidence {
+                    evidence: Evidence::XRPLToCoreum {
+                        tx_hash: hash.clone(),
+                        issuer: test_tokens[0].issuer.clone(),
+                        currency: test_tokens[0].currency.clone(),
+                        amount: amount.clone(),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
                 },
                 &[],
                 relayer2,
@@ -919,12 +934,14 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendFromXRPLToCoreum {
-                    hash: "random_hash".to_string(),
+                &ExecuteMsg::AcceptEvidence {
+                    evidence: Evidence::XRPLToCoreum {
+                        tx_hash: "random_hash".to_string(),
                     issuer: "random_issuer".to_string(),
                     currency: "random_currency".to_string(),
                     amount: Uint128::from(100 as u128),
                     recipient: Addr::unchecked(signer.address()),
+                    },
                 },
                 &[],
                 &not_owner,
