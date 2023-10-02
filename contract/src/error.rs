@@ -35,17 +35,17 @@ pub enum ContractError {
     )]
     RegistrationFailure {},
 
-    #[error("UnauthorizedOperation: Sender is not a valid relayer")]
-    UnauthorizedOperation {},
+    #[error("UnauthorizedSender: Sender is not a valid relayer")]
+    UnauthorizedSender {},
 
-    #[error("TokenNotRegistered: This token must be registered first before bridging")]
+    #[error("TokenNotRegistered: The token must be registered first before bridging")]
     TokenNotRegistered {},
 
-    #[error("OperationAlreadyExecuted: This operation has already been executed, no need to keep relaying")]
+    #[error("OperationAlreadyExecuted: The operation has already been executed")]
     OperationAlreadyExecuted {},
 
     #[error(
-        "EvidenceAlreadyProvided: This relayer already provided its evidence for this operation"
+        "EvidenceAlreadyProvided: The relayer already provided its evidence for the operation"
     )]
     EvidenceAlreadyProvided {},
 

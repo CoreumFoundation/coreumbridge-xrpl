@@ -261,7 +261,7 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
     let config = CONFIG.load(deps.storage)?;
 
     if !config.relayers.contains(&sender) {
-        return Err(ContractError::UnauthorizedOperation {});
+        return Err(ContractError::UnauthorizedSender {});
     }
 
     let denom;
@@ -283,7 +283,7 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
     let mut response = Response::new();
 
     let threshold_reached =
-        handle_evidence(deps, sender, evidence.get_hash(), evidence.get_tx_hash())?;
+        handle_evidence(deps, sender, evidence.clone())?;
 
     if threshold_reached {
         match evidence {

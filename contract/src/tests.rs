@@ -636,31 +636,29 @@ mod tests {
             query_issue_fee(&assetft),
         );
 
-        let test_tokens = vec![XRPLToken {
+        let test_token = XRPLToken {
             issuer: "issuer1".to_string(),
             currency: "currency1".to_string(),
-        }];
+        };
 
         //Register a token
-        for token in test_tokens.clone() {
-            wasm.execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::RegisterXRPLToken {
-                    issuer: token.issuer,
-                    currency: token.currency,
-                },
-                &query_issue_fee(&assetft),
-                signer,
-            )
-            .unwrap();
-        }
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterXRPLToken {
+                issuer: test_token.issuer.clone(),
+                currency: test_token.currency.clone(),
+            },
+            &query_issue_fee(&assetft),
+            signer,
+        )
+        .unwrap();
 
         let query_xrpl_token = wasm
             .query::<QueryMsg, XRPLTokenResponse>(
                 &contract_addr,
                 &QueryMsg::XRPLToken {
-                    issuer: Some(test_tokens[0].issuer.clone()),
-                    currency: Some(test_tokens[0].currency.clone()),
+                    issuer: Some(test_token.issuer.clone()),
+                    currency: Some(test_token.currency.clone()),
                 },
             )
             .unwrap();
@@ -675,8 +673,8 @@ mod tests {
             &ExecuteMsg::AcceptEvidence {
                 evidence: Evidence::XRPLToCoreum {
                     tx_hash: hash.clone(),
-                    issuer: test_tokens[0].issuer.clone(),
-                    currency: test_tokens[0].currency.clone(),
+                    issuer: test_token.issuer.clone(),
+                    currency: test_token.currency.clone(),
                     amount: amount.clone(),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -709,25 +707,23 @@ mod tests {
         );
 
         //Register a token
-        for token in test_tokens.clone() {
-            wasm.execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::RegisterXRPLToken {
-                    issuer: token.issuer,
-                    currency: token.currency,
-                },
-                &query_issue_fee(&assetft),
-                signer,
-            )
-            .unwrap();
-        }
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterXRPLToken {
+                issuer: test_token.issuer.clone(),
+                currency: test_token.currency.clone(),
+            },
+            &query_issue_fee(&assetft),
+            signer,
+        )
+        .unwrap();
 
         let query_xrpl_token = wasm
             .query::<QueryMsg, XRPLTokenResponse>(
                 &contract_addr,
                 &QueryMsg::XRPLToken {
-                    issuer: Some(test_tokens[0].issuer.clone()),
-                    currency: Some(test_tokens[0].currency.clone()),
+                    issuer: Some(test_token.issuer.clone()),
+                    currency: Some(test_token.currency.clone()),
                 },
             )
             .unwrap();
@@ -741,8 +737,8 @@ mod tests {
                 &ExecuteMsg::AcceptEvidence {
                     evidence: Evidence::XRPLToCoreum {
                         tx_hash: hash.clone(),
-                        issuer: test_tokens[0].issuer.clone(),
-                        currency: test_tokens[0].currency.clone(),
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
                         amount: amount.clone(),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -754,7 +750,7 @@ mod tests {
 
         assert!(relayer_error
             .to_string()
-            .contains(ContractError::UnauthorizedOperation {}.to_string().as_str()));
+            .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
 
         //Trying to send a token that is not previously registered should also fail
         let relayer_error = wasm
@@ -785,8 +781,8 @@ mod tests {
                 &ExecuteMsg::AcceptEvidence {
                     evidence: Evidence::XRPLToCoreum {
                         tx_hash: hash.clone(),
-                        issuer: test_tokens[0].issuer.clone(),
-                        currency: test_tokens[0].currency.clone(),
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
                         amount: Uint128::from(0 as u128),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -806,8 +802,8 @@ mod tests {
             &ExecuteMsg::AcceptEvidence {
                 evidence: Evidence::XRPLToCoreum {
                     tx_hash: hash.clone(),
-                    issuer: test_tokens[0].issuer.clone(),
-                    currency: test_tokens[0].currency.clone(),
+                    issuer: test_token.issuer.clone(),
+                    currency: test_token.currency.clone(),
                     amount: amount.clone(),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -834,8 +830,8 @@ mod tests {
                 &ExecuteMsg::AcceptEvidence {
                     evidence: Evidence::XRPLToCoreum {
                         tx_hash: hash.clone(),
-                        issuer: test_tokens[0].issuer.clone(),
-                        currency: test_tokens[0].currency.clone(),
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
                         amount: amount.clone(),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -857,8 +853,8 @@ mod tests {
             &ExecuteMsg::AcceptEvidence {
                 evidence: Evidence::XRPLToCoreum {
                     tx_hash: hash.clone(),
-                    issuer: test_tokens[0].issuer.clone(),
-                    currency: test_tokens[0].currency.clone(),
+                    issuer: test_token.issuer.clone(),
+                    currency: test_token.currency.clone(),
                     amount: amount.clone(),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -885,8 +881,8 @@ mod tests {
                 &ExecuteMsg::AcceptEvidence {
                     evidence: Evidence::XRPLToCoreum {
                         tx_hash: hash.clone(),
-                        issuer: test_tokens[0].issuer.clone(),
-                        currency: test_tokens[0].currency.clone(),
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
                         amount: amount.clone(),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1003,6 +999,6 @@ mod tests {
 
         assert!(relayer_error
             .to_string()
-            .contains(ContractError::UnauthorizedOperation {}.to_string().as_str()));
+            .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
     }
 }
