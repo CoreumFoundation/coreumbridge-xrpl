@@ -145,7 +145,7 @@ fn register_coreum_token(
         return Err(ContractError::CoreumTokenAlreadyRegistered { denom });
     }
 
-    // We generate a random currency creating a Sha256 hash of the denom, the decimals and the current time
+    // We generate a currency creating a Sha256 hash of the denom, the decimals and the current time
     let to_hash = format!("{}{}{}", denom, decimals, env.block.time.seconds()).into_bytes();
     let hex_string = hash_bytes(to_hash)
         .get(0..10)

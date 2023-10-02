@@ -3,9 +3,11 @@ mod tests {
     use coreum_test_tube::{Account, AssetFT, CoreumTestApp, Module, SigningAccount, Wasm};
     use coreum_wasm_sdk::{
         assetft::{BURNING, IBC, MINTING},
-        types::coreum::asset::ft::v1::{QueryBalanceRequest, QueryTokensRequest, Token},
+        types::coreum::asset::ft::v1::{
+            QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
+        },
     };
-    use cosmwasm_std::{coin, coins, Addr, Uint128};
+    use cosmwasm_std::{coin, coins, Addr, Coin, Uint128};
 
     use crate::{
         error::ContractError,
@@ -34,6 +36,7 @@ mod tests {
         owner: Addr,
         relayers: Vec<Addr>,
         evidence_threshold: u32,
+        issue_fee: Vec<Coin>,
     ) -> String {
         let wasm_byte_code = std::fs::read("./artifacts/coreumbridge_xrpl.wasm").unwrap();
         let code_id = wasm
@@ -50,12 +53,23 @@ mod tests {
             },
             None,
             "label".into(),
-            &coins(10_000_000, FEE_DENOM),
+            &issue_fee,
             &signer,
         )
         .unwrap()
         .data
         .address
+    }
+
+    fn query_issue_fee(assetft: &AssetFT<'_, CoreumTestApp>) -> Vec<Coin> {
+        let issue_fee = assetft
+            .query_params(&QueryParamsRequest {})
+            .unwrap()
+            .params
+            .unwrap()
+            .issue_fee
+            .unwrap();
+        coins(issue_fee.amount.trim().parse().unwrap(), issue_fee.denom)
     }
 
     #[test]
@@ -75,6 +89,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            query_issue_fee(&assetft),
         );
         assert!(!contract_addr.is_empty());
 
@@ -139,6 +154,7 @@ mod tests {
             .init_account(&coins(100_000_000_000, FEE_DENOM))
             .unwrap();
         let wasm = Wasm::new(&app);
+        let assetft = AssetFT::new(&app);
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -146,6 +162,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            query_issue_fee(&assetft),
         );
 
         //Query current owner
@@ -216,6 +233,7 @@ mod tests {
             .unwrap();
 
         let wasm = Wasm::new(&app);
+        let assetft = AssetFT::new(&app);
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -223,6 +241,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            query_issue_fee(&assetft),
         );
 
         let query_config = wasm
@@ -243,6 +262,7 @@ mod tests {
             .unwrap();
 
         let wasm = Wasm::new(&app);
+        let assetft = AssetFT::new(&app);
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -250,6 +270,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            query_issue_fee(&assetft),
         );
 
         let query_xrpl_tokens = wasm
@@ -275,6 +296,7 @@ mod tests {
             .unwrap();
 
         let wasm = Wasm::new(&app);
+        let assetft = AssetFT::new(&app);
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -282,6 +304,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            query_issue_fee(&assetft),
         );
 
         let query_xrpl_token = wasm
@@ -307,6 +330,7 @@ mod tests {
             .unwrap();
 
         let wasm = Wasm::new(&app);
+        let assetft = AssetFT::new(&app);
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -314,6 +338,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            query_issue_fee(&assetft),
         );
 
         let test_tokens = vec!["test_denom1".to_string(), "test_denom2".to_string()];
@@ -416,6 +441,7 @@ mod tests {
             .unwrap();
 
         let wasm = Wasm::new(&app);
+        let assetft = AssetFT::new(&app);
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -423,6 +449,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            query_issue_fee(&assetft),
         );
 
         let test_tokens = vec![
@@ -461,7 +488,7 @@ mod tests {
                     issuer: token.issuer,
                     currency: token.currency,
                 },
-                &coins(10_000_000, FEE_DENOM),
+                &query_issue_fee(&assetft),
                 &signer,
             )
             .unwrap();
@@ -492,7 +519,7 @@ mod tests {
                     issuer: test_tokens[0].issuer.clone(),
                     currency: test_tokens[0].currency.clone(),
                 },
-                &coins(10_000_000, FEE_DENOM),
+                &query_issue_fee(&assetft),
                 &signer,
             )
             .unwrap_err();
@@ -606,6 +633,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(relayer1.address())],
             1,
+            query_issue_fee(&assetft),
         );
 
         let test_tokens = vec![XRPLToken {
@@ -621,7 +649,7 @@ mod tests {
                     issuer: token.issuer,
                     currency: token.currency,
                 },
-                &coins(10_000_000, FEE_DENOM),
+                &query_issue_fee(&assetft),
                 signer,
             )
             .unwrap();
@@ -677,6 +705,7 @@ mod tests {
                 Addr::unchecked(relayer2.address()),
             ],
             2,
+            query_issue_fee(&assetft),
         );
 
         //Register a token
@@ -687,7 +716,7 @@ mod tests {
                     issuer: token.issuer,
                     currency: token.currency,
                 },
-                &coins(10_000_000, FEE_DENOM),
+                &query_issue_fee(&assetft),
                 signer,
             )
             .unwrap();
@@ -864,6 +893,7 @@ mod tests {
             .unwrap();
 
         let wasm = Wasm::new(&app);
+        let assetft = AssetFT::new(&app);
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -871,6 +901,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            query_issue_fee(&assetft),
         );
 
         //Try transfering from user that is not owner, should fail
@@ -919,7 +950,7 @@ mod tests {
                     issuer: "issuer".to_string(),
                     currency: "currency".to_string(),
                 },
-                &coins(10_000_000, FEE_DENOM),
+                &query_issue_fee(&assetft),
                 &not_owner,
             )
             .unwrap_err();
@@ -937,10 +968,10 @@ mod tests {
                 &ExecuteMsg::AcceptEvidence {
                     evidence: Evidence::XRPLToCoreum {
                         tx_hash: "random_hash".to_string(),
-                    issuer: "random_issuer".to_string(),
-                    currency: "random_currency".to_string(),
-                    amount: Uint128::from(100 as u128),
-                    recipient: Addr::unchecked(signer.address()),
+                        issuer: "random_issuer".to_string(),
+                        currency: "random_currency".to_string(),
+                        amount: Uint128::from(100 as u128),
+                        recipient: Addr::unchecked(signer.address()),
                     },
                 },
                 &[],
