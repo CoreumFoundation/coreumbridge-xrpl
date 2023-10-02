@@ -1,13 +1,13 @@
 use crate::{
     error::ContractError,
-    evidence::{Evidence, hash_bytes, handle_evidence},
+    evidence::{handle_evidence, hash_bytes, Evidence},
     msg::{
         CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
         XRPLTokenResponse, XRPLTokensResponse,
     },
     state::{
-        Config, ContractActions, CoreumToken, XRPLToken, CONFIG,
-        COREUM_DENOMS, COREUM_TOKENS, XRPL_CURRENCIES, XRPL_TOKENS,
+        Config, ContractActions, CoreumToken, XRPLToken, CONFIG, COREUM_DENOMS, COREUM_TOKENS,
+        XRPL_CURRENCIES, XRPL_TOKENS,
     },
 };
 use coreum_wasm_sdk::{
@@ -282,24 +282,31 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
 
     let mut response = Response::new();
 
-    let threshold_reached = handle_evidence(deps, sender, evidence.get_hash(), evidence.get_tx_hash())?;
+    let threshold_reached =
+        handle_evidence(deps, sender, evidence.get_hash(), evidence.get_tx_hash())?;
 
     if threshold_reached {
         match evidence {
-            Evidence::XRPLToCoreum { tx_hash, issuer, currency, amount, recipient } => {
-                response = add_mint_and_send(response, amount, denom.coreum_denom, recipient.clone());
+            Evidence::XRPLToCoreum {
+                tx_hash,
+                issuer,
+                currency,
+                amount,
+                recipient,
+            } => {
+                response =
+                    add_mint_and_send(response, amount, denom.coreum_denom, recipient.clone());
                 response = response
-                .add_attribute("action", ContractActions::SendFromXRPLToCoreum.as_str())
-                .add_attribute("hash", tx_hash)
-                .add_attribute("issuer", issuer)
-                .add_attribute("currency", currency)
-                .add_attribute("amount", amount.to_string())
-                .add_attribute("recipient", recipient.to_string())
-                .add_attribute("threshold_reached", threshold_reached.to_string())
-            },
+                    .add_attribute("action", ContractActions::SendFromXRPLToCoreum.as_str())
+                    .add_attribute("hash", tx_hash)
+                    .add_attribute("issuer", issuer)
+                    .add_attribute("currency", currency)
+                    .add_attribute("amount", amount.to_string())
+                    .add_attribute("recipient", recipient.to_string())
+                    .add_attribute("threshold_reached", threshold_reached.to_string())
+            }
         }
     }
-        
 
     Ok(response)
 }
