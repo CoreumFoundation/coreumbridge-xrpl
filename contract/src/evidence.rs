@@ -92,7 +92,7 @@ pub fn handle_evidence(
     }
 
     let config = CONFIG.load(deps.storage)?;
-    if evidences.relayers.len() >= config.evidence_threshold as usize {
+    if evidences.relayers.len() >= config.evidence_threshold.try_into().unwrap() {
         EXECUTED_EVIDENCE_OPERATIONS.save(
             deps.storage,
             evidence.get_tx_hash(),
