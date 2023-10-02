@@ -185,9 +185,7 @@ fn register_xrpl_token(
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
-
-    let mut key = issuer.clone();
-    key.push_str(currency.as_str());
+    let key = get_key(issuer.clone(), currency.clone());
 
     if XRPL_TOKENS.has(deps.storage, key.clone()) {
         return Err(ContractError::XRPLTokenAlreadyRegistered { issuer, currency });
@@ -265,46 +263,36 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
     }
 
     let denom;
+    let mut response = Response::new();
 
     match evidence.clone() {
         Evidence::XRPLToCoreum {
-            issuer, currency, ..
+            tx_hash,
+            issuer,
+            currency,
+            amount,
+            recipient,
         } => {
             //Create issuer+currency key to find denom on coreum.
-            let mut key = issuer.clone();
-            key.push_str(currency.as_str());
+            let key = get_key(issuer.clone(), currency.clone());
 
             denom = XRPL_TOKENS
                 .load(deps.storage, key)
                 .map_err(|_| ContractError::TokenNotRegistered {})?;
-        }
-    }
+            let threshold_reached = handle_evidence(deps, sender, evidence.clone())?;
 
-    let mut response = Response::new();
-
-    let threshold_reached =
-        handle_evidence(deps, sender, evidence.clone())?;
-
-    if threshold_reached {
-        match evidence {
-            Evidence::XRPLToCoreum {
-                tx_hash,
-                issuer,
-                currency,
-                amount,
-                recipient,
-            } => {
+            if threshold_reached {
                 response =
                     add_mint_and_send(response, amount, denom.coreum_denom, recipient.clone());
-                response = response
-                    .add_attribute("action", ContractActions::SendFromXRPLToCoreum.as_str())
-                    .add_attribute("hash", tx_hash)
-                    .add_attribute("issuer", issuer)
-                    .add_attribute("currency", currency)
-                    .add_attribute("amount", amount.to_string())
-                    .add_attribute("recipient", recipient.to_string())
-                    .add_attribute("threshold_reached", threshold_reached.to_string())
             }
+            response = response
+                .add_attribute("action", ContractActions::SendFromXRPLToCoreum.as_str())
+                .add_attribute("hash", tx_hash)
+                .add_attribute("issuer", issuer)
+                .add_attribute("currency", currency)
+                .add_attribute("amount", amount.to_string())
+                .add_attribute("recipient", recipient.to_string())
+                .add_attribute("threshold_reached", threshold_reached.to_string())
         }
     }
 
@@ -425,4 +413,10 @@ fn add_mint_and_send(
     });
 
     response.add_messages([mint_msg, send_msg])
+}
+
+fn get_key(issuer: String, currency: String) -> String {
+    let mut key = issuer.clone();
+    key.push_str(currency.as_str());
+    key
 }
