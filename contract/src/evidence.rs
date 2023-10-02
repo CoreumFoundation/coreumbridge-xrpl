@@ -38,6 +38,16 @@ impl Evidence {
             Evidence::XRPLToCoreum { tx_hash, .. } => tx_hash.clone().to_lowercase(),
         }    
     }
+    pub fn validate(&self) -> Result<(), ContractError> {
+        match self {
+            Evidence::XRPLToCoreum { amount, .. } => {
+                if amount.u128() == 0 {
+                    return Err(ContractError::InvalidAmount {});
+                }
+                Ok(())
+            },
+        }    
+    }
 }
 
 pub fn hash_bytes(bytes: Vec<u8>) -> String {

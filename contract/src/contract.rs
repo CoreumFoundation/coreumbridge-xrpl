@@ -257,6 +257,7 @@ fn register_xrpl_token(
 }
 
 fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
+    evidence.validate()?;
     let config = CONFIG.load(deps.storage)?;
 
     if !config.relayers.contains(&sender) {

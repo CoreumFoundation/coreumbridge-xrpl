@@ -48,4 +48,7 @@ pub enum ContractError {
         "EvidenceAlreadyProvided: This relayer already provided its evidence for this operation"
     )]
     EvidenceAlreadyProvided {},
+
+    #[error("InvalidAmount: Amount must be more than 0")]
+    InvalidAmount {}
 }

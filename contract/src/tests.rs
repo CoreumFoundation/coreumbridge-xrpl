@@ -778,6 +778,28 @@ mod tests {
             .to_string()
             .contains(ContractError::TokenNotRegistered {}.to_string().as_str()));
 
+        //Trying to send invalid evidence should fail
+        let relayer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::AcceptEvidence {
+                    evidence: Evidence::XRPLToCoreum {
+                        tx_hash: hash.clone(),
+                        issuer: test_tokens[0].issuer.clone(),
+                        currency: test_tokens[0].currency.clone(),
+                        amount: Uint128::from(0 as u128),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                relayer1,
+            )
+            .unwrap_err();
+
+        assert!(relayer_error
+            .to_string()
+            .contains(ContractError::InvalidAmount {}.to_string().as_str()));
+
         //First relayer to execute should not trigger a mint and send
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
