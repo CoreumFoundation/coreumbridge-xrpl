@@ -1,8 +1,11 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Uint128, Addr, DepsMut};
+use cosmwasm_std::{Addr, DepsMut, Uint128};
 use sha2::{Digest, Sha256};
 
-use crate::{error::ContractError, state::{EXECUTED_EVIDENCE_OPERATIONS, CONFIG, EVIDENCES, Evidences, Operation}};
+use crate::{
+    error::ContractError,
+    state::{Evidences, Operation, CONFIG, EVIDENCES, EXECUTED_EVIDENCE_OPERATIONS},
+};
 
 #[cw_serde]
 pub enum Evidence {
@@ -18,7 +21,13 @@ pub enum Evidence {
 impl Evidence {
     pub fn get_hash(&self) -> String {
         match self {
-            Evidence::XRPLToCoreum { tx_hash, issuer, currency, amount, recipient } => {
+            Evidence::XRPLToCoreum {
+                tx_hash,
+                issuer,
+                currency,
+                amount,
+                recipient,
+            } => {
                 let to_hash = format!(
                     "{}{}{}{}{}{}",
                     tx_hash,
@@ -30,13 +39,13 @@ impl Evidence {
                 )
                 .into_bytes();
                 hash_bytes(to_hash)
-            },
+            }
         }
     }
     pub fn get_tx_hash(&self) -> String {
         match self {
             Evidence::XRPLToCoreum { tx_hash, .. } => tx_hash.clone(),
-        }    
+        }
     }
     pub fn validate(&self) -> Result<(), ContractError> {
         match self {
@@ -45,8 +54,8 @@ impl Evidence {
                     return Err(ContractError::InvalidAmount {});
                 }
                 Ok(())
-            },
-        }    
+            }
+        }
     }
 }
 
@@ -57,42 +66,46 @@ pub fn hash_bytes(bytes: Vec<u8>) -> String {
     hex::encode(output)
 }
 
-pub fn handle_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> Result<bool, ContractError> {
-    let mut threshold_reached = false;
-
-    if EXECUTED_EVIDENCE_OPERATIONS.has(deps.storage, evidence.get_hash()) {
+pub fn handle_evidence(
+    deps: DepsMut,
+    sender: Addr,
+    evidence: Evidence,
+) -> Result<bool, ContractError> {
+    if EXECUTED_EVIDENCE_OPERATIONS.has(deps.storage, evidence.get_tx_hash()) {
         return Err(ContractError::OperationAlreadyExecuted {});
     }
+
+    let mut evidences: Evidences;
+    match EVIDENCES.may_load(deps.storage, evidence.get_hash())? {
+        Some(stored_evidences) => {
+            if stored_evidences.relayers.contains(&sender) {
+                return Err(ContractError::EvidenceAlreadyProvided {});
+            }
+            evidences = stored_evidences;
+            evidences.relayers.push(sender.clone())
+        }
+        None => {
+            evidences = Evidences {
+                relayers: vec![sender.clone()],
+            };
+        }
+    }
+
     let config = CONFIG.load(deps.storage)?;
-    // Get the evidences that we already have of this current operation
-    let evidences = EVIDENCES.may_load(deps.storage, evidence.get_hash())?;
-
-    //There are already evidences from previous relayers
-    if let Some(mut evidences) = evidences {
-        if evidences.relayers.contains(&sender) {
-            return Err(ContractError::EvidenceAlreadyProvided {});
-        }
-
-        if evidences.relayers.len() + 1 == config.evidence_threshold as usize {
-            //We have enough evidences, we can execute the operation
-            EXECUTED_EVIDENCE_OPERATIONS.save(deps.storage, evidence.get_hash(), &evidence.get_tx_hash().to_lowercase())?;
+    if evidences.relayers.len() >= config.evidence_threshold as usize {
+        EXECUTED_EVIDENCE_OPERATIONS.save(
+            deps.storage,
+            evidence.get_tx_hash(),
+            &evidence.get_hash(),
+        )?;
+        // if there is just one relayer there is nothing to delete
+        if evidences.relayers.len() != 1 {
             EVIDENCES.remove(deps.storage, evidence.get_hash());
-            threshold_reached = true;
-        } else {
-            evidences.relayers.push(sender.clone());
-            EVIDENCES.save(deps.storage, evidence.get_hash(), &evidences)?;
         }
-    //First relayer to provide evidence
-    } else if config.evidence_threshold == 1 {
-        //We have enough evidences, we can execute the operation
-        EXECUTED_EVIDENCE_OPERATIONS.save(deps.storage, evidence.get_hash(), &evidence.get_tx_hash().to_lowercase())?;
-        threshold_reached = true;
+        return Ok(true);
     } else {
-        let evidences = Evidences {
-            relayers: vec![sender.clone()],
-        };
         EVIDENCES.save(deps.storage, evidence.get_hash(), &evidences)?;
     }
 
-    Ok(threshold_reached)
+    Ok(false)
 }
