@@ -7,7 +7,7 @@ use crate::{
     },
     state::{
         Config, ContractActions, CoreumToken, XRPLToken, CONFIG, COREUM_DENOMS, COREUM_TOKENS,
-        XRPL_CURRENCIES, XRPL_TOKENS,
+        XRPL_CURRENCIES, XRPL_TOKENS, build_xrpl_token_key,
     },
 };
 use coreum_wasm_sdk::{
@@ -185,7 +185,7 @@ fn register_xrpl_token(
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
-    let key = get_key(issuer.clone(), currency.clone());
+    let key = build_xrpl_token_key(issuer.clone(), currency.clone());
 
     if XRPL_TOKENS.has(deps.storage, key.clone()) {
         return Err(ContractError::XRPLTokenAlreadyRegistered { issuer, currency });
@@ -262,7 +262,6 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
         return Err(ContractError::UnauthorizedSender {});
     }
 
-    let denom;
     let mut response = Response::new();
 
     match evidence.clone() {
@@ -274,9 +273,9 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
             recipient,
         } => {
             //Create issuer+currency key to find denom on coreum.
-            let key = get_key(issuer.clone(), currency.clone());
+            let key = build_xrpl_token_key(issuer.clone(), currency.clone());
 
-            denom = XRPL_TOKENS
+            let denom = XRPL_TOKENS
                 .load(deps.storage, key)
                 .map_err(|_| ContractError::TokenNotRegistered {})?;
             let threshold_reached = handle_evidence(deps, sender, evidence.clone())?;
@@ -413,10 +412,4 @@ fn add_mint_and_send(
     });
 
     response.add_messages([mint_msg, send_msg])
-}
-
-fn get_key(issuer: String, currency: String) -> String {
-    let mut key = issuer.clone();
-    key.push_str(currency.as_str());
-    key
 }

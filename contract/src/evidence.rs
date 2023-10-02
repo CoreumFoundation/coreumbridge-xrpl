@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, DepsMut, Uint128};
+use cosmwasm_std::{Addr, DepsMut, Empty, Uint128};
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -71,7 +71,7 @@ pub fn handle_evidence(
     sender: Addr,
     evidence: Evidence,
 ) -> Result<bool, ContractError> {
-    if EXECUTED_EVIDENCE_OPERATIONS.has(deps.storage, evidence.get_tx_hash()) {
+    if EXECUTED_EVIDENCE_OPERATIONS.has(deps.storage, evidence.get_tx_hash().to_lowercase()) {
         return Err(ContractError::OperationAlreadyExecuted {});
     }
 
@@ -95,8 +95,8 @@ pub fn handle_evidence(
     if evidences.relayers.len() >= config.evidence_threshold.try_into().unwrap() {
         EXECUTED_EVIDENCE_OPERATIONS.save(
             deps.storage,
-            evidence.get_tx_hash(),
-            &evidence.get_hash(),
+            evidence.get_tx_hash().to_lowercase(),
+            &Empty {},
         )?;
         // if there is just one relayer there is nothing to delete
         if evidences.relayers.len() != 1 {

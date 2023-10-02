@@ -54,10 +54,10 @@ pub const XRPL_TOKENS: Map<String, XRPLToken> = Map::new(TopKey::XRPLTokens.as_s
 pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
 // Coreum denoms used
 pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());
-// Evidences, when enough evidences are collected, hashes are moved to executed operations
+// Evidences, when enough evidences are collected, the transaction hashes are stored in EXECUTED_EVIDENCE_OPERATIONS.
 pub const EVIDENCES: Map<String, Evidences> = Map::new(TopKey::Evidences.as_str());
-// This will contain all hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again
-pub const EXECUTED_EVIDENCE_OPERATIONS: Map<String, String> = Map::new(TopKey::ExecutedEvidenceOperations.as_str());
+// This will contain the transaction hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again
+pub const EXECUTED_EVIDENCE_OPERATIONS: Map<String, Empty> = Map::new(TopKey::ExecutedEvidenceOperations.as_str());
 
 pub enum ContractActions {
     Instantiation,
@@ -92,4 +92,10 @@ impl Operation {
             Operation::XRPLToCoreum => "xrpl_to_coreum",
         }
     }
+}
+
+pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
+    let mut key = issuer.clone();
+    key.push_str(currency.as_str());
+    key
 }
