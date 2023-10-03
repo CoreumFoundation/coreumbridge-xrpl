@@ -1,10 +1,10 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, DepsMut, Empty, Uint128};
+use cosmwasm_std::{Addr, Empty, Storage, Uint128};
 use sha2::{Digest, Sha256};
 
 use crate::{
     error::ContractError,
-    state::{Evidences, Operation, CONFIG, EVIDENCES, EXECUTED_EVIDENCE_OPERATIONS},
+    state::{Evidences, CONFIG, EVIDENCES, EXECUTED_EVIDENCE_OPERATIONS},
 };
 
 #[cw_serde]
@@ -28,16 +28,8 @@ impl Evidence {
                 amount,
                 recipient,
             } => {
-                let to_hash = format!(
-                    "{}{}{}{}{}{}",
-                    tx_hash,
-                    issuer,
-                    currency,
-                    amount,
-                    recipient,
-                    Operation::XRPLToCoreum.as_str()
-                )
-                .into_bytes();
+                let to_hash = format!("{}{}{}{}{}", tx_hash, issuer, currency, amount, recipient,)
+                    .into_bytes();
                 hash_bytes(to_hash)
             }
         }
@@ -67,16 +59,16 @@ pub fn hash_bytes(bytes: Vec<u8>) -> String {
 }
 
 pub fn handle_evidence(
-    deps: DepsMut,
+    storage: &mut dyn Storage,
     sender: Addr,
     evidence: Evidence,
 ) -> Result<bool, ContractError> {
-    if EXECUTED_EVIDENCE_OPERATIONS.has(deps.storage, evidence.get_tx_hash().to_lowercase()) {
+    if EXECUTED_EVIDENCE_OPERATIONS.has(storage, evidence.get_tx_hash().to_lowercase()) {
         return Err(ContractError::OperationAlreadyExecuted {});
     }
 
     let mut evidences: Evidences;
-    match EVIDENCES.may_load(deps.storage, evidence.get_hash())? {
+    match EVIDENCES.may_load(storage, evidence.get_hash())? {
         Some(stored_evidences) => {
             if stored_evidences.relayers.contains(&sender) {
                 return Err(ContractError::EvidenceAlreadyProvided {});
@@ -91,21 +83,21 @@ pub fn handle_evidence(
         }
     }
 
-    let config = CONFIG.load(deps.storage)?;
+    let config = CONFIG.load(storage)?;
     if evidences.relayers.len() >= config.evidence_threshold.try_into().unwrap() {
         EXECUTED_EVIDENCE_OPERATIONS.save(
-            deps.storage,
+            storage,
             evidence.get_tx_hash().to_lowercase(),
             &Empty {},
         )?;
         // if there is just one relayer there is nothing to delete
         if evidences.relayers.len() != 1 {
-            EVIDENCES.remove(deps.storage, evidence.get_hash());
+            EVIDENCES.remove(storage, evidence.get_hash());
         }
         return Ok(true);
-    } else {
-        EVIDENCES.save(deps.storage, evidence.get_hash(), &evidences)?;
     }
+
+    EVIDENCES.save(storage, evidence.get_hash(), &evidences)?;
 
     Ok(false)
 }

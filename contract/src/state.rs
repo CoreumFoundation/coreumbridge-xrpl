@@ -82,18 +82,6 @@ pub struct Evidences {
     pub relayers: Vec<Addr>,
 }
 
-pub enum Operation {
-    XRPLToCoreum,
-}
-
-impl Operation {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Operation::XRPLToCoreum => "xrpl_to_coreum",
-        }
-    }
-}
-
 pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
     let mut key = issuer.clone();
     key.push_str(currency.as_str());

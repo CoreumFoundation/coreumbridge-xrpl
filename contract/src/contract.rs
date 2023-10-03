@@ -262,6 +262,8 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
         return Err(ContractError::UnauthorizedSender {});
     }
 
+    let threshold_reached = handle_evidence(deps.storage, sender, evidence.clone())?;
+
     let mut response = Response::new();
 
     match evidence.clone() {
@@ -278,7 +280,6 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
             let denom = XRPL_TOKENS
                 .load(deps.storage, key)
                 .map_err(|_| ContractError::TokenNotRegistered {})?;
-            let threshold_reached = handle_evidence(deps, sender, evidence.clone())?;
 
             if threshold_reached {
                 response =
