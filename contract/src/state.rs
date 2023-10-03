@@ -6,11 +6,13 @@ use cw_storage_plus::{Item, Map};
 /// Each key is only one byte long to ensure we use the smallest possible storage keys.
 #[repr(u8)]
 pub enum TopKey {
-    Config = b'c',
-    CoreumTokens = b'1',
-    XRPLTokens = b'2',
-    XRPLCurrencies = b'3',
-    CoreumDenoms = b'4',
+    Config = b'1',
+    Evidences = b'2',
+    ExecutedEvidenceOperations = b'3',
+    CoreumTokens = b'4',
+    XRPLTokens = b'5',
+    XRPLCurrencies = b'6',
+    CoreumDenoms = b'7',
 }
 
 impl TopKey {
@@ -52,11 +54,16 @@ pub const XRPL_TOKENS: Map<String, XRPLToken> = Map::new(TopKey::XRPLTokens.as_s
 pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
 // Coreum denoms used
 pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());
+// Evidences, when enough evidences are collected, the transaction hashes are stored in EXECUTED_EVIDENCE_OPERATIONS.
+pub const EVIDENCES: Map<String, Evidences> = Map::new(TopKey::Evidences.as_str());
+// This will contain the transaction hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again
+pub const EXECUTED_EVIDENCE_OPERATIONS: Map<String, Empty> = Map::new(TopKey::ExecutedEvidenceOperations.as_str());
 
 pub enum ContractActions {
     Instantiation,
     RegisterCoreumToken,
-    RegisterXRPLToken
+    RegisterXRPLToken,
+    SendFromXRPLToCoreum,
 }
 
 impl ContractActions {
@@ -65,6 +72,18 @@ impl ContractActions {
             ContractActions::Instantiation => "bridge_instantiation",
             ContractActions::RegisterCoreumToken => "register_coreum_token",
             ContractActions::RegisterXRPLToken => "register_xrpl_token",
+            ContractActions::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
         }
     }
+}
+
+#[cw_serde]
+pub struct Evidences {
+    pub relayers: Vec<Addr>,
+}
+
+pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
+    let mut key = issuer.clone();
+    key.push_str(currency.as_str());
+    key
 }
