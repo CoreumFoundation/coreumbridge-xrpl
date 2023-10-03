@@ -1,27 +1,27 @@
 use crate::{
     error::ContractError,
+    evidence::{handle_evidence, hash_bytes, Evidence},
     msg::{
         CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
         XRPLTokenResponse, XRPLTokensResponse,
     },
     state::{
         Config, ContractActions, CoreumToken, XRPLToken, CONFIG, COREUM_DENOMS, COREUM_TOKENS,
-        XRPL_CURRENCIES, XRPL_TOKENS,
+        XRPL_CURRENCIES, XRPL_TOKENS, build_xrpl_token_key,
     },
 };
 use coreum_wasm_sdk::{
-    assetft::{Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
+    assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
     core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Order,
-    Response, StdResult, Uint128,
+    coin, coins, entry_point, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env,
+    MessageInfo, Order, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
 use cw_utils::one_coin;
 use sha2::{Digest, Sha256};
-use std::str;
 
 // version info for migration info
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -107,29 +107,33 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> CoreumResult<ContractError> {
     match msg {
-        ExecuteMsg::UpdateOwnership(action) => update_ownership(deps, env, info, action),
+        ExecuteMsg::UpdateOwnership(action) => {
+            update_ownership(deps.into_empty(), env, info, action)
+        }
         ExecuteMsg::RegisterCoreumToken { denom, decimals } => {
-            register_coreum_token(deps, env, denom, decimals, info.sender)
+            register_coreum_token(deps.into_empty(), env, denom, decimals, info.sender)
         }
         ExecuteMsg::RegisterXRPLToken { issuer, currency } => {
             register_xrpl_token(deps, env, issuer, currency, info)
+        }
+        ExecuteMsg::AcceptEvidence { evidence } => {
+            accept_evidence(deps.into_empty(), info.sender, evidence)
         }
     }
 }
 
 fn update_ownership(
-    deps: DepsMut<CoreumQueries>,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     action: Action,
 ) -> CoreumResult<ContractError> {
-    let ownership =
-        cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+    let ownership = cw_ownable::update_ownership(deps, &env.block, &info.sender, action)?;
     Ok(Response::new().add_attributes(ownership.into_attributes()))
 }
 
 fn register_coreum_token(
-    deps: DepsMut<CoreumQueries>,
+    deps: DepsMut,
     env: Env,
     denom: String,
     decimals: u32,
@@ -138,21 +142,12 @@ fn register_coreum_token(
     assert_owner(deps.storage, &sender)?;
 
     if COREUM_TOKENS.has(deps.storage, denom.clone()) {
-        return Err(ContractError::CoreumTokenAlreadyRegistered {
-            denom,
-        });
+        return Err(ContractError::CoreumTokenAlreadyRegistered { denom });
     }
 
-    // We generate a random currency creating a Sha256 hash of the denom, the decimals and the current time
-    let mut hasher = Sha256::new();
-
-    hasher
-        .update(format!("{}{}{}", denom, decimals, env.block.time.seconds()).into_bytes());
-
-    let output = hasher.finalize();
-
-    // We encode the hash in hexadecimal and take the first 10 characters
-    let hex_string = hex::encode(output)
+    // We generate a currency creating a Sha256 hash of the denom, the decimals and the current time
+    let to_hash = format!("{}{}{}", denom, decimals, env.block.time.seconds()).into_bytes();
+    let hex_string = hash_bytes(to_hash)
         .get(0..10)
         .unwrap()
         .to_string()
@@ -190,9 +185,7 @@ fn register_xrpl_token(
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
-
-    let mut key = issuer.clone();
-    key.push_str(currency.as_str());
+    let key = build_xrpl_token_key(issuer.clone(), currency.clone());
 
     if XRPL_TOKENS.has(deps.storage, key.clone()) {
         return Err(ContractError::XRPLTokenAlreadyRegistered { issuer, currency });
@@ -259,6 +252,51 @@ fn register_xrpl_token(
         .add_attribute("issuer", issuer)
         .add_attribute("currency", currency)
         .add_attribute("denom", denom))
+}
+
+fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
+    evidence.validate()?;
+    let config = CONFIG.load(deps.storage)?;
+
+    if !config.relayers.contains(&sender) {
+        return Err(ContractError::UnauthorizedSender {});
+    }
+
+    let threshold_reached = handle_evidence(deps.storage, sender, evidence.clone())?;
+
+    let mut response = Response::new();
+
+    match evidence.clone() {
+        Evidence::XRPLToCoreum {
+            tx_hash,
+            issuer,
+            currency,
+            amount,
+            recipient,
+        } => {
+            //Create issuer+currency key to find denom on coreum.
+            let key = build_xrpl_token_key(issuer.clone(), currency.clone());
+
+            let denom = XRPL_TOKENS
+                .load(deps.storage, key)
+                .map_err(|_| ContractError::TokenNotRegistered {})?;
+
+            if threshold_reached {
+                response =
+                    add_mint_and_send(response, amount, denom.coreum_denom, recipient.clone());
+            }
+            response = response
+                .add_attribute("action", ContractActions::SendFromXRPLToCoreum.as_str())
+                .add_attribute("hash", tx_hash)
+                .add_attribute("issuer", issuer)
+                .add_attribute("currency", currency)
+                .add_attribute("amount", amount.to_string())
+                .add_attribute("recipient", recipient.to_string())
+                .add_attribute("threshold_reached", threshold_reached.to_string())
+        }
+    }
+
+    Ok(response)
 }
 
 // ********** Queries **********
@@ -345,6 +383,8 @@ fn query_coreum_token(deps: Deps, denom: String) -> StdResult<CoreumTokenRespons
     Ok(CoreumTokenResponse { token })
 }
 
+// ********** Helpers **********
+
 fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<(), ContractError> {
     let query_params_res: ParamsResponse = deps
         .querier
@@ -355,4 +395,22 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
     }
 
     Ok(())
+}
+
+fn add_mint_and_send(
+    response: Response<CoreumMsg>,
+    amount: Uint128,
+    denom: String,
+    recipient: Addr,
+) -> Response<CoreumMsg> {
+    let mint_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
+        coin: coin(amount.u128(), denom.clone()),
+    }));
+
+    let send_msg = CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
+        to_address: recipient.to_string(),
+        amount: coins(amount.u128(), denom.clone()),
+    });
+
+    response.add_messages([mint_msg, send_msg])
 }
