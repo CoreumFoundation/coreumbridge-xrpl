@@ -8,9 +8,10 @@ import (
 	context "context"
 	reflect "reflect"
 
-	xrpl "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 	gomock "github.com/golang/mock/gomock"
 	data "github.com/rubblelabs/ripple/data"
+
+	xrpl "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 // MockRPCTxProvider is a mock of RPCTxProvider interface.
