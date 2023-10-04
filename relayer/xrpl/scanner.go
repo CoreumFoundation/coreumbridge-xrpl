@@ -65,7 +65,7 @@ func NewAccountScanner(cfg AccountScannerConfig, log logger.Logger, rpcTxProvide
 }
 
 // ScanTxs subscribes on rpc account transactions and continuously scans the recent and historical transactions.
-func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.Transaction) error {
+func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
 	s.log.Info("Subscribing xrpl scanner", logger.AnyFiled("config", s.cfg))
 	if s.cfg.RecentScanEnabled {
 		currentLedgerRes, err := s.rpcTxProvider.LedgerCurrent(ctx)
@@ -73,10 +73,6 @@ func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.Trans
 			return err
 		}
 		currentLedger := currentLedgerRes.LedgerCurrentIndex
-		if currentLedger <= s.cfg.RecentScanWindow {
-			return errors.Errorf("current ledger must be greater than the recent scan window, "+
-				"currentLedger:%d, recentScanWindow:%d", currentLedger, s.cfg.RecentScanWindow)
-		}
 		go s.scanRecentHistory(ctx, currentLedger, ch)
 	}
 
@@ -91,9 +87,14 @@ func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.Trans
 	return nil
 }
 
-func (s *AccountScanner) scanRecentHistory(ctx context.Context, currentLedger int64, ch chan<- rippledata.Transaction) {
-	minLedger := currentLedger - s.cfg.RecentScanWindow
-	s.doWithRetry(ctx, s.cfg.RepeatRecentScan, func() {
+func (s *AccountScanner) scanRecentHistory(ctx context.Context, currentLedger int64, ch chan<- rippledata.TransactionWithMetaData) {
+	// in case we don't have enough ledges for the window we start from the initla
+	minLedger := int64(0)
+	if currentLedger > s.cfg.RecentScanWindow {
+		minLedger = currentLedger - s.cfg.RecentScanWindow
+	}
+
+	s.doWithRepeat(ctx, s.cfg.RepeatRecentScan, func() {
 		s.log.Info("Scanning recent history", logger.Int64Filed("minLedger", minLedger))
 		lastLedger := s.scanTransactions(ctx, minLedger, ch)
 		if lastLedger != 0 {
@@ -103,15 +104,15 @@ func (s *AccountScanner) scanRecentHistory(ctx context.Context, currentLedger in
 	})
 }
 
-func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippledata.Transaction) {
-	s.doWithRetry(ctx, s.cfg.RepeatFullScan, func() {
+func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) {
+	s.doWithRepeat(ctx, s.cfg.RepeatFullScan, func() {
 		s.log.Info("Scanning full history")
 		lastLedger := s.scanTransactions(ctx, -1, ch)
 		s.log.Info("Scanning of full history is done", logger.Int64Filed("lastLedger", lastLedger))
 	})
 }
 
-func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, ch chan<- rippledata.Transaction) int64 {
+func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, ch chan<- rippledata.TransactionWithMetaData) int64 {
 	if minLedger <= 0 {
 		minLedger = -1
 	}
@@ -134,23 +135,28 @@ func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, 
 			return nil
 		})
 		if err != nil {
-			if isCtxError(err) {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return lastLedger
 			}
 			// this panic is unexpected
 			panic(errors.Wrapf(err, "unexpected error received for the get account transactions with retry, err:%s", err.Error()))
 		}
-
-		for _, tx := range accountTxResult.Transactions {
-			// init prev processed ledger wasn't initialized we expect that we processed the prev ledger
-			if prevProcessedLedger == 0 {
-				prevProcessedLedger = int64(tx.LedgerSequence)
+		// we accept the transaction from the validated ledger only
+		if accountTxResult.Validated {
+			for _, tx := range accountTxResult.Transactions {
+				// init prev processed ledger wasn't initialized we expect that we processed the prev ledger
+				if prevProcessedLedger == 0 {
+					prevProcessedLedger = int64(tx.LedgerSequence)
+				}
+				if prevProcessedLedger < int64(tx.LedgerSequence) {
+					lastLedger = prevProcessedLedger
+					prevProcessedLedger = int64(tx.LedgerSequence)
+				}
+				if tx == nil {
+					continue
+				}
+				ch <- *tx
 			}
-			if prevProcessedLedger < int64(tx.LedgerSequence) {
-				lastLedger = prevProcessedLedger
-				prevProcessedLedger = int64(tx.LedgerSequence)
-			}
-			ch <- tx
 		}
 		if len(accountTxResult.Marker) == 0 {
 			lastLedger = prevProcessedLedger
@@ -162,23 +168,19 @@ func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, 
 	return lastLedger
 }
 
-func (s *AccountScanner) doWithRetry(ctx context.Context, shouldRetry bool, f func()) {
-	err := retry.Do(ctx, s.cfg.RetryDelay, func() error {
-		f()
-		if shouldRetry {
-			s.log.Info("Waiting before the next execution.", logger.StringFiled("retryDelay", s.cfg.RetryDelay.String()))
-			return retry.Retryable(errors.New("repeat scan"))
+func (s *AccountScanner) doWithRepeat(ctx context.Context, shouldRepeat bool, f func()) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			f()
+			if !shouldRepeat {
+				s.log.Info("Execution is fully stopped.")
+				return
+			}
+			s.log.Info("Waiting before the next execution.", logger.StringFiled("delay", s.cfg.RetryDelay.String()))
+			<-time.After(s.cfg.RetryDelay)
 		}
-		s.log.Info("Execution is fully stopped.")
-		return nil
-	})
-	if err == nil || isCtxError(err) {
-		return
 	}
-	// this panic is unexpected
-	panic(errors.Wrap(err, "unexpected error in do with resubscribe"))
-}
-
-func isCtxError(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
