@@ -11,7 +11,7 @@ use crate::{
         build_xrpl_token_key, Config, ContractActions, CoreumToken, Operation, OperationType,
         XRPLToken, AVAILABLE_TICKETS, CONFIG, COREUM_DENOMS, COREUM_TOKENS, PENDING_OPERATIONS,
         PENDING_TICKET_UPDATE, USED_TICKETS, XRPL_CURRENCIES, XRPL_TOKENS,
-    },
+    }, tickets::handle_allocation_confirmation,
 };
 use coreum_wasm_sdk::{
     assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
@@ -64,8 +64,8 @@ pub fn instantiate(
         return Err(ContractError::InvalidThreshold {});
     }
 
-    //We need to allow at least 2 tickets to be used or it will never be able to allocate tickets
-    if msg.max_allowed_used_tickets < 2 {
+    //We need to allow at least 2 tickets and less than 250 (XRPL limit) to be used
+    if msg.max_allowed_used_tickets < 2 || msg.max_allowed_used_tickets > 250 {
         return Err(ContractError::InvalidMaxAllowedUsedTickets {});
     }
 
@@ -317,33 +317,20 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
             tickets,
             confirmed,
         } => {
-            let sequence_or_ticket_number =
-                check_operation_exists(deps.as_ref(), sequence_number, ticket_number)?;
-
             if threshold_reached {
-                //Remove the operation from the pending queue
-                PENDING_OPERATIONS.remove(deps.storage, sequence_or_ticket_number);
-                PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
-
-                //Allocate ticket numbers in our ticket array if operation is confirmed
-                if confirmed {
-                    let mut available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
-
-                    let mut new_tickets = available_tickets.make_contiguous().to_vec();
-                    new_tickets.append(tickets.unwrap().as_mut());
-
-                    AVAILABLE_TICKETS.save(deps.storage, &VecDeque::from(new_tickets))?;
-
-                    USED_TICKETS.save(deps.storage, &0)?;
-                }
+                handle_allocation_confirmation(deps, sequence_number, ticket_number, tickets, confirmed)?;
             }
 
             response = response
                 .add_attribute("action", ContractActions::TicketAllocation.as_str())
                 .add_attribute("hash", tx_hash)
                 .add_attribute(
-                    "sequence/ticket_number",
-                    sequence_or_ticket_number.to_string(),
+                    "sequence_number",
+                    sequence_number.unwrap_or_default().to_string(),
+                )
+                .add_attribute(
+                    "ticket_number",
+                    ticket_number.unwrap_or_default().to_string(),
                 )
                 .add_attribute("confirmed", confirmed.to_string())
                 .add_attribute("threshold_reached", threshold_reached.to_string())
@@ -510,21 +497,6 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
     Ok(())
 }
 
-fn check_operation_exists(
-    deps: Deps,
-    sequence_number: Option<u64>,
-    ticket_number: Option<u64>,
-) -> Result<u64, ContractError> {
-    //Get the sequence or ticket number (priority for sequence number)
-    let sequence_or_ticket_number = sequence_number.unwrap_or(ticket_number.unwrap_or_default());
-
-    if !PENDING_OPERATIONS.has(deps.storage, sequence_or_ticket_number) {
-        return Err(ContractError::PendingOperationNotFound {});
-    }
-
-    Ok(sequence_or_ticket_number)
-}
-
 fn add_mint_and_send(
     response: Response<CoreumMsg>,
     amount: Uint128,
@@ -541,4 +513,19 @@ fn add_mint_and_send(
     });
 
     response.add_messages([mint_msg, send_msg])
+}
+
+pub fn check_operation_exists(
+    deps: Deps,
+    sequence_number: Option<u64>,
+    ticket_number: Option<u64>,
+) -> Result<u64, ContractError> {
+    //Get the sequence or ticket number (priority for sequence number)
+    let sequence_or_ticket_number = sequence_number.unwrap_or(ticket_number.unwrap_or_default());
+
+    if !PENDING_OPERATIONS.has(deps.storage, sequence_or_ticket_number) {
+        return Err(ContractError::PendingOperationNotFound {});
+    }
+
+    Ok(sequence_or_ticket_number)
 }

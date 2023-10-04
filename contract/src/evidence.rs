@@ -20,8 +20,8 @@ pub enum Evidence {
         tx_hash: String,
         sequence_number: Option<u64>,
         ticket_number: Option<u64>,
-        //true if confirmed, false if rejected
         tickets: Option<Vec<u64>>,
+        //true if confirmed, false if rejected
         confirmed: bool,
     },
 }

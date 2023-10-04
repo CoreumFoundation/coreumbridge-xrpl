@@ -52,7 +52,7 @@ pub enum ContractError {
     #[error("InvalidAmount: Amount must be more than 0")]
     InvalidAmount {},
 
-    #[error("InvalidMaxAllowedUsedTickets: Max allowed used tickets must be more than 1")]
+    #[error("InvalidMaxAllowedUsedTickets: Max allowed used tickets must be more than 1 and less or equal than 250")]
     InvalidMaxAllowedUsedTickets {},
 
     #[error("LastTicketReserved: Last available ticket is reserved for updating tickets")]
