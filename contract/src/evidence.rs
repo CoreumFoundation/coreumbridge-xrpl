@@ -83,10 +83,8 @@ impl Evidence {
                 if sequence_number.is_none() && ticket_number.is_none() {
                     return Err(ContractError::InvalidTicketAllocationEvidence {});
                 }
-                if confirmed {
-                    if tickets.is_none() || tickets.unwrap().is_empty() {
-                        return Err(ContractError::InvalidTicketAllocationEvidence {});
-                    }
+                if confirmed && (tickets.is_none() || tickets.unwrap().is_empty()) {
+                    return Err(ContractError::InvalidTicketAllocationEvidence {});
                 }
 
                 Ok(())
