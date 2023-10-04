@@ -1,13 +1,16 @@
+use std::collections::VecDeque;
+
 use crate::{
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence},
     msg::{
-        CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-        XRPLTokenResponse, XRPLTokensResponse,
+        AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
+        InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokenResponse, XRPLTokensResponse,
     },
     state::{
-        Config, ContractActions, CoreumToken, XRPLToken, CONFIG, COREUM_DENOMS, COREUM_TOKENS,
-        XRPL_CURRENCIES, XRPL_TOKENS, build_xrpl_token_key,
+        build_xrpl_token_key, Config, ContractActions, CoreumToken, Operation, OperationType,
+        XRPLToken, AVAILABLE_TICKETS, CONFIG, COREUM_DENOMS, COREUM_TOKENS, PENDING_OPERATIONS,
+        PENDING_TICKET_UPDATE, USED_TICKETS, XRPL_CURRENCIES, XRPL_TOKENS,
     },
 };
 use coreum_wasm_sdk::{
@@ -61,9 +64,19 @@ pub fn instantiate(
         return Err(ContractError::InvalidThreshold {});
     }
 
+    //We need to allow at least 2 tickets to be used or it will never be able to allocate tickets
+    if msg.max_allowed_used_tickets < 2 {
+        return Err(ContractError::InvalidMaxAllowedUsedTickets {});
+    }
+
+    USED_TICKETS.save(deps.storage, &0)?;
+    PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
+    AVAILABLE_TICKETS.save(deps.storage, &VecDeque::new())?;
+
     let config = Config {
         relayers: msg.relayers,
         evidence_threshold: msg.evidence_threshold,
+        max_allowed_used_tickets: msg.max_allowed_used_tickets,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -118,6 +131,9 @@ pub fn execute(
         }
         ExecuteMsg::AcceptEvidence { evidence } => {
             accept_evidence(deps.into_empty(), info.sender, evidence)
+        }
+        ExecuteMsg::RecoverTickets { sequence_number } => {
+            recover_tickets(deps.into_empty(), info.sender, sequence_number)
         }
     }
 }
@@ -255,7 +271,7 @@ fn register_xrpl_token(
 }
 
 fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
-    evidence.validate()?;
+    evidence.clone().validate()?;
     let config = CONFIG.load(deps.storage)?;
 
     if !config.relayers.contains(&sender) {
@@ -294,9 +310,76 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
                 .add_attribute("recipient", recipient.to_string())
                 .add_attribute("threshold_reached", threshold_reached.to_string())
         }
+        Evidence::TicketAllocation {
+            tx_hash,
+            sequence_number,
+            ticket_number,
+            tickets,
+            confirmed,
+        } => {
+            let sequence_or_ticket_number =
+                check_operation_exists(deps.as_ref(), sequence_number, ticket_number)?;
+
+            if threshold_reached {
+                //Remove the operation from the pending queue
+                PENDING_OPERATIONS.remove(deps.storage, sequence_or_ticket_number);
+                PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
+
+                //Allocate ticket numbers in our ticket array if operation is confirmed
+                if confirmed {
+                    let mut available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
+
+                    let mut new_tickets = available_tickets.make_contiguous().to_vec();
+                    new_tickets.append(tickets.unwrap().as_mut());
+
+                    AVAILABLE_TICKETS.save(deps.storage, &VecDeque::from(new_tickets))?;
+
+                    USED_TICKETS.save(deps.storage, &0)?;
+                }
+            }
+
+            response = response
+                .add_attribute("action", ContractActions::TicketAllocation.as_str())
+                .add_attribute("hash", tx_hash)
+                .add_attribute(
+                    "sequence/ticket_number",
+                    sequence_or_ticket_number.to_string(),
+                )
+                .add_attribute("confirmed", confirmed.to_string())
+                .add_attribute("threshold_reached", threshold_reached.to_string())
+        }
     }
 
     Ok(response)
+}
+
+fn recover_tickets(
+    deps: DepsMut,
+    sender: Addr,
+    sequence_number: u64,
+) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    let pending_ticket_update = PENDING_TICKET_UPDATE.load(deps.storage)?;
+
+    if pending_ticket_update {
+        return Err(ContractError::PendingTicketUpdate {});
+    }
+
+    PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
+    PENDING_OPERATIONS.save(
+        deps.storage,
+        sequence_number,
+        &Operation {
+            ticket_number: None,
+            sequence_number: Some(sequence_number),
+            operation_type: OperationType::AllocateTickets,
+        },
+    )?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::RecoverTickets.as_str())
+        .add_attribute("sequence_number", sequence_number.to_string()))
 }
 
 // ********** Queries **********
@@ -315,6 +398,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::CoreumToken { denom } => to_binary(&query_coreum_token(deps, denom)?),
         QueryMsg::Ownership {} => to_binary(&get_ownership(deps.storage)?),
+        QueryMsg::PendingOperations { offset, limit } => {
+            to_binary(&query_pending_operations(deps, offset, limit)?)
+        }
+        QueryMsg::AvailableTickets {} => to_binary(&query_available_tickets(deps)?),
     }
 }
 
@@ -383,6 +470,32 @@ fn query_coreum_token(deps: Deps, denom: String) -> StdResult<CoreumTokenRespons
     Ok(CoreumTokenResponse { token })
 }
 
+fn query_pending_operations(
+    deps: Deps,
+    offset: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<PendingOperationsResponse> {
+    let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
+    let offset = offset.unwrap_or(0);
+    let operations: Vec<Operation> = PENDING_OPERATIONS
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(offset as usize)
+        .take(limit as usize)
+        .filter_map(|v| v.ok())
+        .map(|(_, v)| v)
+        .collect();
+
+    Ok(PendingOperationsResponse { operations })
+}
+
+fn query_available_tickets(deps: Deps) -> StdResult<AvailableTicketsResponse> {
+    let mut tickets = AVAILABLE_TICKETS.load(deps.storage)?;
+
+    Ok(AvailableTicketsResponse {
+        tickets: tickets.make_contiguous().to_vec(),
+    })
+}
+
 // ********** Helpers **********
 
 fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<(), ContractError> {
@@ -395,6 +508,21 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
     }
 
     Ok(())
+}
+
+fn check_operation_exists(
+    deps: Deps,
+    sequence_number: Option<u64>,
+    ticket_number: Option<u64>,
+) -> Result<u64, ContractError> {
+    //Get the sequence or ticket number (priority for sequence number)
+    let sequence_or_ticket_number = sequence_number.unwrap_or(ticket_number.unwrap_or_default());
+
+    if !PENDING_OPERATIONS.has(deps.storage, sequence_or_ticket_number) {
+        return Err(ContractError::PendingOperationNotFound {});
+    }
+
+    Ok(sequence_or_ticket_number)
 }
 
 fn add_mint_and_send(

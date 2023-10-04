@@ -19,7 +19,7 @@ pub enum ContractError {
 
     #[error("CoreumTokenAlreadyRegistered: Token {} already registered", denom)]
     CoreumTokenAlreadyRegistered { denom: String },
-  
+
     #[error(
         "XRPLTokenAlreadyRegistered: Token with issuer: {} and currency: {} is already registered",
         issuer,
@@ -50,5 +50,22 @@ pub enum ContractError {
     EvidenceAlreadyProvided {},
 
     #[error("InvalidAmount: Amount must be more than 0")]
-    InvalidAmount {}
+    InvalidAmount {},
+
+    #[error("InvalidMaxAllowedUsedTickets: Max allowed used tickets must be more than 1")]
+    InvalidMaxAllowedUsedTickets {},
+
+    #[error("LastTicketReserved: Last available ticket is reserved for updating tickets")]
+    LastTicketReserved {},
+
+    #[error(
+        "PendingTicketUpdate: There is a pending ticket update operation already in the queue"
+    )]
+    PendingTicketUpdate {},
+
+    #[error("InvalidTicketAllocationEvidence: There must be tickets and a sequence number or ticket number")]
+    InvalidTicketAllocationEvidence {},
+
+    #[error("PendingOperationNotFound: There is no pending operation with this ticket/sequence number")]
+    PendingOperationNotFound {},
 }

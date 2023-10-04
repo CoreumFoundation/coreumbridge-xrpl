@@ -13,10 +13,11 @@ mod tests {
         error::ContractError,
         evidence::Evidence,
         msg::{
-            CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-            XRPLTokenResponse, XRPLTokensResponse,
+            AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
+            InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokenResponse,
+            XRPLTokensResponse,
         },
-        state::Config,
+        state::{Config, Operation, OperationType},
     };
     const FEE_DENOM: &str = "ucore";
     const XRP_SYMBOL: &str = "XRP";
@@ -36,6 +37,7 @@ mod tests {
         owner: Addr,
         relayers: Vec<Addr>,
         evidence_threshold: u32,
+        max_allowed_used_tickets: u32,
         issue_fee: Vec<Coin>,
     ) -> String {
         let wasm_byte_code = std::fs::read("./artifacts/coreumbridge_xrpl.wasm").unwrap();
@@ -50,9 +52,10 @@ mod tests {
                 owner,
                 relayers,
                 evidence_threshold,
+                max_allowed_used_tickets,
             },
             None,
-            "label".into(),
+            "xrpl_coreum_bridge".into(),
             &issue_fee,
             &signer,
         )
@@ -89,6 +92,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            50,
             query_issue_fee(&assetft),
         );
         assert!(!contract_addr.is_empty());
@@ -101,6 +105,7 @@ mod tests {
                     owner: Addr::unchecked(signer.address()),
                     relayers: vec![Addr::unchecked(signer.address())],
                     evidence_threshold: 1,
+                    max_allowed_used_tickets: 50,
                 },
                 None,
                 "label".into(),
@@ -112,6 +117,29 @@ mod tests {
         assert!(error
             .to_string()
             .contains(ContractError::InvalidIssueFee {}.to_string().as_str()));
+
+        // We check that trying to instantiate with invalid max allowed ticket fails.
+        let error = wasm
+            .instantiate(
+                1,
+                &InstantiateMsg {
+                    owner: Addr::unchecked(signer.address()),
+                    relayers: vec![Addr::unchecked(signer.address())],
+                    evidence_threshold: 1,
+                    max_allowed_used_tickets: 1,
+                },
+                None,
+                "label".into(),
+                &query_issue_fee(&assetft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(error.to_string().contains(
+            ContractError::InvalidMaxAllowedUsedTickets {}
+                .to_string()
+                .as_str()
+        ));
 
         // We query the issued token by the contract instantiation (XRP)
         let query_response = assetft
@@ -162,6 +190,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            50,
             query_issue_fee(&assetft),
         );
 
@@ -241,6 +270,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            50,
             query_issue_fee(&assetft),
         );
 
@@ -248,6 +278,7 @@ mod tests {
             .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
             .unwrap();
         assert_eq!(query_config.evidence_threshold, 1);
+        assert_eq!(query_config.max_allowed_used_tickets, 50);
         assert_eq!(
             query_config.relayers,
             vec![Addr::unchecked(signer.address())]
@@ -270,6 +301,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            50,
             query_issue_fee(&assetft),
         );
 
@@ -304,6 +336,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            50,
             query_issue_fee(&assetft),
         );
 
@@ -338,6 +371,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            50,
             query_issue_fee(&assetft),
         );
 
@@ -449,6 +483,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            50,
             query_issue_fee(&assetft),
         );
 
@@ -633,6 +668,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(relayer1.address())],
             1,
+            50,
             query_issue_fee(&assetft),
         );
 
@@ -703,6 +739,7 @@ mod tests {
                 Addr::unchecked(relayer2.address()),
             ],
             2,
+            50,
             query_issue_fee(&assetft),
         );
 
@@ -925,6 +962,289 @@ mod tests {
     }
 
     #[test]
+    fn ticket_recovery() {
+        let app = CoreumTestApp::new();
+        let accounts = app
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), 4)
+            .unwrap();
+
+        let signer = accounts.get(0).unwrap();
+        let relayer1 = accounts.get(1).unwrap();
+        let relayer2 = accounts.get(2).unwrap();
+
+        let wasm = Wasm::new(&app);
+        let assetft = AssetFT::new(&app);
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            vec![
+                Addr::unchecked(relayer1.address()),
+                Addr::unchecked(relayer2.address()),
+            ],
+            2,
+            50,
+            query_issue_fee(&assetft),
+        );
+
+        // Querying current pending operations and available tickets should return empty results.
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let query_available_tickets = wasm
+            .query::<QueryMsg, AvailableTicketsResponse>(
+                &contract_addr,
+                &QueryMsg::AvailableTickets {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations, vec![]);
+        assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
+
+        let sequence_number = 1;
+        // Owner will send a recover tickets operation which will set the pending ticket update flag to true
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets { sequence_number },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Try to send another one will fail because there is a pending update operation that hasn't been processed
+        let recover_ticket_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RecoverTickets { sequence_number },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(recover_ticket_error
+            .to_string()
+            .contains(ContractError::PendingTicketUpdate {}.to_string().as_str()));
+
+        // Querying the current pending operations should return 1
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(
+            query_pending_operations.operations,
+            [Operation {
+                ticket_number: None,
+                sequence_number: Some(sequence_number),
+                operation_type: OperationType::AllocateTickets
+            }]
+        );
+
+        // Querying with pagination values should return the same
+        let query_pending_operations_with_pagination = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    offset: Some(0),
+                    limit: Some(1),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(
+            query_pending_operations_with_pagination.operations,
+            [Operation {
+                ticket_number: None,
+                sequence_number: Some(sequence_number),
+                operation_type: OperationType::AllocateTickets
+            }]
+        );
+
+        let tx_hash = "random_hash".to_string();
+        let sequence_number = 1;
+        let tickets = vec![1, 2, 3, 4, 5];
+        // Trying to relay the operation with a different sequence number than the one in pending operation should fail.
+        let relayer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::AcceptEvidence {
+                    evidence: Evidence::TicketAllocation {
+                        tx_hash: tx_hash.clone(),
+                        sequence_number: Some(sequence_number + 1),
+                        ticket_number: None,
+                        tickets: Some(tickets.clone()),
+                        confirmed: false,
+                    },
+                },
+                &vec![],
+                &relayer1,
+            )
+            .unwrap_err();
+
+        assert!(relayer_error.to_string().contains(
+            ContractError::PendingOperationNotFound {}
+                .to_string()
+                .as_str()
+        ));
+
+        //Relaying the rejected operation twice should remove it from pending operations but not allocate tickets
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::AcceptEvidence {
+                evidence: Evidence::TicketAllocation {
+                    tx_hash: tx_hash.clone(),
+                    sequence_number: Some(sequence_number),
+                    ticket_number: None,
+                    tickets: Some(tickets.clone()),
+                    confirmed: false,
+                },
+            },
+            &vec![],
+            &relayer1,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::AcceptEvidence {
+                evidence: Evidence::TicketAllocation {
+                    tx_hash: tx_hash.clone(),
+                    sequence_number: Some(sequence_number),
+                    ticket_number: None,
+                    tickets: Some(tickets.clone()),
+                    confirmed: false,
+                },
+            },
+            &vec![],
+            &relayer2,
+        )
+        .unwrap();
+
+        // Querying current pending operations and tickets should return empty results again
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let query_available_tickets = wasm
+            .query::<QueryMsg, AvailableTicketsResponse>(
+                &contract_addr,
+                &QueryMsg::AvailableTickets {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations, vec![]);
+        assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
+
+        // Let's do the same now but confirming the operation
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets { sequence_number },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Trying to relay the operation with a same hash as previous rejected one should fail
+        let relayer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::AcceptEvidence {
+                    evidence: Evidence::TicketAllocation {
+                        tx_hash: tx_hash.clone(),
+                        sequence_number: Some(sequence_number),
+                        ticket_number: None,
+                        tickets: Some(tickets.clone()),
+                        confirmed: true,
+                    },
+                },
+                &vec![],
+                &relayer1,
+            )
+            .unwrap_err();
+
+        assert!(relayer_error.to_string().contains(
+            ContractError::OperationAlreadyExecuted {}
+                .to_string()
+                .as_str()
+        ));
+
+        let tx_hash = "random_hash2".to_string();
+
+        //Relaying the confirmed operation twice should remove it from pending operations and allocate tickets
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::AcceptEvidence {
+                evidence: Evidence::TicketAllocation {
+                    tx_hash: tx_hash.clone(),
+                    sequence_number: Some(sequence_number),
+                    ticket_number: None,
+                    tickets: Some(tickets.clone()),
+                    confirmed: true,
+                },
+            },
+            &vec![],
+            &relayer1,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::AcceptEvidence {
+                evidence: Evidence::TicketAllocation {
+                    tx_hash: tx_hash.clone(),
+                    sequence_number: Some(sequence_number),
+                    ticket_number: None,
+                    tickets: Some(tickets.clone()),
+                    confirmed: true,
+                },
+            },
+            &vec![],
+            &relayer2,
+        )
+        .unwrap();
+
+        // Querying the current pending operations should return empty
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let query_available_tickets = wasm
+            .query::<QueryMsg, AvailableTicketsResponse>(
+                &contract_addr,
+                &QueryMsg::AvailableTickets {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations, vec![]);
+        assert_eq!(query_available_tickets.tickets, tickets.clone());
+    }
+
+    #[test]
     fn unauthorized_access() {
         let app = CoreumTestApp::new();
         let signer = app
@@ -944,6 +1264,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![Addr::unchecked(signer.address())],
             1,
+            50,
             query_issue_fee(&assetft),
         );
 
@@ -1025,5 +1346,21 @@ mod tests {
         assert!(relayer_error
             .to_string()
             .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
+
+        //Try recovering tickets as not_owner, should fail
+        let recover_tickets = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &&ExecuteMsg::RecoverTickets { sequence_number: 1 },
+                &[],
+                &not_owner,
+            )
+            .unwrap_err();
+
+        assert!(recover_tickets.to_string().contains(
+            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
+                .to_string()
+                .as_str()
+        ));
     }
 }
