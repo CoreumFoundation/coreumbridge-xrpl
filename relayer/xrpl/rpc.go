@@ -123,6 +123,7 @@ type AccountTxRequest struct {
 type AccountTxResult struct {
 	Marker       map[string]any              `json:"marker,omitempty"`
 	Transactions rippledata.TransactionSlice `json:"transactions,omitempty"`
+	Validated    bool                        `json:"validated"`
 }
 
 // ******************** RPC transport objects ********************
