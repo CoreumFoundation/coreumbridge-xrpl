@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 use cosmwasm_std::DepsMut;
 
 use crate::{
-    contract::check_operation_exists,
     error::ContractError,
     state::{
         Operation, OperationType, AVAILABLE_TICKETS, CONFIG, PENDING_OPERATIONS,
@@ -55,13 +54,10 @@ pub fn _register_used_ticket(deps: DepsMut) -> Result<(), ContractError> {
 
 pub fn handle_allocation_confirmation(
     deps: DepsMut,
-    sequence_number: Option<u64>,
-    ticket_number: Option<u64>,
+    sequence_or_ticket_number: u64,
     tickets: Option<Vec<u64>>,
     confirmed: bool,
 ) -> Result<(), ContractError> {
-    let sequence_or_ticket_number =
-        check_operation_exists(deps.as_ref(), sequence_number, ticket_number)?;
     //Remove the operation from the pending queue
     PENDING_OPERATIONS.remove(deps.storage, sequence_or_ticket_number);
     PENDING_TICKET_UPDATE.save(deps.storage, &false)?;

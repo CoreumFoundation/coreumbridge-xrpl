@@ -11,7 +11,8 @@ use crate::{
         build_xrpl_token_key, Config, ContractActions, CoreumToken, Operation, OperationType,
         XRPLToken, AVAILABLE_TICKETS, CONFIG, COREUM_DENOMS, COREUM_TOKENS, PENDING_OPERATIONS,
         PENDING_TICKET_UPDATE, USED_TICKETS, XRPL_CURRENCIES, XRPL_TOKENS,
-    }, tickets::handle_allocation_confirmation,
+    },
+    tickets::handle_allocation_confirmation,
 };
 use coreum_wasm_sdk::{
     assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
@@ -317,8 +318,16 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
             tickets,
             confirmed,
         } => {
+            let sequence_or_ticket_number =
+                check_operation_exists(deps.as_ref(), sequence_number, ticket_number)?;
+
             if threshold_reached {
-                handle_allocation_confirmation(deps, sequence_number, ticket_number, tickets, confirmed)?;
+                handle_allocation_confirmation(
+                    deps,
+                    sequence_or_ticket_number,
+                    tickets,
+                    confirmed,
+                )?;
             }
 
             response = response
