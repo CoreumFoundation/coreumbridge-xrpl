@@ -59,5 +59,19 @@ xrpl:
         full_scan_enabled: true
         repeat_full_scan: true
         retry_delay: 10s
+coreum:
+    relayer_key_name: ""
+    grpc:
+        url: ""
+    network:
+        chain_id: coreum-mainnet-1
+    contract:
+        contract_address: ""
+        gas_adjustment: 1.2
+        gas_price_adjustment: 1.3
+        page_limit: 250
+        request_timeout: 10s
+        tx_timeout: 1m0s
+        tx_status_poll_interval: 500ms
 `
 }

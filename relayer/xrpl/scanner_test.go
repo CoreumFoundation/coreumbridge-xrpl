@@ -165,7 +165,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 			rpcTxProvider := tt.rpcTxProvider(ctrl)
 
 			s := xrpl.NewAccountScanner(tt.cfg, logger.NewZapLoggerFromLogger(zapDevLogger), rpcTxProvider)
-			txsCh := make(chan rippledata.Transaction)
+			txsCh := make(chan rippledata.TransactionWithMetaData)
 			if err := s.ScanTxs(ctx, txsCh); (err != nil) != tt.wantErr {
 				t.Errorf("ScanTxs() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -181,7 +181,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 	}
 }
 
-func readTxHashesFromChannels(ctx context.Context, t *testing.T, txsCh chan rippledata.Transaction, count int) map[string]struct{} {
+func readTxHashesFromChannels(ctx context.Context, t *testing.T, txsCh chan rippledata.TransactionWithMetaData, count int) map[string]struct{} {
 	gotTxHashes := make(map[string]struct{})
 	for {
 		select {

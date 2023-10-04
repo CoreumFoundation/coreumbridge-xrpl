@@ -20,7 +20,7 @@ replace (
 
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20230920110418-b30366f1b19b
-	github.com/CoreumFoundation/coreum/v3 v3.0.0-20230927145524-8849da9847b3
+	github.com/CoreumFoundation/coreum/v3 v3.0.0-20231003143732-da36cc6424f4
 	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
 	github.com/samber/lo v1.38.1
@@ -39,7 +39,7 @@ require (
 	cosmossdk.io/depinject v1.0.0-alpha.4 // indirect
 	cosmossdk.io/errors v1.0.0 // indirect
 	cosmossdk.io/log v1.2.1 // indirect
-	cosmossdk.io/math v1.1.2 // indirect
+	cosmossdk.io/math v1.1.2
 	cosmossdk.io/tools/rosetta v0.2.1 // indirect
 	filippo.io/edwards25519 v1.0.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect

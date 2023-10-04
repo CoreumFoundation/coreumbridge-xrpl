@@ -51,7 +51,7 @@ func TestFullHistoryScanAccountTx(t *testing.T) {
 	scanner := xrpl.NewAccountScanner(scannerCfg, chains.Log, rpcClient)
 	// add timeout to finish the tests in case of error
 
-	txsCh := make(chan rippledata.Transaction, txsCount)
+	txsCh := make(chan rippledata.TransactionWithMetaData, txsCount)
 	require.NoError(t, scanner.ScanTxs(ctx, txsCh))
 	t.Logf("Waiting for %d transactions to be scanned by the historycal scanner", len(writtenTxHashes))
 	validateTxsHashesInChannel(ctx, t, writtenTxHashes, txsCh)
@@ -104,7 +104,7 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 		writtenTxHashes = sendMultipleTxs(ctx, t, 20, senderAcc, recipientAcc, chains.XRPL)
 	}()
 
-	txsCh := make(chan rippledata.Transaction, txsCount)
+	txsCh := make(chan rippledata.TransactionWithMetaData, txsCount)
 	require.NoError(t, scanner.ScanTxs(ctx, txsCh))
 
 	t.Logf("Waiting for %d transactions to be scanned by the recent scanner", len(writtenTxHashes))
@@ -144,7 +144,7 @@ func sendMultipleTxs(
 	return writtenTxHashes
 }
 
-func validateTxsHashesInChannel(ctx context.Context, t *testing.T, writtenTxHashes map[string]struct{}, txsCh chan rippledata.Transaction) {
+func validateTxsHashesInChannel(ctx context.Context, t *testing.T, writtenTxHashes map[string]struct{}, txsCh chan rippledata.TransactionWithMetaData) {
 	scanCtx, scanCtxCancel := context.WithTimeout(ctx, time.Minute)
 	defer scanCtxCancel()
 	// copy the original map
@@ -169,7 +169,7 @@ func validateTxsHashesInChannel(ctx context.Context, t *testing.T, writtenTxHash
 	}
 }
 
-func getTxHashesFromChannel(ctx context.Context, t *testing.T, txsCh chan rippledata.Transaction, count int) map[string]struct{} {
+func getTxHashesFromChannel(ctx context.Context, t *testing.T, txsCh chan rippledata.TransactionWithMetaData, count int) map[string]struct{} {
 	scanCtx, scanCtxCancel := context.WithTimeout(ctx, time.Minute)
 	defer scanCtxCancel()
 	txHashes := make(map[string]struct{}, count)

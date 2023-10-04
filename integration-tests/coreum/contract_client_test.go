@@ -4,13 +4,13 @@
 package coreum_test
 
 import (
-	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
@@ -22,10 +22,9 @@ import (
 )
 
 const (
-	compiledContractFilePath = "../../contract/artifacts/coreumbridge_xrpl.wasm"
-	xrp                      = "XRP"
-	drop                     = "drop"
-	xrplPrecision            = 15
+	xrp           = "XRP"
+	drop          = "drop"
+	xrplPrecision = 15
 )
 
 func TestDeployAndInstantiateContract(t *testing.T) {
@@ -37,7 +36,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 	relayers := []sdk.AccAddress{
 		chains.Coreum.GenAccount(),
 	}
-	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers))
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers))
 
 	contractCfg, err := contractClient.GetContractConfig(ctx)
 	require.NoError(t, err)
@@ -97,7 +96,7 @@ func TestChangeContractOwnership(t *testing.T) {
 	relayers := []sdk.AccAddress{
 		chains.Coreum.GenAccount(),
 	}
-	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers))
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers))
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
 	require.NoError(t, err)
 	require.Equal(t, owner.String(), contractOwnership.Owner.String())
@@ -105,7 +104,7 @@ func TestChangeContractOwnership(t *testing.T) {
 	newOwner := chains.Coreum.GenAccount()
 	// fund to cover fees
 	chains.Coreum.FundAccountWithOptions(ctx, t, newOwner, coreumintegration.BalancesOptions{
-		Amount: sdk.NewIntFromUint64(1_000_000),
+		Amount: sdkmath.NewIntFromUint64(1_000_000),
 	})
 
 	// transfer ownership
@@ -140,10 +139,10 @@ func TestRegisterCoreumToken(t *testing.T) {
 
 	notOwner := chains.Coreum.GenAccount()
 	chains.Coreum.FundAccountWithOptions(ctx, t, notOwner, coreumintegration.BalancesOptions{
-		Amount: sdk.NewInt(1_000_000),
+		Amount: sdkmath.NewInt(1_000_000),
 	})
 
-	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers))
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers))
 
 	denom1 := "denom1"
 	denom1Decimals := uint32(17)
@@ -230,10 +229,10 @@ func TestRegisterXRPLToken(t *testing.T) {
 		Amount: issueFee.Amount.AddRaw(1_000_000),
 	})
 
-	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers))
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers))
 	// fund owner to cover registration fees twice
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
-		Amount: issueFee.Amount.Mul(sdk.NewIntFromUint64(2)),
+		Amount: issueFee.Amount.Mul(sdkmath.NewIntFromUint64(2)),
 	})
 
 	issuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
@@ -295,44 +294,108 @@ func TestRegisterXRPLToken(t *testing.T) {
 	}, tokenRes.Token)
 }
 
-func deployAndInstantiateContract(
-	ctx context.Context,
-	t *testing.T,
-	chains integrationtests.Chains,
-	relayers []sdk.AccAddress,
-	evidenceThreshold int,
-) (sdk.AccAddress, *coreum.ContractClient) {
-	t.Helper()
+func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
+	t.Parallel()
 
-	t.Log("Deploying and instantiating contract")
-	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
-	owner := chains.Coreum.GenAccount()
+	ctx, chains := integrationtests.NewTestingContext(t)
 
-	// fund with issuance fee and some coins on to cover fees
-	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
-		Amount: issueFee.Amount.AddRaw(10_000_000),
+	relayer1 := chains.Coreum.GenAccount()
+	relayer2 := chains.Coreum.GenAccount()
+
+	coreumRecipient := chains.Coreum.GenAccount()
+	randomAddress := chains.Coreum.GenAccount()
+
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+
+	relayers := []sdk.AccAddress{
+		relayer1,
+		relayer2,
+	}
+
+	chains.Coreum.FundAccountWithOptions(ctx, t, relayer1, coreumintegration.BalancesOptions{
+		Amount: sdkmath.NewInt(1_000_000),
+	})
+	chains.Coreum.FundAccountWithOptions(ctx, t, relayer2, coreumintegration.BalancesOptions{
+		Amount: sdkmath.NewInt(1_000_000),
+	})
+	chains.Coreum.FundAccountWithOptions(ctx, t, randomAddress, coreumintegration.BalancesOptions{
+		Amount: sdkmath.NewInt(1_000_000),
 	})
 
-	contractClient := coreum.NewContractClient(coreum.DefaultContractClientConfig(sdk.AccAddress(nil)), chains.Log, chains.Coreum.ClientContext)
-	instantiationCfg := coreum.InstantiationConfig{
-		Owner:             owner,
-		Admin:             owner,
-		Relayers:          relayers,
-		EvidenceThreshold: evidenceThreshold,
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers))
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	// fund owner to cover registration fees twice
+	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.Mul(sdkmath.NewIntFromUint64(2)),
+	})
+
+	issuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
+	issuer := issuerAcc.String()
+	currency := "CRR"
+
+	// register from the owner
+	_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency)
+	require.NoError(t, err)
+
+	xrplTokens, err := contractClient.GetXRPLTokens(ctx)
+	require.NoError(t, err)
+	// find registered token
+	var registeredToken coreum.XRPLToken
+	for _, token := range xrplTokens {
+		if token.Issuer == issuer && token.Currency == currency {
+			registeredToken = token
+			break
+		}
 	}
-	contractAddress, err := contractClient.DeployAndInstantiate(ctx, owner, readBuiltContract(t), instantiationCfg)
+	require.Equal(t, issuer, registeredToken.Issuer)
+	require.Equal(t, currency, registeredToken.Currency)
+	require.NotEmpty(t, registeredToken.CoreumDenom)
+
+	// create an evidence
+	xrplToCoreumEvidence := coreum.XRPLToCoreumEvidence{
+		TxHash:    "65DEE3E51083CF037A7ED413A49DD7357964923F8CC3E3D35A24019FB771475D",
+		Issuer:    issuerAcc.String(),
+		Currency:  currency,
+		Amount:    sdkmath.NewInt(10),
+		Recipient: coreumRecipient,
+	}
+
+	// try to call from not relayer
+	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, randomAddress, xrplToCoreumEvidence)
+	require.True(t, coreum.IsUnauthorizedSenderError(err))
+
+	// try use not registered token
+	wrongXRPLToCoreumEvidence := xrplToCoreumEvidence
+	wrongXRPLToCoreumEvidence.Currency = "NEZ"
+	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, wrongXRPLToCoreumEvidence)
+	require.True(t, coreum.IsTokenNotRegisteredError(err))
+
+	// call from first relayer
+	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, xrplToCoreumEvidence)
 	require.NoError(t, err)
-
-	require.NoError(t, contractClient.SetContractAddress(contractAddress))
-
-	return owner, contractClient
-}
-
-func readBuiltContract(t *testing.T) []byte {
-	t.Helper()
-
-	body, err := os.ReadFile(compiledContractFilePath)
+	recipientBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumRecipient.String(),
+		Denom:   registeredToken.CoreumDenom,
+	})
 	require.NoError(t, err)
+	require.True(t, recipientBalanceRes.Balance.IsZero())
 
-	return body
+	// call from first relayer one more time
+	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, xrplToCoreumEvidence)
+	require.True(t, coreum.IsEvidenceAlreadyProvidedError(err))
+
+	// call from second relayer
+	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer2, xrplToCoreumEvidence)
+	require.NoError(t, err)
+	recipientBalanceRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumRecipient.String(),
+		Denom:   registeredToken.CoreumDenom,
+	})
+	require.NoError(t, err)
+	// expect new token on the recipient balance
+	require.Equal(t, xrplToCoreumEvidence.Amount.String(), recipientBalanceRes.Balance.Amount.String())
+
+	// try to push the same evidence
+	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, xrplToCoreumEvidence)
+	require.True(t, coreum.IsOperationAlreadyExecutedError(err))
 }

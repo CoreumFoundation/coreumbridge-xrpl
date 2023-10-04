@@ -65,8 +65,8 @@ func NewAccountScanner(cfg AccountScannerConfig, log logger.Logger, rpcTxProvide
 }
 
 // ScanTxs subscribes on rpc account transactions and continuously scans the recent and historical transactions.
-func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.Transaction) error {
-	s.log.Info("Subscribing xrpl scanner", logger.AnyFiled("config", s.cfg))
+func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+	s.log.Info(ctx, "Subscribing xrpl scanner", logger.AnyFiled("config", s.cfg))
 	if s.cfg.RecentScanEnabled {
 		currentLedgerRes, err := s.rpcTxProvider.LedgerCurrent(ctx)
 		if err != nil {
@@ -91,27 +91,27 @@ func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.Trans
 	return nil
 }
 
-func (s *AccountScanner) scanRecentHistory(ctx context.Context, currentLedger int64, ch chan<- rippledata.Transaction) {
+func (s *AccountScanner) scanRecentHistory(ctx context.Context, currentLedger int64, ch chan<- rippledata.TransactionWithMetaData) {
 	minLedger := currentLedger - s.cfg.RecentScanWindow
 	s.doWithRetry(ctx, s.cfg.RepeatRecentScan, func() {
-		s.log.Info("Scanning recent history", logger.Int64Filed("minLedger", minLedger))
+		s.log.Info(ctx, "Scanning recent history", logger.Int64Filed("minLedger", minLedger))
 		lastLedger := s.scanTransactions(ctx, minLedger, ch)
 		if lastLedger != 0 {
 			minLedger = lastLedger + 1
 		}
-		s.log.Info("Scanning of the recent history is done", logger.Int64Filed("lastLedger", lastLedger))
+		s.log.Info(ctx, "Scanning of the recent history is done", logger.Int64Filed("lastLedger", lastLedger))
 	})
 }
 
-func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippledata.Transaction) {
+func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) {
 	s.doWithRetry(ctx, s.cfg.RepeatFullScan, func() {
-		s.log.Info("Scanning full history")
+		s.log.Info(ctx, "Scanning full history")
 		lastLedger := s.scanTransactions(ctx, -1, ch)
-		s.log.Info("Scanning of full history is done", logger.Int64Filed("lastLedger", lastLedger))
+		s.log.Info(ctx, "Scanning of full history is done", logger.Int64Filed("lastLedger", lastLedger))
 	})
 }
 
-func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, ch chan<- rippledata.Transaction) int64 {
+func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, ch chan<- rippledata.TransactionWithMetaData) int64 {
 	if minLedger <= 0 {
 		minLedger = -1
 	}
@@ -150,7 +150,7 @@ func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, 
 				lastLedger = prevProcessedLedger
 				prevProcessedLedger = int64(tx.LedgerSequence)
 			}
-			ch <- tx
+			ch <- *tx
 		}
 		if len(accountTxResult.Marker) == 0 {
 			lastLedger = prevProcessedLedger
@@ -166,10 +166,10 @@ func (s *AccountScanner) doWithRetry(ctx context.Context, shouldRetry bool, f fu
 	err := retry.Do(ctx, s.cfg.RetryDelay, func() error {
 		f()
 		if shouldRetry {
-			s.log.Info("Waiting before the next execution.", logger.StringFiled("retryDelay", s.cfg.RetryDelay.String()))
+			s.log.Info(ctx, "Waiting before the next execution.", logger.StringFiled("retryDelay", s.cfg.RetryDelay.String()))
 			return retry.Retryable(errors.New("repeat scan"))
 		}
-		s.log.Info("Execution is fully stopped.")
+		s.log.Info(ctx, "Execution is fully stopped.")
 		return nil
 	})
 	if err == nil || isCtxError(err) {
