@@ -28,7 +28,6 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
 use cw_utils::one_coin;
-use sha2::{Digest, Sha256};
 
 // version info for migration info
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -223,23 +222,18 @@ fn register_xrpl_token(
     }
 
     // We generate a random denom creating a Sha256 hash of the issuer, currency, decimals and current time
-    let mut hasher = Sha256::new();
 
-    hasher.update(
-        format!(
-            "{}{}{}{}",
-            issuer,
-            currency.clone(),
-            XRPL_TOKENS_DECIMALS,
-            env.block.time.seconds()
-        )
-        .into_bytes(),
-    );
-
-    let output = hasher.finalize();
+    let to_hash = format!(
+        "{}{}{}{}",
+        issuer,
+        currency.clone(),
+        XRPL_TOKENS_DECIMALS,
+        env.block.time.seconds()
+    )
+    .into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
-    let hex_string = hex::encode(output)
+    let hex_string = hash_bytes(to_hash)
         .get(0..10)
         .unwrap()
         .to_string()
