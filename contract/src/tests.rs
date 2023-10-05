@@ -14,10 +14,10 @@ mod tests {
         evidence::Evidence,
         msg::{
             AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
-            InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokenResponse,
-            XRPLTokensResponse,
+            InstantiateMsg, PendingOperationsResponse, QueryMsg,
+            SigningQueueResponse, XRPLTokenResponse, XRPLTokensResponse,
         },
-        state::{Config, Operation, OperationType},
+        state::{Config, Operation, OperationType, Signature},
     };
     const FEE_DENOM: &str = "ucore";
     const XRP_SYMBOL: &str = "XRP";
@@ -1013,7 +1013,10 @@ mod tests {
         // Owner will send a recover tickets operation which will set the pending ticket update flag to true
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::RecoverTickets { sequence_number },
+            &ExecuteMsg::RecoverTickets {
+                sequence_number,
+                number_of_tickets: Some(5),
+            },
             &vec![],
             &signer,
         )
@@ -1023,7 +1026,10 @@ mod tests {
         let recover_ticket_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::RecoverTickets { sequence_number },
+                &ExecuteMsg::RecoverTickets {
+                    sequence_number,
+                    number_of_tickets: Some(5),
+                },
                 &vec![],
                 &signer,
             )
@@ -1049,7 +1055,7 @@ mod tests {
             [Operation {
                 ticket_number: None,
                 sequence_number: Some(sequence_number),
-                operation_type: OperationType::AllocateTickets
+                operation_type: OperationType::AllocateTickets { number: 5 }
             }]
         );
 
@@ -1069,7 +1075,7 @@ mod tests {
             [Operation {
                 ticket_number: None,
                 sequence_number: Some(sequence_number),
-                operation_type: OperationType::AllocateTickets
+                operation_type: OperationType::AllocateTickets { number: 5 }
             }]
         );
 
@@ -1099,6 +1105,97 @@ mod tests {
                 .to_string()
                 .as_str()
         ));
+
+        //Provide signatures for the operation for each relayer
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterSignature {
+                number: sequence_number,
+                signature: "signature".to_string(),
+            },
+            &vec![],
+            &relayer1,
+        )
+        .unwrap();
+
+        //Provide the signature again for the operation will fail
+        let signature_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterSignature {
+                    number: sequence_number,
+                    signature: "signature".to_string(),
+                },
+                &vec![],
+                &relayer1,
+            )
+            .unwrap_err();
+
+        assert!(signature_error.to_string().contains(
+            ContractError::SignatureAlreadyProvided {}
+                .to_string()
+                .as_str()
+        ));
+
+        //Provide a signature for an operation that is not pending should fail
+        let signature_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterSignature {
+                    number: sequence_number + 1,
+                    signature: "signature".to_string(),
+                },
+                &vec![],
+                &relayer1,
+            )
+            .unwrap_err();
+
+        assert!(signature_error.to_string().contains(
+            ContractError::PendingOperationNotFound {}
+                .to_string()
+                .as_str()
+        ));
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterSignature {
+                number: sequence_number,
+                signature: "signature".to_string(),
+            },
+            &vec![],
+            &relayer2,
+        )
+        .unwrap();
+
+        //Verify that we have both signatures in the SIGNING QUEUE
+        let query_signing_queue = wasm
+            .query::<QueryMsg, SigningQueueResponse>(
+                &contract_addr,
+                &QueryMsg::SigningQueue {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_signing_queue.signing_operations.len(), 1);
+        assert_eq!(
+            query_signing_queue.signing_operations[0].number,
+            sequence_number
+        );
+        assert_eq!(
+            query_signing_queue.signing_operations[0].signatures,
+            vec![
+                Signature {
+                    signature: "signature".to_string(),
+                    relayer: Addr::unchecked(relayer1.address()),
+                },
+                Signature {
+                    signature: "signature".to_string(),
+                    relayer: Addr::unchecked(relayer2.address()),
+                }
+            ]
+        );
 
         //Relaying the rejected operation twice should remove it from pending operations but not allocate tickets
         wasm.execute::<ExecuteMsg>(
@@ -1154,15 +1251,53 @@ mod tests {
         assert_eq!(query_pending_operations.operations, vec![]);
         assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
 
+        //Check that signing queue is empty
+        let query_signing_queue = wasm
+            .query::<QueryMsg, SigningQueueResponse>(
+                &contract_addr,
+                &QueryMsg::SigningQueue {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_signing_queue.signing_operations.len(), 0);
+
         // Let's do the same now but confirming the operation
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::RecoverTickets { sequence_number },
+            &ExecuteMsg::RecoverTickets {
+                sequence_number,
+                number_of_tickets: Some(5),
+            },
             &vec![],
             &signer,
         )
         .unwrap();
 
+        //We provide the signatures again
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterSignature {
+                number: sequence_number,
+                signature: "signature".to_string(),
+            },
+            &vec![],
+            &relayer1,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterSignature {
+                number: sequence_number,
+                signature: "signature".to_string(),
+            },
+            &vec![],
+            &relayer2,
+        )
+        .unwrap();
         // Trying to relay the operation with a same hash as previous rejected one should fail
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
@@ -1351,7 +1486,10 @@ mod tests {
         let recover_tickets = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &&ExecuteMsg::RecoverTickets { sequence_number: 1 },
+                &ExecuteMsg::RecoverTickets {
+                    sequence_number: 1,
+                    number_of_tickets: Some(5),
+                },
                 &[],
                 &not_owner,
             )

@@ -1,8 +1,10 @@
 use std::collections::VecDeque;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Empty};
+use cosmwasm_std::{Addr, Empty, Storage};
 use cw_storage_plus::{Item, Map};
+
+use crate::error::ContractError;
 
 /// Top level storage key. Values must not conflict.
 /// Each key is only one byte long to ensure we use the smallest possible storage keys.
@@ -19,6 +21,8 @@ pub enum TopKey {
     UsedTickets = b'9',
     PendingOperations = b'a',
     PendingTicketUpdate = b'b',
+    SigningQueue = b'c',
+    ExecutedOperationSignatures = b'd',
 }
 
 impl TopKey {
@@ -66,6 +70,11 @@ pub const EVIDENCES: Map<String, Evidences> = Map::new(TopKey::Evidences.as_str(
 // This will contain the transaction hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again
 pub const EXECUTED_EVIDENCE_OPERATIONS: Map<String, Empty> =
     Map::new(TopKey::ExecutedEvidenceOperations.as_str());
+// Current signed operations that are waiting for enough signatures to be executed
+pub const SIGNING_QUEUE: Map<u64, Vec<Signature>> = Map::new(TopKey::SigningQueue.as_str());
+// Operations that had enough signatures and have been processed
+pub const EXECUTED_OPERATION_SIGNATURES: Map<u64, Vec<Signature>> =
+    Map::new(TopKey::ExecutedOperationSignatures.as_str());
 // Current tickets available
 pub const AVAILABLE_TICKETS: Item<VecDeque<u64>> = Item::new(TopKey::AvailableTickets.as_str());
 // Currently used tickets, will reset to 0 every time we allocate new tickets
@@ -82,6 +91,7 @@ pub enum ContractActions {
     SendFromXRPLToCoreum,
     RecoverTickets,
     TicketAllocation,
+    RegisterSignature,
 }
 
 impl ContractActions {
@@ -93,6 +103,7 @@ impl ContractActions {
             ContractActions::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
             ContractActions::RecoverTickets => "recover_tickets",
             ContractActions::TicketAllocation => "ticket_allocation",
+            ContractActions::RegisterSignature => "register_signature",
         }
     }
 }
@@ -100,12 +111,6 @@ impl ContractActions {
 #[cw_serde]
 pub struct Evidences {
     pub relayers: Vec<Addr>,
-}
-
-pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
-    let mut key = issuer.clone();
-    key.push_str(currency.as_str());
-    key
 }
 
 #[cw_serde]
@@ -117,5 +122,21 @@ pub struct Operation {
 
 #[cw_serde]
 pub enum OperationType {
-    AllocateTickets,
+    AllocateTickets { number: u32 },
+}
+
+#[cw_serde]
+pub struct Signature {
+    pub relayer: Addr,
+    pub signature: String,
+}
+
+pub fn remove_pending_operation(
+    storage: &mut dyn Storage,
+    number: u64,
+) -> Result<(), ContractError> {
+    PENDING_OPERATIONS.remove(storage, number);
+    PENDING_TICKET_UPDATE.save(storage, &false)?;
+
+    Ok(())
 }

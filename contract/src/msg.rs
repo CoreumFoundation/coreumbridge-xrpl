@@ -4,7 +4,7 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[allow(unused_imports)]
 use crate::state::{Config, CoreumToken, XRPLToken};
-use crate::{evidence::Evidence, state::Operation};
+use crate::{evidence::Evidence, state::{Operation, Signature}};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -22,7 +22,8 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     RegisterCoreumToken { denom: String, decimals: u32 },
     RegisterXRPLToken { issuer: String, currency: String },
-    RecoverTickets { sequence_number: u64 },
+    RecoverTickets { sequence_number: u64, number_of_tickets: Option<u32> },
+    RegisterSignature { number: u64, signature: String },
     AcceptEvidence { evidence: Evidence },
 }
 
@@ -48,7 +49,9 @@ pub enum QueryMsg {
         currency: Option<String>,
     },
     #[returns(CoreumTokenResponse)]
-    CoreumToken { denom: String },
+    CoreumToken {
+        denom: String,
+    },
     #[returns(PendingOperationsResponse)]
     PendingOperations {
         offset: Option<u64>,
@@ -56,6 +59,16 @@ pub enum QueryMsg {
     },
     #[returns(AvailableTicketsResponse)]
     AvailableTickets {},
+    #[returns(SigningQueueResponse)]
+    SigningQueue {
+        offset: Option<u64>,
+        limit: Option<u32>,
+    },
+    #[returns(SigningQueueResponse)]
+    ExecutedOperationSignatures {
+        offset: Option<u64>,
+        limit: Option<u32>,
+    }
 }
 
 #[cw_serde]
@@ -86,4 +99,15 @@ pub struct PendingOperationsResponse {
 #[cw_serde]
 pub struct AvailableTicketsResponse {
     pub tickets: Vec<u64>,
+}
+
+#[cw_serde]
+pub struct SigningQueueResponse {
+    pub signing_operations: Vec<SigningOperation>,
+}
+
+#[cw_serde]
+pub struct SigningOperation {
+    pub number: u64,
+    pub signatures: Vec<Signature>,
 }

@@ -5,12 +5,15 @@ use crate::{
     evidence::{handle_evidence, hash_bytes, Evidence},
     msg::{
         AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
-        InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokenResponse, XRPLTokensResponse,
+        InstantiateMsg, PendingOperationsResponse, QueryMsg, SigningOperation,
+        SigningQueueResponse, XRPLTokenResponse, XRPLTokensResponse,
     },
+    signatures::{add_signature, confirm_operation_signatures},
     state::{
-        build_xrpl_token_key, Config, ContractActions, CoreumToken, Operation, OperationType,
-        XRPLToken, AVAILABLE_TICKETS, CONFIG, COREUM_DENOMS, COREUM_TOKENS, PENDING_OPERATIONS,
-        PENDING_TICKET_UPDATE, USED_TICKETS, XRPL_CURRENCIES, XRPL_TOKENS,
+        Config, ContractActions, CoreumToken, Operation, OperationType, XRPLToken,
+        AVAILABLE_TICKETS, CONFIG, COREUM_DENOMS, COREUM_TOKENS, EXECUTED_OPERATION_SIGNATURES,
+        PENDING_OPERATIONS, PENDING_TICKET_UPDATE, SIGNING_QUEUE, USED_TICKETS, XRPL_CURRENCIES,
+        XRPL_TOKENS,
     },
     tickets::handle_allocation_confirmation,
 };
@@ -39,6 +42,8 @@ const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
 const XRPL_TOKENS_DECIMALS: u32 = 15;
 
+const MAX_ALLOWED_USED_TICKETS: u32 = 250;
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut<CoreumQueries>,
@@ -66,7 +71,7 @@ pub fn instantiate(
     }
 
     //We need to allow at least 2 tickets and less than 250 (XRPL limit) to be used
-    if msg.max_allowed_used_tickets < 2 || msg.max_allowed_used_tickets > 250 {
+    if msg.max_allowed_used_tickets < 2 || msg.max_allowed_used_tickets > MAX_ALLOWED_USED_TICKETS {
         return Err(ContractError::InvalidMaxAllowedUsedTickets {});
     }
 
@@ -133,8 +138,17 @@ pub fn execute(
         ExecuteMsg::AcceptEvidence { evidence } => {
             accept_evidence(deps.into_empty(), info.sender, evidence)
         }
-        ExecuteMsg::RecoverTickets { sequence_number } => {
-            recover_tickets(deps.into_empty(), info.sender, sequence_number)
+        ExecuteMsg::RecoverTickets {
+            sequence_number,
+            number_of_tickets,
+        } => recover_tickets(
+            deps.into_empty(),
+            info.sender,
+            sequence_number,
+            number_of_tickets,
+        ),
+        ExecuteMsg::RegisterSignature { number, signature } => {
+            register_signature(deps.into_empty(), info.sender, number, signature)
         }
     }
 }
@@ -273,11 +287,8 @@ fn register_xrpl_token(
 
 fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
     evidence.clone().validate()?;
-    let config = CONFIG.load(deps.storage)?;
 
-    if !config.relayers.contains(&sender) {
-        return Err(ContractError::UnauthorizedSender {});
-    }
+    is_relayer(deps.as_ref(), sender.clone())?;
 
     let threshold_reached = handle_evidence(deps.storage, sender, evidence.clone())?;
 
@@ -323,11 +334,13 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
 
             if threshold_reached {
                 handle_allocation_confirmation(
-                    deps,
+                    deps.storage,
                     sequence_or_ticket_number,
                     tickets,
                     confirmed,
                 )?;
+
+                confirm_operation_signatures(deps.storage, sequence_or_ticket_number)?;
             }
 
             response = response
@@ -353,6 +366,7 @@ fn recover_tickets(
     deps: DepsMut,
     sender: Addr,
     sequence_number: u64,
+    number_of_tickets: Option<u32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -362,6 +376,8 @@ fn recover_tickets(
         return Err(ContractError::PendingTicketUpdate {});
     }
 
+    let config = CONFIG.load(deps.storage)?;
+
     PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
     PENDING_OPERATIONS.save(
         deps.storage,
@@ -369,13 +385,31 @@ fn recover_tickets(
         &Operation {
             ticket_number: None,
             sequence_number: Some(sequence_number),
-            operation_type: OperationType::AllocateTickets,
+            operation_type: OperationType::AllocateTickets {
+                number: number_of_tickets.unwrap_or(config.max_allowed_used_tickets),
+            },
         },
     )?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RecoverTickets.as_str())
         .add_attribute("sequence_number", sequence_number.to_string()))
+}
+
+fn register_signature(
+    deps: DepsMut,
+    sender: Addr,
+    number: u64,
+    signature: String,
+) -> CoreumResult<ContractError> {
+    is_relayer(deps.as_ref(), sender.clone())?;
+
+    add_signature(deps, number, sender.clone(), signature.clone())?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::RegisterSignature.as_str())
+        .add_attribute("relayer_address", sender.to_string())
+        .add_attribute("signature", signature.as_str()))
 }
 
 // ********** Queries **********
@@ -398,6 +432,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_pending_operations(deps, offset, limit)?)
         }
         QueryMsg::AvailableTickets {} => to_binary(&query_available_tickets(deps)?),
+        QueryMsg::SigningQueue { offset, limit } => {
+            to_binary(&query_signing_queue(deps, offset, limit)?)
+        }
+        QueryMsg::ExecutedOperationSignatures { offset, limit } => {
+            to_binary(&query_executed_operation_signatures(deps, offset, limit)?)
+        }
     }
 }
 
@@ -492,6 +532,48 @@ fn query_available_tickets(deps: Deps) -> StdResult<AvailableTicketsResponse> {
     })
 }
 
+fn query_signing_queue(
+    deps: Deps,
+    offset: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<SigningQueueResponse> {
+    let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
+    let offset = offset.unwrap_or(0);
+    let signing_operations: Vec<SigningOperation> = SIGNING_QUEUE
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(offset as usize)
+        .take(limit as usize)
+        .filter_map(|v| v.ok())
+        .map(|(n, v)| SigningOperation {
+            number: n,
+            signatures: v,
+        })
+        .collect();
+
+    Ok(SigningQueueResponse { signing_operations })
+}
+
+fn query_executed_operation_signatures(
+    deps: Deps,
+    offset: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<SigningQueueResponse> {
+    let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
+    let offset = offset.unwrap_or(0);
+    let signing_operations: Vec<SigningOperation> = EXECUTED_OPERATION_SIGNATURES
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(offset as usize)
+        .take(limit as usize)
+        .filter_map(|v| v.ok())
+        .map(|(n, v)| SigningOperation {
+            number: n,
+            signatures: v,
+        })
+        .collect();
+
+    Ok(SigningQueueResponse { signing_operations })
+}
+
 // ********** Helpers **********
 
 fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<(), ContractError> {
@@ -537,4 +619,20 @@ pub fn check_operation_exists(
     }
 
     Ok(sequence_or_ticket_number)
+}
+
+pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
+    let mut key = issuer.clone();
+    key.push_str(currency.as_str());
+    key
+}
+
+pub fn is_relayer(deps: Deps, sender: Addr) -> Result<(), ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
+    if !config.relayers.contains(&sender) {
+        return Err(ContractError::UnauthorizedSender {});
+    }
+
+    Ok(())
 }

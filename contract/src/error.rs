@@ -68,4 +68,7 @@ pub enum ContractError {
 
     #[error("PendingOperationNotFound: There is no pending operation with this ticket/sequence number")]
     PendingOperationNotFound {},
+
+    #[error("SignatureAlreadyProvided: There is already a signature provided for this relayer and this operation")]
+    SignatureAlreadyProvided {},
 }
