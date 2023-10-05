@@ -58,6 +58,7 @@ pub fn hash_bytes(bytes: Vec<u8>) -> String {
     hex::encode(output)
 }
 
+// this func needs explanation in comments.
 pub fn handle_evidence(
     storage: &mut dyn Storage,
     sender: Addr,
@@ -68,7 +69,7 @@ pub fn handle_evidence(
     }
 
     let mut evidences: Evidences;
-    match EVIDENCES.may_load(storage, evidence.get_hash())? {
+    match EVIDENCES.may_load(storage, evidence.get_hash())? { // EVIDENCES are evidences for pending txs right ?
         Some(stored_evidences) => {
             if stored_evidences.relayers.contains(&sender) {
                 return Err(ContractError::EvidenceAlreadyProvided {});

@@ -31,7 +31,7 @@ const DEFAULT_MAX_LIMIT: u32 = 250;
 const XRP_SYMBOL: &str = "XRP";
 const XRP_SUBUNIT: &str = "drop";
 
-const COREUM_CURRENCY_PREFIX: &str = "coreum";
+const COREUM_CURRENCY_PREFIX: &str = "coreum"; // As for these prefixes shouldn't we use coreumbridge prefix for both ? But it is kinda long so maybe we can shorten it.
 const XRPL_DENOM_PREFIX: &str = "xrpl";
 const XRPL_TOKENS_DECIMALS: u32 = 15;
 
@@ -53,7 +53,7 @@ pub fn instantiate(
         deps.api.addr_validate(address.as_ref())?;
     }
 
-    // We want to check that exactly the issue fee was sent, not more.
+    // We want to check that amount equal to issue fee was sent. We need it to issue XRP on Coreum.
     check_issue_fee(&deps, &info)?;
 
     //Threshold can't be more than number of relayers
@@ -69,11 +69,11 @@ pub fn instantiate(
     CONFIG.save(deps.storage, &config)?;
 
     let xrp_issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
-        symbol: XRP_SYMBOL.to_string(),
+        symbol: XRP_SYMBOL.to_string(), // IMO we should use wrapped XRP (WXRP). As for subunit I'm not sure.
         subunit: XRP_SUBUNIT.to_string(),
         precision: 6,
         initial_amount: Uint128::zero(),
-        description: None,
+        description: None, // I would add a small description here. WDYT ?
         features: Some(vec![MINTING, BURNING, IBC]),
         burn_rate: Some("0.0".to_string()),
         send_commission_rate: Some("0.0".to_string()),
@@ -122,7 +122,7 @@ pub fn execute(
     }
 }
 
-fn update_ownership(
+fn update_ownership( // Only admin is allowed to do it, right ?
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
@@ -132,6 +132,8 @@ fn update_ownership(
     Ok(Response::new().add_attributes(ownership.into_attributes()))
 }
 
+// I can see that owner aka admin is the only one who can do this.
+//  But as far as I remember Dima mentioned that relayers will be able to trigger this ?
 fn register_coreum_token(
     deps: DepsMut,
     env: Env,
@@ -146,6 +148,7 @@ fn register_coreum_token(
     }
 
     // We generate a currency creating a Sha256 hash of the denom, the decimals and the current time
+    // I didn't get why we need block time & decimals here ? Lets discuss
     let to_hash = format!("{}{}{}", denom, decimals, env.block.time.seconds()).into_bytes();
     let hex_string = hash_bytes(to_hash)
         .get(0..10)
@@ -155,6 +158,8 @@ fn register_coreum_token(
 
     let xrpl_currency = format!("{}{}", COREUM_CURRENCY_PREFIX, hex_string);
 
+    // this will probably never fail because we have block time inside hash.
+    // So even if you register the same token multiple times hash will be different.
     if XRPL_CURRENCIES.has(deps.storage, xrpl_currency.clone()) {
         return Err(ContractError::RegistrationFailure {});
     }
@@ -177,7 +182,7 @@ fn register_coreum_token(
 fn register_xrpl_token(
     deps: DepsMut<CoreumQueries>,
     env: Env,
-    issuer: String,
+    issuer: String, // I thought that issuer is always smart contract address. But it seems like this is a param ? Or this one is xrpl issuer ?
     currency: String,
     info: MessageInfo,
 ) -> CoreumResult<ContractError> {
@@ -192,14 +197,14 @@ fn register_xrpl_token(
     }
 
     // We generate a random denom creating a Sha256 hash of the issuer, currency, decimals and current time
-    let mut hasher = Sha256::new();
+    let mut hasher = Sha256::new(); // I can see that you have a helper for this `hash_bytes`. Maybe use it here also ?
 
     hasher.update(
         format!(
             "{}{}{}{}",
             issuer,
             currency.clone(),
-            XRPL_TOKENS_DECIMALS,
+            XRPL_TOKENS_DECIMALS, // So as we found out token decimals don't work in simple way in xrpl. IMO we should specify precision for each token separately, WDYT ?
             env.block.time.seconds()
         )
         .into_bytes(),
@@ -215,6 +220,9 @@ fn register_xrpl_token(
         .to_lowercase();
 
     // Symbol and subunit we will use for the issued token in Coreum
+    // Since symbol is just display thingy used by UI, we don't need to make it unique & use hash for it.
+    // I suggest we just use currency or W+currency from XRPL so it looks better.
+    // As for subunit, since it is a unique identifier, of a denom we should use hash.
     let symbol_and_subunit = format!("{}{}", XRPL_DENOM_PREFIX, hex_string);
 
     let issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
@@ -236,7 +244,7 @@ fn register_xrpl_token(
         return Err(ContractError::RegistrationFailure {});
     };
 
-    COREUM_DENOMS.save(deps.storage, denom.clone(), &Empty {})?;
+    COREUM_DENOMS.save(deps.storage, denom.clone(), &Empty {})?; // we just store key and the value is Empty, right ? I guess this is done to just mark denom as reserved.
 
     let token = XRPLToken {
         issuer: Some(issuer.clone()),
