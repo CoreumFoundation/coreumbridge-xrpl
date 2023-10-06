@@ -30,7 +30,7 @@ pub enum ContractError {
     #[error("InvalidIssueFee: Need to send exactly the issue fee amount")]
     InvalidIssueFee {},
 
-    // well that is not random.
+    // nit: well that is not random.
     #[error(
         "RegistrationFailure: Random currency/denom generated already exists, please try again"
     )]

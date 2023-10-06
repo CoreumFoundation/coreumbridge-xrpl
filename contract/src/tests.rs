@@ -457,6 +457,7 @@ mod tests {
         let test_tokens = vec![
             XRPLToken {
                 // shall we add at least some basic validations for issuer and currency to avoid stupid mistakes when registering ?
+                // same applies for TXID and other data type which has defined format.
                 issuer: "issuer1".to_string(),
                 currency: "currency1".to_string(),
             },
