@@ -46,6 +46,15 @@ pub struct CoreumToken {
 }
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
+
+// 1. For me personally these names are really confusing: COREUM_TOKENS, XRPL_TOKENS, XRPL_CURRENCIES, COREUM_DENOMS.
+// Are they really clear for you ? Lets discuss.
+// My idea is to use: smth like XRPL_TOKENS_ON_COREUM etc.
+
+// 2. Also comments on top of XRPL_CURRENCIES and COREUM_DENOMS should be improved.
+
+// 3. lets discuss where we use token, currency and denom.
+
 //Tokens registered from Coreum side - key is denom on Coreum chain
 pub const COREUM_TOKENS: Map<String, CoreumToken> = Map::new(TopKey::CoreumTokens.as_str());
 //Tokens registered from XRPL side - key is issuer+currency on XRPL
@@ -55,7 +64,7 @@ pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.
 // Coreum denoms used
 pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());
 // Evidences, when enough evidences are collected, the transaction hashes are stored in EXECUTED_EVIDENCE_OPERATIONS.
-pub const EVIDENCES: Map<String, Evidences> = Map::new(TopKey::Evidences.as_str());
+pub const EVIDENCES: Map<String, Evidences> = Map::new(TopKey::Evidences.as_str()); // Is XRPL txid is key here ? Pls add comment
 // This will contain the transaction hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again
 pub const EXECUTED_EVIDENCE_OPERATIONS: Map<String, Empty> = Map::new(TopKey::ExecutedEvidenceOperations.as_str());
 

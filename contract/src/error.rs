@@ -30,6 +30,7 @@ pub enum ContractError {
     #[error("InvalidIssueFee: Need to send exactly the issue fee amount")]
     InvalidIssueFee {},
 
+    // well that is not random.
     #[error(
         "RegistrationFailure: Random currency/denom generated already exists, please try again"
     )]
@@ -39,7 +40,7 @@ pub enum ContractError {
     UnauthorizedSender {},
 
     #[error("TokenNotRegistered: The token must be registered first before bridging")]
-    TokenNotRegistered {},
+    TokenNotRegistered {}, // is it about XRPL or Coreum token.
 
     #[error("OperationAlreadyExecuted: The operation has already been executed")]
     OperationAlreadyExecuted {},

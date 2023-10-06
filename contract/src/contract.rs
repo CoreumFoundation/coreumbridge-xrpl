@@ -68,6 +68,13 @@ pub fn instantiate(
 
     CONFIG.save(deps.storage, &config)?;
 
+    // I can see that we treat XRP differently from all other tokens.
+    // But is there a specific reason to do this on contract level ?
+    // Maybe we can handle this difference on relayer side and on cuntract level XRP will be same as all other tokens.
+    // E.g it could be just usual token with <currency: "XRP", issuer: "rrrrrrrrrrrrrrrrrrrrrho". (see: https://xrpl.org/addresses.html#special-addresses)
+    // from doc: "rrrrrrrrrrrrrrrrrrrrrho - An address that is the XRP Ledger's base58 encoding of the value 0. In peer-to-peer communications, rippled uses this address as the issuer for XRP."
+    // This way we can just call register_xrpl_token("XRP", "rrrrrrrrrrrrrrrrrrrrrho") inside instantiation and thats it.
+    // For all txs relayer will pass XRP as "XRP", "rrrrrrrrrrrrrrrrrrrrrho".
     let xrp_issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
         symbol: XRP_SYMBOL.to_string(), // IMO we should use wrapped XRP (WXRP). As for subunit I'm not sure.
         subunit: XRP_SUBUNIT.to_string(),
@@ -331,6 +338,7 @@ fn query_config(deps: Deps) -> StdResult<Config> {
     Ok(config)
 }
 
+// nit: Linter tells me "Duplicated code fragment (7 lines long) " for query_xrpl_tokens & query_coreum_tokens. not sure we can unify
 fn query_xrpl_tokens(
     deps: Deps,
     offset: Option<u64>,
@@ -373,7 +381,7 @@ fn query_xrpl_token(
     currency: Option<String>,
 ) -> StdResult<XRPLTokenResponse> {
     let mut key;
-    if issuer.is_none() && currency.is_none() {
+    if issuer.is_none() && currency.is_none() { // if neither of currency or issuer is given, we return all XRP I guess. But what if one of them is missing ?
         key = XRP_SYMBOL.to_string();
     } else {
         key = issuer.unwrap();
@@ -393,18 +401,21 @@ fn query_coreum_token(deps: Deps, denom: String) -> StdResult<CoreumTokenRespons
 
 // ********** Helpers **********
 
+// nit: check_issue_fee -> verify_issue_fee_provided
 fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<(), ContractError> {
     let query_params_res: ParamsResponse = deps
         .querier
         .query(&CoreumQueries::AssetFT(Query::Params {}).into())?;
 
     if query_params_res.params.issue_fee != one_coin(info)? {
-        return Err(ContractError::InvalidIssueFee {});
+        return Err(ContractError::InvalidIssueFee {}); // I disagree with error name here. Issue fee is valid but amount attached to tx is not.
     }
 
     Ok(())
 }
 
+// nit: We are planning to add feature where we can mint tokens on some dest address directly in current phase.
+// Maybe it makes sense to leave todo here and use it once implemented.
 fn add_mint_and_send(
     response: Response<CoreumMsg>,
     amount: Uint128,

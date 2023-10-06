@@ -9,6 +9,7 @@ use crate::{
 
 #[cw_serde]
 pub enum Evidence {
+    // nit: XRPLToCoreum -> XRPLToCoreumTransfer ?
     XRPLToCoreum {
         tx_hash: String,
         issuer: String,
@@ -58,7 +59,7 @@ pub fn hash_bytes(bytes: Vec<u8>) -> String {
     hex::encode(output)
 }
 
-// this func needs explanation in comments.
+// this func needs better explanation in comments.
 pub fn handle_evidence(
     storage: &mut dyn Storage,
     sender: Addr,
@@ -92,7 +93,7 @@ pub fn handle_evidence(
             &Empty {},
         )?;
         // if there is just one relayer there is nothing to delete
-        if evidences.relayers.len() != 1 {
+        if evidences.relayers.len() != 1 { // didn't get this logic. pls explain on call.
             EVIDENCES.remove(storage, evidence.get_hash());
         }
         return Ok(true);

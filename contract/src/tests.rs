@@ -227,12 +227,14 @@ mod tests {
 
     #[test]
     fn query_config() {
+        // nit: I would test/tests with multiple relayer addresses & different threshold.
         let app = CoreumTestApp::new();
         let signer = app
             .init_account(&coins(100_000_000_000, FEE_DENOM))
             .unwrap();
 
         let wasm = Wasm::new(&app);
+        // nit: rename assetft -> asset_ft (everywhere)
         let assetft = AssetFT::new(&app);
 
         let contract_addr = store_and_instantiate(
@@ -454,6 +456,7 @@ mod tests {
 
         let test_tokens = vec![
             XRPLToken {
+                // shall we add at least some basic validations for issuer and currency to avoid stupid mistakes when registering ?
                 issuer: "issuer1".to_string(),
                 currency: "currency1".to_string(),
             },
