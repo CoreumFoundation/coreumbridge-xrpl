@@ -1,8 +1,8 @@
-use cosmwasm_std::{Addr, DepsMut, Storage};
+use cosmwasm_std::{Addr, DepsMut};
 
 use crate::{
     error::ContractError,
-    state::{Signature, EXECUTED_OPERATION_SIGNATURES, PENDING_OPERATIONS, SIGNING_QUEUE},
+    state::{Signature, PENDING_OPERATIONS},
 };
 
 pub fn add_signature(
@@ -14,42 +14,28 @@ pub fn add_signature(
     if !PENDING_OPERATIONS.has(deps.storage, number) {
         return Err(ContractError::PendingOperationNotFound {});
     }
+    //We get the current signatures for this specific operation
+    let mut pending_operation = PENDING_OPERATIONS.load(deps.storage, number)?;
+    let mut signatures = pending_operation.signatures;
 
-    let mut signatures;
-    match SIGNING_QUEUE.may_load(deps.storage, number)? {
-        Some(stored_signatures) => {
-            if stored_signatures.clone().into_iter().any(
-                |Signature {
-                     relayer,
-                     signature: _,
-                 }| relayer == sender,
-            ) {
-                return Err(ContractError::SignatureAlreadyProvided {});
-            }
-            signatures = stored_signatures;
-        }
-        None => {
-            signatures = vec![];
-        }
+    //If this relayer already provided a signature he can't overwrite it
+    if signatures.clone().into_iter().any(
+        |Signature {
+             relayer,
+             signature: _,
+         }| relayer == sender,
+    ) {
+        return Err(ContractError::SignatureAlreadyProvided {});
     }
 
+    //Add signature and store it
     signatures.push(Signature {
         relayer: sender.clone(),
         signature: signature.clone(),
     });
-    SIGNING_QUEUE.save(deps.storage, number, &signatures)?;
 
-    Ok(())
-}
-
-// Moves signatures of a confirmed operation from SIGNING_QUEUE to EXECUTED_OPERATION_SIGNATURES
-pub fn confirm_operation_signatures(
-    storage: &mut dyn Storage,
-    number: u64,
-) -> Result<(), ContractError> {
-    let signatures = SIGNING_QUEUE.load(storage, number)?;
-    EXECUTED_OPERATION_SIGNATURES.save(storage, number, &signatures)?;
-    SIGNING_QUEUE.remove(storage, number);
+    pending_operation.signatures = signatures;
+    PENDING_OPERATIONS.save(deps.storage, number, &pending_operation)?;
 
     Ok(())
 }

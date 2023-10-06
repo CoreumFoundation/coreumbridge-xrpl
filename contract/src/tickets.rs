@@ -10,43 +10,46 @@ use crate::{
     },
 };
 
+//This function will be used to provide a ticket for a pending operation
 pub fn _allocate_ticket(deps: DepsMut) -> Result<u64, ContractError> {
-    let mut available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
+    let available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
 
+    //This last ticket will always be reserved for an update of the tickets
     if available_tickets.len() < 2 {
         return Err(ContractError::LastTicketReserved {});
     }
 
-    let ticket = available_tickets.pop_front().unwrap();
-
-    AVAILABLE_TICKETS.save(deps.storage, &available_tickets)?;
+    let ticket = reserve_ticket(deps.storage)?;
 
     Ok(ticket)
 }
 
-pub fn _register_used_ticket(deps: DepsMut) -> Result<(), ContractError> {
-    let used_tickets = USED_TICKETS.load(deps.storage)?;
-    let config = CONFIG.load(deps.storage)?;
+//Once we confirm/reject a transaction, we need to register a token as used
+pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractError> {
+    let used_tickets = USED_TICKETS.load(storage)?;
+    let config = CONFIG.load(storage)?;
 
-    USED_TICKETS.save(deps.storage, &(used_tickets + 1))?;
+    USED_TICKETS.save(storage, &(used_tickets + 1))?;
 
+    //If we reach the max allowed tickets to be used, we need to create an operation to allocate new ones
     if used_tickets + 1 >= config.max_allowed_used_tickets
-        && !PENDING_TICKET_UPDATE.load(deps.storage)?
+        && !PENDING_TICKET_UPDATE.load(storage)?
     {
-        let ticket_to_update = get_ticket(deps.storage)?;
+        let ticket_to_update = reserve_ticket(storage)?;
 
         PENDING_OPERATIONS.save(
-            deps.storage,
+            storage,
             ticket_to_update,
             &Operation {
                 ticket_number: Some(ticket_to_update),
                 sequence_number: None,
+                signatures: vec![],
                 operation_type: OperationType::AllocateTickets {
                     number: config.max_allowed_used_tickets,
                 },
             },
         )?;
-        PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
+        PENDING_TICKET_UPDATE.save(storage, &true)?;
     }
 
     Ok(())
@@ -70,6 +73,7 @@ pub fn handle_allocation_confirmation(
 
         AVAILABLE_TICKETS.save(storage, &VecDeque::from(new_tickets))?;
 
+        //Used tickets can't be under 0 if admin allocated more tickets than used tickets
         USED_TICKETS.update(storage, |used_tickets| -> StdResult<_> {
             let new_used_tickets = used_tickets
                 .checked_sub(tickets.unwrap().len() as u32)
@@ -81,7 +85,8 @@ pub fn handle_allocation_confirmation(
     Ok(())
 }
 
-fn get_ticket(storage: &mut dyn Storage) -> Result<u64, ContractError> {
+// Extract a ticket from the available tickets
+fn reserve_ticket(storage: &mut dyn Storage) -> Result<u64, ContractError> {
     let mut available_tickets = AVAILABLE_TICKETS.load(storage)?;
     let ticket_to_update = available_tickets.pop_front().unwrap();
     AVAILABLE_TICKETS.save(storage, &available_tickets)?;

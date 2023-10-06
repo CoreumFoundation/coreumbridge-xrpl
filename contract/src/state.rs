@@ -11,18 +11,15 @@ use crate::error::ContractError;
 #[repr(u8)]
 pub enum TopKey {
     Config = b'1',
-    Evidences = b'2',
-    ExecutedEvidenceOperations = b'3',
+    TxEvidences = b'2',
+    ProcessedTxs = b'3',
     CoreumTokens = b'4',
     XRPLTokens = b'5',
-    XRPLCurrencies = b'6',
-    CoreumDenoms = b'7',
-    AvailableTickets = b'8',
-    UsedTickets = b'9',
-    PendingOperations = b'a',
-    PendingTicketUpdate = b'b',
-    SigningQueue = b'c',
-    ExecutedOperationSignatures = b'd',
+    UsedXRPLCurrenciesForCoreumTokens = b'6',
+    AvailableTickets = b'7',
+    UsedTickets = b'8',
+    PendingOperations = b'9',
+    PendingTicketUpdate = b'a',
 }
 
 impl TopKey {
@@ -44,8 +41,8 @@ pub struct Config {
 
 #[cw_serde]
 pub struct XRPLToken {
-    pub issuer: Option<String>,
-    pub currency: Option<String>,
+    pub issuer: String,
+    pub currency: String,
     pub coreum_denom: String,
 }
 
@@ -57,24 +54,17 @@ pub struct CoreumToken {
 }
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
-//Tokens registered from Coreum side - key is denom on Coreum chain
+//Tokens registered from Coreum side. These tokens are native Coreum tokens that are registered to be bridged - key is denom on Coreum chain
 pub const COREUM_TOKENS: Map<String, CoreumToken> = Map::new(TopKey::CoreumTokens.as_str());
-//Tokens registered from XRPL side - key is issuer+currency on XRPL
+//Tokens registered from XRPL side. These tokens are native XRPL tokens - key is issuer+currency on XRPL
 pub const XRPL_TOKENS: Map<String, XRPLToken> = Map::new(TopKey::XRPLTokens.as_str());
 // XRPL-Currencies used
-pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
-// Coreum denoms used
-pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());
+pub const USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS: Map<String, Empty> = Map::new(TopKey::UsedXRPLCurrenciesForCoreumTokens.as_str());
 // Evidences, when enough evidences are collected, the transaction hashes are stored in EXECUTED_EVIDENCE_OPERATIONS.
-pub const EVIDENCES: Map<String, Evidences> = Map::new(TopKey::Evidences.as_str());
+pub const TX_EVIDENCES: Map<String, Evidences> = Map::new(TopKey::TxEvidences.as_str());
 // This will contain the transaction hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again
-pub const EXECUTED_EVIDENCE_OPERATIONS: Map<String, Empty> =
-    Map::new(TopKey::ExecutedEvidenceOperations.as_str());
-// Current signed operations that are waiting for enough signatures to be executed
-pub const SIGNING_QUEUE: Map<u64, Vec<Signature>> = Map::new(TopKey::SigningQueue.as_str());
-// Operations that had enough signatures and have been processed
-pub const EXECUTED_OPERATION_SIGNATURES: Map<u64, Vec<Signature>> =
-    Map::new(TopKey::ExecutedOperationSignatures.as_str());
+pub const PROCESSED_TXS: Map<String, Empty> =
+    Map::new(TopKey::ProcessedTxs.as_str());
 // Current tickets available
 pub const AVAILABLE_TICKETS: Item<VecDeque<u64>> = Item::new(TopKey::AvailableTickets.as_str());
 // Currently used tickets, will reset to 0 every time we allocate new tickets
@@ -90,7 +80,7 @@ pub enum ContractActions {
     RegisterXRPLToken,
     SendFromXRPLToCoreum,
     RecoverTickets,
-    TicketAllocation,
+    XRPLTransactionResult,
     RegisterSignature,
 }
 
@@ -102,7 +92,7 @@ impl ContractActions {
             ContractActions::RegisterXRPLToken => "register_xrpl_token",
             ContractActions::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
             ContractActions::RecoverTickets => "recover_tickets",
-            ContractActions::TicketAllocation => "ticket_allocation",
+            ContractActions::XRPLTransactionResult => "xrpl_transaction_result",
             ContractActions::RegisterSignature => "register_signature",
         }
     }
@@ -117,6 +107,7 @@ pub struct Evidences {
 pub struct Operation {
     pub ticket_number: Option<u64>,
     pub sequence_number: Option<u64>,
+    pub signatures: Vec<Signature>,
     pub operation_type: OperationType,
 }
 

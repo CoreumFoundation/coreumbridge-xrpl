@@ -27,11 +27,11 @@ pub enum ContractError {
     )]
     XRPLTokenAlreadyRegistered { issuer: String, currency: String },
 
-    #[error("InvalidIssueFee: Need to send exactly the issue fee amount")]
-    InvalidIssueFee {},
+    #[error("InvalidFundsAmount: Need to send exactly the issue fee amount")]
+    InvalidFundsAmount {},
 
     #[error(
-        "RegistrationFailure: Random currency/denom generated already exists, please try again"
+        "RegistrationFailure: Currency/denom generated already exists, please try again"
     )]
     RegistrationFailure {},
 
@@ -66,7 +66,9 @@ pub enum ContractError {
     #[error("InvalidTicketAllocationEvidence: There must be tickets and a sequence number or ticket number")]
     InvalidTicketAllocationEvidence {},
 
-    #[error("PendingOperationNotFound: There is no pending operation with this ticket/sequence number")]
+    #[error(
+        "PendingOperationNotFound: There is no pending operation with this ticket/sequence number"
+    )]
     PendingOperationNotFound {},
 
     #[error("SignatureAlreadyProvided: There is already a signature provided for this relayer and this operation")]
