@@ -47,15 +47,7 @@ impl Evidence {
     //for each type of evidence we will generate the hash with different values
     pub fn get_hash(self) -> String {
         match self {
-            Evidence::XRPLToCoreumTransfer {
-                ..
-            } => {
-                let to_hash_bytes = serde_json::to_string(&self).unwrap().into_bytes();
-                hash_bytes(to_hash_bytes)
-            }
-            Evidence::XRPLTransactionResult {
-                ..
-            } => {
+            _ => {
                 let to_hash_bytes = serde_json::to_string(&self).unwrap().into_bytes();
                 hash_bytes(to_hash_bytes)
             }
@@ -63,8 +55,8 @@ impl Evidence {
     }
     pub fn get_tx_hash(self) -> String {
         match self {
-            Evidence::XRPLToCoreumTransfer { tx_hash, .. } => tx_hash.clone(),
-            Evidence::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone(),
+            Evidence::XRPLToCoreumTransfer { tx_hash, .. }
+            | Evidence::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone(),
         }
     }
     //Function for basic validation of evidences in case relayers send something that is not valid
