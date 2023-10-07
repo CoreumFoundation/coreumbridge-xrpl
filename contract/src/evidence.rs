@@ -44,15 +44,12 @@ impl OperationResult {
 }
 
 impl Evidence {
-    //for each type of evidence we will generate the hash with different values
+    //We hash the entire Evidence struct to avoid having to deal with different types of hashes
     pub fn get_hash(self) -> String {
-        match self {
-            _ => {
-                let to_hash_bytes = serde_json::to_string(&self).unwrap().into_bytes();
-                hash_bytes(to_hash_bytes)
-            }
-        }
+        let to_hash_bytes = serde_json::to_string(&self).unwrap().into_bytes();
+        hash_bytes(to_hash_bytes)
     }
+
     pub fn get_tx_hash(self) -> String {
         match self {
             Evidence::XRPLToCoreumTransfer { tx_hash, .. }
