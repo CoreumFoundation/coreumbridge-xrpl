@@ -981,7 +981,7 @@ mod tests {
             .unwrap_err();
 
         assert!(recover_ticket_error.to_string().contains(
-            ContractError::InvalidTicketAmountToAllocate {}
+            ContractError::InvalidTicketNumberToAllocate {}
                 .to_string()
                 .as_str()
         ));

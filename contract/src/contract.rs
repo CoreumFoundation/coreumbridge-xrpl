@@ -10,10 +10,10 @@ use crate::{
     signatures::add_signature,
     state::{
         Config, ContractActions, CoreumToken, Operation, OperationType, XRPLToken,
-        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS,
-        PENDING_TICKET_UPDATE, USED_TICKETS, USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
+        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
+        USED_TICKETS, USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
     },
-    tickets::{register_used_ticket, handle_allocation_confirmation},
+    tickets::{handle_allocation_confirmation, register_used_ticket},
 };
 use coreum_wasm_sdk::{
     assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
@@ -289,8 +289,6 @@ fn send_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
 
     if threshold_reached {
         register_used_ticket(deps.storage)?;
-
-        handle_threshold_confirmation(evidence.clone(), deps.storage)?;
     }
 
     let mut response = Response::new();
@@ -330,14 +328,15 @@ fn send_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             confirmed,
             operation_result,
         } => {
-            //We need to do this because we confirmed the operation already in case threshold was reached. If it wasn't reached we still need to check
-            //that the operation is valid.
-            let operation_id = get_operation_id(
-                deps.storage,
-                sequence_number,
-                ticket_number,
-                threshold_reached,
-            )?;
+            let operation_id = check_operation_exists(deps.storage, sequence_number, ticket_number)?;
+
+            if threshold_reached {
+                match operation_result.clone() {
+                    OperationResult::TicketsAllocation { tickets } => {
+                        handle_allocation_confirmation(deps.storage, operation_id, tickets, confirmed)?;
+                    }
+                }
+            }
 
             response = response
                 .add_attribute("action", ContractActions::XRPLTransactionResult.as_str())
@@ -369,10 +368,10 @@ fn recover_tickets(
     let used_tickets = USED_TICKETS.load(deps.storage)?;
 
     PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
-    let amount_to_allocate = number_of_tickets.unwrap_or(used_tickets);
+    let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
-    if amount_to_allocate == 0 {
-        return Err(ContractError::InvalidTicketAmountToAllocate {});
+    if number_to_allocate == 0 {
+        return Err(ContractError::InvalidTicketNumberToAllocate {});
     }
 
     //If we don't provide a number of tickets to recover we will recover the ones that we already used.
@@ -384,7 +383,7 @@ fn recover_tickets(
             sequence_number: Some(sequence_number),
             signatures: vec![],
             operation_type: OperationType::AllocateTickets {
-                number: amount_to_allocate,
+                number: number_to_allocate,
             },
         },
     )?;
@@ -583,31 +582,4 @@ pub fn assert_relayer(deps: Deps, sender: Addr) -> Result<(), ContractError> {
     }
 
     Ok(())
-}
-
-
-pub fn handle_threshold_confirmation(
-    evidence: Evidence,
-    storage: &mut dyn Storage,
-) -> Result<(), ContractError> {
-    match evidence {
-        Evidence::XRPLToCoreumTransfer { .. } => Ok(()),
-        Evidence::XRPLTransactionResult {
-            sequence_number,
-            ticket_number,
-            confirmed,
-            operation_result,
-            ..
-        } => {
-            let operation_id = check_operation_exists(storage, sequence_number, ticket_number)?;
-
-            match operation_result {
-                OperationResult::TicketsAllocation { tickets } => {
-                    handle_allocation_confirmation(storage, operation_id, tickets, confirmed)?;
-                }
-            }
-
-            Ok(())
-        }
-    }
 }
