@@ -13,7 +13,7 @@ pub struct InstantiateMsg {
     pub relayers: Vec<Addr>,
     //How many relayers need to provide evidence for a message
     pub evidence_threshold: u32,
-    //Max allowed used tickets
+    //Maximum amount of tickets that  we can use before triggering a ticket allocation action
     pub max_allowed_used_tickets: u32,
 }
 

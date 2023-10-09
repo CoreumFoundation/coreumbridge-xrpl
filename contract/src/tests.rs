@@ -55,7 +55,7 @@ mod tests {
                 max_allowed_used_tickets,
             },
             None,
-            "xrpl_coreum_bridge".into(),
+            "coreumbridge-xrpl".into(),
             &issue_fee,
             &signer,
         )

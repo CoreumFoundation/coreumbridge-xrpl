@@ -24,7 +24,7 @@ pub fn _allocate_ticket(deps: DepsMut) -> Result<u64, ContractError> {
     Ok(ticket)
 }
 
-//Once we confirm/reject a transaction, we need to register a token as used
+//Once we confirm/reject a transaction, we need to register a ticket as used
 pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractError> {
     let used_tickets = USED_TICKETS.load(storage)?;
     let config = CONFIG.load(storage)?;

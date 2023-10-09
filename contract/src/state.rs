@@ -67,9 +67,10 @@ pub const PROCESSED_TXS: Map<String, Empty> =
     Map::new(TopKey::ProcessedTxs.as_str());
 // Current tickets available
 pub const AVAILABLE_TICKETS: Item<VecDeque<u64>> = Item::new(TopKey::AvailableTickets.as_str());
-// Currently used tickets, will reset to 0 every time we allocate new tickets
+// Currently used tickets. Every time we allocate new tickets, we will substract the amount of new tickets allocated from this amount
 pub const USED_TICKETS: Item<u32> = Item::new(TopKey::UsedTickets.as_str());
-// Operations that are not confirmed/rejected. Key is the ticket number
+// Operations that are not confirmed/rejected yet. When enough relayers send evidences confirming the correct execution or rejection of this operation,
+// it will move to PROCESSED_TXS. Key is the ticket/sequence number
 pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
 // Flag to know if we are currently waiting for new_tickets to be allocated
 pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
