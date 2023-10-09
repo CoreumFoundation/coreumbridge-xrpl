@@ -28,19 +28,16 @@ func TestConvertXRPLNativeTokenAmountToCoreum(t *testing.T) {
 			name:       "one_with_some_decimals_XRPL_XRP_to_coreum_XRP",
 			xrplAmount: amountStringToXRPLAmount(t, "1.0001XRP"),
 			want:       sdkmath.NewIntFromUint64(1000100),
-			wantErr:    false,
 		},
 		{
 			name:       "min_decimals_XRPL_XRP_to_coreum_XRP",
 			xrplAmount: amountStringToXRPLAmount(t, "999.000001XRP"),
 			want:       sdkmath.NewIntFromUint64(999000001),
-			wantErr:    false,
 		},
 		{
 			name:       "lower_than_min_decimals_XRPL_XRP_to_coreum_XRP",
 			xrplAmount: amountStringToXRPLAmount(t, "0.0000001XRP"),
 			want:       sdkmath.NewIntFromUint64(0),
-			wantErr:    false,
 		},
 		{
 			name:       "high_value_XRPL_XRP_to_coreum_XRP",
@@ -56,19 +53,21 @@ func TestConvertXRPLNativeTokenAmountToCoreum(t *testing.T) {
 			name:       "one_with_some_decimals_XRPL_FOO_to_coreum_FOO",
 			xrplAmount: amountStringToXRPLAmount(t, "1.0000000001/FOO/rE6BWGaND13tXp8kzBVNhgcu1remuhmXk6"),
 			want:       sdkmath.NewIntFromUint64(1000000000100000),
-			wantErr:    false,
 		},
 		{
 			name:       "min_decimals_XRPL_FOO_to_coreum_FOO",
 			xrplAmount: amountStringToXRPLAmount(t, "0.000000000000001/FOO/rE6BWGaND13tXp8kzBVNhgcu1remuhmXk6"),
 			want:       sdkmath.NewIntFromUint64(1),
-			wantErr:    false,
 		},
 		{
 			name:       "high_value_XRPL_FOO_to_coreum_FOO",
 			xrplAmount: amountStringToXRPLAmount(t, "1.1e10/FOO/rE6BWGaND13tXp8kzBVNhgcu1remuhmXk6"),
 			want:       stringToSDKInt(t, "11000000000000000000000000"),
-			wantErr:    false,
+		},
+		{
+			name:       "invalid_foo_amount",
+			xrplAmount: amountStringToXRPLAmount(t, "1e92/FOO/rE6BWGaND13tXp8kzBVNhgcu1remuhmXk6"),
+			wantErr:    true,
 		},
 	}
 	for _, tt := range tests {

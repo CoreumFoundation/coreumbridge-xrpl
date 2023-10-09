@@ -19,12 +19,7 @@ func WithTracingID(ctx context.Context) context.Context {
 
 // GetTracingID returns tracing ID from the context.
 func GetTracingID(ctx context.Context) string {
-	v, ok := ctx.Value(tracingIDKey{}).(string)
-	if !ok {
-		return ""
-	}
-
-	return v
+	return getTracingCtxValue(ctx, tracingIDKey{})
 }
 
 // WithTracingProcess returns context with set tracing process.
@@ -34,12 +29,7 @@ func WithTracingProcess(ctx context.Context, tracingRoot string) context.Context
 
 // GetTracingProcess returns tracing process from the context.
 func GetTracingProcess(ctx context.Context) string {
-	v, ok := ctx.Value(tracingProcessKey{}).(string)
-	if !ok {
-		return ""
-	}
-
-	return v
+	return getTracingCtxValue(ctx, tracingProcessKey{})
 }
 
 // WithTracingXRPLTxHash returns context with set XRPL tx hash.
@@ -49,7 +39,11 @@ func WithTracingXRPLTxHash(ctx context.Context, hash string) context.Context {
 
 // GetTracingXRPLTxHash returns tracing XRPL tx hash from the context.
 func GetTracingXRPLTxHash(ctx context.Context) string {
-	v, ok := ctx.Value(tracingXRPLTxHashKey{}).(string)
+	return getTracingCtxValue(ctx, tracingXRPLTxHashKey{})
+}
+
+func getTracingCtxValue(ctx context.Context, key struct{}) string {
+	v, ok := ctx.Value(key).(string)
 	if !ok {
 		return ""
 	}

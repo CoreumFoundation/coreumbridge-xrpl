@@ -15,9 +15,9 @@ import (
 var _ Logger = &ZapLogger{}
 
 const (
-	tracingXRPLTxHashName   = "xrplTxHash"
-	tracingIDFiledName      = "tracingID"
-	tracingProcessFiledName = "process"
+	tracingXRPLTxHashFieldName = "xrplTxHash"
+	tracingIDFiledName         = "tracingID"
+	tracingProcessFiledName    = "process"
 )
 
 // ZapLoggerConfig is ZapLogger config.
@@ -113,7 +113,7 @@ func filedToZapFiled(ctx context.Context, fields ...Field) []zap.Field {
 	// add tracing info from the context
 	xrplTxHash := tracing.GetTracingXRPLTxHash(ctx)
 	if xrplTxHash != "" {
-		zapFields = append(zapFields, zap.String(tracingXRPLTxHashName, xrplTxHash))
+		zapFields = append(zapFields, zap.String(tracingXRPLTxHashFieldName, xrplTxHash))
 	}
 	tracingID := tracing.GetTracingID(ctx)
 	if tracingID != "" {

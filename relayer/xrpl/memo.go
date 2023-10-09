@@ -52,7 +52,7 @@ func EncodeCoreumRecipientToMemo(coreumRecipient sdk.AccAddress) (rippledata.Mem
 		CoreumRecipient: coreumRecipient.String(),
 	})
 	if err != nil {
-		return rippledata.Memo{}, errors.Wrapf(err, "failed to marshal recipient to the BridgeMemo")
+		return rippledata.Memo{}, errors.Wrapf(err, "failed to marshal BridgeMemo")
 	}
 
 	return rippledata.Memo{

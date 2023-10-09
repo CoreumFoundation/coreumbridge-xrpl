@@ -92,6 +92,14 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 
 func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	ctx = tracing.WithTracingXRPLTxHash(tracing.WithTracingID(ctx), tx.GetHash().String())
+	if o.cfg.BridgeAccount == tx.GetBase().Account {
+		return o.processOutgoingTx(ctx, tx)
+	}
+
+	return o.processIncomingTx(ctx, tx)
+}
+
+func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	if !tx.MetaData.TransactionResult.Success() {
 		o.log.Debug(
 			ctx,
@@ -102,14 +110,6 @@ func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.Transactio
 		return nil
 	}
 
-	if o.cfg.BridgeAccount == tx.GetBase().Account {
-		return o.processOutgoingTx(ctx, tx)
-	}
-
-	return o.processIncomingTx(ctx, tx)
-}
-
-func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	txType := tx.GetType()
 	o.log.Debug(ctx, "Start processing of XRPL incoming tx", logger.StringFiled("type", txType))
 	// we process only incoming payment transactions, other transactions are ignored

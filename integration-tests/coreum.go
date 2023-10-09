@@ -64,8 +64,8 @@ func (c CoreumChain) Config() CoreumChainConfig {
 	return c.cfg
 }
 
-// GetAccountWithKeyName generates new coreum account saves it to the keyring and returns the account address and its key name.
-func (c CoreumChain) GetAccountWithKeyName() (sdk.AccAddress, string) {
+// GenAccountWithKeyName generates new coreum account saves it to the keyring and returns the account address and its key name.
+func (c CoreumChain) GenAccountWithKeyName() (sdk.AccAddress, string) {
 	address := c.GenAccount()
 	keyRecord, err := c.ClientContext.Keyring().KeyByAddress(address)
 	if err != nil {

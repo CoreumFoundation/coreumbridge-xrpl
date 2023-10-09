@@ -74,6 +74,7 @@ type XRPLScannerConfig struct {
 // XRPLConfig is XRPL config.
 type XRPLConfig struct {
 	BridgeAccount string            `yaml:"bridge_account"`
+	HTTPClient    HTTPClientConfig  `yaml:"http_client"`
 	RPC           XRPLRPCConfig     `yaml:"rpc"`
 	Scanner       XRPLScannerConfig `yaml:"scanner"`
 }
@@ -110,11 +111,10 @@ type CoreumConfig struct {
 
 // Config is runner config.
 type Config struct {
-	Version       string           `yaml:"version"`
-	LoggingConfig LoggingConfig    `yaml:"logging"`
-	HTTPClient    HTTPClientConfig `yaml:"http_client"`
-	XRPL          XRPLConfig       `yaml:"xrpl"`
-	Coreum        CoreumConfig     `yaml:"coreum"`
+	Version       string        `yaml:"version"`
+	LoggingConfig LoggingConfig `yaml:"logging"`
+	XRPL          XRPLConfig    `yaml:"xrpl"`
+	Coreum        CoreumConfig  `yaml:"coreum"`
 }
 
 // DefaultConfig returns default runner config.
@@ -127,10 +127,10 @@ func DefaultConfig() Config {
 	return Config{
 		Version:       configVersion,
 		LoggingConfig: LoggingConfig(logger.DefaultZapLoggerConfig()),
-		HTTPClient:    HTTPClientConfig(toolshttp.DefaultClientConfig()),
 		XRPL: XRPLConfig{
 			// empty be default
 			BridgeAccount: "",
+			HTTPClient:    HTTPClientConfig(toolshttp.DefaultClientConfig()),
 			RPC: XRPLRPCConfig{
 				// empty be default
 				URL:       "",
@@ -199,11 +199,11 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
-	retryableHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.HTTPClient))
+	retryableXRPLRPCHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.XRPL.HTTPClient))
 
 	// XRPL
 	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
-	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, zapLogger, retryableHTTPClient)
+	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, zapLogger, retryableXRPLRPCHTTPClient)
 	xrplBridgeAccount, err := rippledata.NewAccountFromAddress(cfg.XRPL.BridgeAccount)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get xrpl account from string, string:%s", cfg.XRPL.BridgeAccount)
@@ -291,7 +291,7 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 
 	return &Runner{
 		Log:                      zapLogger,
-		RetryableHTTPClient:      &retryableHTTPClient,
+		RetryableHTTPClient:      &retryableXRPLRPCHTTPClient,
 		XRPLRPCClient:            xrplRPCClient,
 		XRPLAccountScanner:       xrplScanner,
 		CoreumContractClient:     contractClient,

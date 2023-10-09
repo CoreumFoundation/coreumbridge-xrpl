@@ -43,12 +43,12 @@ func getDefaultConfigString() string {
 logging:
     level: info
     format: console
-http_client:
-    request_timeout: 5s
-    do_timeout: 30s
-    retry_delay: 300ms
 xrpl:
     bridge_account: ""
+    http_client:
+        request_timeout: 5s
+        do_timeout: 30s
+        retry_delay: 300ms
     rpc:
         url: ""
         page_limit: 100

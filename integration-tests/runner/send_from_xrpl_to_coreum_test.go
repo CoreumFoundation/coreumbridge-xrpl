@@ -5,7 +5,9 @@ package processes_test
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,19 +38,19 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 	coreumRecipient := chains.Coreum.GenAccount()
 	t.Logf("Coreum recipient: %s", coreumRecipient.String())
 
-	relayer1, relayer1KeyName := chains.Coreum.GetAccountWithKeyName()
+	relayer1, relayer1KeyName := chains.Coreum.GenAccountWithKeyName()
 	chains.Coreum.FundAccountWithOptions(ctx, t, relayer1, coreumintegration.BalancesOptions{
 		Amount: sdkmath.NewIntFromUint64(1_000_000),
 	})
 	t.Logf("Relayer1: %s", relayer1.String())
 
-	relayer2, relayer2KeyName := chains.Coreum.GetAccountWithKeyName()
+	relayer2, relayer2KeyName := chains.Coreum.GenAccountWithKeyName()
 	chains.Coreum.FundAccountWithOptions(ctx, t, relayer2, coreumintegration.BalancesOptions{
 		Amount: sdkmath.NewIntFromUint64(1_000_000),
 	})
 	t.Logf("Relayer2: %s", relayer2.String())
 
-	relayer3, relayer3KeyName := chains.Coreum.GetAccountWithKeyName()
+	relayer3, relayer3KeyName := chains.Coreum.GenAccountWithKeyName()
 	chains.Coreum.FundAccountWithOptions(ctx, t, relayer3, coreumintegration.BalancesOptions{
 		Amount: sdkmath.NewIntFromUint64(1_000_000),
 	})
@@ -57,34 +59,51 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 	xrplRegisteredCurrency, err := rippledata.NewCurrency("RCP")
 	require.NoError(t, err)
 
+	// register token with 20 chars
+	hexSymbol := hex.EncodeToString([]byte(strings.Repeat("R", 20)))
+	xrplRegisteredHexCurrency, err := rippledata.NewCurrency(hexSymbol)
+	require.NoError(t, err)
+
 	xrplNotRegisterCurrency, err := rippledata.NewCurrency("NRG")
 	require.NoError(t, err)
 
 	// set trust for both tokens
-	sendTrustSet(ctx, t, xrplCurrencyIssuerAcc, xrplBridgeAcc, xrplRegisteredCurrency, chains.XRPL)
-	sendTrustSet(ctx, t, xrplCurrencyIssuerAcc, xrplBridgeAcc, xrplNotRegisterCurrency, chains.XRPL)
+	sendTrustSet(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, xrplBridgeAcc, xrplRegisteredCurrency)
+	sendTrustSet(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, xrplBridgeAcc, xrplRegisteredHexCurrency)
+	sendTrustSet(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, xrplBridgeAcc, xrplNotRegisterCurrency)
 
 	// deploy contract
 	contractOwner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, []sdk.AccAddress{relayer1, relayer2, relayer3}, 2)
 	// fund owner to cover registration fees
 	chains.Coreum.FundAccountWithOptions(ctx, t, contractOwner, coreumintegration.BalancesOptions{
-		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount,
+		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),
 	})
-	// register XRPL native token
+	// register XRPL native token with 3 chars
 	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredCurrency.String())
+	require.NoError(t, err)
+	// register XRPL native token with 20 chars
+	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredHexCurrency.String())
 	require.NoError(t, err)
 
 	registeredXRPLTokens, err := contractClient.GetXRPLTokens(ctx)
 	require.NoError(t, err)
 	// take the token with the generated denom
-	var registeredXRPLToken coreum.XRPLToken
+	var (
+		registeredXRPLToken            coreum.XRPLToken
+		registeredXRPLTokenHexCurrency coreum.XRPLToken
+	)
 	for _, token := range registeredXRPLTokens {
 		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == xrplRegisteredCurrency.String() {
 			registeredXRPLToken = token
-			break
+			continue
+		}
+		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == xrplRegisteredHexCurrency.String() {
+			registeredXRPLTokenHexCurrency = token
+			continue
 		}
 	}
 	require.NotEmpty(t, registeredXRPLToken.CoreumDenom)
+	require.NotEmpty(t, registeredXRPLTokenHexCurrency.CoreumDenom)
 
 	// start relayers
 	contractAddress := contractClient.GetContractAddress()
@@ -115,6 +134,14 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 		Issuer:   xrplCurrencyIssuerAcc,
 	}
 
+	normalValue, err := rippledata.NewValue("9.9", false)
+	require.NoError(t, err)
+	registeredHexCurrencyAmount := rippledata.Amount{
+		Value:    normalValue,
+		Currency: xrplRegisteredHexCurrency,
+		Issuer:   xrplCurrencyIssuerAcc,
+	}
+
 	memo, err := xrpl.EncodeCoreumRecipientToMemo(coreumRecipient)
 	require.NoError(t, err)
 
@@ -126,28 +153,32 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 		Currency: xrplNotRegisterCurrency,
 		Issuer:   xrplCurrencyIssuerAcc,
 	}
-	sendXRPLPaymentTx(ctx, t, xrplCurrencyIssuerAcc, xrplBridgeAcc, xrplNotRegisterCurrencyAmount, memo, chains.XRPL)
+	sendXRPLPaymentTx(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, xrplBridgeAcc, xrplNotRegisterCurrencyAmount, memo)
 
 	// incorrect memo
-	sendXRPLPaymentTx(ctx, t, xrplCurrencyIssuerAcc, xrplBridgeAcc, maxDecimalsRegisterCurrencyAmount, rippledata.Memo{}, chains.XRPL)
+	sendXRPLPaymentTx(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, xrplBridgeAcc, maxDecimalsRegisterCurrencyAmount, rippledata.Memo{})
 
 	// send correct transactions
 
 	// send tx with partial payment
-	sendXRPLPartialPaymentTx(ctx, t, xrplCurrencyIssuerAcc, xrplBridgeAcc, highValueRegisteredCurrencyAmount, maxDecimalsRegisterCurrencyAmount, memo, chains.XRPL)
+	sendXRPLPartialPaymentTx(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, xrplBridgeAcc, highValueRegisteredCurrencyAmount, maxDecimalsRegisterCurrencyAmount, memo)
 
-	// sen tx with high amount
-	sendXRPLPaymentTx(ctx, t, xrplCurrencyIssuerAcc, xrplBridgeAcc, highValueRegisteredCurrencyAmount, memo, chains.XRPL)
+	// send tx with high amount
+	sendXRPLPaymentTx(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, xrplBridgeAcc, highValueRegisteredCurrencyAmount, memo)
+
+	// send tx with hex currency
+	sendXRPLPaymentTx(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, xrplBridgeAcc, registeredHexCurrencyAmount, memo)
 
 	require.NoError(t, chains.Coreum.AwaitForBalance(ctx, t, coreumRecipient, sdk.NewCoin(registeredXRPLToken.CoreumDenom, convertStringToSDKInt(t, "10000000001000000000000001"))))
+	require.NoError(t, chains.Coreum.AwaitForBalance(ctx, t, coreumRecipient, sdk.NewCoin(registeredXRPLTokenHexCurrency.CoreumDenom, convertStringToSDKInt(t, "9900000000000000"))))
 }
 
 func sendTrustSet(
 	ctx context.Context,
 	t *testing.T,
+	xrplChain integrationtests.XRPLChain,
 	issuer, recipient rippledata.Account,
 	currency rippledata.Currency,
-	xrplChain integrationtests.XRPLChain,
 ) {
 	trustSetValue, err := rippledata.NewValue("10e20", false)
 	require.NoError(t, err)
@@ -167,10 +198,10 @@ func sendTrustSet(
 func sendXRPLPaymentTx(
 	ctx context.Context,
 	t *testing.T,
+	xrplChain integrationtests.XRPLChain,
 	senderAcc, recipientAcc rippledata.Account,
 	amount rippledata.Amount,
 	memo rippledata.Memo,
-	xrplChain integrationtests.XRPLChain,
 ) {
 	xrpPaymentTx := rippledata.Payment{
 		Destination: recipientAcc,
@@ -188,11 +219,11 @@ func sendXRPLPaymentTx(
 func sendXRPLPartialPaymentTx(
 	ctx context.Context,
 	t *testing.T,
+	xrplChain integrationtests.XRPLChain,
 	senderAcc, recipientAcc rippledata.Account,
 	amount rippledata.Amount,
 	maxAmount rippledata.Amount,
 	memo rippledata.Memo,
-	xrplChain integrationtests.XRPLChain,
 ) {
 	xrpPaymentTx := rippledata.Payment{
 		Destination: recipientAcc,
