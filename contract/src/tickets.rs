@@ -55,7 +55,7 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractErr
     Ok(())
 }
 
-pub fn handle_allocation_confirmation(
+pub fn handle_ticket_allocation_confirmation(
     storage: &mut dyn Storage,
     operation_id: u64,
     tickets: Option<Vec<u64>>,

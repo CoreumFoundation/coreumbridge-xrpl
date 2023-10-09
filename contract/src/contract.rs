@@ -13,7 +13,7 @@ use crate::{
         AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
         USED_TICKETS, USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
     },
-    tickets::{handle_allocation_confirmation, register_used_ticket},
+    tickets::{handle_ticket_allocation_confirmation, register_used_ticket},
 };
 use coreum_wasm_sdk::{
     assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
@@ -333,7 +333,7 @@ fn send_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             if threshold_reached {
                 match operation_result.clone() {
                     OperationResult::TicketsAllocation { tickets } => {
-                        handle_allocation_confirmation(deps.storage, operation_id, tickets, confirmed)?;
+                        handle_ticket_allocation_confirmation(deps.storage, operation_id, tickets, confirmed)?;
                     }
                 }
             }
