@@ -551,22 +551,6 @@ pub fn check_operation_exists(
     Ok(operation_id)
 }
 
-pub fn get_operation_id(
-    storage: &mut dyn Storage,
-    sequence_number: Option<u64>,
-    ticket_number: Option<u64>,
-    threshold_reached: bool,
-) -> Result<u64, ContractError> {
-    //Get the sequence or ticket number (priority for sequence number)
-    let mut operation_id = sequence_number.unwrap_or(ticket_number.unwrap_or_default());
-    //We have this condition because in case threshold was reached it was already removed from the pending queue
-    if !threshold_reached {
-        operation_id = check_operation_exists(storage, sequence_number, ticket_number)?;
-    }
-
-    Ok(operation_id)
-}
-
 pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
     //issuer+currency is the key we use to find an XRPL
     let mut key = issuer.clone();
