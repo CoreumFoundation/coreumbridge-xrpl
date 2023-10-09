@@ -967,6 +967,25 @@ mod tests {
         assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
 
         let sequence_number = 1;
+        //Trying to recover 0 tickets will fail
+        let recover_ticket_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RecoverTickets {
+                    sequence_number,
+                    number_of_tickets: Some(0),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(recover_ticket_error.to_string().contains(
+            ContractError::InvalidTicketAmountToAllocate {}
+                .to_string()
+                .as_str()
+        ));
+
         // Owner will send a recover tickets operation which will set the pending ticket update flag to true
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -1494,7 +1513,7 @@ mod tests {
             ticket_number: None,
             confirmed: false,
             operation_result: OperationResult::TicketsAllocation {
-                tickets: Some(vec![1,2,3,4,5]),
+                tickets: Some(vec![1, 2, 3, 4, 5]),
             },
         };
 
@@ -1504,7 +1523,7 @@ mod tests {
             ticket_number: None,
             confirmed: true,
             operation_result: OperationResult::TicketsAllocation {
-                tickets: Some(vec![1,2,3,4,5]),
+                tickets: Some(vec![1, 2, 3, 4, 5]),
             },
         };
 
@@ -1512,7 +1531,5 @@ mod tests {
             hash_bytes(serde_json::to_string(&evidence3).unwrap().into_bytes()),
             hash_bytes(serde_json::to_string(&evidence4).unwrap().into_bytes()),
         );
-
-
     }
 }
