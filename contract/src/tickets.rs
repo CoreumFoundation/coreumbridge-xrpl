@@ -57,12 +57,12 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractErr
 
 pub fn handle_allocation_confirmation(
     storage: &mut dyn Storage,
-    sequence_or_ticket_number: u64,
+    operation_id: u64,
     tickets: Option<Vec<u64>>,
     confirmed: bool,
 ) -> Result<(), ContractError> {
     //Remove the operation from the pending queue
-    remove_pending_operation(storage, sequence_or_ticket_number)?;
+    remove_pending_operation(storage, operation_id)?;
 
     //Allocate ticket numbers in our ticket array if operation is confirmed
     if confirmed {

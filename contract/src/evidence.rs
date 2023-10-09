@@ -3,10 +3,8 @@ use cosmwasm_std::{Addr, Empty, Storage, Uint128};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    contract::check_operation_exists,
     error::ContractError,
     state::{Evidences, CONFIG, PROCESSED_TXS, TX_EVIDENCES},
-    tickets::handle_allocation_confirmation,
 };
 
 #[cw_serde]
@@ -85,32 +83,6 @@ impl Evidence {
                         }
                     }
                 }
-                Ok(())
-            }
-        }
-    }
-
-    pub fn handle_threshold_confirmation(
-        self,
-        storage: &mut dyn Storage,
-    ) -> Result<(), ContractError> {
-        match self {
-            Evidence::XRPLToCoreumTransfer { .. } => Ok(()),
-            Evidence::XRPLTransactionResult {
-                sequence_number,
-                ticket_number,
-                confirmed,
-                operation_result,
-                ..
-            } => {
-                let operation_id = check_operation_exists(storage, sequence_number, ticket_number)?;
-
-                match operation_result {
-                    OperationResult::TicketsAllocation { tickets } => {
-                        handle_allocation_confirmation(storage, operation_id, tickets, confirmed)?;
-                    }
-                }
-
                 Ok(())
             }
         }

@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::{
     error::ContractError,
-    evidence::{handle_evidence, hash_bytes, Evidence},
+    evidence::{handle_evidence, hash_bytes, Evidence, OperationResult},
     msg::{
         AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
         InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
@@ -13,7 +13,7 @@ use crate::{
         AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS,
         PENDING_TICKET_UPDATE, USED_TICKETS, USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
     },
-    tickets::register_used_ticket,
+    tickets::{register_used_ticket, handle_allocation_confirmation},
 };
 use coreum_wasm_sdk::{
     assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
@@ -290,9 +290,7 @@ fn send_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
     if threshold_reached {
         register_used_ticket(deps.storage)?;
 
-        evidence
-            .clone()
-            .handle_threshold_confirmation(deps.storage)?;
+        handle_threshold_confirmation(evidence.clone(), deps.storage)?;
     }
 
     let mut response = Response::new();
@@ -371,6 +369,11 @@ fn recover_tickets(
     let used_tickets = USED_TICKETS.load(deps.storage)?;
 
     PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
+    let amount_to_allocate = number_of_tickets.unwrap_or(used_tickets);
+
+    if amount_to_allocate == 0 {
+        return Err(ContractError::InvalidTicketAmountToAllocate {});
+    }
 
     //If we don't provide a number of tickets to recover we will recover the ones that we already used.
     PENDING_OPERATIONS.save(
@@ -381,7 +384,7 @@ fn recover_tickets(
             sequence_number: Some(sequence_number),
             signatures: vec![],
             operation_type: OperationType::AllocateTickets {
-                number: number_of_tickets.unwrap_or(used_tickets),
+                number: amount_to_allocate,
             },
         },
     )?;
@@ -580,4 +583,31 @@ pub fn assert_relayer(deps: Deps, sender: Addr) -> Result<(), ContractError> {
     }
 
     Ok(())
+}
+
+
+pub fn handle_threshold_confirmation(
+    evidence: Evidence,
+    storage: &mut dyn Storage,
+) -> Result<(), ContractError> {
+    match evidence {
+        Evidence::XRPLToCoreumTransfer { .. } => Ok(()),
+        Evidence::XRPLTransactionResult {
+            sequence_number,
+            ticket_number,
+            confirmed,
+            operation_result,
+            ..
+        } => {
+            let operation_id = check_operation_exists(storage, sequence_number, ticket_number)?;
+
+            match operation_result {
+                OperationResult::TicketsAllocation { tickets } => {
+                    handle_allocation_confirmation(storage, operation_id, tickets, confirmed)?;
+                }
+            }
+
+            Ok(())
+        }
+    }
 }

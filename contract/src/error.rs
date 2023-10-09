@@ -73,4 +73,7 @@ pub enum ContractError {
 
     #[error("SignatureAlreadyProvided: There is already a signature provided for this relayer and this operation")]
     SignatureAlreadyProvided {},
+
+    #[error("InvalidTicketAmountToAllocate: The amount of tickets to recover must be more than 0")]
+    InvalidTicketAmountToAllocate {},
 }
