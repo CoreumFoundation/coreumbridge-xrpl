@@ -396,16 +396,16 @@ fn recover_tickets(
 fn register_signature(
     deps: DepsMut,
     sender: Addr,
-    number: u64,
+    operation_id: u64,
     signature: String,
 ) -> CoreumResult<ContractError> {
     assert_relayer(deps.as_ref(), sender.clone())?;
 
-    add_signature(deps, number, sender.clone(), signature.clone())?;
+    add_signature(deps, operation_id, sender.clone(), signature.clone())?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RegisterSignature.as_str())
-        .add_attribute("operation_id", number.to_string())
+        .add_attribute("operation_id", operation_id.to_string())
         .add_attribute("relayer_address", sender.to_string())
         .add_attribute("signature", signature.as_str()))
 }
