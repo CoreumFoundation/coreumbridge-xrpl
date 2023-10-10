@@ -9,11 +9,13 @@ import (
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
+	"github.com/CoreumFoundation/coreum/v3/testutil/event"
 	coreumintegration "github.com/CoreumFoundation/coreum/v3/testutil/integration"
 	assetfttypes "github.com/CoreumFoundation/coreum/v3/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
@@ -25,6 +27,8 @@ const (
 	xrp           = "XRP"
 	drop          = "drop"
 	xrplPrecision = 15
+
+	eventAttributeThresholdReached = "threshold_reached"
 )
 
 func TestDeployAndInstantiateContract(t *testing.T) {
@@ -371,7 +375,7 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	require.True(t, coreum.IsTokenNotRegisteredError(err))
 
 	// call from first relayer
-	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, xrplToCoreumEvidence)
+	txRes, err := contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, xrplToCoreumEvidence)
 	require.NoError(t, err)
 	recipientBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 		Address: coreumRecipient.String(),
@@ -379,18 +383,26 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.True(t, recipientBalanceRes.Balance.IsZero())
+	thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
+	require.NoError(t, err)
+	require.Equal(t, "false", thresholdReached)
 
 	// call from first relayer one more time
 	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, xrplToCoreumEvidence)
 	require.True(t, coreum.IsEvidenceAlreadyProvidedError(err))
 
 	// call from second relayer
-	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer2, xrplToCoreumEvidence)
+	txRes, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer2, xrplToCoreumEvidence)
 	require.NoError(t, err)
 	recipientBalanceRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 		Address: coreumRecipient.String(),
 		Denom:   registeredToken.CoreumDenom,
 	})
+	require.NoError(t, err)
+	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
+	require.NoError(t, err)
+	require.Equal(t, "true", thresholdReached)
+
 	require.NoError(t, err)
 	// expect new token on the recipient balance
 	require.Equal(t, xrplToCoreumEvidence.Amount.String(), recipientBalanceRes.Balance.Amount.String())

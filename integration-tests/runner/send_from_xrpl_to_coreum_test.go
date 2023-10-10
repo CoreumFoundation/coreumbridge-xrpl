@@ -177,7 +177,7 @@ func sendTrustSet(
 	ctx context.Context,
 	t *testing.T,
 	xrplChain integrationtests.XRPLChain,
-	issuer, recipient rippledata.Account,
+	issuer, sender rippledata.Account,
 	currency rippledata.Currency,
 ) {
 	trustSetValue, err := rippledata.NewValue("10e20", false)
@@ -192,7 +192,7 @@ func sendTrustSet(
 			TransactionType: rippledata.TRUST_SET,
 		},
 	}
-	require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &senderCurrencyTrustSetTx, recipient))
+	require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &senderCurrencyTrustSetTx, sender))
 }
 
 func sendXRPLPaymentTx(
