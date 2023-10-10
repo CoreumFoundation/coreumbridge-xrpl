@@ -11,7 +11,7 @@ use crate::{
     state::{
         Config, ContractActions, CoreumToken, Operation, OperationType, XRPLToken,
         AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
-        USED_TICKETS, USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
+        USED_TICKETS_COUNTER, USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
     },
     tickets::{handle_ticket_allocation_confirmation, register_used_ticket},
 };
@@ -76,7 +76,7 @@ pub fn instantiate(
     }
 
     //We initialize these values here so that we can immediately start working with them
-    USED_TICKETS.save(deps.storage, &0)?;
+    USED_TICKETS_COUNTER.save(deps.storage, &0)?;
     PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
     AVAILABLE_TICKETS.save(deps.storage, &VecDeque::new())?;
 
@@ -371,7 +371,7 @@ fn recover_tickets(
         return Err(ContractError::PendingTicketUpdate {});
     }
 
-    let used_tickets = USED_TICKETS.load(deps.storage)?;
+    let used_tickets = USED_TICKETS_COUNTER.load(deps.storage)?;
 
     PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);

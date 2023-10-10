@@ -6,7 +6,7 @@ use crate::{
     error::ContractError,
     state::{
         remove_pending_operation, Operation, OperationType, AVAILABLE_TICKETS, CONFIG,
-        PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS,
+        PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
     },
 };
 
@@ -26,10 +26,10 @@ pub fn _allocate_ticket(deps: DepsMut) -> Result<u64, ContractError> {
 
 //Once we confirm/reject a transaction, we need to register a ticket as used
 pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractError> {
-    let used_tickets = USED_TICKETS.load(storage)?;
+    let used_tickets = USED_TICKETS_COUNTER.load(storage)?;
     let config = CONFIG.load(storage)?;
 
-    USED_TICKETS.save(storage, &(used_tickets + 1))?;
+    USED_TICKETS_COUNTER.save(storage, &(used_tickets + 1))?;
 
     //If we reach the max allowed tickets to be used, we need to create an operation to allocate new ones
     if used_tickets + 1 >= config.used_tickets_threshold && !PENDING_TICKET_UPDATE.load(storage)? {
@@ -72,7 +72,7 @@ pub fn handle_ticket_allocation_confirmation(
         AVAILABLE_TICKETS.save(storage, &VecDeque::from(new_tickets))?;
 
         //Used tickets can't be under 0 if admin allocated more tickets than used tickets
-        USED_TICKETS.update(storage, |used_tickets| -> StdResult<_> {
+        USED_TICKETS_COUNTER.update(storage, |used_tickets| -> StdResult<_> {
             let new_used_tickets = used_tickets
                 .checked_sub(tickets.unwrap().len() as u32)
                 .unwrap_or_default();
