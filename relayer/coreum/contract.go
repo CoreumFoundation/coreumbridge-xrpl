@@ -50,18 +50,18 @@ const (
 
 // InstantiationConfig holds attributes used for the contract instantiation.
 type InstantiationConfig struct {
-	Owner                 sdk.AccAddress
-	Admin                 sdk.AccAddress
-	Relayers              []sdk.AccAddress
-	EvidenceThreshold     int
-	MaxAllowedUsedTickets int
+	Owner                sdk.AccAddress
+	Admin                sdk.AccAddress
+	Relayers             []sdk.AccAddress
+	EvidenceThreshold    int
+	UsedTicketsThreshold int
 }
 
 // ContractConfig is contract config.
 type ContractConfig struct {
-	Relayers              []sdk.AccAddress `json:"relayers"`
-	EvidenceThreshold     int              `json:"evidence_threshold"`
-	MaxAllowedUsedTickets int              `json:"max_allowed_used_tickets"`
+	Relayers             []sdk.AccAddress `json:"relayers"`
+	EvidenceThreshold    int              `json:"evidence_threshold"`
+	UsedTicketsThreshold int              `json:"used_tickets_threshold"`
 }
 
 // ContractOwnership is owner contract config.
@@ -89,10 +89,10 @@ type CoreumToken struct {
 // ******************** Internal transport object  ********************
 
 type instantiateRequest struct {
-	Owner                 sdk.AccAddress   `json:"owner"`
-	Relayers              []sdk.AccAddress `json:"relayers"`
-	EvidenceThreshold     int              `json:"evidence_threshold"`
-	MaxAllowedUsedTickets int              `json:"max_allowed_used_tickets"`
+	Owner                sdk.AccAddress   `json:"owner"`
+	Relayers             []sdk.AccAddress `json:"relayers"`
+	EvidenceThreshold    int              `json:"evidence_threshold"`
+	UsedTicketsThreshold int              `json:"used_tickets_threshold"`
 }
 
 type transferOwnershipRequest struct {
@@ -192,10 +192,10 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 	c.log.Info("The contract bytecode is deployed.", logger.Uint64Filed("codeID", codeID))
 
 	reqPayload, err := json.Marshal(instantiateRequest{
-		Owner:                 config.Owner,
-		Relayers:              config.Relayers,
-		EvidenceThreshold:     config.EvidenceThreshold,
-		MaxAllowedUsedTickets: config.MaxAllowedUsedTickets,
+		Owner:                config.Owner,
+		Relayers:             config.Relayers,
+		EvidenceThreshold:    config.EvidenceThreshold,
+		UsedTicketsThreshold: config.UsedTicketsThreshold,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal instantiate payload")

@@ -39,16 +39,16 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 	relayers := []sdk.AccAddress{
 		chains.Coreum.GenAccount(),
 	}
-	maxAllowedUsedTickets := 10
-	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), maxAllowedUsedTickets)
+	usedTicketsThreshold := 10
+	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), usedTicketsThreshold)
 
 	contractCfg, err := contractClient.GetContractConfig(ctx)
 	require.NoError(t, err)
 
 	require.Equal(t, coreum.ContractConfig{
-		Relayers:              relayers,
-		EvidenceThreshold:     len(relayers),
-		MaxAllowedUsedTickets: maxAllowedUsedTickets,
+		Relayers:             relayers,
+		EvidenceThreshold:    len(relayers),
+		UsedTicketsThreshold: usedTicketsThreshold,
 	}, contractCfg)
 
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
@@ -101,9 +101,9 @@ func TestChangeContractOwnership(t *testing.T) {
 	relayers := []sdk.AccAddress{
 		chains.Coreum.GenAccount(),
 	}
-	maxAllowedUsedTickets := 10
+	usedTicketsThreshold := 10
 
-	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), maxAllowedUsedTickets)
+	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), usedTicketsThreshold)
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
 	require.NoError(t, err)
 	require.Equal(t, owner.String(), contractOwnership.Owner.String())
@@ -143,14 +143,14 @@ func TestRegisterCoreumToken(t *testing.T) {
 	relayers := []sdk.AccAddress{
 		chains.Coreum.GenAccount(),
 	}
-	maxAllowedUsedTickets := 10
+	usedTicketsThreshold := 10
 
 	notOwner := chains.Coreum.GenAccount()
 	chains.Coreum.FundAccountWithOptions(ctx, t, notOwner, coreumintegration.BalancesOptions{
 		Amount: sdk.NewInt(1_000_000),
 	})
 
-	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), maxAllowedUsedTickets)
+	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), usedTicketsThreshold)
 
 	denom1 := "denom1"
 	denom1Decimals := uint32(17)
@@ -228,7 +228,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	relayers := []sdk.AccAddress{
 		chains.Coreum.GenAccount(),
 	}
-	maxAllowedUsedTickets := 10
+	usedTicketsThreshold := 10
 
 	notOwner := chains.Coreum.GenAccount()
 
@@ -238,7 +238,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 		Amount: issueFee.Amount.AddRaw(1_000_000),
 	})
 
-	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), maxAllowedUsedTickets)
+	owner, contractClient := deployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), usedTicketsThreshold)
 	// fund owner to cover registration fees twice
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
 		Amount: issueFee.Amount.Mul(sdk.NewIntFromUint64(2)),
@@ -309,7 +309,7 @@ func deployAndInstantiateContract(
 	chains integrationtests.Chains,
 	relayers []sdk.AccAddress,
 	evidenceThreshold int,
-	maxAllowedUsedTickets int,
+	usedTicketsThreshold int,
 ) (sdk.AccAddress, *coreum.ContractClient) {
 	t.Helper()
 
@@ -324,11 +324,11 @@ func deployAndInstantiateContract(
 
 	contractClient := coreum.NewContractClient(coreum.DefaultContractClientConfig(sdk.AccAddress(nil)), chains.Log, chains.Coreum.ClientContext)
 	instantiationCfg := coreum.InstantiationConfig{
-		Owner:                 owner,
-		Admin:                 owner,
-		Relayers:              relayers,
-		EvidenceThreshold:     evidenceThreshold,
-		MaxAllowedUsedTickets: maxAllowedUsedTickets,
+		Owner:                owner,
+		Admin:                owner,
+		Relayers:             relayers,
+		EvidenceThreshold:    evidenceThreshold,
+		UsedTicketsThreshold: usedTicketsThreshold,
 	}
 	contractAddress, err := contractClient.DeployAndInstantiate(ctx, owner, readBuiltContract(t), instantiationCfg)
 	require.NoError(t, err)

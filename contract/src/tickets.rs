@@ -15,7 +15,7 @@ pub fn _allocate_ticket(deps: DepsMut) -> Result<u64, ContractError> {
     let available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
 
     //This last ticket will always be reserved for an update of the tickets
-    if available_tickets.len() < 2 {
+    if available_tickets.len() <= 1 {
         return Err(ContractError::LastTicketReserved {});
     }
 
@@ -32,9 +32,7 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractErr
     USED_TICKETS.save(storage, &(used_tickets + 1))?;
 
     //If we reach the max allowed tickets to be used, we need to create an operation to allocate new ones
-    if used_tickets + 1 >= config.max_allowed_used_tickets
-        && !PENDING_TICKET_UPDATE.load(storage)?
-    {
+    if used_tickets + 1 >= config.used_tickets_threshold && !PENDING_TICKET_UPDATE.load(storage)? {
         let ticket_to_update = reserve_ticket(storage)?;
 
         PENDING_OPERATIONS.save(
@@ -45,7 +43,7 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractErr
                 sequence_number: None,
                 signatures: vec![],
                 operation_type: OperationType::AllocateTickets {
-                    number: config.max_allowed_used_tickets,
+                    number: config.used_tickets_threshold,
                 },
             },
         )?;

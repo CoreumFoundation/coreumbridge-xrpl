@@ -42,7 +42,7 @@ const XRPL_TOKENS_DECIMALS: u32 = 15;
 const XRP_CURRENCY: &str = "XRP";
 const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
 
-const MAX_TICKETS: u32 = 250;
+pub const MAX_TICKETS: u32 = 250;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -71,8 +71,8 @@ pub fn instantiate(
     }
 
     //We need to allow at least 2 tickets and less than 250 (XRPL limit) to be used
-    if msg.max_allowed_used_tickets < 2 || msg.max_allowed_used_tickets > MAX_TICKETS {
-        return Err(ContractError::InvalidMaxAllowedUsedTickets {});
+    if msg.used_tickets_threshold <= 1 || msg.used_tickets_threshold > MAX_TICKETS {
+        return Err(ContractError::InvalidUsedTicketsThreshold {});
     }
 
     //We initialize these values here so that we can immediately start working with them
@@ -83,7 +83,7 @@ pub fn instantiate(
     let config = Config {
         relayers: msg.relayers,
         evidence_threshold: msg.evidence_threshold,
-        max_allowed_used_tickets: msg.max_allowed_used_tickets,
+        used_tickets_threshold: msg.used_tickets_threshold,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -328,12 +328,18 @@ fn send_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             confirmed,
             operation_result,
         } => {
-            let operation_id = check_operation_exists(deps.storage, sequence_number, ticket_number)?;
+            let operation_id =
+                check_operation_exists(deps.storage, sequence_number, ticket_number)?;
 
             if threshold_reached {
                 match operation_result.clone() {
                     OperationResult::TicketsAllocation { tickets } => {
-                        handle_ticket_allocation_confirmation(deps.storage, operation_id, tickets, confirmed)?;
+                        handle_ticket_allocation_confirmation(
+                            deps.storage,
+                            operation_id,
+                            tickets,
+                            confirmed,
+                        )?;
                     }
                 }
             }

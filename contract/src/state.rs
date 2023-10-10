@@ -36,7 +36,7 @@ impl TopKey {
 pub struct Config {
     pub relayers: Vec<Addr>,
     pub evidence_threshold: u32,
-    pub max_allowed_used_tickets: u32,
+    pub used_tickets_threshold: u32,
 }
 
 #[cw_serde]
@@ -93,7 +93,7 @@ impl ContractActions {
             ContractActions::RegisterXRPLToken => "register_xrpl_token",
             ContractActions::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
             ContractActions::RecoverTickets => "recover_tickets",
-            ContractActions::XRPLTransactionResult => "xrpl_transaction_result",
+            ContractActions::XRPLTransactionResult => "submit_xrpl_transaction_result",
             ContractActions::RegisterSignature => "register_signature",
         }
     }

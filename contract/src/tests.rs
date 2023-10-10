@@ -37,7 +37,7 @@ mod tests {
         owner: Addr,
         relayers: Vec<Addr>,
         evidence_threshold: u32,
-        max_allowed_used_tickets: u32,
+        used_tickets_threshold: u32,
         issue_fee: Vec<Coin>,
     ) -> String {
         let wasm_byte_code = std::fs::read("./artifacts/coreumbridge_xrpl.wasm").unwrap();
@@ -52,7 +52,7 @@ mod tests {
                 owner,
                 relayers,
                 evidence_threshold,
-                max_allowed_used_tickets,
+                used_tickets_threshold,
             },
             None,
             "coreumbridge-xrpl".into(),
@@ -112,7 +112,7 @@ mod tests {
                     owner: Addr::unchecked(signer.address()),
                     relayers: vec![Addr::unchecked(signer.address())],
                     evidence_threshold: 1,
-                    max_allowed_used_tickets: 50,
+                    used_tickets_threshold: 50,
                 },
                 None,
                 "label".into(),
@@ -133,7 +133,7 @@ mod tests {
                     owner: Addr::unchecked(signer.address()),
                     relayers: vec![Addr::unchecked(signer.address())],
                     evidence_threshold: 1,
-                    max_allowed_used_tickets: 1,
+                    used_tickets_threshold: 1,
                 },
                 None,
                 "label".into(),
@@ -143,7 +143,7 @@ mod tests {
             .unwrap_err();
 
         assert!(error.to_string().contains(
-            ContractError::InvalidMaxAllowedUsedTickets {}
+            ContractError::InvalidUsedTicketsThreshold {}
                 .to_string()
                 .as_str()
         ));
@@ -285,7 +285,7 @@ mod tests {
             .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
             .unwrap();
         assert_eq!(query_config.evidence_threshold, 1);
-        assert_eq!(query_config.max_allowed_used_tickets, 50);
+        assert_eq!(query_config.used_tickets_threshold, 50);
         assert_eq!(
             query_config.relayers,
             vec![Addr::unchecked(signer.address())]
@@ -1060,6 +1060,8 @@ mod tests {
         let tx_hash = "random_hash".to_string();
         let sequence_number = 1;
         let tickets = vec![1, 2, 3, 4, 5];
+        let correct_signature_example = "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string();
+
         // Trying to relay the operation with a different sequence number than the one in pending operation should fail.
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
@@ -1086,12 +1088,31 @@ mod tests {
                 .as_str()
         ));
 
+        //Providing a signature with the wrong length should fail
+        let signature_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterSignature {
+                    operation_id: sequence_number,
+                    signature: "wrong_signature_example".to_string(),
+                },
+                &vec![],
+                &relayer1,
+            )
+            .unwrap_err();
+
+        assert!(signature_error.to_string().contains(
+            ContractError::InvalidSignatureLength {}
+                .to_string()
+                .as_str()
+        ));
+
         //Provide signatures for the operation for each relayer
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterSignature {
                 operation_id: sequence_number,
-                signature: "signature".to_string(),
+                signature: correct_signature_example.clone(),
             },
             &vec![],
             &relayer1,
@@ -1104,7 +1125,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::RegisterSignature {
                     operation_id: sequence_number,
-                    signature: "signature".to_string(),
+                    signature: correct_signature_example.clone(),
                 },
                 &vec![],
                 &relayer1,
@@ -1123,7 +1144,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::RegisterSignature {
                     operation_id: sequence_number + 1,
-                    signature: "signature".to_string(),
+                    signature: correct_signature_example.clone(),
                 },
                 &vec![],
                 &relayer1,
@@ -1140,7 +1161,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::RegisterSignature {
                 operation_id: sequence_number,
-                signature: "signature".to_string(),
+                signature: correct_signature_example.clone(),
             },
             &vec![],
             &relayer2,
@@ -1163,11 +1184,11 @@ mod tests {
             query_pending_operation.operations[0].signatures,
             vec![
                 Signature {
-                    signature: "signature".to_string(),
+                    signature: correct_signature_example.clone(),
                     relayer: Addr::unchecked(relayer1.address()),
                 },
                 Signature {
-                    signature: "signature".to_string(),
+                    signature: correct_signature_example.clone(),
                     relayer: Addr::unchecked(relayer2.address()),
                 }
             ]
@@ -1248,7 +1269,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::RegisterSignature {
                 operation_id: sequence_number,
-                signature: "signature".to_string(),
+                signature: correct_signature_example.clone(),
             },
             &vec![],
             &relayer1,
@@ -1259,7 +1280,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::RegisterSignature {
                 operation_id: sequence_number,
-                signature: "signature".to_string(),
+                signature: correct_signature_example.clone(),
             },
             &vec![],
             &relayer2,

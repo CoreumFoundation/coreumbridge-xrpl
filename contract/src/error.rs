@@ -3,6 +3,8 @@ use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
 
+use crate::{contract::MAX_TICKETS, signatures::SIGNATURE_LENGTH};
+
 #[derive(Error, Debug)]
 pub enum ContractError {
     #[error("{0}")]
@@ -30,9 +32,7 @@ pub enum ContractError {
     #[error("InvalidFundsAmount: Need to send exactly the issue fee amount")]
     InvalidFundsAmount {},
 
-    #[error(
-        "RegistrationFailure: Currency/denom generated already exists, please try again"
-    )]
+    #[error("RegistrationFailure: Currency/denom generated already exists, please try again")]
     RegistrationFailure {},
 
     #[error("UnauthorizedSender: Sender is not a valid relayer")]
@@ -52,8 +52,8 @@ pub enum ContractError {
     #[error("InvalidAmount: Amount must be more than 0")]
     InvalidAmount {},
 
-    #[error("InvalidMaxAllowedUsedTickets: Max allowed used tickets must be more than 1 and less or equal than 250")]
-    InvalidMaxAllowedUsedTickets {},
+    #[error("InvalidUsedTicketsThreshold: Used tickets threshold must be more than 1 and less or equal than {}", MAX_TICKETS)]
+    InvalidUsedTicketsThreshold {},
 
     #[error("LastTicketReserved: Last available ticket is reserved for updating tickets")]
     LastTicketReserved {},
@@ -76,4 +76,10 @@ pub enum ContractError {
 
     #[error("InvalidTicketNumberToAllocate: The number of tickets to recover must be more than 0")]
     InvalidTicketNumberToAllocate {},
+
+    #[error(
+        "InvalidSignatureLength: The length of the signature must be {} characters",
+        SIGNATURE_LENGTH
+    )]
+    InvalidSignatureLength {},
 }
