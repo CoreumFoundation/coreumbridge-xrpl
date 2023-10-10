@@ -1,10 +1,8 @@
 use std::collections::VecDeque;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Empty, Storage};
+use cosmwasm_std::{Addr, Empty};
 use cw_storage_plus::{Item, Map};
-
-use crate::error::ContractError;
 
 /// Top level storage key. Values must not conflict.
 /// Each key is only one byte long to ensure we use the smallest possible storage keys.
@@ -59,15 +57,15 @@ pub const COREUM_TOKENS: Map<String, CoreumToken> = Map::new(TopKey::CoreumToken
 //Tokens registered from XRPL side. These tokens are native XRPL tokens - key is issuer+currency on XRPL
 pub const XRPL_TOKENS: Map<String, XRPLToken> = Map::new(TopKey::XRPLTokens.as_str());
 // XRPL-Currencies used
-pub const USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS: Map<String, Empty> = Map::new(TopKey::UsedXRPLCurrenciesForCoreumTokens.as_str());
+pub const USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS: Map<String, Empty> =
+    Map::new(TopKey::UsedXRPLCurrenciesForCoreumTokens.as_str());
 // Evidences, when enough evidences are collected, the transaction hashes are stored in EXECUTED_EVIDENCE_OPERATIONS.
 pub const TX_EVIDENCES: Map<String, Evidences> = Map::new(TopKey::TxEvidences.as_str());
 // This will contain the transaction hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again
-pub const PROCESSED_TXS: Map<String, Empty> =
-    Map::new(TopKey::ProcessedTxs.as_str());
+pub const PROCESSED_TXS: Map<String, Empty> = Map::new(TopKey::ProcessedTxs.as_str());
 // Current tickets available
 pub const AVAILABLE_TICKETS: Item<VecDeque<u64>> = Item::new(TopKey::AvailableTickets.as_str());
-// Counter we use to control the used tickets threshold. 
+// Counter we use to control the used tickets threshold.
 // If we surpass this counter, we will trigger a new allocation operation.
 // Every time we allocate new tickets (operation is confirmed), we will substract the amount of new tickets allocated from this amount
 pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str());
@@ -123,14 +121,4 @@ pub enum OperationType {
 pub struct Signature {
     pub relayer: Addr,
     pub signature: String,
-}
-
-pub fn remove_pending_operation(
-    storage: &mut dyn Storage,
-    number: u64,
-) -> Result<(), ContractError> {
-    PENDING_OPERATIONS.remove(storage, number);
-    PENDING_TICKET_UPDATE.save(storage, &false)?;
-
-    Ok(())
 }
