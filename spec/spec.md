@@ -150,7 +150,7 @@ The `roundWithMinSendingPrecision` is described [here](#amount-rounding-handling
 A relayer relays the amount using the rational value (nominator/denominator) as a part of the evidence. The contract
 does a pre-validation of the value. If, after the calculation, the `receivedAmount <= 0` or
 `receivedAmount > max allowed value` returns an error. Once the evidence threshold is reached, the contract executes
-the calculation one more time, and sends the amount to the recipient. The rounding reminder is left on the contract,
+the calculation one more time, and sends the amount to the recipient. The rounding reminder left on the bridge account,
 because we don't trust the reminder after the `min sending precision`.
 If a token uses the transfer fee, we don't include it here because it will be included on the sending the token back.
 
