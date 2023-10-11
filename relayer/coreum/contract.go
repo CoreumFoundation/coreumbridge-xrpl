@@ -30,7 +30,7 @@ const (
 	ExecMethodUpdateOwnership     ExecMethod = "update_ownership"
 	ExecMethodRegisterCoreumToken ExecMethod = "register_coreum_token"
 	ExecMethodRegisterXRPLToken   ExecMethod = "register_x_r_p_l_token"
-	ExecMethodAcceptEvidence      ExecMethod = "accept_evidence"
+	ExecMethodSendEvidence        ExecMethod = "send_evidence"
 )
 
 // QueryMethod is contract query method.
@@ -93,7 +93,7 @@ type CoreumToken struct {
 }
 
 // XRPLToCoreumEvidence is evidence with values represented sending from XRPL to coreum.
-type XRPLToCoreumEvidence struct {
+type XRPLToCoreumTransferEvidence struct {
 	TxHash    string         `json:"tx_hash"`
 	Issuer    string         `json:"issuer"`
 	Currency  string         `json:"currency"`
@@ -126,9 +126,9 @@ type registerXRPLTokenRequest struct {
 	Currency string `json:"currency"`
 }
 
-type acceptEvidenceRequest struct {
+type sendEvidenceRequest struct {
 	Evidence struct {
-		XRPLToCoreum XRPLToCoreumEvidence `json:"x_r_p_l_to_coreum"`
+		XRPLToCoreumTransfer XRPLToCoreumTransferEvidence `json:"x_r_p_l_to_coreum_transfer"`
 	} `json:"evidence"`
 }
 
@@ -350,13 +350,13 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	return txRes, nil
 }
 
-// AcceptXRPLToCoreumEvidence executes `update_ownership` method with accept action.
-func (c *ContractClient) AcceptXRPLToCoreumEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLToCoreumEvidence) (*sdk.TxResponse, error) {
-	req := acceptEvidenceRequest{}
-	req.Evidence.XRPLToCoreum = evidence
+// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed or rejected transaction
+func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
+	req := sendEvidenceRequest{}
+	req.Evidence.XRPLToCoreumTransfer = evidence
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]acceptEvidenceRequest{
-			ExecMethodAcceptEvidence: req,
+		Body: map[ExecMethod]sendEvidenceRequest{
+			ExecMethodSendEvidence: req,
 		},
 	})
 	if err != nil {

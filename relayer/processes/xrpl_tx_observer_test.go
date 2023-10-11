@@ -86,7 +86,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			evidencesConsumerBuilder: func(ctrl *gomock.Controller) processes.EvidencesConsumer {
 				evidencesConsumer := NewMockEvidencesConsumer(ctrl)
-				evidencesConsumer.EXPECT().AcceptXRPLToCoreumEvidence(
+				evidencesConsumer.EXPECT().SendXRPLToCoreumTransferEvidence(
 					gomock.Any(),
 					relayerAddress,
 					coreum.XRPLToCoreumEvidence{

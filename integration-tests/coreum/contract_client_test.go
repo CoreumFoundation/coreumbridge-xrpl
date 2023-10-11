@@ -371,7 +371,7 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	require.NotEmpty(t, registeredToken.CoreumDenom)
 
 	// create an evidence
-	xrplToCoreumEvidence := coreum.XRPLToCoreumEvidence{
+	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
 		TxHash:    "65DEE3E51083CF037A7ED413A49DD7357964923F8CC3E3D35A24019FB771475D",
 		Issuer:    issuerAcc.String(),
 		Currency:  currency,
@@ -380,17 +380,17 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	}
 
 	// try to call from not relayer
-	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, randomAddress, xrplToCoreumEvidence)
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, randomAddress, xrplToCoreumTransferEvidence)
 	require.True(t, coreum.IsUnauthorizedSenderError(err))
 
 	// try use not registered token
-	wrongXRPLToCoreumEvidence := xrplToCoreumEvidence
-	wrongXRPLToCoreumEvidence.Currency = "NEZ"
-	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, wrongXRPLToCoreumEvidence)
+	wrongXRPLToCoreumTransferEvidence := xrplToCoreumTransferEvidence
+	wrongXRPLToCoreumTransferEvidence.Currency = "NEZ"
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer1, wrongXRPLToCoreumTransferEvidence)
 	require.True(t, coreum.IsTokenNotRegisteredError(err))
 
 	// call from first relayer
-	txRes, err := contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, xrplToCoreumEvidence)
+	txRes, err := contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer1, xrplToCoreumTransferEvidence)
 	require.NoError(t, err)
 	recipientBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 		Address: coreumRecipient.String(),
@@ -403,11 +403,11 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	require.Equal(t, "false", thresholdReached)
 
 	// call from first relayer one more time
-	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, xrplToCoreumEvidence)
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer1, xrplToCoreumTransferEvidence)
 	require.True(t, coreum.IsEvidenceAlreadyProvidedError(err))
 
 	// call from second relayer
-	txRes, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer2, xrplToCoreumEvidence)
+	txRes, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer2, xrplToCoreumTransferEvidence)
 	require.NoError(t, err)
 	recipientBalanceRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 		Address: coreumRecipient.String(),
@@ -420,9 +420,9 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 
 	require.NoError(t, err)
 	// expect new token on the recipient balance
-	require.Equal(t, xrplToCoreumEvidence.Amount.String(), recipientBalanceRes.Balance.Amount.String())
+	require.Equal(t, xrplToCoreumTransferEvidence.Amount.String(), recipientBalanceRes.Balance.Amount.String())
 
 	// try to push the same evidence
-	_, err = contractClient.AcceptXRPLToCoreumEvidence(ctx, relayer1, xrplToCoreumEvidence)
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer1, xrplToCoreumTransferEvidence)
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err))
 }

@@ -38,19 +38,19 @@ func (m *MockEvidencesConsumer) EXPECT() *MockEvidencesConsumerMockRecorder {
 	return m.recorder
 }
 
-// AcceptXRPLToCoreumEvidence mocks base method.
-func (m *MockEvidencesConsumer) AcceptXRPLToCoreumEvidence(arg0 context.Context, arg1 types.AccAddress, arg2 coreum.XRPLToCoreumEvidence) (*types.TxResponse, error) {
+// SendXRPLToCoreumTransferEvidence mocks base method.
+func (m *MockEvidencesConsumer) SendXRPLToCoreumTransferEvidence(arg0 context.Context, arg1 types.AccAddress, arg2 coreum.XRPLToCoreumTransferEvidence) (*types.TxResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AcceptXRPLToCoreumEvidence", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SendXRPLToCoreumTransferEvidence", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*types.TxResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AcceptXRPLToCoreumEvidence indicates an expected call of AcceptXRPLToCoreumEvidence.
-func (mr *MockEvidencesConsumerMockRecorder) AcceptXRPLToCoreumEvidence(arg0, arg1, arg2 interface{}) *gomock.Call {
+// SendXRPLToCoreumTransferEvidence indicates an expected call of SendXRPLToCoreumTransferEvidence.
+func (mr *MockEvidencesConsumerMockRecorder) SendXRPLToCoreumTransferEvidence(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptXRPLToCoreumEvidence", reflect.TypeOf((*MockEvidencesConsumer)(nil).AcceptXRPLToCoreumEvidence), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendXRPLToCoreumTransferEvidence", reflect.TypeOf((*MockEvidencesConsumer)(nil).SendXRPLToCoreumTransferEvidence), arg0, arg1, arg2)
 }
 
 // IsInitialized mocks base method.
