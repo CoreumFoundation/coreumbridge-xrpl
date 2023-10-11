@@ -3,6 +3,8 @@ package testutils
 import (
 	"crypto/rand"
 
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 )
 
@@ -15,4 +17,9 @@ func GenXRPLAccount() rippledata.Account {
 	}
 	copy(acc[:], buf)
 	return acc
+}
+
+// GenCoreumAccount generates random coreum account.
+func GenCoreumAccount() sdk.AccAddress {
+	return sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address())
 }

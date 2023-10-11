@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	sdkmath "cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -29,6 +30,7 @@ const (
 	ExecMethodUpdateOwnership     ExecMethod = "update_ownership"
 	ExecMethodRegisterCoreumToken ExecMethod = "register_coreum_token"
 	ExecMethodRegisterXRPLToken   ExecMethod = "register_x_r_p_l_token"
+	ExecMethodAcceptEvidence      ExecMethod = "accept_evidence"
 )
 
 // QueryMethod is contract query method.
@@ -46,6 +48,10 @@ const (
 	notOwnerErrorString                     = "Caller is not the contract's current owner"
 	coreumTokenAlreadyRegisteredErrorString = "CoreumTokenAlreadyRegistered"
 	xrplTokenAlreadyRegisteredErrorString   = "XRPLTokenAlreadyRegistered"
+	unauthorizedSenderErrorString           = "UnauthorizedSender"
+	operationAlreadyExecutedErrorString     = "OperationAlreadyExecuted"
+	tokenNotRegisteredErrorString           = "TokenNotRegistered"
+	evidenceAlreadyProvidedString           = "EvidenceAlreadyProvided"
 )
 
 // InstantiationConfig holds attributes used for the contract instantiation.
@@ -84,6 +90,15 @@ type CoreumToken struct {
 	XRPLCurrency string `json:"xrpl_currency"`
 }
 
+// XRPLToCoreumEvidence is evidence with values represented sending from XRPL to coreum.
+type XRPLToCoreumEvidence struct {
+	TxHash    string         `json:"tx_hash"`
+	Issuer    string         `json:"issuer"`
+	Currency  string         `json:"currency"`
+	Amount    sdkmath.Int    `json:"amount"`
+	Recipient sdk.AccAddress `json:"recipient"`
+}
+
 // ******************** Internal transport object  ********************
 
 type instantiateRequest struct {
@@ -106,6 +121,12 @@ type registerCoreumTokenRequest struct {
 type registerXRPLTokenRequest struct {
 	Issuer   string `json:"issuer"`
 	Currency string `json:"currency"`
+}
+
+type acceptEvidenceRequest struct {
+	Evidence struct {
+		XRPLToCoreum XRPLToCoreumEvidence `json:"x_r_p_l_to_coreum"`
+	} `json:"evidence"`
 }
 
 type xrplTokensResponse struct {
@@ -142,7 +163,7 @@ func DefaultContractClientConfig(contractAddress sdk.AccAddress) ContractClientC
 		ContractAddress: contractAddress,
 		GasAdjustment:   1.3,
 		// 1.2
-		GasPriceAdjustment: sdk.NewDecFromInt(sdk.NewInt(12)).QuoInt64(10),
+		GasPriceAdjustment: sdk.NewDecFromInt(sdkmath.NewInt(12)).QuoInt64(10),
 		PageLimit:          250,
 	}
 }
@@ -176,7 +197,7 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 		Sender:       sender.String(),
 		WASMByteCode: byteCode,
 	}
-	c.log.Info("Deploying contract bytecode.")
+	c.log.Info(ctx, "Deploying contract bytecode.")
 
 	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgStoreCode)
 	if err != nil {
@@ -186,7 +207,7 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find code ID in the tx result")
 	}
-	c.log.Info("The contract bytecode is deployed.", logger.Uint64Filed("codeID", codeID))
+	c.log.Info(ctx, "The contract bytecode is deployed.", logger.Uint64Filed("codeID", codeID))
 
 	reqPayload, err := json.Marshal(instantiateRequest{
 		Owner:             config.Owner,
@@ -212,7 +233,7 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 		Funds: sdk.NewCoins(issuerFee),
 	}
 
-	c.log.Info("Instantiating contract.", logger.AnyFiled("msg", msg))
+	c.log.Info(ctx, "Instantiating contract.", logger.AnyFiled("msg", msg))
 	res, err = client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msg)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deploy bytecode")
@@ -227,7 +248,7 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert contract address to sdk.AccAddress")
 	}
-	c.log.Info("The contract is instantiated.", logger.StringFiled("address", sdkContractAddr.String()))
+	c.log.Info(ctx, "The contract is instantiated.", logger.StringFiled("address", sdkContractAddr.String()))
 
 	return sdkContractAddr, nil
 }
@@ -248,6 +269,11 @@ func (c *ContractClient) GetContractAddress() sdk.AccAddress {
 	return c.cfg.ContractAddress
 }
 
+// IsInitialized returns true if address used by the client is set.
+func (c *ContractClient) IsInitialized() bool {
+	return !c.cfg.ContractAddress.Empty()
+}
+
 // ******************** Execute ********************
 
 // TransferOwnership executes `update_ownership` method with transfer action.
@@ -257,6 +283,20 @@ func (c *ContractClient) TransferOwnership(ctx context.Context, sender, newOwner
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]transferOwnershipRequest{
 			ExecMethodUpdateOwnership: req,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// AcceptOwnership executes `update_ownership` method with accept action.
+func (c *ContractClient) AcceptOwnership(ctx context.Context, sender sdk.AccAddress) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]string{
+			ExecMethodUpdateOwnership: "accept_ownership",
 		},
 	})
 	if err != nil {
@@ -306,11 +346,13 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	return txRes, nil
 }
 
-// AcceptOwnership executes `update_ownership` method with accept action.
-func (c *ContractClient) AcceptOwnership(ctx context.Context, sender sdk.AccAddress) (*sdk.TxResponse, error) {
+// AcceptXRPLToCoreumEvidence executes `update_ownership` method with accept action.
+func (c *ContractClient) AcceptXRPLToCoreumEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLToCoreumEvidence) (*sdk.TxResponse, error) {
+	req := acceptEvidenceRequest{}
+	req.Evidence.XRPLToCoreum = evidence
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]string{
-			ExecMethodUpdateOwnership: "accept_ownership",
+		Body: map[ExecMethod]acceptEvidenceRequest{
+			ExecMethodAcceptEvidence: req,
 		},
 	})
 	if err != nil {
@@ -438,7 +480,7 @@ func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, req
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to marshal payload, requiest:%v", req.Body)
 		}
-		c.log.Debug("Executing contract", logger.StringFiled("payload", string(payload)))
+		c.log.Debug(ctx, "Executing contract", logger.StringFiled("payload", string(payload)))
 		msg := &wasmtypes.MsgExecuteContract{
 			Sender:   sender.String(),
 			Contract: c.cfg.ContractAddress.String(),
@@ -450,7 +492,7 @@ func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, req
 
 	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgs...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute transaction, requiests:%v", requests)
+		return nil, errors.Wrapf(err, "failed to execute transaction, message:%v", msgs)
 	}
 	return res, nil
 }
@@ -464,7 +506,7 @@ func (c *ContractClient) query(ctx context.Context, request, response any) error
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal query request")
 	}
-	c.log.Debug("Querying contract", logger.StringFiled("payload", string(payload)))
+	c.log.Debug(ctx, "Querying contract", logger.StringFiled("payload", string(payload)))
 
 	query := &wasmtypes.QuerySmartContractStateRequest{
 		Address:   c.cfg.ContractAddress.String(),
@@ -475,9 +517,9 @@ func (c *ContractClient) query(ctx context.Context, request, response any) error
 		return errors.Wrapf(err, "query failed, requiest:%v", request)
 	}
 
-	c.log.Debug("Query is succeeded", logger.StringFiled("data", string(resp.Data)))
+	c.log.Debug(ctx, "Query is succeeded", logger.StringFiled("data", string(resp.Data)))
 	if err := json.Unmarshal(resp.Data, response); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal wasm contract response, requiest:%v, response:%s", request, string(resp.Data))
+		return errors.Wrapf(err, "failed to unmarshal wasm contract response, requiest:%s, response:%s", string(payload), string(resp.Data))
 	}
 
 	return nil
@@ -506,6 +548,26 @@ func IsCoreumTokenAlreadyRegisteredError(err error) bool {
 // IsXRPLTokenAlreadyRegisteredError returns true if error is `XRPLTokenAlreadyRegistered` error.
 func IsXRPLTokenAlreadyRegisteredError(err error) bool {
 	return isError(err, xrplTokenAlreadyRegisteredErrorString)
+}
+
+// IsUnauthorizedSenderError returns true if error is `UnauthorizedSender` error.
+func IsUnauthorizedSenderError(err error) bool {
+	return isError(err, unauthorizedSenderErrorString)
+}
+
+// IsOperationAlreadyExecutedError returns true if error is `OperationAlreadyExecuted` error.
+func IsOperationAlreadyExecutedError(err error) bool {
+	return isError(err, operationAlreadyExecutedErrorString)
+}
+
+// IsTokenNotRegisteredError returns true if error is `TokenNotRegistered` error.
+func IsTokenNotRegisteredError(err error) bool {
+	return isError(err, tokenNotRegisteredErrorString)
+}
+
+// IsEvidenceAlreadyProvidedError returns true if error is `EvidenceAlreadyProvided` error.
+func IsEvidenceAlreadyProvidedError(err error) bool {
+	return isError(err, evidenceAlreadyProvidedString)
 }
 
 func isError(err error, errorString string) bool {
