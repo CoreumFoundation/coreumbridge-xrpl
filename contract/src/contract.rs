@@ -287,10 +287,6 @@ fn send_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
 
     let threshold_reached = handle_evidence(deps.storage, sender, evidence.clone())?;
 
-    if threshold_reached {
-        register_used_ticket(deps.storage)?;
-    }
-
     let mut response = Response::new();
 
     match evidence {
@@ -336,12 +332,13 @@ fn send_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     OperationResult::TicketsAllocation { tickets } => {
                         handle_ticket_allocation_confirmation(
                             deps.storage,
-                            operation_id,
                             tickets,
                             confirmed,
                         )?;
                     }
                 }
+                PENDING_OPERATIONS.remove(deps.storage, operation_id);
+                register_used_ticket(deps.storage)?;
             }
 
             response = response

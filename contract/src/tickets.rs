@@ -55,12 +55,11 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractErr
 
 pub fn handle_ticket_allocation_confirmation(
     storage: &mut dyn Storage,
-    operation_id: u64,
     tickets: Option<Vec<u64>>,
     confirmed: bool,
 ) -> Result<(), ContractError> {
-    //Remove the operation from the pending queue and remove pending update flag
-    remove_pending_operation_and_pending_ticket_update(storage, operation_id)?;
+    // We set pending update ticket to false because we are processing the operation
+    PENDING_TICKET_UPDATE.save(storage, &false)?;
 
     //Allocate ticket numbers in our ticket array if operation is confirmed
     if confirmed {
@@ -89,14 +88,4 @@ fn reserve_ticket(storage: &mut dyn Storage) -> Result<u64, ContractError> {
     let ticket_to_update = available_tickets.pop_front().unwrap();
     AVAILABLE_TICKETS.save(storage, &available_tickets)?;
     Ok(ticket_to_update)
-}
-
-pub fn remove_pending_operation_and_pending_ticket_update(
-    storage: &mut dyn Storage,
-    number: u64,
-) -> Result<(), ContractError> {
-    PENDING_OPERATIONS.remove(storage, number);
-    PENDING_TICKET_UPDATE.save(storage, &false)?;
-
-    Ok(())
 }
