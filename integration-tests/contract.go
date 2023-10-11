@@ -40,7 +40,7 @@ func DeployAndInstantiateContract(
 		Admin:                owner,
 		Relayers:             relayers,
 		EvidenceThreshold:    evidenceThreshold,
-		usedTicketsThreshold: usedTicketsThreshold,
+		UsedTicketsThreshold: usedTicketsThreshold,
 	}
 	contractAddress, err := contractClient.DeployAndInstantiate(ctx, owner, readBuiltContract(t), instantiationCfg)
 	require.NoError(t, err)
