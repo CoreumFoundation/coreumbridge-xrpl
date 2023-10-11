@@ -1,6 +1,7 @@
 package xrpl_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -17,7 +18,9 @@ func TestDecodeCoreumRecipientFromMemo(t *testing.T) {
 	t.Parallel()
 
 	accAddress := testutils.GenCoreumAccount()
-	staticJSONMemo := fmt.Sprintf("{\"version\":\"coreumbridge-xrpl-v1\",\"coreum_recipient\":\"%s\"}", accAddress.String())
+	staticBase64Memo := base64.StdEncoding.EncodeToString(
+		[]byte(fmt.Sprintf("{\"type\":\"coreumbridge-xrpl-v1\",\"coreum_recipient\":\"%s\"}", accAddress.String())),
+	)
 
 	tests := []struct {
 		name  string
@@ -26,7 +29,7 @@ func TestDecodeCoreumRecipientFromMemo(t *testing.T) {
 	}{
 		{
 			name:  "valid_memo",
-			memos: encodeToCoreumBridgeMemos(t, xrpl.BridgeMemoVersion, accAddress.String()),
+			memos: encodeToCoreumBridgeMemos(t, xrpl.BridgeMemoType, accAddress.String()),
 			want:  accAddress,
 		},
 		{
@@ -34,20 +37,20 @@ func TestDecodeCoreumRecipientFromMemo(t *testing.T) {
 			memos: rippledata.Memos{
 				{
 					Memo: rippledata.MemoItem{
-						MemoData: rippledata.VariableLength(staticJSONMemo),
+						MemoData: rippledata.VariableLength(staticBase64Memo),
 					},
 				},
 			},
 			want: accAddress,
 		},
 		{
-			name:  "invalid_version",
+			name:  "invalid_type",
 			memos: encodeToCoreumBridgeMemos(t, "invalid", accAddress.String()),
 			want:  nil,
 		},
 		{
 			name:  "invalid_address",
-			memos: encodeToCoreumBridgeMemos(t, xrpl.BridgeMemoVersion, "coreum123"),
+			memos: encodeToCoreumBridgeMemos(t, xrpl.BridgeMemoType, "coreum123"),
 			want:  nil,
 		},
 		{
@@ -71,18 +74,20 @@ func TestDecodeCoreumRecipientFromMemo(t *testing.T) {
 	}
 }
 
-func encodeToCoreumBridgeMemos(t *testing.T, version, address string) rippledata.Memos {
+func encodeToCoreumBridgeMemos(t *testing.T, mtype, address string) rippledata.Memos {
 	t.Helper()
-	memoData, err := json.Marshal(xrpl.BridgeMemo{
-		Version:         version,
+
+	data, err := json.Marshal(xrpl.BridgeMemo{
+		Type:            mtype,
 		CoreumRecipient: address,
 	})
 	require.NoError(t, err)
+	base64Data := base64.StdEncoding.EncodeToString(data)
 
 	return rippledata.Memos{
 		rippledata.Memo{
 			Memo: rippledata.MemoItem{
-				MemoData: memoData,
+				MemoData: []byte(base64Data),
 			},
 		},
 	}
