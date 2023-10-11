@@ -1,7 +1,6 @@
 package xrpl
 
 import (
-	"encoding/base64"
 	"encoding/json"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -30,12 +29,7 @@ func DecodeCoreumRecipientFromMemo(memos rippledata.Memos) sdk.AccAddress {
 			continue
 		}
 
-		data, err := base64.StdEncoding.DecodeString(string(memo.Memo.MemoData.Bytes()))
-		if err != nil {
-			return nil
-		}
-
-		if err := json.Unmarshal(data, &bridgeMemo); err != nil {
+		if err := json.Unmarshal(memo.Memo.MemoData, &bridgeMemo); err != nil {
 			return nil
 		}
 		if bridgeMemo.Type != BridgeMemoType {
@@ -61,10 +55,9 @@ func EncodeCoreumRecipientToMemo(coreumRecipient sdk.AccAddress) (rippledata.Mem
 	if err != nil {
 		return rippledata.Memo{}, errors.Wrapf(err, "failed to marshal BridgeMemo")
 	}
-	base64Data := base64.StdEncoding.EncodeToString(data)
 	return rippledata.Memo{
 		Memo: rippledata.MemoItem{
-			MemoData: []byte(base64Data),
+			MemoData: data,
 		},
 	}, nil
 }

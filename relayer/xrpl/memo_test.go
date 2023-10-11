@@ -1,7 +1,6 @@
 package xrpl_test
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -18,9 +17,7 @@ func TestDecodeCoreumRecipientFromMemo(t *testing.T) {
 	t.Parallel()
 
 	accAddress := testutils.GenCoreumAccount()
-	staticBase64Memo := base64.StdEncoding.EncodeToString(
-		[]byte(fmt.Sprintf("{\"type\":\"coreumbridge-xrpl-v1\",\"coreum_recipient\":\"%s\"}", accAddress.String())),
-	)
+	staticJSONMemo := fmt.Sprintf("{\"type\":\"coreumbridge-xrpl-v1\",\"coreum_recipient\":\"%s\"}", accAddress.String())
 
 	tests := []struct {
 		name  string
@@ -37,7 +34,7 @@ func TestDecodeCoreumRecipientFromMemo(t *testing.T) {
 			memos: rippledata.Memos{
 				{
 					Memo: rippledata.MemoItem{
-						MemoData: rippledata.VariableLength(staticBase64Memo),
+						MemoData: rippledata.VariableLength(staticJSONMemo),
 					},
 				},
 			},
@@ -82,12 +79,10 @@ func encodeToCoreumBridgeMemos(t *testing.T, mtype, address string) rippledata.M
 		CoreumRecipient: address,
 	})
 	require.NoError(t, err)
-	base64Data := base64.StdEncoding.EncodeToString(data)
-
 	return rippledata.Memos{
 		rippledata.Memo{
 			Memo: rippledata.MemoItem{
-				MemoData: []byte(base64Data),
+				MemoData: data,
 			},
 		},
 	}
