@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/testutils"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -25,9 +26,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	t.Cleanup(cancel)
 
-	account, err := rippledata.NewAccountFromAddress("rD1qCRCKJ1wYPXfzzzg2wjNg8TsSGfWFDk")
-	require.NoError(t, err)
-
+	account := testutils.GenXRPLAccount()
 	notEmptyMarker := map[string]any{"key": "val"}
 
 	tests := []struct {
@@ -40,7 +39,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 		{
 			name: "full_scan_positive_with_retry_two_pages",
 			cfg: xrpl.AccountScannerConfig{
-				Account:         *account,
+				Account:         account,
 				FullScanEnabled: true,
 				RetryDelay:      time.Millisecond,
 			},
@@ -53,6 +52,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 						switch callNumber {
 						case 1:
 							return xrpl.AccountTxResult{
+								Validated: true,
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"1": 1,
 									"2": 2,
@@ -65,6 +65,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 							return xrpl.AccountTxResult{}, errors.New("error")
 						case 3:
 							return xrpl.AccountTxResult{
+								Validated: true,
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"4": 3,
 									"5": 4,
@@ -84,7 +85,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 		{
 			name: "recent_scan_positive_with_retry_four_pages",
 			cfg: xrpl.AccountScannerConfig{
-				Account:           *account,
+				Account:           account,
 				RecentScanEnabled: true,
 				RecentScanWindow:  10,
 				RepeatRecentScan:  true,
@@ -105,6 +106,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 						case 1:
 							require.Equal(t, int64(100-10), minLedger)
 							return xrpl.AccountTxResult{
+								Validated: true,
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"1": 90,
 									"2": 91,
@@ -116,6 +118,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 						case 2:
 							require.Equal(t, int64(100-10), minLedger)
 							return xrpl.AccountTxResult{
+								Validated: true,
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"5": 92,
 								}),
@@ -128,6 +131,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 						case 4:
 							require.Equal(t, int64(93), minLedger)
 							return xrpl.AccountTxResult{
+								Validated: true,
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"6": 93,
 								}),
@@ -137,6 +141,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 						case 5:
 							require.Equal(t, int64(94), minLedger)
 							return xrpl.AccountTxResult{
+								Validated: true,
 								Transactions: buildEmptyTransactions(map[string]uint32{
 									"7": 94,
 								}),
@@ -165,7 +170,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 			rpcTxProvider := tt.rpcTxProvider(ctrl)
 
 			s := xrpl.NewAccountScanner(tt.cfg, logger.NewZapLoggerFromLogger(zapDevLogger), rpcTxProvider)
-			txsCh := make(chan rippledata.Transaction)
+			txsCh := make(chan rippledata.TransactionWithMetaData)
 			if err := s.ScanTxs(ctx, txsCh); (err != nil) != tt.wantErr {
 				t.Errorf("ScanTxs() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -181,7 +186,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 	}
 }
 
-func readTxHashesFromChannels(ctx context.Context, t *testing.T, txsCh chan rippledata.Transaction, count int) map[string]struct{} {
+func readTxHashesFromChannels(ctx context.Context, t *testing.T, txsCh chan rippledata.TransactionWithMetaData, count int) map[string]struct{} {
 	gotTxHashes := make(map[string]struct{})
 	for {
 		select {

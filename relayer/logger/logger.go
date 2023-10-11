@@ -1,6 +1,12 @@
 package logger
 
-import "go.uber.org/zap"
+import (
+	"context"
+
+	"go.uber.org/zap"
+)
+
+//go:generate mockgen -destination=mock.go -package=logger . Logger
 
 // A Field is a marshaling operation used to add a key-value pair to a logger's context. Most fields are lazily
 // marshaled, so it's inexpensive to add fields to disabled debug-level log statements.
@@ -17,10 +23,10 @@ type FieldType uint8
 
 // Logger is a logger interface.
 type Logger interface {
-	Debug(msg string, fields ...Field)
-	Info(msg string, fields ...Field)
-	Warn(msg string, fields ...Field)
-	Error(msg string, fields ...Field)
+	Debug(ctx context.Context, msg string, fields ...Field)
+	Info(ctx context.Context, msg string, fields ...Field)
+	Warn(ctx context.Context, msg string, fields ...Field)
+	Error(ctx context.Context, msg string, fields ...Field)
 }
 
 // AnyFiled takes a key and an arbitrary value and chooses the best way to represent them as a field, falling back to a

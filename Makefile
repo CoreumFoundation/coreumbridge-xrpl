@@ -30,11 +30,14 @@ lint-contract:
 
 .PHONY: test-integration
 test-integration:
-	cd $(INTEGRATION_TESTS_DIR) && go clean -testcache && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./...
+    # test each directory separately to prevent faucet concurrent access
+	for d in $(INTEGRATION_TESTS_DIR)/*/; \
+	 do cd $$d && go clean -testcache && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./... ; \
+	done
 
 .PHONY: test-relayer
 test-relayer:
-	cd $(RELAYER_DIR) && go clean -testcache && go test -v -mod=readonly -parallel=4 ./...
+	cd $(RELAYER_DIR) && go clean -testcache && go test -v -mod=readonly -parallel=4 -timeout 500ms ./...
 
 .PHONY: test-contract
 test-contract:

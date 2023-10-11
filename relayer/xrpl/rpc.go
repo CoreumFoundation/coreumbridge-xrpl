@@ -123,6 +123,7 @@ type AccountTxRequest struct {
 type AccountTxResult struct {
 	Marker       map[string]any              `json:"marker,omitempty"`
 	Transactions rippledata.TransactionSlice `json:"transactions,omitempty"`
+	Validated    bool                        `json:"validated"`
 }
 
 // ******************** RPC transport objects ********************
@@ -275,10 +276,10 @@ func (c *RPCClient) callRPC(ctx context.Context, method string, params, result a
 			params,
 		},
 	}
-	c.log.Debug("Executing XRPL RPC request", logger.AnyFiled("request", request))
+	c.log.Debug(ctx, "Executing XRPL RPC request", logger.AnyFiled("request", request))
 
 	err := c.httpClient.DoJSON(ctx, http.MethodPost, c.cfg.URL, request, func(resBytes []byte) error {
-		c.log.Debug("Received XRPL RPC result", logger.StringFiled("result", string(resBytes)))
+		c.log.Debug(ctx, "Received XRPL RPC result", logger.StringFiled("result", string(resBytes)))
 		errResponse := rpcResponse{
 			Result: &RPCError{},
 		}
