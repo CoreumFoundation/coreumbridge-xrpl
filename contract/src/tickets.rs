@@ -58,7 +58,7 @@ pub fn handle_ticket_allocation_confirmation(
     tickets: Option<Vec<u64>>,
     confirmed: bool,
 ) -> Result<(), ContractError> {
-    // We set pending update ticket to false because we are processing the operation
+    // We set pending update ticket to false because we complete the ticket allocation operation
     PENDING_TICKET_UPDATE.save(storage, &false)?;
 
     //Allocate ticket numbers in our ticket array if operation is confirmed
