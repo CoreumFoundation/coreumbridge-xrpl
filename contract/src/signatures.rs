@@ -9,20 +9,19 @@ pub const SIGNATURE_LENGTH: usize = 142;
 
 pub fn add_signature(
     deps: DepsMut,
-    number: u64,
+    operation_id: u64,
     sender: Addr,
     signature: String,
 ) -> Result<(), ContractError> {
-    if !PENDING_OPERATIONS.has(deps.storage, number) {
-        return Err(ContractError::PendingOperationNotFound {});
-    }
+    //We get the current signatures for this specific operation
+    let mut pending_operation = PENDING_OPERATIONS
+        .load(deps.storage, operation_id)
+        .map_err(|_| ContractError::PendingOperationNotFound {})?;
 
     if signature.len() != SIGNATURE_LENGTH {
         return Err(ContractError::InvalidSignatureLength {});
     }
 
-    //We get the current signatures for this specific operation
-    let mut pending_operation = PENDING_OPERATIONS.load(deps.storage, number)?;
     let mut signatures = pending_operation.signatures;
 
     //If this relayer already provided a signature he can't overwrite it
@@ -42,7 +41,7 @@ pub fn add_signature(
     });
 
     pending_operation.signatures = signatures;
-    PENDING_OPERATIONS.save(deps.storage, number, &pending_operation)?;
+    PENDING_OPERATIONS.save(deps.storage, operation_id, &pending_operation)?;
 
     Ok(())
 }
