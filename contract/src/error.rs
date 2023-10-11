@@ -32,9 +32,7 @@ pub enum ContractError {
     #[error("InvalidFundsAmount: Need to send exactly the issue fee amount")]
     InvalidFundsAmount {},
 
-    #[error(
-        "RegistrationFailure: Random currency/denom generated already exists, please try again"
-    )]
+    #[error("RegistrationFailure: Currency/denom generated already exists, please try again")]
     RegistrationFailure {},
 
     #[error("UnauthorizedSender: Sender is not a valid relayer")]
