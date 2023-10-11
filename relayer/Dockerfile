@@ -2,8 +2,7 @@ FROM golang:1.21.2-alpine3.18 as builder
 
 RUN apk add --no-cache make
 
-COPY relayer/go.mod /code/relayer/go.mod
-COPY relayer/go.sum /code/relayer/go.sum
+COPY relayer/go.mod relayer/go.sum /code/relayer/
 
 WORKDIR /code/relayer
 
