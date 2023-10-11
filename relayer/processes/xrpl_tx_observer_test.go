@@ -89,7 +89,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				evidencesConsumer.EXPECT().SendXRPLToCoreumTransferEvidence(
 					gomock.Any(),
 					relayerAddress,
-					coreum.XRPLToCoreumEvidence{
+					coreum.XRPLToCoreumTransferEvidence{
 						TxHash:    rippledata.Hash256{}.String(),
 						Issuer:    xrplCurrencyAmount.Issuer.String(),
 						Currency:  xrplCurrencyAmount.Currency.String(),

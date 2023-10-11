@@ -92,7 +92,7 @@ type CoreumToken struct {
 	XRPLCurrency string `json:"xrpl_currency"`
 }
 
-// XRPLToCoreumEvidence is evidence with values represented sending from XRPL to coreum.
+// XRPLToCoreumTransferEvidence is evidence with values represented sending from XRPL to coreum.
 type XRPLToCoreumTransferEvidence struct {
 	TxHash    string         `json:"tx_hash"`
 	Issuer    string         `json:"issuer"`
@@ -350,7 +350,7 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	return txRes, nil
 }
 
-// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed or rejected transaction
+// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed or rejected transaction.
 func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
 	req := sendEvidenceRequest{}
 	req.Evidence.XRPLToCoreumTransfer = evidence

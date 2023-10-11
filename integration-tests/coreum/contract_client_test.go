@@ -24,12 +24,11 @@ import (
 )
 
 const (
-	compiledContractFilePath = "../../contract/artifacts/coreumbridge_xrpl.wasm"
-	xrp                      = "XRP"
-	drop                     = "drop"
-	xrplPrecision            = 15
-	xrpIssuer                = "rrrrrrrrrrrrrrrrrrrrrho"
-	xrpCurrency              = "XRP"
+	xrp           = "XRP"
+	drop          = "drop"
+	xrplPrecision = 15
+	xrpIssuer     = "rrrrrrrrrrrrrrrrrrrrrho"
+	xrpCurrency   = "XRP"
 
 	eventAttributeThresholdReached = "threshold_reached"
 )
