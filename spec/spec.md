@@ -239,7 +239,7 @@ contain the 1 XRPL native token, but the bridge balance will remain the same.
 
 The `sending precision` is the number in range `-15:15` we use for each registered token. That value defines the min
 precision for the amount you can send (`round with sending precision` formula). And based on the `sending precision` we
-can define the `max amount` for the
+can define the `max holding amount` for the
 contract to hold per token. We have both limits to make hardly possible both issues described before. The rounding
 with `sending precision` will eliminate the risk of sending to low amount which could influence on the bridge, and
 the `max holding amount` will significantly limit the chance to hold and amount using which a holder can produce on XRPL
@@ -274,7 +274,7 @@ submitting on XRPL transaction just one transaction. But with that coefficient, 
 `1e complexityCoefficient` transactions minimum to do it. The recommended value for the `complexityCoefficient`
 is `4`, so it means `10000` transactions minimum are needed to produce the `significant amount`.
 
-The `maxHoldingAmount` is `1e(16 - sending precision)`.
+The `maxHoldingAmount` is `1e(15 - (sending precision + complexityCoefficient))`.
 
 The `round with sending precision` formula is:
 
@@ -325,7 +325,7 @@ token total supply on XRPL: 500,000,000
 complexityCoefficient: 4
 ratio = 500,000,000 / 1e16 = 0.00000005
 sendingPrecision = 7 - complexityCoefficient = 3
-max amount = 1e(16 - 3) = 1e13
+max holding amount = 1e(15 - (3+4)) = 1e8
 min sending amount = 0.001
 ```
 
@@ -334,7 +334,7 @@ token total supply on coreum XRPL: 1e11 * 10e6(decimals)
 complexityCoefficient: 4
 ratio = 1e11 * 10e6(decimals)/10e6(decimals) / 1e16 = 0.00001
 sendingPrecision = 4 - complexityCoefficient = 0
-max amount = 1e(16 - 0) = 1e16
+max holding amount = 1e(15 - (0 + 4)) = 1e11
 min sending amount = 1
 ```
 
