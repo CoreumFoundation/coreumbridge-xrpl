@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	coreumintegration "github.com/CoreumFoundation/coreum/v3/testutil/integration"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
@@ -25,7 +24,7 @@ var (
 
 // Chains struct holds chains required for the testing.
 type Chains struct {
-	Coreum coreumintegration.CoreumChain
+	Coreum CoreumChain
 	XRPL   XRPLChain
 	Log    logger.Logger
 }

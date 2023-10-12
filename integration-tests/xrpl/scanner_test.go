@@ -30,7 +30,7 @@ func TestFullHistoryScanAccountTx(t *testing.T) {
 	t.Logf("Recipient account: %s", recipientAcc)
 
 	// generate txs
-	writtenTxHashes := sendMultipleTxs(ctx, t, txsCount, senderAcc, recipientAcc, chains.XRPL)
+	writtenTxHashes := sendMultipleTxs(ctx, t, chains.XRPL, txsCount, senderAcc, recipientAcc)
 
 	rpcClientConfig := xrpl.DefaultRPCClientConfig(chains.XRPL.Config().RPCAddress)
 	// update the page limit to low to emulate multiple pages
@@ -101,7 +101,7 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 	writeDone := make(chan struct{})
 	go func() {
 		defer close(writeDone)
-		writtenTxHashes = sendMultipleTxs(ctx, t, 20, senderAcc, recipientAcc, chains.XRPL)
+		writtenTxHashes = sendMultipleTxs(ctx, t, chains.XRPL, 20, senderAcc, recipientAcc)
 	}()
 
 	txsCh := make(chan rippledata.TransactionWithMetaData, txsCount)
@@ -122,9 +122,9 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 func sendMultipleTxs(
 	ctx context.Context,
 	t *testing.T,
+	xrplChain integrationtests.XRPLChain,
 	count int,
 	senderAcc, recipientAcc rippledata.Account,
-	xrplChain integrationtests.XRPLChain,
 ) map[string]struct{} {
 	writtenTxHashes := make(map[string]struct{})
 	for i := 0; i < count; i++ {

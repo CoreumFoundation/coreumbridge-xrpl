@@ -1,15 +1,24 @@
 package logger
 
 import (
+	"context"
 	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/tracing"
 )
 
 var _ Logger = &ZapLogger{}
+
+const (
+	tracingXRPLTxHashFieldName = "xrplTxHash"
+	tracingIDFiledName         = "tracingID"
+	tracingProcessFiledName    = "process"
+)
 
 // ZapLoggerConfig is ZapLogger config.
 type ZapLoggerConfig struct {
@@ -68,30 +77,30 @@ func NewZapLogger(cfg ZapLoggerConfig) (*ZapLogger, error) {
 
 // Debug logs a message at DebugLevel. The message includes any fields passed at the log site, as well as any fields
 // accumulated on the logger.
-func (z ZapLogger) Debug(msg string, fields ...Field) {
-	z.zapLogger.Debug(msg, filedToZapFiled(fields...)...)
+func (z ZapLogger) Debug(ctx context.Context, msg string, fields ...Field) {
+	z.zapLogger.Debug(msg, filedToZapFiled(ctx, fields...)...)
 }
 
 // Info logs a message at InfoLevel. The message includes any fields passed at the log site, as well as any fields
 // accumulated on the logger.
-func (z ZapLogger) Info(msg string, fields ...Field) {
-	z.zapLogger.Info(msg, filedToZapFiled(fields...)...)
+func (z ZapLogger) Info(ctx context.Context, msg string, fields ...Field) {
+	z.zapLogger.Info(msg, filedToZapFiled(ctx, fields...)...)
 }
 
 // Warn logs a message at WarnLevel. The message includes any fields passed at the log site, as well as any fields
 // accumulated on the logger.
-func (z ZapLogger) Warn(msg string, fields ...Field) {
-	z.zapLogger.Warn(msg, filedToZapFiled(fields...)...)
+func (z ZapLogger) Warn(ctx context.Context, msg string, fields ...Field) {
+	z.zapLogger.Warn(msg, filedToZapFiled(ctx, fields...)...)
 }
 
 // Error logs a message at ErrorLevel. The message includes any fields passed at the log site, as well as any fields
 // accumulated on the logger.
-func (z ZapLogger) Error(msg string, fields ...Field) {
-	z.zapLogger.Error(msg, filedToZapFiled(fields...)...)
+func (z ZapLogger) Error(ctx context.Context, msg string, fields ...Field) {
+	z.zapLogger.Error(msg, filedToZapFiled(ctx, fields...)...)
 }
 
-func filedToZapFiled(fields ...Field) []zap.Field {
-	return lo.Map(fields, func(filed Field, _ int) zap.Field {
+func filedToZapFiled(ctx context.Context, fields ...Field) []zap.Field {
+	zapFields := lo.Map(fields, func(filed Field, _ int) zap.Field {
 		return zap.Field{
 			Key:       filed.Key,
 			Type:      zapcore.FieldType(filed.Type),
@@ -100,6 +109,22 @@ func filedToZapFiled(fields ...Field) []zap.Field {
 			Interface: filed.Interface,
 		}
 	})
+
+	// add tracing info from the context
+	xrplTxHash := tracing.GetTracingXRPLTxHash(ctx)
+	if xrplTxHash != "" {
+		zapFields = append(zapFields, zap.String(tracingXRPLTxHashFieldName, xrplTxHash))
+	}
+	tracingID := tracing.GetTracingID(ctx)
+	if tracingID != "" {
+		zapFields = append(zapFields, zap.String(tracingIDFiledName, tracingID))
+	}
+	processID := tracing.GetTracingProcess(ctx)
+	if processID != "" {
+		zapFields = append(zapFields, zap.String(tracingProcessFiledName, processID))
+	}
+
+	return zapFields
 }
 
 // stringToLoggerLevel converts the string level to zapcore.Level.

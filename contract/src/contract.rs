@@ -1,14 +1,19 @@
+use std::collections::VecDeque;
+
 use crate::{
     error::ContractError,
-    evidence::{handle_evidence, hash_bytes, Evidence},
+    evidence::{handle_evidence, hash_bytes, Evidence, OperationResult},
     msg::{
-        CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-        XRPLTokenResponse, XRPLTokensResponse,
+        AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
+        InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
     },
+    signatures::add_signature,
     state::{
-        Config, ContractActions, CoreumToken, XRPLToken, CONFIG, COREUM_DENOMS, COREUM_TOKENS,
-        XRPL_CURRENCIES, XRPL_TOKENS, build_xrpl_token_key,
+        Config, ContractActions, CoreumToken, Operation, OperationType, XRPLToken,
+        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
+        USED_TICKETS_COUNTER, USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
     },
+    tickets::{handle_ticket_allocation_confirmation, register_used_ticket},
 };
 use coreum_wasm_sdk::{
     assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
@@ -16,12 +21,11 @@ use coreum_wasm_sdk::{
 };
 use cosmwasm_std::{
     coin, coins, entry_point, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env,
-    MessageInfo, Order, Response, StdResult, Uint128,
+    MessageInfo, Order, Response, StdResult, Storage, Uint128,
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
 use cw_utils::one_coin;
-use sha2::{Digest, Sha256};
 
 // version info for migration info
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -34,6 +38,11 @@ const XRP_SUBUNIT: &str = "drop";
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
 const XRPL_TOKENS_DECIMALS: u32 = 15;
+
+const XRP_CURRENCY: &str = "XRP";
+const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
+
+pub const MAX_TICKETS: u32 = 250;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -61,9 +70,20 @@ pub fn instantiate(
         return Err(ContractError::InvalidThreshold {});
     }
 
+    //We need to allow at least 2 tickets and less than 250 (XRPL limit) to be used
+    if msg.used_tickets_threshold <= 1 || msg.used_tickets_threshold > MAX_TICKETS {
+        return Err(ContractError::InvalidUsedTicketsThreshold {});
+    }
+
+    //We initialize these values here so that we can immediately start working with them
+    USED_TICKETS_COUNTER.save(deps.storage, &0)?;
+    PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
+    AVAILABLE_TICKETS.save(deps.storage, &VecDeque::new())?;
+
     let config = Config {
         relayers: msg.relayers,
         evidence_threshold: msg.evidence_threshold,
+        used_tickets_threshold: msg.used_tickets_threshold,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -84,8 +104,8 @@ pub fn instantiate(
     //We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
     //a token we can inform the relayers of what is being sent back.
     let token = XRPLToken {
-        issuer: None,
-        currency: None,
+        issuer: XRP_ISSUER.to_string(),
+        currency: XRP_CURRENCY.to_string(),
         coreum_denom: xrp_in_coreum,
     };
 
@@ -95,7 +115,7 @@ pub fn instantiate(
         .add_attribute("action", ContractActions::Instantiation.as_str())
         .add_attribute("contract_name", CONTRACT_NAME)
         .add_attribute("contract_version", CONTRACT_VERSION)
-        .add_attribute("admin", info.sender)
+        .add_attribute("owner", info.sender)
         .add_message(xrp_issue_msg))
 }
 
@@ -116,9 +136,22 @@ pub fn execute(
         ExecuteMsg::RegisterXRPLToken { issuer, currency } => {
             register_xrpl_token(deps, env, issuer, currency, info)
         }
-        ExecuteMsg::AcceptEvidence { evidence } => {
-            accept_evidence(deps.into_empty(), info.sender, evidence)
+        ExecuteMsg::SendEvidence { evidence } => {
+            send_evidence(deps.into_empty(), info.sender, evidence)
         }
+        ExecuteMsg::RecoverTickets {
+            sequence_number,
+            number_of_tickets,
+        } => recover_tickets(
+            deps.into_empty(),
+            info.sender,
+            sequence_number,
+            number_of_tickets,
+        ),
+        ExecuteMsg::RegisterSignature {
+            operation_id,
+            signature,
+        } => register_signature(deps.into_empty(), info.sender, operation_id, signature),
     }
 }
 
@@ -145,7 +178,7 @@ fn register_coreum_token(
         return Err(ContractError::CoreumTokenAlreadyRegistered { denom });
     }
 
-    // We generate a currency creating a Sha256 hash of the denom, the decimals and the current time
+    // We generate a currency creating a Sha256 hash of the denom, the decimals and the current time so that if it fails we can try again
     let to_hash = format!("{}{}{}", denom, decimals, env.block.time.seconds()).into_bytes();
     let hex_string = hash_bytes(to_hash)
         .get(0..10)
@@ -153,12 +186,13 @@ fn register_coreum_token(
         .to_string()
         .to_lowercase();
 
+    //format will be coreum<hash>
     let xrpl_currency = format!("{}{}", COREUM_CURRENCY_PREFIX, hex_string);
 
-    if XRPL_CURRENCIES.has(deps.storage, xrpl_currency.clone()) {
+    if USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS.has(deps.storage, xrpl_currency.clone()) {
         return Err(ContractError::RegistrationFailure {});
     }
-    XRPL_CURRENCIES.save(deps.storage, xrpl_currency.clone(), &Empty {})?;
+    USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS.save(deps.storage, xrpl_currency.clone(), &Empty {})?;
 
     let token = CoreumToken {
         denom: denom.clone(),
@@ -191,24 +225,18 @@ fn register_xrpl_token(
         return Err(ContractError::XRPLTokenAlreadyRegistered { issuer, currency });
     }
 
-    // We generate a random denom creating a Sha256 hash of the issuer, currency, decimals and current time
-    let mut hasher = Sha256::new();
-
-    hasher.update(
-        format!(
-            "{}{}{}{}",
-            issuer,
-            currency.clone(),
-            XRPL_TOKENS_DECIMALS,
-            env.block.time.seconds()
-        )
-        .into_bytes(),
-    );
-
-    let output = hasher.finalize();
+    // We generate a denom creating a Sha256 hash of the issuer, currency, decimals and current time
+    let to_hash = format!(
+        "{}{}{}{}",
+        issuer,
+        currency.clone(),
+        XRPL_TOKENS_DECIMALS,
+        env.block.time.seconds()
+    )
+    .into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
-    let hex_string = hex::encode(output)
+    let hex_string = hash_bytes(to_hash)
         .get(0..10)
         .unwrap()
         .to_string()
@@ -232,15 +260,13 @@ fn register_xrpl_token(
     let denom = format!("{}-{}", symbol_and_subunit, env.contract.address).to_lowercase();
 
     // This in theory is not necessary because issue_msg would fail if the denom already exists but it's a double check and a wait to return a more readable error.
-    if COREUM_DENOMS.has(deps.storage, denom.clone()) {
+    if COREUM_TOKENS.has(deps.storage, denom.clone()) {
         return Err(ContractError::RegistrationFailure {});
     };
 
-    COREUM_DENOMS.save(deps.storage, denom.clone(), &Empty {})?;
-
     let token = XRPLToken {
-        issuer: Some(issuer.clone()),
-        currency: Some(currency.clone()),
+        issuer: issuer.clone(),
+        currency: currency.clone(),
         coreum_denom: denom.clone(),
     };
 
@@ -254,20 +280,17 @@ fn register_xrpl_token(
         .add_attribute("denom", denom))
 }
 
-fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
-    evidence.validate()?;
-    let config = CONFIG.load(deps.storage)?;
+fn send_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
+    evidence.clone().validate()?;
 
-    if !config.relayers.contains(&sender) {
-        return Err(ContractError::UnauthorizedSender {});
-    }
+    assert_relayer(deps.as_ref(), sender.clone())?;
 
     let threshold_reached = handle_evidence(deps.storage, sender, evidence.clone())?;
 
     let mut response = Response::new();
 
-    match evidence.clone() {
-        Evidence::XRPLToCoreum {
+    match evidence {
+        Evidence::XRPLToCoreumTransfer {
             tx_hash,
             issuer,
             currency,
@@ -294,9 +317,100 @@ fn accept_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumRes
                 .add_attribute("recipient", recipient.to_string())
                 .add_attribute("threshold_reached", threshold_reached.to_string())
         }
+        Evidence::XRPLTransactionResult {
+            tx_hash,
+            sequence_number,
+            ticket_number,
+            confirmed,
+            operation_result,
+        } => {
+            let operation_id =
+                check_operation_exists(deps.storage, sequence_number, ticket_number)?;
+
+            if threshold_reached {
+                match operation_result.clone() {
+                    OperationResult::TicketsAllocation { tickets } => {
+                        handle_ticket_allocation_confirmation(
+                            deps.storage,
+                            tickets,
+                            confirmed,
+                        )?;
+                    }
+                }
+                PENDING_OPERATIONS.remove(deps.storage, operation_id);
+                register_used_ticket(deps.storage)?;
+            }
+
+            response = response
+                .add_attribute("action", ContractActions::XRPLTransactionResult.as_str())
+                .add_attribute("operation_result", operation_result.as_str())
+                .add_attribute("hash", tx_hash)
+                .add_attribute("operation_id", operation_id.to_string())
+                .add_attribute("confirmed", confirmed.to_string())
+                .add_attribute("threshold_reached", threshold_reached.to_string())
+        }
     }
 
     Ok(response)
+}
+
+fn recover_tickets(
+    deps: DepsMut,
+    sender: Addr,
+    sequence_number: u64,
+    number_of_tickets: Option<u32>,
+) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    let pending_ticket_update = PENDING_TICKET_UPDATE.load(deps.storage)?;
+
+    if pending_ticket_update {
+        return Err(ContractError::PendingTicketUpdate {});
+    }
+
+    let used_tickets = USED_TICKETS_COUNTER.load(deps.storage)?;
+
+    PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
+    let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
+
+    if number_to_allocate == 0 {
+        return Err(ContractError::InvalidTicketNumberToAllocate {});
+    }
+
+    //If we don't provide a number of tickets to recover we will recover the ones that we already used.
+    PENDING_OPERATIONS.save(
+        deps.storage,
+        sequence_number,
+        &Operation {
+            ticket_number: None,
+            sequence_number: Some(sequence_number),
+            signatures: vec![],
+            operation_type: OperationType::AllocateTickets {
+                number: number_to_allocate,
+            },
+        },
+    )?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::RecoverTickets.as_str())
+        .add_attribute("sequence_number", sequence_number.to_string()))
+}
+
+fn register_signature(
+    deps: DepsMut,
+    sender: Addr,
+    operation_id: u64,
+    signature: String,
+) -> CoreumResult<ContractError> {
+    assert_relayer(deps.as_ref(), sender.clone())?;
+
+    add_signature(deps, operation_id, sender.clone(), signature.clone())?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::RegisterSignature.as_str())
+        .add_attribute("operation_id", operation_id.to_string())
+        .add_attribute("relayer_address", sender.to_string())
+        .add_attribute("signature", signature.as_str()))
 }
 
 // ********** Queries **********
@@ -310,11 +424,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::CoreumTokens { offset, limit } => {
             to_binary(&query_coreum_tokens(deps, offset, limit)?)
         }
-        QueryMsg::XRPLToken { issuer, currency } => {
-            to_binary(&query_xrpl_token(deps, issuer, currency)?)
-        }
         QueryMsg::CoreumToken { denom } => to_binary(&query_coreum_token(deps, denom)?),
         QueryMsg::Ownership {} => to_binary(&get_ownership(deps.storage)?),
+        QueryMsg::PendingOperations { offset, limit } => {
+            to_binary(&query_pending_operations(deps, offset, limit)?)
+        }
+        QueryMsg::AvailableTickets {} => to_binary(&query_available_tickets(deps)?),
     }
 }
 
@@ -359,28 +474,36 @@ fn query_coreum_tokens(
     Ok(CoreumTokensResponse { tokens })
 }
 
-fn query_xrpl_token(
-    deps: Deps,
-    issuer: Option<String>,
-    currency: Option<String>,
-) -> StdResult<XRPLTokenResponse> {
-    let mut key;
-    if issuer.is_none() && currency.is_none() {
-        key = XRP_SYMBOL.to_string();
-    } else {
-        key = issuer.unwrap();
-        key.push_str(&currency.unwrap());
-    }
-
-    let token = XRPL_TOKENS.load(deps.storage, key)?;
-
-    Ok(XRPLTokenResponse { token })
-}
-
 fn query_coreum_token(deps: Deps, denom: String) -> StdResult<CoreumTokenResponse> {
     let token = COREUM_TOKENS.load(deps.storage, denom)?;
 
     Ok(CoreumTokenResponse { token })
+}
+
+fn query_pending_operations(
+    deps: Deps,
+    offset: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<PendingOperationsResponse> {
+    let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
+    let offset = offset.unwrap_or(0);
+    let operations: Vec<Operation> = PENDING_OPERATIONS
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(offset as usize)
+        .take(limit as usize)
+        .filter_map(|v| v.ok())
+        .map(|(_, v)| v)
+        .collect();
+
+    Ok(PendingOperationsResponse { operations })
+}
+
+fn query_available_tickets(deps: Deps) -> StdResult<AvailableTicketsResponse> {
+    let mut tickets = AVAILABLE_TICKETS.load(deps.storage)?;
+
+    Ok(AvailableTicketsResponse {
+        tickets: tickets.make_contiguous().to_vec(),
+    })
 }
 
 // ********** Helpers **********
@@ -391,12 +514,13 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
         .query(&CoreumQueries::AssetFT(Query::Params {}).into())?;
 
     if query_params_res.params.issue_fee != one_coin(info)? {
-        return Err(ContractError::InvalidIssueFee {});
+        return Err(ContractError::InvalidFundsAmount {});
     }
 
     Ok(())
 }
 
+//TODO: In the future we might have a way to do this in one instruction.
 fn add_mint_and_send(
     response: Response<CoreumMsg>,
     amount: Uint128,
@@ -413,4 +537,36 @@ fn add_mint_and_send(
     });
 
     response.add_messages([mint_msg, send_msg])
+}
+
+pub fn check_operation_exists(
+    storage: &mut dyn Storage,
+    sequence_number: Option<u64>,
+    ticket_number: Option<u64>,
+) -> Result<u64, ContractError> {
+    //Get the sequence or ticket number (priority for sequence number)
+    let operation_id = sequence_number.unwrap_or(ticket_number.unwrap_or_default());
+
+    if !PENDING_OPERATIONS.has(storage, operation_id) {
+        return Err(ContractError::PendingOperationNotFound {});
+    }
+
+    Ok(operation_id)
+}
+
+pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
+    //issuer+currency is the key we use to find an XRPL
+    let mut key = issuer.clone();
+    key.push_str(currency.as_str());
+    key
+}
+
+pub fn assert_relayer(deps: Deps, sender: Addr) -> Result<(), ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
+    if !config.relayers.contains(&sender) {
+        return Err(ContractError::UnauthorizedSender {});
+    }
+
+    Ok(())
 }

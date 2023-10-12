@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Empty};
 use cw_storage_plus::{Item, Map};
@@ -7,12 +9,15 @@ use cw_storage_plus::{Item, Map};
 #[repr(u8)]
 pub enum TopKey {
     Config = b'1',
-    Evidences = b'2',
-    ExecutedEvidenceOperations = b'3',
+    TxEvidences = b'2',
+    ProcessedTxs = b'3',
     CoreumTokens = b'4',
     XRPLTokens = b'5',
-    XRPLCurrencies = b'6',
-    CoreumDenoms = b'7',
+    UsedXRPLCurrenciesForCoreumTokens = b'6',
+    AvailableTickets = b'7',
+    UsedTickets = b'8',
+    PendingOperations = b'9',
+    PendingTicketUpdate = b'a',
 }
 
 impl TopKey {
@@ -29,12 +34,13 @@ impl TopKey {
 pub struct Config {
     pub relayers: Vec<Addr>,
     pub evidence_threshold: u32,
+    pub used_tickets_threshold: u32,
 }
 
 #[cw_serde]
 pub struct XRPLToken {
-    pub issuer: Option<String>,
-    pub currency: Option<String>,
+    pub issuer: String,
+    pub currency: String,
     pub coreum_denom: String,
 }
 
@@ -46,24 +52,37 @@ pub struct CoreumToken {
 }
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
-//Tokens registered from Coreum side - key is denom on Coreum chain
+//Tokens registered from Coreum side. These tokens are native Coreum tokens that are registered to be bridged - key is denom on Coreum chain
 pub const COREUM_TOKENS: Map<String, CoreumToken> = Map::new(TopKey::CoreumTokens.as_str());
-//Tokens registered from XRPL side - key is issuer+currency on XRPL
+//Tokens registered from XRPL side. These tokens are native XRPL tokens - key is issuer+currency on XRPL
 pub const XRPL_TOKENS: Map<String, XRPLToken> = Map::new(TopKey::XRPLTokens.as_str());
 // XRPL-Currencies used
-pub const XRPL_CURRENCIES: Map<String, Empty> = Map::new(TopKey::XRPLCurrencies.as_str());
-// Coreum denoms used
-pub const COREUM_DENOMS: Map<String, Empty> = Map::new(TopKey::CoreumDenoms.as_str());
+pub const USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS: Map<String, Empty> =
+    Map::new(TopKey::UsedXRPLCurrenciesForCoreumTokens.as_str());
 // Evidences, when enough evidences are collected, the transaction hashes are stored in EXECUTED_EVIDENCE_OPERATIONS.
-pub const EVIDENCES: Map<String, Evidences> = Map::new(TopKey::Evidences.as_str());
+pub const TX_EVIDENCES: Map<String, Evidences> = Map::new(TopKey::TxEvidences.as_str());
 // This will contain the transaction hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again
-pub const EXECUTED_EVIDENCE_OPERATIONS: Map<String, Empty> = Map::new(TopKey::ExecutedEvidenceOperations.as_str());
+pub const PROCESSED_TXS: Map<String, Empty> = Map::new(TopKey::ProcessedTxs.as_str());
+// Current tickets available
+pub const AVAILABLE_TICKETS: Item<VecDeque<u64>> = Item::new(TopKey::AvailableTickets.as_str());
+// Counter we use to control the used tickets threshold.
+// If we surpass this counter, we will trigger a new allocation operation.
+// Every time we allocate new tickets (operation is confirmed), we will substract the amount of new tickets allocated from this amount
+pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str());
+// Operations that are not confirmed/rejected yet. When enough relayers send evidences confirming the correct execution or rejection of this operation,
+// it will move to PROCESSED_TXS. Key is the ticket/sequence number
+pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
+// Flag to know if we are currently waiting for new_tickets to be allocated
+pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
 
 pub enum ContractActions {
     Instantiation,
     RegisterCoreumToken,
     RegisterXRPLToken,
     SendFromXRPLToCoreum,
+    RecoverTickets,
+    XRPLTransactionResult,
+    RegisterSignature,
 }
 
 impl ContractActions {
@@ -73,6 +92,9 @@ impl ContractActions {
             ContractActions::RegisterCoreumToken => "register_coreum_token",
             ContractActions::RegisterXRPLToken => "register_xrpl_token",
             ContractActions::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
+            ContractActions::RecoverTickets => "recover_tickets",
+            ContractActions::XRPLTransactionResult => "submit_xrpl_transaction_result",
+            ContractActions::RegisterSignature => "register_signature",
         }
     }
 }
@@ -82,8 +104,21 @@ pub struct Evidences {
     pub relayers: Vec<Addr>,
 }
 
-pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
-    let mut key = issuer.clone();
-    key.push_str(currency.as_str());
-    key
+#[cw_serde]
+pub struct Operation {
+    pub ticket_number: Option<u64>,
+    pub sequence_number: Option<u64>,
+    pub signatures: Vec<Signature>,
+    pub operation_type: OperationType,
+}
+
+#[cw_serde]
+pub enum OperationType {
+    AllocateTickets { number: u32 },
+}
+
+#[cw_serde]
+pub struct Signature {
+    pub relayer: Addr,
+    pub signature: String,
 }
