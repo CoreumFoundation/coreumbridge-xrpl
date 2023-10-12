@@ -62,10 +62,7 @@ pub enum QueryMsg {
     #[returns(CoreumTokenResponse)]
     CoreumToken { denom: String },
     #[returns(PendingOperationsResponse)]
-    PendingOperations {
-        offset: Option<u64>,
-        limit: Option<u32>,
-    },
+    PendingOperations {},
     #[returns(AvailableTicketsResponse)]
     AvailableTickets {},
 }

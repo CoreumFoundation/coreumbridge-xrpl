@@ -481,7 +481,7 @@ mod tests {
                 &query_issue_fee(&asset_ft),
                 &signer,
             )
-        .unwrap_err();
+            .unwrap_err();
 
         assert!(issuer_error
             .to_string()
@@ -982,10 +982,7 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: None,
-                    limit: None,
-                },
+                &QueryMsg::PendingOperations {},
             )
             .unwrap();
 
@@ -1052,10 +1049,7 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: None,
-                    limit: None,
-                },
+                &QueryMsg::PendingOperations {},
             )
             .unwrap();
 
@@ -1065,27 +1059,6 @@ mod tests {
                 ticket_number: None,
                 sequence_number: Some(sequence_number),
                 signatures: vec![], //No signatures yet
-                operation_type: OperationType::AllocateTickets { number: 5 }
-            }]
-        );
-
-        // Querying with pagination values should return the same
-        let query_pending_operations_with_pagination = wasm
-            .query::<QueryMsg, PendingOperationsResponse>(
-                &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: Some(0),
-                    limit: Some(1),
-                },
-            )
-            .unwrap();
-
-        assert_eq!(
-            query_pending_operations_with_pagination.operations,
-            [Operation {
-                ticket_number: None,
-                sequence_number: Some(sequence_number),
-                signatures: vec![],
                 operation_type: OperationType::AllocateTickets { number: 5 }
             }]
         );
@@ -1205,10 +1178,7 @@ mod tests {
         let query_pending_operation = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: None,
-                    limit: None,
-                },
+                &QueryMsg::PendingOperations {},
             )
             .unwrap();
 
@@ -1268,10 +1238,7 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: None,
-                    limit: None,
-                },
+                &QueryMsg::PendingOperations {},
             )
             .unwrap();
 
@@ -1388,10 +1355,7 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: None,
-                    limit: None,
-                },
+                &QueryMsg::PendingOperations {},
             )
             .unwrap();
 
