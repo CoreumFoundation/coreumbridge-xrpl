@@ -15,7 +15,7 @@ const (
 	// MinSendingPrecision - min decimals we allow to use for the truncation and rounding.
 	MinSendingPrecision = -15
 	// MaxSendingPrecision - max decimals we allow to use for the truncation and rounding.
-	MaxSendingPrecision = 16
+	MaxSendingPrecision = 15
 	// TransferRateDenominator - the rate denominator XRPL uses for the transfer.
 	// e.g. transferRate of 1005000000 is equivalent to a transfer fee of 0.5%.
 	TransferRateDenominator = int64(1000000000)
@@ -28,9 +28,9 @@ func TestReceivedXRPLToCoreumAmount(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		sendingValue     *rippledata.Value
-		sendingPrecision int
-		bridgingFee      *big.Int
+		sendingValue      *rippledata.Value
+		sendingPrecision  int
+		bridgingFee       *big.Int
 		tokenDecimals     int64
 		wantReceivedValue *big.Int
 	}{
@@ -147,9 +147,9 @@ func TestReceivedCoreumToXRPLAmount(t *testing.T) {
 
 	tests := []struct {
 		name                                      string
-		sendingValue     *big.Int
-		sendingPrecision int
-		bridgingFee      *big.Int
+		sendingValue                              *big.Int
+		sendingPrecision                          int
+		bridgingFee                               *big.Int
 		transferRate                              int64
 		tokenDecimals                             int64
 		wantReceivedValue                         *rippledata.Value

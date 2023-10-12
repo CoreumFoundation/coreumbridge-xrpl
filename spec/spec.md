@@ -60,9 +60,9 @@ Check [workflow](#register-token) for more details.
 ##### sending precision update
 
 It is possible to update a `sending precision` for both XRPL and coreum native tokens. The owner can do it by
-calling the contract. The contract updates the `sending precision` in the token registry and removes all pending 
-evidences with `sending from XRPL to coreum` type data form the evidence queue. We need it to avoid evidence 
-inconsistency, since an evidence could be accepted by the contract with old `sending precision`, and never got fully 
+calling the contract. The contract updates the `sending precision` in the token registry and removes all pending
+evidences with `sending from XRPL to coreum` type data form the evidence queue. We need it to avoid evidence
+inconsistency, since an evidence could be accepted by the contract with old `sending precision`, and never got fully
 confirmed with the new. The full rescan will help to check and submit such evidence one more time after the removal.
 
 ##### Token enabling/disabling
@@ -219,7 +219,7 @@ type. As the result some discrepancy might happen, examples:
 1. Send low and high amount to coreum and return high and low back.
    1.1. XRPLUser sends 10 XRPL native token to coreumUser (bridge account balance: 10, coreumUser balance: 10)
    1.2. XRPLUser sends 1e17 XRPL native token to coreumUser (bridge account balance: 1e17, coreumUser balance: 1e17 +
-   10)
+    10)
    1.3. coreumUser sends 1e17 XRPL native token to XRPLUser (bridge account balance: 0, XRPLUser balance: 1e17)
    1.3. coreumUser sends 10 XRPL native token to XRPLUser (bridge account: fail since we have nothing to send)
 
@@ -237,39 +237,46 @@ contain the 1 XRPL native token, but the bridge balance will remain the same.
 
 ### Handling
 
-The `sending precision` is the number in range `-15:17` we use for each register token. That value defines the min
-precision for the amount you can send. Base on the `sending precision` we can define the max amount for the
-single sending equal to `1e(18 - sending precision)-1`. That max amount together with the rounding rules will keep
-the sending amount in the range, where we can compute and send tokens from XRPL to coreum and from the coreum to XRPL.
-Also, such rounding make hardly possible to archive any of described issues.
+The `sending precision` is the number in range `-15:15` we use for each registered token. That value defines the min
+precision for the amount you can send (`round with sending precision` formula). And based on the `sending precision` we
+can define the `max amount` for the
+contract to hold per token. We have both limits to make hardly possible both issues described before. The rounding
+with `sending precision` will eliminate the risk of sending to low amount which could influence on the bridge, and
+the `max holding amount` will significantly limit the chance to hold and amount using which a holder can produce on XRPL
+the amount which is greater than rounded amount with the `sending precision` (`significant amount`).
 
-Examples:
-
-```text
-sending precision: 0
-max amount: 99999999999999999
-
-sending value: 99999.99999
-used value: 99999
-```
+That `sending precision` can be calculated using the formula:
 
 ```text
-sending precision: 2
-max amount: 999999999999999
+ratio = (totalTokenSupply) / 1e16 
+if ratio < 1 {
+    sendingPrecision = (count of zeros after `0.`)
+}
+if ratio == 1 {
+    sendingPrecision = 0
+}
+if ratio > 1 {
+    sendingPrecision = (count of integer numbers)
+}
 
-sending value: 99999.99999
-used value: 99999.99
+sendingPrecision = sendingPrecision - complexityCoefficient. 
 ```
 
-```text
-sending precision: -2
-max amount: 9999999999999999999
+The `1e16` is the minimum amount a holder should have to produce one token on the XRPL submitting one transaction.
 
-sending value: 99999.99999
-used value: 99900
-```
+The `totalTokenSupply` here is the total issued amount on the chain. For the XRPL chain we take simply total supply,
+but for the coreum chain we take the total supply divided by the token decimals, since the coreum chain uses the integer
+for the amounts, but XRPL float.
 
-Base on the rules we can describe the `roundWithSendingPrecision` formula.
+The `complexityCoefficient` is coefficient we use to improve the `risks handling`. Without that coefficient the formula
+provides a `risks handling` when an account holding the total supply is able to produce `significant amount`
+submitting on XRPL transaction just one transaction. But with that coefficient, the account will have to submit
+`1e complexityCoefficient` transactions minimum to do it. The recommended value for the `complexityCoefficient`
+is `4`, so it means `10000` transactions minimum are needed to produce the `significant amount`.
+
+The `maxHoldingAmount` is `1e(16 - sending precision)`.
+
+The `round with sending precision` formula is:
 
 ```test
 // for the simplicity the formula doesn't include zero division handling
@@ -289,6 +296,46 @@ func roundWithSendingPrecision (ratValue Rat, sendingPrecision int) Rat{
    
    return Rat{nominator, denominator}
 }
+```
+
+Rounding examples:
+
+```text
+sending precision: 0
+sending value: 99999.99999
+rounded value: 99999
+```
+
+```text
+sending precision: 2
+sending value: 99999.99999
+rounded value: 99999.99
+```
+
+```text
+sending precision: -2
+sending value: 99999.99999
+rounded value: 99900
+```
+
+Full usage examples:
+
+```text
+token total supply on XRPL: 500,000,000
+complexityCoefficient: 4
+ratio = 500,000,000 / 1e16 = 0.00000005
+sendingPrecision = 7 - complexityCoefficient = 3
+max amount = 1e(16 - 3) = 1e13
+min sending amount = 0.001
+```
+
+```text
+token total supply on coreum XRPL: 1e11 * 10e6(decimals)
+complexityCoefficient: 4
+ratio = 1e11 * 10e6(decimals)/10e6(decimals) / 1e16 = 0.00001
+sendingPrecision = 4 - complexityCoefficient = 0
+max amount = 1e(16 - 0) = 1e16
+min sending amount = 1
 ```
 
 ## Workflows
