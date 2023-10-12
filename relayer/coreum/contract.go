@@ -30,7 +30,7 @@ const (
 	ExecMethodUpdateOwnership     ExecMethod = "update_ownership"
 	ExecMethodRegisterCoreumToken ExecMethod = "register_coreum_token"
 	ExecMethodRegisterXRPLToken   ExecMethod = "register_x_r_p_l_token"
-	ExecMethodAcceptEvidence      ExecMethod = "accept_evidence"
+	ExecMethodSendEvidence        ExecMethod = "send_evidence"
 )
 
 // QueryMethod is contract query method.
@@ -56,16 +56,18 @@ const (
 
 // InstantiationConfig holds attributes used for the contract instantiation.
 type InstantiationConfig struct {
-	Owner             sdk.AccAddress
-	Admin             sdk.AccAddress
-	Relayers          []sdk.AccAddress
-	EvidenceThreshold int
+	Owner                sdk.AccAddress
+	Admin                sdk.AccAddress
+	Relayers             []sdk.AccAddress
+	EvidenceThreshold    int
+	UsedTicketsThreshold int
 }
 
 // ContractConfig is contract config.
 type ContractConfig struct {
-	Relayers          []sdk.AccAddress `json:"relayers"`
-	EvidenceThreshold int              `json:"evidence_threshold"`
+	Relayers             []sdk.AccAddress `json:"relayers"`
+	EvidenceThreshold    int              `json:"evidence_threshold"`
+	UsedTicketsThreshold int              `json:"used_tickets_threshold"`
 }
 
 // ContractOwnership is owner contract config.
@@ -90,8 +92,8 @@ type CoreumToken struct {
 	XRPLCurrency string `json:"xrpl_currency"`
 }
 
-// XRPLToCoreumEvidence is evidence with values represented sending from XRPL to coreum.
-type XRPLToCoreumEvidence struct {
+// XRPLToCoreumTransferEvidence is evidence with values represented sending from XRPL to coreum.
+type XRPLToCoreumTransferEvidence struct {
 	TxHash    string         `json:"tx_hash"`
 	Issuer    string         `json:"issuer"`
 	Currency  string         `json:"currency"`
@@ -102,9 +104,10 @@ type XRPLToCoreumEvidence struct {
 // ******************** Internal transport object  ********************
 
 type instantiateRequest struct {
-	Owner             sdk.AccAddress   `json:"owner"`
-	Relayers          []sdk.AccAddress `json:"relayers"`
-	EvidenceThreshold int              `json:"evidence_threshold"`
+	Owner                sdk.AccAddress   `json:"owner"`
+	Relayers             []sdk.AccAddress `json:"relayers"`
+	EvidenceThreshold    int              `json:"evidence_threshold"`
+	UsedTicketsThreshold int              `json:"used_tickets_threshold"`
 }
 
 type transferOwnershipRequest struct {
@@ -123,9 +126,9 @@ type registerXRPLTokenRequest struct {
 	Currency string `json:"currency"`
 }
 
-type acceptEvidenceRequest struct {
+type sendEvidenceRequest struct {
 	Evidence struct {
-		XRPLToCoreum XRPLToCoreumEvidence `json:"x_r_p_l_to_coreum"`
+		XRPLToCoreumTransfer XRPLToCoreumTransferEvidence `json:"x_r_p_l_to_coreum_transfer"`
 	} `json:"evidence"`
 }
 
@@ -210,9 +213,10 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 	c.log.Info(ctx, "The contract bytecode is deployed.", logger.Uint64Filed("codeID", codeID))
 
 	reqPayload, err := json.Marshal(instantiateRequest{
-		Owner:             config.Owner,
-		Relayers:          config.Relayers,
-		EvidenceThreshold: config.EvidenceThreshold,
+		Owner:                config.Owner,
+		Relayers:             config.Relayers,
+		EvidenceThreshold:    config.EvidenceThreshold,
+		UsedTicketsThreshold: config.UsedTicketsThreshold,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal instantiate payload")
@@ -346,13 +350,13 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	return txRes, nil
 }
 
-// AcceptXRPLToCoreumEvidence executes `update_ownership` method with accept action.
-func (c *ContractClient) AcceptXRPLToCoreumEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLToCoreumEvidence) (*sdk.TxResponse, error) {
-	req := acceptEvidenceRequest{}
-	req.Evidence.XRPLToCoreum = evidence
+// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed or rejected transaction.
+func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
+	req := sendEvidenceRequest{}
+	req.Evidence.XRPLToCoreumTransfer = evidence
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]acceptEvidenceRequest{
-			ExecMethodAcceptEvidence: req,
+		Body: map[ExecMethod]sendEvidenceRequest{
+			ExecMethodSendEvidence: req,
 		},
 	})
 	if err != nil {

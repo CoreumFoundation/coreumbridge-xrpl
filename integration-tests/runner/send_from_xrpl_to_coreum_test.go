@@ -73,7 +73,7 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 	sendTrustSet(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, xrplBridgeAcc, xrplNotRegisterCurrency)
 
 	// deploy contract
-	contractOwner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, []sdk.AccAddress{relayer1, relayer2, relayer3}, 2)
+	contractOwner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, []sdk.AccAddress{relayer1, relayer2, relayer3}, 2, 10)
 	// fund owner to cover registration fees
 	chains.Coreum.FundAccountWithOptions(ctx, t, contractOwner, coreumintegration.BalancesOptions{
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),

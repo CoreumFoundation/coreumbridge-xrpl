@@ -18,7 +18,7 @@ import (
 // EvidencesConsumer is the interface the evidences consumer interface.
 type EvidencesConsumer interface {
 	IsInitialized() bool
-	AcceptXRPLToCoreumEvidence(ctx context.Context, sender sdk.AccAddress, evidence coreum.XRPLToCoreumEvidence) (*sdk.TxResponse, error)
+	SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence coreum.XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error)
 }
 
 // XRPLAccountTxScanner is XRPL account tx scanner.
@@ -137,7 +137,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		return nil
 	}
 
-	evidence := coreum.XRPLToCoreumEvidence{
+	evidence := coreum.XRPLToCoreumTransferEvidence{
 		TxHash:    paymentTx.GetHash().String(),
 		Issuer:    deliveredXRPLAmount.Issuer.String(),
 		Currency:  deliveredXRPLAmount.Currency.String(),
@@ -145,7 +145,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		Recipient: coreumRecipient,
 	}
 
-	_, err = o.evidencesConsumer.AcceptXRPLToCoreumEvidence(ctx, o.relayerAddress, evidence)
+	_, err = o.evidencesConsumer.SendXRPLToCoreumTransferEvidence(ctx, o.relayerAddress, evidence)
 	if err == nil {
 		return nil
 	}
