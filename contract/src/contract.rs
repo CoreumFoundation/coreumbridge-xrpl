@@ -217,6 +217,8 @@ fn register_xrpl_token(
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
 
+    validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
+
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
     let key = build_xrpl_token_key(issuer.clone(), currency.clone());
@@ -225,12 +227,11 @@ fn register_xrpl_token(
         return Err(ContractError::XRPLTokenAlreadyRegistered { issuer, currency });
     }
 
-    // We generate a denom creating a Sha256 hash of the issuer, currency, decimals and current time
+    // We generate a denom creating a Sha256 hash of the issuer, currency and current time
     let to_hash = format!(
-        "{}{}{}{}",
+        "{}{}{}",
         issuer,
         currency.clone(),
-        XRPL_TOKENS_DECIMALS,
         env.block.time.seconds()
     )
     .into_bytes();
@@ -330,11 +331,7 @@ fn send_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             if threshold_reached {
                 match operation_result.clone() {
                     OperationResult::TicketsAllocation { tickets } => {
-                        handle_ticket_allocation_confirmation(
-                            deps.storage,
-                            tickets,
-                            confirmed,
-                        )?;
+                        handle_ticket_allocation_confirmation(deps.storage, tickets, confirmed)?;
                     }
                 }
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
@@ -566,6 +563,25 @@ pub fn assert_relayer(deps: Deps, sender: Addr) -> Result<(), ContractError> {
 
     if !config.relayers.contains(&sender) {
         return Err(ContractError::UnauthorizedSender {});
+    }
+
+    Ok(())
+}
+
+pub fn validate_xrpl_issuer_and_currency(
+    issuer: String,
+    currency: String,
+) -> Result<(), ContractError> {
+    //We validate that the length of the issuer is between 24 and 34 characters and starts with 'r'
+    if !(issuer.len() >= 24 && issuer.len() <= 34 && issuer.starts_with('r')) {
+        return Err(ContractError::InvalidXRPLIssuer {});
+    }
+
+    //We check that currency is either a standard 3 character currency or a 40 character hexadecimal string
+    if !(currency.len() == 3 && currency.is_ascii()
+        || currency.len() == 40 && currency.chars().all(|c| c.is_ascii_hexdigit()))
+    {
+        return Err(ContractError::InvalidXRPLCurrency {});
     }
 
     Ok(())

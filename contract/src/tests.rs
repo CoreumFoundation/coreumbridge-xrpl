@@ -461,14 +461,48 @@ mod tests {
 
         let test_tokens = vec![
             XRPLToken {
-                issuer: "issuer1".to_string(),
-                currency: "currency1".to_string(),
+                issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jp1".to_string(), //Valid issuer
+                currency: "USD".to_string(), //Valid standard currency code
             },
             XRPLToken {
-                issuer: "issuer2".to_string(),
-                currency: "currency2".to_string(),
+                issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jp2".to_string(), //Valid issuer
+                currency: "0158415500000000C1F76FF6ECB0BAC600000000".to_string(), //Valid hexadecimal currency
             },
         ];
+
+        //Registering a token with an invalid issuer should fail.
+        let issuer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: "not_valid_issuer".to_string(),
+                    currency: test_tokens[0].currency.clone(),
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+        .unwrap_err();
+
+        assert!(issuer_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLIssuer {}.to_string().as_str()));
+
+        //Registering a token with an valid issuer but invalid currency should fail.
+        let currency_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[1].issuer.clone(),
+                    currency: "invalid_currency".to_string(),
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(currency_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLCurrency {}.to_string().as_str()));
 
         //Register token with incorrect fee (too much), should fail
         let register_error = wasm
@@ -630,11 +664,10 @@ mod tests {
         );
 
         let test_token = XRPLToken {
-            issuer: "issuer1".to_string(),
-            currency: "currency1".to_string(),
+            issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(), //example of valid issuer
+            currency: "USD".to_string(),
         };
 
-        //Register a token
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterXRPLToken {

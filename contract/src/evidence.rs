@@ -9,6 +9,7 @@ use crate::{
 
 #[cw_serde]
 pub enum Evidence {
+    #[serde(rename = "xrpl_to_coreum_transfer")]
     XRPLToCoreumTransfer {
         tx_hash: String,
         issuer: String,
@@ -17,6 +18,7 @@ pub enum Evidence {
         recipient: Addr,
     },
     //This type will be used for ANY transaction that comes from XRPL and that is notifying a confirmation or rejection.
+    #[serde(rename = "xrpl_transaction_result")]
     XRPLTransactionResult {
         tx_hash: String,
         sequence_number: Option<u64>,

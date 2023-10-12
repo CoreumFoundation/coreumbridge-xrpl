@@ -29,7 +29,7 @@ type ExecMethod string
 const (
 	ExecMethodUpdateOwnership     ExecMethod = "update_ownership"
 	ExecMethodRegisterCoreumToken ExecMethod = "register_coreum_token"
-	ExecMethodRegisterXRPLToken   ExecMethod = "register_x_r_p_l_token"
+	ExecMethodRegisterXRPLToken   ExecMethod = "register_xrpl_token"
 	ExecMethodSendEvidence        ExecMethod = "send_evidence"
 )
 
@@ -40,7 +40,7 @@ type QueryMethod string
 const (
 	QueryMethodConfig       QueryMethod = "config"
 	QueryMethodOwnership    QueryMethod = "ownership"
-	QueryMethodXRPLTokens   QueryMethod = "x_r_p_l_tokens"
+	QueryMethodXRPLTokens   QueryMethod = "xrpl_tokens"
 	QueryMethodCoreumTokens QueryMethod = "coreum_tokens"
 )
 
@@ -128,7 +128,7 @@ type registerXRPLTokenRequest struct {
 
 type sendEvidenceRequest struct {
 	Evidence struct {
-		XRPLToCoreumTransfer XRPLToCoreumTransferEvidence `json:"x_r_p_l_to_coreum_transfer"`
+		XRPLToCoreumTransfer XRPLToCoreumTransferEvidence `json:"xrpl_to_coreum_transfer"`
 	} `json:"evidence"`
 }
 
