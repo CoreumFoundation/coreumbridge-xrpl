@@ -5,8 +5,6 @@ use crate::{
     state::{Signature, PENDING_OPERATIONS},
 };
 
-pub const SIGNATURE_LENGTH: usize = 142;
-
 pub fn add_signature(
     deps: DepsMut,
     operation_id: u64,
@@ -17,10 +15,6 @@ pub fn add_signature(
     let mut pending_operation = PENDING_OPERATIONS
         .load(deps.storage, operation_id)
         .map_err(|_| ContractError::PendingOperationNotFound {})?;
-
-    if signature.len() != SIGNATURE_LENGTH {
-        return Err(ContractError::InvalidSignatureLength {});
-    }
 
     let mut signatures = pending_operation.signatures;
 

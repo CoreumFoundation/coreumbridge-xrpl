@@ -31,9 +31,11 @@ use cw_utils::one_coin;
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const DEFAULT_MAX_LIMIT: u32 = 250;
+const MAX_PAGE_LIMIT: u32 = 250;
+
 const XRP_SYMBOL: &str = "XRP";
 const XRP_SUBUNIT: &str = "drop";
+const XRP_DECIMALS: u32 = 6;
 
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
@@ -91,7 +93,7 @@ pub fn instantiate(
     let xrp_issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
         symbol: XRP_SYMBOL.to_string(),
         subunit: XRP_SUBUNIT.to_string(),
-        precision: 6,
+        precision: XRP_DECIMALS,
         initial_amount: Uint128::zero(),
         description: None,
         features: Some(vec![MINTING, BURNING, IBC]),
@@ -233,7 +235,7 @@ fn register_xrpl_token(
         XRPL_TOKENS_DECIMALS,
         env.block.time.seconds()
     )
-    .into_bytes();
+        .into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
     let hex_string = hash_bytes(to_hash)
@@ -373,7 +375,7 @@ fn recover_tickets(
     PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
-    if number_to_allocate == 0 {
+    if number_to_allocate == 0 || number_to_allocate > MAX_TICKETS  {
         return Err(ContractError::InvalidTicketNumberToAllocate {});
     }
 
@@ -443,7 +445,7 @@ fn query_xrpl_tokens(
     offset: Option<u64>,
     limit: Option<u32>,
 ) -> StdResult<XRPLTokensResponse> {
-    let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let offset = offset.unwrap_or(0);
     let tokens: Vec<XRPLToken> = XRPL_TOKENS
         .range(deps.storage, None, None, Order::Ascending)
@@ -461,7 +463,7 @@ fn query_coreum_tokens(
     offset: Option<u64>,
     limit: Option<u32>,
 ) -> StdResult<CoreumTokensResponse> {
-    let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let offset = offset.unwrap_or(0);
     let tokens: Vec<CoreumToken> = COREUM_TOKENS
         .range(deps.storage, None, None, Order::Ascending)
@@ -485,7 +487,7 @@ fn query_pending_operations(
     offset: Option<u64>,
     limit: Option<u32>,
 ) -> StdResult<PendingOperationsResponse> {
-    let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let offset = offset.unwrap_or(0);
     let operations: Vec<Operation> = PENDING_OPERATIONS
         .range(deps.storage, None, None, Order::Ascending)

@@ -31,6 +31,8 @@ const (
 	ExecMethodRegisterCoreumToken ExecMethod = "register_coreum_token"
 	ExecMethodRegisterXRPLToken   ExecMethod = "register_x_r_p_l_token"
 	ExecMethodSendEvidence        ExecMethod = "send_evidence"
+	ExecMethodRecoverTickets      ExecMethod = "recover_tickets"
+	ExecMethodRegisterSignature   ExecMethod = "register_signature"
 )
 
 // QueryMethod is contract query method.
@@ -38,21 +40,30 @@ type QueryMethod string
 
 // QueryMethods.
 const (
-	QueryMethodConfig       QueryMethod = "config"
-	QueryMethodOwnership    QueryMethod = "ownership"
-	QueryMethodXRPLTokens   QueryMethod = "x_r_p_l_tokens"
-	QueryMethodCoreumTokens QueryMethod = "coreum_tokens"
+	QueryMethodConfig            QueryMethod = "config"
+	QueryMethodOwnership         QueryMethod = "ownership"
+	QueryMethodXRPLTokens        QueryMethod = "x_r_p_l_tokens"
+	QueryMethodCoreumTokens      QueryMethod = "coreum_tokens"
+	QueryMethodPendingOperations QueryMethod = "pending_operations"
+	QueryMethodAvailableTickets  QueryMethod = "available_tickets"
 )
 
 const (
-	notOwnerErrorString                     = "Caller is not the contract's current owner"
-	coreumTokenAlreadyRegisteredErrorString = "CoreumTokenAlreadyRegistered"
-	xrplTokenAlreadyRegisteredErrorString   = "XRPLTokenAlreadyRegistered"
-	unauthorizedSenderErrorString           = "UnauthorizedSender"
-	operationAlreadyExecutedErrorString     = "OperationAlreadyExecuted"
-	tokenNotRegisteredErrorString           = "TokenNotRegistered"
-	evidenceAlreadyProvidedString           = "EvidenceAlreadyProvided"
+	notOwnerErrorString                      = "Caller is not the contract's current owner"
+	coreumTokenAlreadyRegisteredErrorString  = "CoreumTokenAlreadyRegistered"
+	xrplTokenAlreadyRegisteredErrorString    = "XRPLTokenAlreadyRegistered"
+	unauthorizedSenderErrorString            = "UnauthorizedSender"
+	operationAlreadyExecutedErrorString      = "OperationAlreadyExecuted"
+	tokenNotRegisteredErrorString            = "TokenNotRegistered"
+	evidenceAlreadyProvidedErrorString       = "EvidenceAlreadyProvided"
+	pendingTicketUpdateErrorString           = "PendingTicketUpdate"
+	invalidTicketNumberToAllocateErrorString = "InvalidTicketNumberToAllocate"
+	signatureAlreadyProvidedErrorString      = "SignatureAlreadyProvided"
+	pendingOperationNotFoundErrorString      = "PendingOperationNotFound"
+	// FIXME add and test all new errors !!!
 )
+
+// FIXME check is we need to remove the paging form the operations
 
 // InstantiationConfig holds attributes used for the contract instantiation.
 type InstantiationConfig struct {
@@ -101,6 +112,45 @@ type XRPLToCoreumTransferEvidence struct {
 	Recipient sdk.AccAddress `json:"recipient"`
 }
 
+// XRPLTransactionResultEvidence is type which contains common transaction result data.
+type XRPLTransactionResultEvidence struct {
+	TxHash         string  `json:"tx_hash"`
+	SequenceNumber *uint64 `json:"sequence_number"`
+	TicketNumber   *uint64 `json:"ticket_number"`
+	Confirmed      bool    `json:"confirmed"`
+}
+
+// XRPLTransactionResultTicketsAllocationEvidence is evidence of the tickets allocation transaction.
+type XRPLTransactionResultTicketsAllocationEvidence struct {
+	XRPLTransactionResultEvidence
+	// we don't use the tag here since have we don't use that struct as transport object
+	Tickets []uint64
+}
+
+// Signature is a pair of the relayer provided the signature and signature string.
+type Signature struct {
+	Relayer   string `json:"relayer"`
+	Signature string `json:"signature"`
+}
+
+// OperationTypeAllocateTickets is allocated tickets operation type.
+type OperationTypeAllocateTickets struct {
+	Number uint32 `json:"number"`
+}
+
+// OperationType is operation type.
+type OperationType struct {
+	AllocateTickets OperationTypeAllocateTickets `json:"allocate_tickets"`
+}
+
+// Operation is contract operation which should be signed and executed.
+type Operation struct {
+	TicketNumber   uint64        `json:"ticket_number"`
+	SequenceNumber uint64        `json:"sequence_number"`
+	Signatures     []Signature   `json:"signatures"`
+	OperationType  OperationType `json:"operation_type"`
+}
+
 // ******************** Internal transport object  ********************
 
 type instantiateRequest struct {
@@ -127,9 +177,35 @@ type registerXRPLTokenRequest struct {
 }
 
 type sendEvidenceRequest struct {
-	Evidence struct {
-		XRPLToCoreumTransfer XRPLToCoreumTransferEvidence `json:"x_r_p_l_to_coreum_transfer"`
-	} `json:"evidence"`
+	Evidence evidences `json:"evidence"`
+}
+
+type recoverTicketsRequest struct {
+	SequenceNumber  uint64  `json:"sequence_number"`
+	NumberOfTickets *uint32 `json:"number_of_tickets,omitempty"`
+}
+
+type registerSequenceRequest struct {
+	OperationID uint64 `json:"operation_id"`
+	Signature   string `json:"signature"`
+}
+
+type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
+	Tickets []uint64 `json:"tickets"`
+}
+
+type xrplTransactionEvidenceOperationResult struct {
+	TicketsAllocation *xrplTransactionEvidenceTicketsAllocationOperationResult `json:"tickets_allocation,omitempty"`
+}
+
+type xrplTransactionResultEvidence struct {
+	XRPLTransactionResultEvidence
+	OperationResult xrplTransactionEvidenceOperationResult `json:"operation_result"`
+}
+
+type evidences struct {
+	XRPLToCoreumTransfer  *XRPLToCoreumTransferEvidence  `json:"x_r_p_l_to_coreum_transfer,omitempty"`
+	XRPLTransactionResult *xrplTransactionResultEvidence `json:"x_r_p_l_transaction_result,omitempty"`
 }
 
 type xrplTokensResponse struct {
@@ -138,6 +214,14 @@ type xrplTokensResponse struct {
 
 type coreumTokensResponse struct {
 	Tokens []CoreumToken `json:"tokens"`
+}
+
+type pendingOperationsResponse struct {
+	Operations []Operation `json:"operations"`
+}
+
+type availableTicketsResponse struct {
+	Tickets []uint64 `json:"tickets"`
 }
 
 type pagingRequest struct {
@@ -350,13 +434,76 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	return txRes, nil
 }
 
-// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed or rejected transaction.
+// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed XRPL to coreum transfer transaction.
 func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
-	req := sendEvidenceRequest{}
-	req.Evidence.XRPLToCoreumTransfer = evidence
+	req := sendEvidenceRequest{
+		Evidence: evidences{
+			XRPLToCoreumTransfer: &evidence,
+		},
+	}
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]sendEvidenceRequest{
 			ExecMethodSendEvidence: req,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of a confirmed or rejected ticket allocation transaction.
+func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLTransactionResultTicketsAllocationEvidence) (*sdk.TxResponse, error) {
+	req := sendEvidenceRequest{
+		Evidence: evidences{
+			XRPLTransactionResult: &xrplTransactionResultEvidence{
+				XRPLTransactionResultEvidence: evidence.XRPLTransactionResultEvidence,
+				OperationResult: xrplTransactionEvidenceOperationResult{
+					TicketsAllocation: &xrplTransactionEvidenceTicketsAllocationOperationResult{
+						Tickets: evidence.Tickets,
+					},
+				},
+			},
+		},
+	}
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]sendEvidenceRequest{
+			ExecMethodSendEvidence: req,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// RecoverTickets executes `recover_tickets` method.
+func (c *ContractClient) RecoverTickets(ctx context.Context, sender sdk.AccAddress, sequenceNumber uint64, numberOfTickets *uint32) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]recoverTicketsRequest{
+			ExecMethodRecoverTickets: {
+				SequenceNumber:  sequenceNumber,
+				NumberOfTickets: numberOfTickets,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// RegisterSignature executes `register_signature` method.
+func (c *ContractClient) RegisterSignature(ctx context.Context, sender sdk.AccAddress, operationID uint64, signature string) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]registerSequenceRequest{
+			ExecMethodRegisterSignature: {
+				OperationID: operationID,
+				Signature:   signature,
+			},
 		},
 	})
 	if err != nil {
@@ -432,7 +579,38 @@ func (c *ContractClient) GetCoreumTokens(ctx context.Context) ([]CoreumToken, er
 	return tokens, nil
 }
 
-// GetXRPLTokens returns a list of paginated XRPL tokens.
+// GetPendingOperations returns a list of all pending operations.
+func (c *ContractClient) GetPendingOperations(ctx context.Context) ([]Operation, error) {
+	operations := make([]Operation, 0)
+	offset := uint64(0)
+	for {
+		pageTokens, err := c.getPaginatedPendingOperations(ctx, &offset, &c.cfg.PageLimit)
+		if err != nil {
+			return nil, err
+		}
+		if len(pageTokens) == 0 {
+			break
+		}
+		operations = append(operations, pageTokens...)
+		offset += uint64(c.cfg.PageLimit)
+	}
+
+	return operations, nil
+}
+
+// GetAvailableTickets returns a list of registered not used tickets.
+func (c *ContractClient) GetAvailableTickets(ctx context.Context) ([]uint64, error) {
+	var response availableTicketsResponse
+	err := c.query(ctx, map[QueryMethod]struct{}{
+		QueryMethodAvailableTickets: {},
+	}, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Tickets, nil
+}
+
 func (c *ContractClient) getPaginatedXRPLTokens(ctx context.Context, offset *uint64, limit *uint32) ([]XRPLToken, error) {
 	var response xrplTokensResponse
 	err := c.query(ctx, map[QueryMethod]pagingRequest{
@@ -448,7 +626,6 @@ func (c *ContractClient) getPaginatedXRPLTokens(ctx context.Context, offset *uin
 	return response.Tokens, nil
 }
 
-// GetXRPLTokens returns a list of paginated XRPL tokens.
 func (c *ContractClient) getPaginatedCoreumTokens(ctx context.Context, offset *uint64, limit *uint32) ([]CoreumToken, error) {
 	var response coreumTokensResponse
 	err := c.query(ctx, map[QueryMethod]pagingRequest{
@@ -462,6 +639,21 @@ func (c *ContractClient) getPaginatedCoreumTokens(ctx context.Context, offset *u
 	}
 
 	return response.Tokens, nil
+}
+
+func (c *ContractClient) getPaginatedPendingOperations(ctx context.Context, offset *uint64, limit *uint32) ([]Operation, error) {
+	var response pendingOperationsResponse
+	err := c.query(ctx, map[QueryMethod]pagingRequest{
+		QueryMethodPendingOperations: {
+			Offset: offset,
+			Limit:  limit,
+		},
+	}, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Operations, nil
 }
 
 func (c *ContractClient) queryAssetFTIssueFee(ctx context.Context) (sdk.Coin, error) {
@@ -571,7 +763,27 @@ func IsTokenNotRegisteredError(err error) bool {
 
 // IsEvidenceAlreadyProvidedError returns true if error is `EvidenceAlreadyProvided` error.
 func IsEvidenceAlreadyProvidedError(err error) bool {
-	return isError(err, evidenceAlreadyProvidedString)
+	return isError(err, evidenceAlreadyProvidedErrorString)
+}
+
+// IsPendingTicketUpdateError returns true if error is `PendingTicketUpdate` error.
+func IsPendingTicketUpdateError(err error) bool {
+	return isError(err, pendingTicketUpdateErrorString)
+}
+
+// IsInvalidTicketNumberToAllocateError returns true if error is `InvalidTicketNumberToAllocate` error.
+func IsInvalidTicketNumberToAllocateError(err error) bool {
+	return isError(err, invalidTicketNumberToAllocateErrorString)
+}
+
+// IsSignatureAlreadyProvidedError returns true if error is `IsSignatureAlreadyProvided` error.
+func IsSignatureAlreadyProvidedError(err error) bool {
+	return isError(err, signatureAlreadyProvidedErrorString)
+}
+
+// IsPendingOperationNotFoundError returns true if error is `IsPendingOperationNotFound` error.
+func IsPendingOperationNotFoundError(err error) bool {
+	return isError(err, pendingOperationNotFoundErrorString)
 }
 
 func isError(err error, errorString string) bool {

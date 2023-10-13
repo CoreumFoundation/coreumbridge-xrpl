@@ -3,7 +3,7 @@ use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
 
-use crate::{contract::MAX_TICKETS, signatures::SIGNATURE_LENGTH};
+use crate::{contract::MAX_TICKETS};
 
 #[derive(Error, Debug)]
 pub enum ContractError {
@@ -76,10 +76,4 @@ pub enum ContractError {
 
     #[error("InvalidTicketNumberToAllocate: The number of tickets to recover must be more than 0")]
     InvalidTicketNumberToAllocate {},
-
-    #[error(
-        "InvalidSignatureLength: The length of the signature must be {} characters",
-        SIGNATURE_LENGTH
-    )]
-    InvalidSignatureLength {},
 }
