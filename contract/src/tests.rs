@@ -696,7 +696,7 @@ mod tests {
         //Bridge with 1 relayer should immediately mint and send to the receiver address
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
                     tx_hash: hash.clone(),
                     issuer: test_token.issuer.clone(),
@@ -761,7 +761,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: test_token.issuer.clone(),
@@ -783,7 +783,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: "not_registered".to_string(),
@@ -805,7 +805,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: test_token.issuer.clone(),
@@ -826,7 +826,7 @@ mod tests {
         //First relayer to execute should not trigger a mint and send
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
                     tx_hash: hash.clone(),
                     issuer: test_token.issuer.clone(),
@@ -854,7 +854,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: test_token.issuer.clone(),
@@ -877,7 +877,7 @@ mod tests {
         //Second relayer to execute should trigger a mint and send
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
                     tx_hash: hash.clone(),
                     issuer: test_token.issuer.clone(),
@@ -905,7 +905,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: test_token.issuer.clone(),
@@ -930,7 +930,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: test_token.issuer.clone(),
@@ -1072,7 +1072,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLTransactionResult {
                         tx_hash: tx_hash.clone(),
                         sequence_number: Some(sequence_number + 1),
@@ -1200,7 +1200,7 @@ mod tests {
         //Relaying the rejected operation twice should remove it from pending operations but not allocate tickets
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: tx_hash.clone(),
                     sequence_number: Some(sequence_number),
@@ -1218,7 +1218,7 @@ mod tests {
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: tx_hash.clone(),
                     sequence_number: Some(sequence_number),
@@ -1290,7 +1290,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLTransactionResult {
                         tx_hash: tx_hash.clone(),
                         sequence_number: Some(sequence_number),
@@ -1317,7 +1317,7 @@ mod tests {
         //Relaying the confirmed operation twice should remove it from pending operations and allocate tickets
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: tx_hash.clone(),
                     sequence_number: Some(sequence_number),
@@ -1335,7 +1335,7 @@ mod tests {
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: tx_hash.clone(),
                     sequence_number: Some(sequence_number),
@@ -1455,7 +1455,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: "random_hash".to_string(),
                         issuer: "random_issuer".to_string(),

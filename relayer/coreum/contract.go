@@ -30,7 +30,7 @@ const (
 	ExecMethodUpdateOwnership     ExecMethod = "update_ownership"
 	ExecMethodRegisterCoreumToken ExecMethod = "register_coreum_token"
 	ExecMethodRegisterXRPLToken   ExecMethod = "register_xrpl_token"
-	ExecMethodSendEvidence        ExecMethod = "send_evidence"
+	ExecMethodSaveEvidence        ExecMethod = "save_evidence"
 )
 
 // QueryMethod is contract query method.
@@ -126,7 +126,7 @@ type registerXRPLTokenRequest struct {
 	Currency string `json:"currency"`
 }
 
-type sendEvidenceRequest struct {
+type saveEvidenceRequest struct {
 	Evidence struct {
 		XRPLToCoreumTransfer XRPLToCoreumTransferEvidence `json:"xrpl_to_coreum_transfer"`
 	} `json:"evidence"`
@@ -352,11 +352,11 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 
 // SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed or rejected transaction.
 func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
-	req := sendEvidenceRequest{}
+	req := saveEvidenceRequest{}
 	req.Evidence.XRPLToCoreumTransfer = evidence
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]sendEvidenceRequest{
-			ExecMethodSendEvidence: req,
+		Body: map[ExecMethod]saveEvidenceRequest{
+			ExecMethodSaveEvidence: req,
 		},
 	})
 	if err != nil {

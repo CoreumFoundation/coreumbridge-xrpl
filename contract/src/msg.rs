@@ -37,7 +37,7 @@ pub enum ExecuteMsg {
         operation_id: u64,
         signature: String,
     },
-    SendEvidence {
+    SaveEvidence {
         evidence: Evidence,
     },
 }

@@ -136,8 +136,8 @@ pub fn execute(
         ExecuteMsg::RegisterXRPLToken { issuer, currency } => {
             register_xrpl_token(deps, env, issuer, currency, info)
         }
-        ExecuteMsg::SendEvidence { evidence } => {
-            send_evidence(deps.into_empty(), info.sender, evidence)
+        ExecuteMsg::SaveEvidence { evidence } => {
+            save_evidence(deps.into_empty(), info.sender, evidence)
         }
         ExecuteMsg::RecoverTickets {
             sequence_number,
@@ -281,7 +281,7 @@ fn register_xrpl_token(
         .add_attribute("denom", denom))
 }
 
-fn send_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
+fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
     evidence.clone().validate()?;
 
     assert_relayer(deps.as_ref(), sender.clone())?;
