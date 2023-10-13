@@ -461,14 +461,48 @@ mod tests {
 
         let test_tokens = vec![
             XRPLToken {
-                issuer: "issuer1".to_string(),
-                currency: "currency1".to_string(),
+                issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jp1".to_string(), //Valid issuer
+                currency: "USD".to_string(), //Valid standard currency code
             },
             XRPLToken {
-                issuer: "issuer2".to_string(),
-                currency: "currency2".to_string(),
+                issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jp2".to_string(), //Valid issuer
+                currency: "0158415500000000C1F76FF6ECB0BAC600000000".to_string(), //Valid hexadecimal currency
             },
         ];
+
+        //Registering a token with an invalid issuer should fail.
+        let issuer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: "not_valid_issuer".to_string(),
+                    currency: test_tokens[0].currency.clone(),
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(issuer_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLIssuer {}.to_string().as_str()));
+
+        //Registering a token with an valid issuer but invalid currency should fail.
+        let currency_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[1].issuer.clone(),
+                    currency: "invalid_currency".to_string(),
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(currency_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLCurrency {}.to_string().as_str()));
 
         //Register token with incorrect fee (too much), should fail
         let register_error = wasm
@@ -630,11 +664,10 @@ mod tests {
         );
 
         let test_token = XRPLToken {
-            issuer: "issuer1".to_string(),
-            currency: "currency1".to_string(),
+            issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(), //example of valid issuer
+            currency: "USD".to_string(),
         };
 
-        //Register a token
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterXRPLToken {
@@ -663,7 +696,7 @@ mod tests {
         //Bridge with 1 relayer should immediately mint and send to the receiver address
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
                     tx_hash: hash.clone(),
                     issuer: test_token.issuer.clone(),
@@ -728,7 +761,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: test_token.issuer.clone(),
@@ -750,7 +783,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: "not_registered".to_string(),
@@ -772,7 +805,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: test_token.issuer.clone(),
@@ -793,7 +826,7 @@ mod tests {
         //First relayer to execute should not trigger a mint and send
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
                     tx_hash: hash.clone(),
                     issuer: test_token.issuer.clone(),
@@ -821,7 +854,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: test_token.issuer.clone(),
@@ -844,7 +877,7 @@ mod tests {
         //Second relayer to execute should trigger a mint and send
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
                     tx_hash: hash.clone(),
                     issuer: test_token.issuer.clone(),
@@ -872,7 +905,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: test_token.issuer.clone(),
@@ -897,7 +930,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: hash.clone(),
                         issuer: test_token.issuer.clone(),
@@ -949,10 +982,7 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: None,
-                    limit: None,
-                },
+                &QueryMsg::PendingOperations {},
             )
             .unwrap();
 
@@ -1019,10 +1049,7 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: None,
-                    limit: None,
-                },
+                &QueryMsg::PendingOperations {},
             )
             .unwrap();
 
@@ -1036,27 +1063,6 @@ mod tests {
             }]
         );
 
-        // Querying with pagination values should return the same
-        let query_pending_operations_with_pagination = wasm
-            .query::<QueryMsg, PendingOperationsResponse>(
-                &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: Some(0),
-                    limit: Some(1),
-                },
-            )
-            .unwrap();
-
-        assert_eq!(
-            query_pending_operations_with_pagination.operations,
-            [Operation {
-                ticket_number: None,
-                sequence_number: Some(sequence_number),
-                signatures: vec![],
-                operation_type: OperationType::AllocateTickets { number: 5 }
-            }]
-        );
-
         let tx_hash = "random_hash".to_string();
         let sequence_number = 1;
         let tickets = vec![1, 2, 3, 4, 5];
@@ -1066,7 +1072,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLTransactionResult {
                         tx_hash: tx_hash.clone(),
                         sequence_number: Some(sequence_number + 1),
@@ -1172,10 +1178,7 @@ mod tests {
         let query_pending_operation = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: None,
-                    limit: None,
-                },
+                &QueryMsg::PendingOperations {},
             )
             .unwrap();
 
@@ -1197,7 +1200,7 @@ mod tests {
         //Relaying the rejected operation twice should remove it from pending operations but not allocate tickets
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: tx_hash.clone(),
                     sequence_number: Some(sequence_number),
@@ -1215,7 +1218,7 @@ mod tests {
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: tx_hash.clone(),
                     sequence_number: Some(sequence_number),
@@ -1235,10 +1238,7 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: None,
-                    limit: None,
-                },
+                &QueryMsg::PendingOperations {},
             )
             .unwrap();
 
@@ -1290,7 +1290,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLTransactionResult {
                         tx_hash: tx_hash.clone(),
                         sequence_number: Some(sequence_number),
@@ -1317,7 +1317,7 @@ mod tests {
         //Relaying the confirmed operation twice should remove it from pending operations and allocate tickets
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: tx_hash.clone(),
                     sequence_number: Some(sequence_number),
@@ -1335,7 +1335,7 @@ mod tests {
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::SendEvidence {
+            &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: tx_hash.clone(),
                     sequence_number: Some(sequence_number),
@@ -1355,10 +1355,7 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {
-                    offset: None,
-                    limit: None,
-                },
+                &QueryMsg::PendingOperations {},
             )
             .unwrap();
 
@@ -1458,7 +1455,7 @@ mod tests {
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::SendEvidence {
+                &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
                         tx_hash: "random_hash".to_string(),
                         issuer: "random_issuer".to_string(),

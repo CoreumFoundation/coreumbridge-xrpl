@@ -82,4 +82,10 @@ pub enum ContractError {
         SIGNATURE_LENGTH
     )]
     InvalidSignatureLength {},
+
+    #[error("InvalidXRPLIssuer: The issuer must be a valid XRPL address")]
+    InvalidXRPLIssuer {},
+
+    #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
+    InvalidXRPLCurrency {},
 }
