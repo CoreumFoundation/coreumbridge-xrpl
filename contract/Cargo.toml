@@ -25,8 +25,8 @@ overflow-checks = true
 
 [dependencies]
 coreum-wasm-sdk = "0.2.0"
-cosmwasm-schema = "1.4.0"
-cosmwasm-std = "1.4.0"
+cosmwasm-schema = "1.4.1"
+cosmwasm-std = "1.4.1"
 cw-ownable = "0.5.1"
 cw-storage-plus = "1.1.0"
 cw-utils = "1.0.2"
