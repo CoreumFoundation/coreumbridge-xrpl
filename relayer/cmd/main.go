@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/run"
-	coruemapp "github.com/CoreumFoundation/coreum/v3/app"
+	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
 	"github.com/CoreumFoundation/coreum/v3/pkg/config"
 )
 
@@ -30,8 +30,6 @@ func main() {
 	run.Tool("CoreumbridgeXRPLRelayer", func(ctx context.Context) error {
 		rootCmd := RootCmd(ctx)
 		if err := rootCmd.Execute(); err != nil && !errors.Is(err, context.Canceled) {
-			// TODO(dzmitryhil) replace to logger once we integrate the runner
-			fmt.Printf("Failed to executed root cmd, err:%s.\n", err.Error())
 			return err
 		}
 
@@ -41,7 +39,7 @@ func main() {
 
 // RootCmd returns the root cmd.
 func RootCmd(ctx context.Context) *cobra.Command {
-	encodingConfig := config.NewEncodingConfig(coruemapp.ModuleBasics)
+	encodingConfig := config.NewEncodingConfig(coreumapp.ModuleBasics)
 	clientCtx := client.Context{}.
 		WithCodec(encodingConfig.Codec).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
@@ -81,19 +79,18 @@ func StartCmd(ctx context.Context) *cobra.Command {
 			}
 			keyRecord, err := clientCtx.Keyring.Key(relayerKeyName)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "failed to get key from keyring")
 			}
 			address, err := keyRecord.GetAddress()
 			if err != nil {
-				return err
+				return errors.Wrap(err, "failed to get address from the key record")
 			}
 			for {
 				select {
 				case <-ctx.Done():
 					return nil
-				default:
+				case <-time.After(time.Second):
 					fmt.Printf("Address from the keyring:%s\n", address.String())
-					<-time.After(time.Second)
 				}
 			}
 		},

@@ -19,4 +19,4 @@ FROM alpine:3.18
 
 COPY --from=builder /code/build/coreumbridge-xrpl-relayer /app/coreumbridge-xrpl-relayer
 
-ENTRYPOINT ["./app/coreumbridge-xrpl-relayer"]
+ENTRYPOINT ["/app/coreumbridge-xrpl-relayer"]
