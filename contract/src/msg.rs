@@ -24,6 +24,7 @@ pub enum ExecuteMsg {
         denom: String,
         decimals: u32,
     },
+    #[serde(rename = "register_xrpl_token")]
     RegisterXRPLToken {
         issuer: String,
         currency: String,
@@ -36,7 +37,7 @@ pub enum ExecuteMsg {
         operation_id: u64,
         signature: String,
     },
-    SendEvidence {
+    SaveEvidence {
         evidence: Evidence,
     },
 }
@@ -48,6 +49,7 @@ pub enum QueryMsg {
     #[returns(Config)]
     Config {},
     #[returns(XRPLTokensResponse)]
+    #[serde(rename = "xrpl_tokens")]
     XRPLTokens {
         offset: Option<u64>,
         limit: Option<u32>,
@@ -60,10 +62,7 @@ pub enum QueryMsg {
     #[returns(CoreumTokenResponse)]
     CoreumToken { denom: String },
     #[returns(PendingOperationsResponse)]
-    PendingOperations {
-        offset: Option<u64>,
-        limit: Option<u32>,
-    },
+    PendingOperations {},
     #[returns(AvailableTicketsResponse)]
     AvailableTickets {},
 }
