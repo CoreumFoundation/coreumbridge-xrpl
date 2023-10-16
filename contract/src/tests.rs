@@ -94,7 +94,7 @@ mod tests {
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
             xrpl_address: "xrpl_address".to_string(),
-            xrpl_pubkey: "xrpl_pubkey".to_string(),
+            xrpl_pub_key: "xrpl_pub_key".to_string(),
         };
 
         //We check that we can store and instantiate
@@ -198,7 +198,7 @@ mod tests {
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
             xrpl_address: "xrpl_address".to_string(),
-            xrpl_pubkey: "xrpl_pubkey".to_string(),
+            xrpl_pub_key: "xrpl_pub_key".to_string(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -283,7 +283,7 @@ mod tests {
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
             xrpl_address: "xrpl_address".to_string(),
-            xrpl_pubkey: "xrpl_pubkey".to_string(),
+            xrpl_pub_key: "xrpl_pub_key".to_string(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -316,7 +316,7 @@ mod tests {
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
             xrpl_address: "xrpl_address".to_string(),
-            xrpl_pubkey: "xrpl_pubkey".to_string(),
+            xrpl_pub_key: "xrpl_pub_key".to_string(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -356,7 +356,7 @@ mod tests {
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
             xrpl_address: "xrpl_address".to_string(),
-            xrpl_pubkey: "xrpl_pubkey".to_string(),
+            xrpl_pub_key: "xrpl_pub_key".to_string(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -473,7 +473,7 @@ mod tests {
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
             xrpl_address: "xrpl_address".to_string(),
-            xrpl_pubkey: "xrpl_pubkey".to_string(),
+            xrpl_pub_key: "xrpl_pub_key".to_string(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -682,7 +682,7 @@ mod tests {
             relayers.push(Relayer {
                 coreum_address: Addr::unchecked(accounts.get(i as usize).unwrap().address()),
                 xrpl_address: "xrpl_address".to_string(),
-                xrpl_pubkey: "xrpl_pubkey".to_string(),
+                xrpl_pub_key: "xrpl_pub_key".to_string(),
             });
         }
 
@@ -1002,7 +1002,7 @@ mod tests {
             relayers.push(Relayer {
                 coreum_address: Addr::unchecked(accounts.get(i as usize).unwrap().address()),
                 xrpl_address: "xrpl_address".to_string(),
-                xrpl_pubkey: "xrpl_pubkey".to_string(),
+                xrpl_pub_key: "xrpl_pub_key".to_string(),
             });
         }
 
@@ -1429,7 +1429,7 @@ mod tests {
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
             xrpl_address: "xrpl_address".to_string(),
-            xrpl_pubkey: "xrpl_pubkey".to_string(),
+            xrpl_pub_key: "xrpl_pub_key".to_string(),
         };
 
         let contract_addr = store_and_instantiate(

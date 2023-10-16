@@ -43,7 +43,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
 			XRPLAddress:   "xrpl_address",
-			XRPLPubkey:    "xrpl_pubkey",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 	}
 
@@ -110,7 +110,7 @@ func TestChangeContractOwnership(t *testing.T) {
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
 			XRPLAddress:   "xrpl_address",
-			XRPLPubkey:    "xrpl_pubkey",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 	}
 
@@ -158,7 +158,7 @@ func TestRegisterCoreumToken(t *testing.T) {
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
 			XRPLAddress:   "xrpl_address",
-			XRPLPubkey:    "xrpl_pubkey",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 	}
 	usedTicketsThreshold := 10
@@ -247,7 +247,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
 			XRPLAddress:   "xrpl_address",
-			XRPLPubkey:    "xrpl_pubkey",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 	}
 	usedTicketsThreshold := 10
@@ -334,13 +334,13 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	relayer1 := coreum.Relayer{
 		CoreumAddress: chains.Coreum.GenAccount(),
 		XRPLAddress:   "xrpl_address",
-		XRPLPubkey:    "xrpl_pubkey",
+		XRPLPubKey:    "xrpl_pub_key",
 	}
 
 	relayer2 := coreum.Relayer{
 		CoreumAddress: chains.Coreum.GenAccount(),
 		XRPLAddress:   "xrpl_address",
-		XRPLPubkey:    "xrpl_pubkey",
+		XRPLPubKey:    "xrpl_pub_key",
 	}
 
 	coreumRecipient := chains.Coreum.GenAccount()

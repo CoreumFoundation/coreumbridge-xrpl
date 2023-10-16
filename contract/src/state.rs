@@ -41,7 +41,7 @@ pub struct Config {
 pub struct Relayer {
     pub coreum_address: Addr,
     pub xrpl_address: String,
-    pub xrpl_pubkey: String,
+    pub xrpl_pub_key: String,
 }
 
 #[cw_serde]

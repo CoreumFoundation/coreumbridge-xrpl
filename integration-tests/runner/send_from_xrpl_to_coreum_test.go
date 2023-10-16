@@ -76,17 +76,17 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 		coreum.Relayer{
 			CoreumAddress: relayer1,
 			XRPLAddress:   "xrpl_address",
-			XRPLPubkey:    "xrpl_pubkey",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 		coreum.Relayer{
 			CoreumAddress: relayer2,
 			XRPLAddress:   "xrpl_address",
-			XRPLPubkey:    "xrpl_pubkey",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 		coreum.Relayer{
 			CoreumAddress: relayer3,
 			XRPLAddress:   "xrpl_address",
-			XRPLPubkey:    "xrpl_pubkey",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 	}
 

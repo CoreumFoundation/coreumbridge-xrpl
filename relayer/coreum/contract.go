@@ -80,7 +80,7 @@ type ContractOwnership struct {
 type Relayer struct {
 	CoreumAddress sdk.AccAddress `json:"coreum_address"`
 	XRPLAddress   string         `json:"xrpl_address"`
-	XRPLPubkey    string         `json:"xrpl_pubkey"`
+	XRPLPubKey    string         `json:"xrpl_pub_key"`
 }
 
 // XRPLToken is XRPL token representation on coreum.
