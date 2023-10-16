@@ -17,7 +17,7 @@ mod tests {
             AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
             InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
         },
-        state::{Config, Operation, OperationType, Signature},
+        state::{Config, Operation, OperationType, Relayer, Signature},
     };
     const FEE_DENOM: &str = "ucore";
     const XRP_SYMBOL: &str = "XRP";
@@ -35,7 +35,7 @@ mod tests {
         wasm: &Wasm<'_, CoreumTestApp>,
         signer: &SigningAccount,
         owner: Addr,
-        relayers: Vec<Addr>,
+        relayers: Vec<Relayer>,
         evidence_threshold: u32,
         used_tickets_threshold: u32,
         issue_fee: Vec<Coin>,
@@ -91,13 +91,18 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(signer.address()),
+            xrpl_address: "xrpl_address".to_string(),
+            xrpl_pubkey: "xrpl_pubkey".to_string(),
+        };
 
         //We check that we can store and instantiate
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
             Addr::unchecked(signer.address()),
-            vec![Addr::unchecked(signer.address())],
+            vec![relayer.clone()],
             1,
             50,
             query_issue_fee(&asset_ft),
@@ -110,7 +115,7 @@ mod tests {
                 1,
                 &InstantiateMsg {
                     owner: Addr::unchecked(signer.address()),
-                    relayers: vec![Addr::unchecked(signer.address())],
+                    relayers: vec![relayer.clone()],
                     evidence_threshold: 1,
                     used_tickets_threshold: 50,
                 },
@@ -131,7 +136,7 @@ mod tests {
                 1,
                 &InstantiateMsg {
                     owner: Addr::unchecked(signer.address()),
-                    relayers: vec![Addr::unchecked(signer.address())],
+                    relayers: vec![relayer],
                     evidence_threshold: 1,
                     used_tickets_threshold: 1,
                 },
@@ -190,12 +195,17 @@ mod tests {
             .unwrap();
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(signer.address()),
+            xrpl_address: "xrpl_address".to_string(),
+            xrpl_pubkey: "xrpl_pubkey".to_string(),
+        };
 
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
             Addr::unchecked(signer.address()),
-            vec![Addr::unchecked(signer.address())],
+            vec![relayer],
             1,
             50,
             query_issue_fee(&asset_ft),
@@ -270,12 +280,17 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(signer.address()),
+            xrpl_address: "xrpl_address".to_string(),
+            xrpl_pubkey: "xrpl_pubkey".to_string(),
+        };
 
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
             Addr::unchecked(signer.address()),
-            vec![Addr::unchecked(signer.address())],
+            vec![relayer.clone()],
             1,
             50,
             query_issue_fee(&asset_ft),
@@ -286,10 +301,7 @@ mod tests {
             .unwrap();
         assert_eq!(query_config.evidence_threshold, 1);
         assert_eq!(query_config.used_tickets_threshold, 50);
-        assert_eq!(
-            query_config.relayers,
-            vec![Addr::unchecked(signer.address())]
-        );
+        assert_eq!(query_config.relayers, vec![relayer]);
     }
 
     #[test]
@@ -301,12 +313,17 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(signer.address()),
+            xrpl_address: "xrpl_address".to_string(),
+            xrpl_pubkey: "xrpl_pubkey".to_string(),
+        };
 
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
             Addr::unchecked(signer.address()),
-            vec![Addr::unchecked(signer.address())],
+            vec![relayer],
             1,
             50,
             query_issue_fee(&asset_ft),
@@ -336,12 +353,17 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(signer.address()),
+            xrpl_address: "xrpl_address".to_string(),
+            xrpl_pubkey: "xrpl_pubkey".to_string(),
+        };
 
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
             Addr::unchecked(signer.address()),
-            vec![Addr::unchecked(signer.address())],
+            vec![relayer],
             1,
             50,
             query_issue_fee(&asset_ft),
@@ -448,12 +470,17 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(signer.address()),
+            xrpl_address: "xrpl_address".to_string(),
+            xrpl_pubkey: "xrpl_pubkey".to_string(),
+        };
 
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
             Addr::unchecked(signer.address()),
-            vec![Addr::unchecked(signer.address())],
+            vec![relayer],
             1,
             50,
             query_issue_fee(&asset_ft),
@@ -466,7 +493,7 @@ mod tests {
             },
             XRPLToken {
                 issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jp2".to_string(), //Valid issuer
-                currency: "0158415500000000C1F76FF6ECB0BAC600000000".to_string(), //Valid hexadecimal currency
+                currency: "RRRRRRRRRRRRRRRRRRRR".to_string(), //Valid hexadecimal currency
             },
         ];
 
@@ -487,13 +514,13 @@ mod tests {
             .to_string()
             .contains(ContractError::InvalidXRPLIssuer {}.to_string().as_str()));
 
-        //Registering a token with an valid issuer but invalid currency should fail.
+        //Registering a token with a valid issuer but invalid currency should fail.
         let currency_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::RegisterXRPLToken {
                     issuer: test_tokens[1].issuer.clone(),
-                    currency: "invalid_currency".to_string(),
+                    currency: "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF".to_string(),  //Invalid currency
                 },
                 &query_issue_fee(&asset_ft),
                 &signer,
@@ -640,14 +667,24 @@ mod tests {
     #[test]
     fn send_from_xrpl_to_coreum() {
         let app = CoreumTestApp::new();
+        let accounts_number = 4;
         let accounts = app
-            .init_accounts(&coins(100_000_000_000, FEE_DENOM), 4)
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
             .unwrap();
 
         let signer = accounts.get(0).unwrap();
-        let relayer1 = accounts.get(1).unwrap();
-        let relayer2 = accounts.get(2).unwrap();
-        let receiver = accounts.get(3).unwrap();
+        let receiver = accounts.get(1).unwrap();
+        let mut relayer_accounts = vec![];
+        let mut relayers = vec![];
+
+        for i in 2..accounts_number {
+            relayer_accounts.push(accounts.get(i as usize).unwrap());
+            relayers.push(Relayer {
+                coreum_address: Addr::unchecked(accounts.get(i as usize).unwrap().address()),
+                xrpl_address: "xrpl_address".to_string(),
+                xrpl_pubkey: "xrpl_pubkey".to_string(),
+            });
+        }
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
@@ -657,7 +694,7 @@ mod tests {
             &wasm,
             signer,
             Addr::unchecked(signer.address()),
-            vec![Addr::unchecked(relayer1.address())],
+            vec![relayers[0].clone()],
             1,
             50,
             query_issue_fee(&asset_ft),
@@ -706,7 +743,7 @@ mod tests {
                 },
             },
             &[],
-            relayer1,
+            relayer_accounts[0],
         )
         .unwrap();
 
@@ -724,10 +761,7 @@ mod tests {
             &wasm,
             signer,
             Addr::unchecked(signer.address()),
-            vec![
-                Addr::unchecked(relayer1.address()),
-                Addr::unchecked(relayer2.address()),
-            ],
+            vec![relayers[0].clone(), relayers[1].clone()],
             2,
             50,
             query_issue_fee(&asset_ft),
@@ -793,7 +827,7 @@ mod tests {
                     },
                 },
                 &[],
-                relayer1,
+                relayer_accounts[0],
             )
             .unwrap_err();
 
@@ -815,7 +849,7 @@ mod tests {
                     },
                 },
                 &[],
-                relayer1,
+                relayer_accounts[0],
             )
             .unwrap_err();
 
@@ -836,7 +870,7 @@ mod tests {
                 },
             },
             &[],
-            relayer1,
+            relayer_accounts[0],
         )
         .unwrap();
 
@@ -864,7 +898,7 @@ mod tests {
                     },
                 },
                 &[],
-                relayer1,
+                relayer_accounts[0],
             )
             .unwrap_err();
 
@@ -887,7 +921,7 @@ mod tests {
                 },
             },
             &[],
-            relayer2,
+            relayer_accounts[1],
         )
         .unwrap();
 
@@ -915,7 +949,7 @@ mod tests {
                     },
                 },
                 &[],
-                relayer2,
+                relayer_accounts[1],
             )
             .unwrap_err();
 
@@ -940,7 +974,7 @@ mod tests {
                     },
                 },
                 &[],
-                relayer1,
+                relayer_accounts[0],
             )
             .unwrap_err();
 
@@ -954,13 +988,23 @@ mod tests {
     #[test]
     fn ticket_recovery() {
         let app = CoreumTestApp::new();
+        let accounts_number = 3;
         let accounts = app
-            .init_accounts(&coins(100_000_000_000, FEE_DENOM), 4)
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
             .unwrap();
 
         let signer = accounts.get(0).unwrap();
-        let relayer1 = accounts.get(1).unwrap();
-        let relayer2 = accounts.get(2).unwrap();
+        let mut relayer_accounts = vec![];
+        let mut relayers = vec![];
+
+        for i in 1..accounts_number {
+            relayer_accounts.push(accounts.get(i as usize).unwrap());
+            relayers.push(Relayer {
+                coreum_address: Addr::unchecked(accounts.get(i as usize).unwrap().address()),
+                xrpl_address: "xrpl_address".to_string(),
+                xrpl_pubkey: "xrpl_pubkey".to_string(),
+            });
+        }
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
@@ -970,8 +1014,7 @@ mod tests {
             &signer,
             Addr::unchecked(signer.address()),
             vec![
-                Addr::unchecked(relayer1.address()),
-                Addr::unchecked(relayer2.address()),
+                relayers[0].clone(), relayers[1].clone(),
             ],
             2,
             50,
@@ -1084,7 +1127,7 @@ mod tests {
                     },
                 },
                 &vec![],
-                &relayer1,
+                relayer_accounts[0],
             )
             .unwrap_err();
 
@@ -1103,7 +1146,7 @@ mod tests {
                     signature: "wrong_signature_example".to_string(),
                 },
                 &vec![],
-                &relayer1,
+                relayer_accounts[0],
             )
             .unwrap_err();
 
@@ -1121,7 +1164,7 @@ mod tests {
                 signature: correct_signature_example.clone(),
             },
             &vec![],
-            &relayer1,
+            relayer_accounts[0],
         )
         .unwrap();
 
@@ -1134,7 +1177,7 @@ mod tests {
                     signature: correct_signature_example.clone(),
                 },
                 &vec![],
-                &relayer1,
+                relayer_accounts[0],
             )
             .unwrap_err();
 
@@ -1153,7 +1196,7 @@ mod tests {
                     signature: correct_signature_example.clone(),
                 },
                 &vec![],
-                &relayer1,
+                relayer_accounts[0],
             )
             .unwrap_err();
 
@@ -1170,7 +1213,7 @@ mod tests {
                 signature: correct_signature_example.clone(),
             },
             &vec![],
-            &relayer2,
+            relayer_accounts[1],
         )
         .unwrap();
 
@@ -1188,11 +1231,11 @@ mod tests {
             vec![
                 Signature {
                     signature: correct_signature_example.clone(),
-                    relayer: Addr::unchecked(relayer1.address()),
+                    relayer: Addr::unchecked(relayers[0].coreum_address.clone()),
                 },
                 Signature {
                     signature: correct_signature_example.clone(),
-                    relayer: Addr::unchecked(relayer2.address()),
+                    relayer: Addr::unchecked(relayers[1].coreum_address.clone()),
                 }
             ]
         );
@@ -1212,7 +1255,7 @@ mod tests {
                 },
             },
             &vec![],
-            &relayer1,
+            relayer_accounts[0],
         )
         .unwrap();
 
@@ -1230,7 +1273,7 @@ mod tests {
                 },
             },
             &vec![],
-            &relayer2,
+            relayer_accounts[1],
         )
         .unwrap();
 
@@ -1272,7 +1315,7 @@ mod tests {
                 signature: correct_signature_example.clone(),
             },
             &vec![],
-            &relayer1,
+            relayer_accounts[0],
         )
         .unwrap();
 
@@ -1283,7 +1326,7 @@ mod tests {
                 signature: correct_signature_example.clone(),
             },
             &vec![],
-            &relayer2,
+            relayer_accounts[1],
         )
         .unwrap();
         // Trying to relay the operation with a same hash as previous rejected one should fail
@@ -1302,7 +1345,7 @@ mod tests {
                     },
                 },
                 &vec![],
-                &relayer1,
+                relayer_accounts[0],
             )
             .unwrap_err();
 
@@ -1329,7 +1372,7 @@ mod tests {
                 },
             },
             &vec![],
-            &relayer1,
+            relayer_accounts[0],
         )
         .unwrap();
 
@@ -1347,7 +1390,7 @@ mod tests {
                 },
             },
             &vec![],
-            &relayer2,
+            relayer_accounts[1],
         )
         .unwrap();
 
@@ -1383,12 +1426,17 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(signer.address()),
+            xrpl_address: "xrpl_address".to_string(),
+            xrpl_pubkey: "xrpl_pubkey".to_string(),
+        };
 
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
             Addr::unchecked(signer.address()),
-            vec![Addr::unchecked(signer.address())],
+            vec![relayer],
             1,
             50,
             query_issue_fee(&asset_ft),

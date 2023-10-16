@@ -58,22 +58,29 @@ const (
 type InstantiationConfig struct {
 	Owner                sdk.AccAddress
 	Admin                sdk.AccAddress
-	Relayers             []sdk.AccAddress
+	Relayers             []Relayer
 	EvidenceThreshold    int
 	UsedTicketsThreshold int
 }
 
 // ContractConfig is contract config.
 type ContractConfig struct {
-	Relayers             []sdk.AccAddress `json:"relayers"`
-	EvidenceThreshold    int              `json:"evidence_threshold"`
-	UsedTicketsThreshold int              `json:"used_tickets_threshold"`
+	Relayers             []Relayer `json:"relayers"`
+	EvidenceThreshold    int       `json:"evidence_threshold"`
+	UsedTicketsThreshold int       `json:"used_tickets_threshold"`
 }
 
 // ContractOwnership is owner contract config.
 type ContractOwnership struct {
 	Owner        sdk.AccAddress `json:"owner"`
 	PendingOwner sdk.AccAddress `json:"pending_owner"`
+}
+
+// Relayer is the relayer information in the contract config.
+type Relayer struct {
+	CoreumAddress sdk.AccAddress `json:"coreum_address"`
+	XRPLAddress   string         `json:"xrpl_address"`
+	XRPLPubkey    string         `json:"xrpl_pubkey"`
 }
 
 // XRPLToken is XRPL token representation on coreum.
@@ -104,10 +111,10 @@ type XRPLToCoreumTransferEvidence struct {
 // ******************** Internal transport object  ********************
 
 type instantiateRequest struct {
-	Owner                sdk.AccAddress   `json:"owner"`
-	Relayers             []sdk.AccAddress `json:"relayers"`
-	EvidenceThreshold    int              `json:"evidence_threshold"`
-	UsedTicketsThreshold int              `json:"used_tickets_threshold"`
+	Owner                sdk.AccAddress `json:"owner"`
+	Relayers             []Relayer      `json:"relayers"`
+	EvidenceThreshold    int            `json:"evidence_threshold"`
+	UsedTicketsThreshold int            `json:"used_tickets_threshold"`
 }
 
 type transferOwnershipRequest struct {

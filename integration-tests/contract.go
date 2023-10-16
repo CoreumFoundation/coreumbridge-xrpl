@@ -19,7 +19,7 @@ func DeployAndInstantiateContract(
 	ctx context.Context,
 	t *testing.T,
 	chains Chains,
-	relayers []sdk.AccAddress,
+	relayers []coreum.Relayer,
 	evidenceThreshold int,
 	usedTicketsThreshold int,
 ) (sdk.AccAddress, *coreum.ContractClient) {

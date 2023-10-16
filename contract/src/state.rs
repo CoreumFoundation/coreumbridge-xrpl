@@ -32,9 +32,16 @@ impl TopKey {
 
 #[cw_serde]
 pub struct Config {
-    pub relayers: Vec<Addr>,
+    pub relayers: Vec<Relayer>,
     pub evidence_threshold: u32,
     pub used_tickets_threshold: u32,
+}
+
+#[cw_serde]
+pub struct Relayer {
+    pub coreum_address: Addr,
+    pub xrpl_address: String,
+    pub xrpl_pubkey: String,
 }
 
 #[cw_serde]
