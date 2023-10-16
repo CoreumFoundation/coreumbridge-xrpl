@@ -60,10 +60,7 @@ const (
 	invalidTicketNumberToAllocateErrorString = "InvalidTicketNumberToAllocate"
 	signatureAlreadyProvidedErrorString      = "SignatureAlreadyProvided"
 	pendingOperationNotFoundErrorString      = "PendingOperationNotFound"
-	// FIXME add and test all new errors !!!
 )
-
-// FIXME check is we need to remove the paging form the operations
 
 // InstantiationConfig holds attributes used for the contract instantiation.
 type InstantiationConfig struct {
