@@ -28,7 +28,7 @@ registered can't be bridged.
 
 All tokens issued on XRPL that can be bridged from the XRPL to the coreum and back must have a representation on the
 coreum. Such tokens should be registered by owner on the contract side with the `XRPL issuer`, `XRPL currency`, `fees`,
-`token decimals` (always 15), `sending precision` and `max holding amount`. The `sending precision and
+`token decimals` (always 15), `sending precision` and `max holding amount`. The `sending precision` and
 `max holding amount`` should be provided taking into account the [Amount rounding handling](#amount-rounding-handling).
 The token's `denom` is built uniquely by the contract using the `XRPL issuer`, `XRPL currency`, `block time` hash and
 `xrpl` prefix.
@@ -67,11 +67,10 @@ evidences with `sending from XRPL to coreum` type data form the evidence queue. 
 inconsistency, since an evidence could be accepted by the contract with old `sending precision`, and never got fully
 confirmed with the new. The full rescan will help to check and submit such evidence one more time after the removal.
 
-##### Max holding amount update
+##### Max holding amount and sending precision update
 
-It is possible to update a `max holding amount` for both XRPL and coreum native tokens. The owner can do it by
-calling the contract. The contract validates that new amount is lees or equal currently holding amount and sets the new
-value.
+It is possible to update both `max holding amount` and `sending precision` for both XRPL and coreum native tokens. 
+The owner can do it by calling the contract. The contract validates that new params and sets the new values.
 
 ##### Token enabling/disabling
 
