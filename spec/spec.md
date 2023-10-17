@@ -277,9 +277,11 @@ submitting on XRPL transaction just one transaction. But with that coefficient, 
 `1e complexityCoefficient` transactions minimum to do it. The recommended value for the `complexityCoefficient`
 is `4`, so it means `10000` transactions minimum are needed to produce the `significant amount`.
 
+The recommended `max holding amount` should be less or equal `1e^(16 - sending precision)`.  
+
 The `round with sending precision` formula is:
 
-```test
+```text
 // for the simplicity the formula doesn't include zero division handling
 
 func roundWithSendingPrecision (ratValue Rat, sendingPrecision int) Rat{
