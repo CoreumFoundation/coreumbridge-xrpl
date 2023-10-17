@@ -61,7 +61,7 @@ lint-contract:
 test-integration:
     # test each directory separately to prevent faucet concurrent access
 	for d in $(INTEGRATION_TESTS_DIR)/*/; \
-	 do cd $$d && go clean -testcache && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./... ; \
+	 do cd $$d && go clean -testcache && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./... || exit 1; \
 	done
 
 .PHONY: test-relayer

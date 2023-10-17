@@ -58,8 +58,8 @@ pub fn instantiate(
         Some(deps.api.addr_validate(msg.owner.as_ref())?.as_ref()),
     )?;
 
-    for address in msg.relayers.clone() {
-        deps.api.addr_validate(address.as_ref())?;
+    for relayer in msg.relayers.clone() {
+        deps.api.addr_validate(relayer.coreum_address.as_ref())?;
     }
 
     // We want to check that exactly the issue fee was sent, not more.
@@ -228,13 +228,8 @@ fn register_xrpl_token(
     }
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
-    let to_hash = format!(
-        "{}{}{}",
-        issuer,
-        currency.clone(),
-        env.block.time.seconds()
-    )
-    .into_bytes();
+    let to_hash =
+        format!("{}{}{}", issuer, currency.clone(), env.block.time.seconds()).into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
     let hex_string = hash_bytes(to_hash)
@@ -423,9 +418,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::CoreumToken { denom } => to_binary(&query_coreum_token(deps, denom)?),
         QueryMsg::Ownership {} => to_binary(&get_ownership(deps.storage)?),
-        QueryMsg::PendingOperations {} => {
-            to_binary(&query_pending_operations(deps)?)
-        }
+        QueryMsg::PendingOperations {} => to_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_binary(&query_available_tickets(deps)?),
     }
 }
@@ -477,9 +470,7 @@ fn query_coreum_token(deps: Deps, denom: String) -> StdResult<CoreumTokenRespons
     Ok(CoreumTokenResponse { token })
 }
 
-fn query_pending_operations(
-    deps: Deps,
-) -> StdResult<PendingOperationsResponse> {
+fn query_pending_operations(deps: Deps) -> StdResult<PendingOperationsResponse> {
     let operations: Vec<Operation> = PENDING_OPERATIONS
         .range(deps.storage, None, None, Order::Ascending)
         .filter_map(|v| v.ok())
@@ -555,7 +546,7 @@ pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
 pub fn assert_relayer(deps: Deps, sender: Addr) -> Result<(), ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    if !config.relayers.contains(&sender) {
+    if !config.relayers.iter().any(|r| r.coreum_address == sender) {
         return Err(ContractError::UnauthorizedSender {});
     }
 
@@ -571,10 +562,8 @@ pub fn validate_xrpl_issuer_and_currency(
         return Err(ContractError::InvalidXRPLIssuer {});
     }
 
-    //We check that currency is either a standard 3 character currency or a 40 character hexadecimal string
-    if !(currency.len() == 3 && currency.is_ascii()
-        || currency.len() == 40 && currency.chars().all(|c| c.is_ascii_hexdigit()))
-    {
+    //We check that currency is either a standard 3 character currency or its length is valid for a hexadecimal currency
+    if !(currency.len() >= 3 && currency.len() <= 20 && currency.is_ascii()) {
         return Err(ContractError::InvalidXRPLCurrency {});
     }
 
