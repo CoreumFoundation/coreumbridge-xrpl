@@ -100,7 +100,7 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),
 	})
 	// register XRPL native token with 3 chars
-	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), hexSymbol, sendingPrecision, maxHoldingAmount)
+	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredCurrency.String(), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 	// register XRPL native token with 20 chars
 	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), hexSymbol, sendingPrecision, maxHoldingAmount)
@@ -114,7 +114,7 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 		registeredXRPLTokenHexCurrency coreum.XRPLToken
 	)
 	for _, token := range registeredXRPLTokens {
-		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == hexSymbol {
+		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == xrplRegisteredCurrency.String() {
 			registeredXRPLToken = token
 			continue
 		}
