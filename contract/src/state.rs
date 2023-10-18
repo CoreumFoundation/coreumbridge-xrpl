@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Empty};
+use cosmwasm_std::{Addr, Empty, Uint128};
 use cw_storage_plus::{Item, Map};
 
 /// Top level storage key. Values must not conflict.
@@ -49,6 +49,9 @@ pub struct XRPLToken {
     pub issuer: String,
     pub currency: String,
     pub coreum_denom: String,
+    pub sending_precision: i32, // This precision will indicate the minimum we can send. Example: If sending precision = 2, The minimum we can send is 0.01
+    pub max_holding_amount: Uint128, // The maximum amount the contract can hold
+    pub min_sendable_amount: Uint128, // We are going to store the min amount that we can send here for convenience so that we don't need to recalculate it every time.
 }
 
 #[cw_serde]

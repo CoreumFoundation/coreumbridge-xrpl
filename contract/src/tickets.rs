@@ -5,8 +5,8 @@ use cosmwasm_std::{DepsMut, StdResult, Storage};
 use crate::{
     error::ContractError,
     state::{
-        Operation, OperationType, AVAILABLE_TICKETS, CONFIG,
-        PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
+        Operation, OperationType, AVAILABLE_TICKETS, CONFIG, PENDING_OPERATIONS,
+        PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
     },
 };
 

@@ -54,7 +54,8 @@ impl Evidence {
         match self {
             Evidence::XRPLToCoreumTransfer { tx_hash, .. }
             | Evidence::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone(),
-        }.to_lowercase()
+        }
+        .to_lowercase()
     }
     //Function for basic validation of evidences in case relayers send something that is not valid
     pub fn validate(self) -> Result<(), ContractError> {
@@ -125,11 +126,7 @@ pub fn handle_evidence(
 
     let config = CONFIG.load(storage)?;
     if evidences.relayers.len() >= config.evidence_threshold.try_into().unwrap() {
-        PROCESSED_TXS.save(
-            storage,
-            evidence.clone().get_tx_hash(),
-            &Empty {},
-        )?;
+        PROCESSED_TXS.save(storage, evidence.clone().get_tx_hash(), &Empty {})?;
         // if there is just one relayer there is nothing to delete
         if evidences.relayers.len() != 1 {
             TX_EVIDENCES.remove(storage, evidence.clone().get_hash());

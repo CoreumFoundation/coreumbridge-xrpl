@@ -1,4 +1,7 @@
-use std::collections::VecDeque;
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, VecDeque},
+};
 
 use crate::{
     error::ContractError,
@@ -9,7 +12,7 @@ use crate::{
     },
     signatures::add_signature,
     state::{
-        Config, ContractActions, CoreumToken, Operation, OperationType, XRPLToken,
+        Config, ContractActions, CoreumToken, Operation, OperationType, Relayer, XRPLToken,
         AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
         USED_TICKETS_COUNTER, USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
     },
@@ -20,8 +23,8 @@ use coreum_wasm_sdk::{
     core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
-    coin, coins, entry_point, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env,
-    MessageInfo, Order, Response, StdResult, Storage, Uint128,
+    coin, coins, entry_point, to_binary, Addr, Binary, CosmosMsg, Decimal256, Deps, DepsMut, Empty,
+    Env, MessageInfo, Order, Response, StdResult, Storage, Uint128,
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
@@ -34,6 +37,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_MAX_LIMIT: u32 = 250;
 const XRP_SYMBOL: &str = "XRP";
 const XRP_SUBUNIT: &str = "drop";
+const XRP_DECIMALS: u32 = 6;
 
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
@@ -41,6 +45,10 @@ const XRPL_TOKENS_DECIMALS: u32 = 15;
 
 const XRP_CURRENCY: &str = "XRP";
 const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
+
+// Initial values for the XRP token that can be modified afterwards.
+const XRP_SENDING_PRECISION: i32 = 6;
+const XRP_MAX_HOLDING_AMOUNT: u128 = 10u128.pow(16);
 
 pub const MAX_TICKETS: u32 = 250;
 
@@ -58,9 +66,7 @@ pub fn instantiate(
         Some(deps.api.addr_validate(msg.owner.as_ref())?.as_ref()),
     )?;
 
-    for relayer in msg.relayers.clone() {
-        deps.api.addr_validate(relayer.coreum_address.as_ref())?;
-    }
+    validate_relayers(&deps, msg.relayers.clone())?;
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
@@ -91,7 +97,7 @@ pub fn instantiate(
     let xrp_issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
         symbol: XRP_SYMBOL.to_string(),
         subunit: XRP_SUBUNIT.to_string(),
-        precision: 6,
+        precision: XRP_DECIMALS,
         initial_amount: Uint128::zero(),
         description: None,
         features: Some(vec![MINTING, BURNING, IBC]),
@@ -101,12 +107,17 @@ pub fn instantiate(
 
     let xrp_in_coreum = format!("{}-{}", XRP_SUBUNIT, env.contract.address).to_lowercase();
 
+    let min_sendable_amount = calculate_min_sendable_amount(XRP_SENDING_PRECISION, XRP_DECIMALS)?;
+
     //We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
     //a token we can inform the relayers of what is being sent back.
     let token = XRPLToken {
         issuer: XRP_ISSUER.to_string(),
         currency: XRP_CURRENCY.to_string(),
         coreum_denom: xrp_in_coreum,
+        sending_precision: XRP_SENDING_PRECISION,
+        max_holding_amount: Uint128::new(XRP_MAX_HOLDING_AMOUNT),
+        min_sendable_amount,
     };
 
     XRPL_TOKENS.save(deps.storage, XRP_SYMBOL.to_string(), &token)?;
@@ -133,9 +144,20 @@ pub fn execute(
         ExecuteMsg::RegisterCoreumToken { denom, decimals } => {
             register_coreum_token(deps.into_empty(), env, denom, decimals, info.sender)
         }
-        ExecuteMsg::RegisterXRPLToken { issuer, currency } => {
-            register_xrpl_token(deps, env, issuer, currency, info)
-        }
+        ExecuteMsg::RegisterXRPLToken {
+            issuer,
+            currency,
+            sending_precision,
+            max_holding_amount,
+        } => register_xrpl_token(
+            deps,
+            env,
+            issuer,
+            currency,
+            sending_precision,
+            max_holding_amount,
+            info,
+        ),
         ExecuteMsg::SaveEvidence { evidence } => {
             save_evidence(deps.into_empty(), info.sender, evidence)
         }
@@ -213,6 +235,8 @@ fn register_xrpl_token(
     env: Env,
     issuer: String,
     currency: String,
+    sending_precision: i32,
+    max_holding_amount: Uint128,
     info: MessageInfo,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
@@ -260,10 +284,16 @@ fn register_xrpl_token(
         return Err(ContractError::RegistrationFailure {});
     };
 
+    let min_sendable_amount =
+        calculate_min_sendable_amount(sending_precision, XRPL_TOKENS_DECIMALS)?;
+
     let token = XRPLToken {
         issuer: issuer.clone(),
         currency: currency.clone(),
         coreum_denom: denom.clone(),
+        sending_precision,
+        max_holding_amount,
+        min_sendable_amount,
     };
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
@@ -296,14 +326,30 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             //Create issuer+currency key to find denom on coreum.
             let key = build_xrpl_token_key(issuer.clone(), currency.clone());
 
-            let denom = XRPL_TOKENS
+            let token = XRPL_TOKENS
                 .load(deps.storage, key)
                 .map_err(|_| ContractError::TokenNotRegistered {})?;
 
+            if amount.lt(&token.min_sendable_amount) {
+                return Err(ContractError::AmountSentUnderMinimum {});
+            }
+
+            if amount
+                .checked_add(
+                    deps.querier
+                        .query_supply(token.coreum_denom.clone())?
+                        .amount,
+                )?
+                .gt(&token.max_holding_amount)
+            {
+                return Err(ContractError::MaximumBridgedAmountReached {});
+            }
+
             if threshold_reached {
                 response =
-                    add_mint_and_send(response, amount, denom.coreum_denom, recipient.clone());
+                    add_mint_and_send(response, amount, token.coreum_denom, recipient.clone());
             }
+
             response = response
                 .add_attribute("action", ContractActions::SendFromXRPLToCoreum.as_str())
                 .add_attribute("hash", tx_hash)
@@ -363,14 +409,14 @@ fn recover_tickets(
     let used_tickets = USED_TICKETS_COUNTER.load(deps.storage)?;
 
     PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
+    //If we don't provide a number of tickets to recover we will recover the ones that we already used.
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
     if number_to_allocate == 0 {
         return Err(ContractError::InvalidTicketNumberToAllocate {});
     }
 
-    //If we don't provide a number of tickets to recover we will recover the ones that we already used.
-    PENDING_OPERATIONS.save(
+    check_and_save_pending_operation(
         deps.storage,
         sequence_number,
         &Operation {
@@ -557,15 +603,98 @@ pub fn validate_xrpl_issuer_and_currency(
     issuer: String,
     currency: String,
 ) -> Result<(), ContractError> {
-    //We validate that the length of the issuer is between 24 and 34 characters and starts with 'r'
-    if !(issuer.len() >= 24 && issuer.len() <= 34 && issuer.starts_with('r')) {
-        return Err(ContractError::InvalidXRPLIssuer {});
-    }
+    validate_xrpl_address(issuer).map_err(|_| ContractError::InvalidXRPLIssuer {})?;
 
-    //We check that currency is either a standard 3 character currency or its length is valid for a hexadecimal currency
-    if !(currency.len() >= 3 && currency.len() <= 20 && currency.is_ascii()) {
+    //We check that currency is either a standard 3 character currency or it's a 40 character hex string currency
+    if !(currency.len() == 3 && currency.is_ascii()
+        || currency.len() == 40 && currency.chars().all(|c| c.is_ascii_hexdigit()))
+    {
         return Err(ContractError::InvalidXRPLCurrency {});
     }
 
     Ok(())
+}
+
+fn check_and_save_pending_operation(
+    storage: &mut dyn Storage,
+    operation_id: u64,
+    operation: &Operation,
+) -> Result<(), ContractError> {
+    if PENDING_OPERATIONS.has(storage, operation_id) {
+        return Err(ContractError::PendingOperationAlreadyExists {});
+    }
+    PENDING_OPERATIONS.save(storage, operation_id, operation)?;
+
+    Ok(())
+}
+
+fn validate_relayers(
+    deps: &DepsMut<CoreumQueries>,
+    relayers: Vec<Relayer>,
+) -> Result<(), ContractError> {
+    let mut map_xrpl_addresses = HashMap::new();
+    let mut map_xrpl_pubkeys = HashMap::new();
+    let mut map_coreum_addresses = HashMap::new();
+
+    for relayer in relayers.clone() {
+        deps.api.addr_validate(relayer.coreum_address.as_ref())?;
+        validate_xrpl_address(relayer.xrpl_address.clone())?;
+
+        //Store all values in maps so we can easily verify if there are duplicates.
+        map_xrpl_addresses.insert(relayer.xrpl_address, Empty {});
+        map_xrpl_pubkeys.insert(relayer.xrpl_pub_key, Empty {});
+        map_coreum_addresses.insert(relayer.coreum_address, Empty {});
+    }
+
+    if map_xrpl_addresses.len() != relayers.len() {
+        return Err(ContractError::RepeatedRelayerXRPLAddress {});
+    }
+
+    if map_xrpl_pubkeys.len() != relayers.len() {
+        return Err(ContractError::RepeatedRelayerXRPLPubKey {});
+    }
+
+    if map_coreum_addresses.len() != relayers.len() {
+        return Err(ContractError::RepeatedRelayerCoreumAddress {});
+    }
+
+    Ok(())
+}
+
+fn validate_xrpl_address(address: String) -> Result<(), ContractError> {
+    //We validate that the length of the issuer is between 24 and 34 characters and starts with 'r'
+    if !(address.len() >= 24 && address.len() <= 34 && address.starts_with('r')) {
+        return Err(ContractError::InvalidXRPLAddress { address });
+    }
+    Ok(())
+}
+
+fn calculate_min_sendable_amount(
+    sending_precision: i32,
+    decimals: u32,
+) -> Result<Uint128, ContractError> {
+    let mut min_amount;
+
+    // We are going to calculate the minimum that we can send
+    match sending_precision.cmp(&0) {
+        Ordering::Less => {
+            //if sending precision is negative it means we can't send less than 10^(-sending_precision). Example: sending_precision = -1 means the minimum se can send is 10.
+            min_amount = Decimal256::from_atomics(10u128.pow(sending_precision.unsigned_abs()), 0)?;
+        }
+        Ordering::Equal => min_amount = Decimal256::one(),
+        Ordering::Greater => {
+            min_amount = Decimal256::from_atomics(1u128, sending_precision as u32)?;
+        }
+    }
+
+    // We will adjust min amount to take into acount the amount of decimals places this token will have.
+    min_amount = min_amount.checked_mul(Decimal256::from_atomics(10u128.pow(decimals), 0)?)?;
+
+    // if an invalid sending precision (more than token decimals) has been sent, we will have a minimum sendable amount lower than 1,
+    // which should not be allowed.
+    if min_amount.lt(&Decimal256::one()) {
+        return Err(ContractError::InvalidSendingPrecision {});
+    }
+
+    Ok(min_amount.to_uint_ceil().try_into().unwrap())
 }

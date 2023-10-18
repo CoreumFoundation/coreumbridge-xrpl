@@ -75,20 +75,23 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 	relayers := []coreum.Relayer{
 		coreum.Relayer{
 			CoreumAddress: relayer1,
-			XRPLAddress:   "xrpl_address",
-			XRPLPubKey:    "xrpl_pub_key",
+			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
+			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
 		},
 		coreum.Relayer{
 			CoreumAddress: relayer2,
-			XRPLAddress:   "xrpl_address",
-			XRPLPubKey:    "xrpl_pub_key",
+			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpy",
+			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL2",
 		},
 		coreum.Relayer{
 			CoreumAddress: relayer3,
-			XRPLAddress:   "xrpl_address",
-			XRPLPubKey:    "xrpl_pub_key",
+			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpz",
+			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL3",
 		},
 	}
+
+	sendingPrecision := uint32(15)
+	maxHoldingAmount := "10000"
 
 	// deploy contract
 	contractOwner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, 2, 10)
@@ -97,10 +100,10 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),
 	})
 	// register XRPL native token with 3 chars
-	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredCurrency.String())
+	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), hexSymbol, sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 	// register XRPL native token with 20 chars
-	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredHexCurrency.String())
+	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), hexSymbol, sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
 	registeredXRPLTokens, err := contractClient.GetXRPLTokens(ctx)
@@ -111,11 +114,11 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 		registeredXRPLTokenHexCurrency coreum.XRPLToken
 	)
 	for _, token := range registeredXRPLTokens {
-		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == xrplRegisteredCurrency.String() {
+		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == hexSymbol {
 			registeredXRPLToken = token
 			continue
 		}
-		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == xrplRegisteredHexCurrency.String() {
+		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == hexSymbol {
 			registeredXRPLTokenHexCurrency = token
 			continue
 		}

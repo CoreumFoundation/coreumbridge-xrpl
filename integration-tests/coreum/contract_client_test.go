@@ -42,8 +42,8 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 	relayers := []coreum.Relayer{
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   "xrpl_address",
-			XRPLPubKey:    "xrpl_pub_key",
+			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
+			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
 		},
 	}
 
@@ -109,8 +109,8 @@ func TestChangeContractOwnership(t *testing.T) {
 	relayers := []coreum.Relayer{
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   "xrpl_address",
-			XRPLPubKey:    "xrpl_pub_key",
+			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
+			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
 		},
 	}
 
@@ -157,8 +157,8 @@ func TestRegisterCoreumToken(t *testing.T) {
 	relayers := []coreum.Relayer{
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   "xrpl_address",
-			XRPLPubKey:    "xrpl_pub_key",
+			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
+			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
 		},
 	}
 	usedTicketsThreshold := 10
@@ -246,8 +246,8 @@ func TestRegisterXRPLToken(t *testing.T) {
 	relayers := []coreum.Relayer{
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   "xrpl_address",
-			XRPLPubKey:    "xrpl_pub_key",
+			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
+			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
 		},
 	}
 	usedTicketsThreshold := 10
@@ -270,17 +270,19 @@ func TestRegisterXRPLToken(t *testing.T) {
 	issuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
 	issuer := issuerAcc.String()
 	currency := "CRR"
+	sendingPrecision := uint32(15)
+	maxHoldingAmount := "10000"
 
 	// try to register from not owner
-	_, err := contractClient.RegisterXRPLToken(ctx, notOwner, issuer, currency)
+	_, err := contractClient.RegisterXRPLToken(ctx, notOwner, issuer, currency, sendingPrecision, maxHoldingAmount)
 	require.True(t, coreum.IsNotOwnerError(err))
 
 	// register from the owner
-	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, currency)
+	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
 	// try to register the same denom one more time
-	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, currency)
+	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
 	require.True(t, coreum.IsXRPLTokenAlreadyRegisteredError(err))
 
 	xrplTokens, err := contractClient.GetXRPLTokens(ctx)
@@ -333,14 +335,14 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 
 	relayer1 := coreum.Relayer{
 		CoreumAddress: chains.Coreum.GenAccount(),
-		XRPLAddress:   "xrpl_address",
-		XRPLPubKey:    "xrpl_pub_key",
+		XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
+		XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
 	}
 
 	relayer2 := coreum.Relayer{
 		CoreumAddress: chains.Coreum.GenAccount(),
-		XRPLAddress:   "xrpl_address",
-		XRPLPubKey:    "xrpl_pub_key",
+		XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpx",
+		XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL2",
 	}
 
 	coreumRecipient := chains.Coreum.GenAccount()
@@ -375,9 +377,11 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	issuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
 	issuer := issuerAcc.String()
 	currency := "CRR"
+	sendingPrecision := uint32(15)
+	maxHoldingAmount := "10000"
 
 	// register from the owner
-	_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency)
+	_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
 	xrplTokens, err := contractClient.GetXRPLTokens(ctx)

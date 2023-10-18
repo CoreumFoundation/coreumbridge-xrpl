@@ -1,4 +1,4 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{Decimal256RangeExceeded, OverflowError, StdError};
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
@@ -13,11 +13,29 @@ pub enum ContractError {
     #[error(transparent)]
     Ownership(#[from] OwnershipError),
 
+    #[error(transparent)]
+    OverflowError(#[from] OverflowError),
+
+    #[error(transparent)]
+    Decimal256RangeExceeded(#[from] Decimal256RangeExceeded),
+
     #[error("Payment error: {0}")]
     Payment(#[from] PaymentError),
 
     #[error("InvalidThreshold: Threshold can not be higher than amount of relayers")]
     InvalidThreshold {},
+
+    #[error("InvalidXRPLAddress: XRPL address {} is not valid, must start with r and have a length between 24 and 34", address)]
+    InvalidXRPLAddress { address: String },
+
+    #[error("RepeatedRelayerXRPLAddress: All relayers must have different XRPL addresses")]
+    RepeatedRelayerXRPLAddress {},
+
+    #[error("RepeatedRelayerXRPLPubKey: All relayers must have different XRPL public keys")]
+    RepeatedRelayerXRPLPubKey {},
+
+    #[error("RepeatedRelayerCoreumAddress: All relayers must have different coreum addresses")]
+    RepeatedRelayerCoreumAddress {},
 
     #[error("CoreumTokenAlreadyRegistered: Token {} already registered", denom)]
     CoreumTokenAlreadyRegistered { denom: String },
@@ -71,6 +89,11 @@ pub enum ContractError {
     )]
     PendingOperationNotFound {},
 
+    #[error(
+        "PendingOperationAlreadyExists: There is already a pending operation with this operation id"
+    )]
+    PendingOperationAlreadyExists {},
+
     #[error("SignatureAlreadyProvided: There is already a signature provided for this relayer and this operation")]
     SignatureAlreadyProvided {},
 
@@ -88,4 +111,15 @@ pub enum ContractError {
 
     #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
     InvalidXRPLCurrency {},
+
+    #[error("AmountSentUnderMinimum: The amount sent must be more than the minimum allowed")]
+    AmountSentUnderMinimum {},
+
+    #[error("MaximumBridgedAmountReached: The maximum amount this contract can have bridged has been reached")]
+    MaximumBridgedAmountReached {},
+
+    #[error(
+        "InvalidSendingPrecision: The sending precision can't be more than the token decimals"
+    )]
+    InvalidSendingPrecision {},
 }
