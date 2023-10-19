@@ -42,8 +42,8 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 	relayers := []coreum.Relayer{
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
-			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
+			XRPLAddress:   "xrpl_address",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 	}
 
@@ -109,8 +109,8 @@ func TestChangeContractOwnership(t *testing.T) {
 	relayers := []coreum.Relayer{
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
-			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
+			XRPLAddress:   "xrpl_address",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 	}
 
@@ -157,8 +157,8 @@ func TestRegisterCoreumToken(t *testing.T) {
 	relayers := []coreum.Relayer{
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
-			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
+			XRPLAddress:   "xrpl_address",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 	}
 	usedTicketsThreshold := 10
@@ -246,8 +246,8 @@ func TestRegisterXRPLToken(t *testing.T) {
 	relayers := []coreum.Relayer{
 		coreum.Relayer{
 			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
-			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
+			XRPLAddress:   "xrpl_address",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 	}
 	usedTicketsThreshold := 10
@@ -335,14 +335,14 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 
 	relayer1 := coreum.Relayer{
 		CoreumAddress: chains.Coreum.GenAccount(),
-		XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
-		XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
+		XRPLAddress:   "xrpl_address",
+		XRPLPubKey:    "xrpl_pub_key",
 	}
 
 	relayer2 := coreum.Relayer{
 		CoreumAddress: chains.Coreum.GenAccount(),
-		XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpx",
-		XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL2",
+		XRPLAddress:   "xrpl_address",
+		XRPLPubKey:    "xrpl_pub_key",
 	}
 
 	coreumRecipient := chains.Coreum.GenAccount()

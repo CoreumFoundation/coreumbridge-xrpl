@@ -75,18 +75,18 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 	relayers := []coreum.Relayer{
 		coreum.Relayer{
 			CoreumAddress: relayer1,
-			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
-			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
+			XRPLAddress:   "xrpl_address",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 		coreum.Relayer{
 			CoreumAddress: relayer2,
-			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpy",
-			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL2",
+			XRPLAddress:   "xrpl_address",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 		coreum.Relayer{
 			CoreumAddress: relayer3,
-			XRPLAddress:   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpz",
-			XRPLPubKey:    "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL3",
+			XRPLAddress:   "xrpl_address",
+			XRPLPubKey:    "xrpl_pub_key",
 		},
 	}
 
