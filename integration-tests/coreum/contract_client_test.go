@@ -583,7 +583,7 @@ func TestRecoverTickets(t *testing.T) {
 	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidRejectedTxEvidence)
 	require.True(t, coreum.IsPendingOperationNotFoundError(err), err)
 
-	// try to send from not owner
+	// try to send from not relayer
 	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, owner, rejectedTxEvidence)
 	require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
@@ -634,7 +634,7 @@ func TestRecoverTickets(t *testing.T) {
 			SequenceNumber: &secondBridgeAccountSeqNumber,
 			Confirmed:      true,
 		},
-		Tickets: []uint64{1, 3, 5, 7},
+		Tickets: []uint64{3, 5, 6, 7},
 	}
 
 	// try to send with already used txHash
