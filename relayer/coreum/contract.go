@@ -29,8 +29,8 @@ type ExecMethod string
 const (
 	ExecMethodUpdateOwnership     ExecMethod = "update_ownership"
 	ExecMethodRegisterCoreumToken ExecMethod = "register_coreum_token"
-	ExecMethodRegisterXRPLToken   ExecMethod = "register_x_r_p_l_token"
-	ExecMethodSendEvidence        ExecMethod = "send_evidence"
+	ExecMethodRegisterXRPLToken   ExecMethod = "register_xrpl_token"
+	ExecMethodSaveEvidence        ExecMethod = "save_evidence"
 	ExecMethodRecoverTickets      ExecMethod = "recover_tickets"
 	ExecMethodRegisterSignature   ExecMethod = "register_signature"
 )
@@ -42,7 +42,7 @@ type QueryMethod string
 const (
 	QueryMethodConfig            QueryMethod = "config"
 	QueryMethodOwnership         QueryMethod = "ownership"
-	QueryMethodXRPLTokens        QueryMethod = "x_r_p_l_tokens"
+	QueryMethodXRPLTokens        QueryMethod = "xrpl_tokens"
 	QueryMethodCoreumTokens      QueryMethod = "coreum_tokens"
 	QueryMethodPendingOperations QueryMethod = "pending_operations"
 	QueryMethodAvailableTickets  QueryMethod = "available_tickets"
@@ -66,22 +66,29 @@ const (
 type InstantiationConfig struct {
 	Owner                sdk.AccAddress
 	Admin                sdk.AccAddress
-	Relayers             []sdk.AccAddress
+	Relayers             []Relayer
 	EvidenceThreshold    int
 	UsedTicketsThreshold int
 }
 
 // ContractConfig is contract config.
 type ContractConfig struct {
-	Relayers             []sdk.AccAddress `json:"relayers"`
-	EvidenceThreshold    int              `json:"evidence_threshold"`
-	UsedTicketsThreshold int              `json:"used_tickets_threshold"`
+	Relayers             []Relayer `json:"relayers"`
+	EvidenceThreshold    int       `json:"evidence_threshold"`
+	UsedTicketsThreshold int       `json:"used_tickets_threshold"`
 }
 
 // ContractOwnership is owner contract config.
 type ContractOwnership struct {
 	Owner        sdk.AccAddress `json:"owner"`
 	PendingOwner sdk.AccAddress `json:"pending_owner"`
+}
+
+// Relayer is the relayer information in the contract config.
+type Relayer struct {
+	CoreumAddress sdk.AccAddress `json:"coreum_address"`
+	XRPLAddress   string         `json:"xrpl_address"`
+	XRPLPubKey    string         `json:"xrpl_pub_key"`
 }
 
 // XRPLToken is XRPL token representation on coreum.
@@ -151,10 +158,10 @@ type Operation struct {
 // ******************** Internal transport object  ********************
 
 type instantiateRequest struct {
-	Owner                sdk.AccAddress   `json:"owner"`
-	Relayers             []sdk.AccAddress `json:"relayers"`
-	EvidenceThreshold    int              `json:"evidence_threshold"`
-	UsedTicketsThreshold int              `json:"used_tickets_threshold"`
+	Owner                sdk.AccAddress `json:"owner"`
+	Relayers             []Relayer      `json:"relayers"`
+	EvidenceThreshold    int            `json:"evidence_threshold"`
+	UsedTicketsThreshold int            `json:"used_tickets_threshold"`
 }
 
 type transferOwnershipRequest struct {
@@ -173,7 +180,7 @@ type registerXRPLTokenRequest struct {
 	Currency string `json:"currency"`
 }
 
-type sendEvidenceRequest struct {
+type saveEvidenceRequest struct {
 	Evidence evidences `json:"evidence"`
 }
 
@@ -433,14 +440,14 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 
 // SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed XRPL to coreum transfer transaction.
 func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
-	req := sendEvidenceRequest{
+	req := saveEvidenceRequest{
 		Evidence: evidences{
 			XRPLToCoreumTransfer: &evidence,
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]sendEvidenceRequest{
-			ExecMethodSendEvidence: req,
+		Body: map[ExecMethod]saveEvidenceRequest{
+			ExecMethodSaveEvidence: req,
 		},
 	})
 	if err != nil {
@@ -452,7 +459,7 @@ func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, s
 
 // SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of a confirmed or rejected ticket allocation transaction.
 func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evidence XRPLTransactionResultTicketsAllocationEvidence) (*sdk.TxResponse, error) {
-	req := sendEvidenceRequest{
+	req := saveEvidenceRequest{
 		Evidence: evidences{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evidence.XRPLTransactionResultEvidence,
@@ -465,8 +472,8 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx 
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]sendEvidenceRequest{
-			ExecMethodSendEvidence: req,
+		Body: map[ExecMethod]saveEvidenceRequest{
+			ExecMethodSaveEvidence: req,
 		},
 	})
 	if err != nil {

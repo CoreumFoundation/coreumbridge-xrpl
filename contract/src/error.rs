@@ -76,4 +76,10 @@ pub enum ContractError {
 
     #[error("InvalidTicketNumberToAllocate: The number of tickets to recover must be more than 0")]
     InvalidTicketNumberToAllocate {},
+
+    #[error("InvalidXRPLIssuer: The issuer must be a valid XRPL address")]
+    InvalidXRPLIssuer {},
+
+    #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
+    InvalidXRPLCurrency {},
 }

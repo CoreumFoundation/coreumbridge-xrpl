@@ -27,6 +27,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
 	github.com/samber/lo v1.38.1
+	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.23.0
 	google.golang.org/grpc v1.57.0
@@ -171,7 +172,6 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
-	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.16.0 // indirect

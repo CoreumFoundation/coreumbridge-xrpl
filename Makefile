@@ -4,6 +4,35 @@ ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 CONTRACT_DIR:=$(ROOT_DIR)/contract
 INTEGRATION_TESTS_DIR:=$(ROOT_DIR)/integration-tests
 RELAYER_DIR:=$(ROOT_DIR)/relayer
+BUILD_DIR:=$(ROOT_DIR)/build
+
+###############################################################################
+###                                  Build                                  ###
+###############################################################################
+
+.PHONY: build-relayer
+build-relayer:
+	cd $(RELAYER_DIR) && CGO_ENABLED=0 go build --trimpath -mod=readonly -ldflags '-extldflags=-static'  -o $(BUILD_DIR)/coreumbridge-xrpl-relayer ./cmd
+
+.PHONY: build-relayer-docker
+build-relayer-docker:
+	docker build -f $(RELAYER_DIR)/Dockerfile . -t coreumbridge-xrpl-relayer:local
+
+.PHONY: build-relayer-in-docker
+build-relayer-in-docker:
+	make build-relayer-docker
+	mkdir -p $(BUILD_DIR)
+	docker run --rm --entrypoint cat coreumbridge-xrpl-relayer:local /app/coreumbridge-xrpl-relayer > $(BUILD_DIR)/coreumbridge-xrpl-relayer
+
+.PHONY: build-contract
+build-contract:
+	docker run --user $(id -u):$(id -g) --rm -v $(CONTRACT_DIR):/code \
+      --mount type=volume,source="coreumbridge_xrpl_cache",target=/code/target \
+      --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+       cosmwasm/rust-optimizer:0.14.0
+	mkdir -p $(BUILD_DIR)
+	cp $(CONTRACT_DIR)/artifacts/coreumbridge_xrpl.wasm $(BUILD_DIR)/coreumbridge_xrpl.wasm
+
 ###############################################################################
 ###                               Development                               ###
 ###############################################################################
@@ -32,7 +61,7 @@ lint-contract:
 test-integration:
     # test each directory separately to prevent faucet concurrent access
 	for d in $(INTEGRATION_TESTS_DIR)/*/; \
-	 do cd $$d && go clean -testcache && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./... ; \
+	 do cd $$d && go clean -testcache && go test -v --tags=integrationtests -mod=readonly -parallel=4 ./... || exit 1; \
 	done
 
 .PHONY: test-relayer
@@ -50,10 +79,3 @@ restart-dev-env:
 .PHONY: rebuild-dev-env
 rebuild-dev-env:
 	crust build/crust images/cored
-
-.PHONY: build-contract
-build-contract:
-	docker run --user $(id -u):$(id -g) --rm -v $(CONTRACT_DIR):/code \
-      --mount type=volume,source="coreumbridge_xrpl_cache",target=/code/target \
-      --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-       cosmwasm/rust-optimizer:0.14.0
