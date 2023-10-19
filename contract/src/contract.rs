@@ -47,7 +47,7 @@ const XRP_CURRENCY: &str = "XRP";
 const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
 
 // Initial values for the XRP token that can be modified afterwards.
-const XRP_SENDING_PRECISION: i32 = 6;
+const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
 const XRP_MAX_HOLDING_AMOUNT: u128 = 10u128.pow(16);
 
 pub const MAX_TICKETS: u32 = 250;
@@ -107,7 +107,7 @@ pub fn instantiate(
 
     let xrp_in_coreum = format!("{}-{}", XRP_SUBUNIT, env.contract.address).to_lowercase();
 
-    let min_sendable_amount = calculate_min_sendable_amount(XRP_SENDING_PRECISION, XRP_DECIMALS)?;
+    let min_sendable_amount = calculate_min_sendable_amount(XRP_DEFAULT_SENDING_PRECISION, XRP_DECIMALS)?;
 
     //We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
     //a token we can inform the relayers of what is being sent back.
@@ -115,7 +115,7 @@ pub fn instantiate(
         issuer: XRP_ISSUER.to_string(),
         currency: XRP_CURRENCY.to_string(),
         coreum_denom: xrp_in_coreum,
-        sending_precision: XRP_SENDING_PRECISION,
+        sending_precision: XRP_DEFAULT_SENDING_PRECISION,
         max_holding_amount: Uint128::new(XRP_MAX_HOLDING_AMOUNT),
         min_sendable_amount,
     };
