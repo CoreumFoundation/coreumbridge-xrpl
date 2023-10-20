@@ -276,7 +276,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	maxHoldingAmount := "10000"
 
 	// try to register from not owner
-	_, err := contractClient.RegisterXRPLToken(ctx, notOwner, issuer, currency)
+	_, err := contractClient.RegisterXRPLToken(ctx, notOwner, issuer, currency, sendingPrecision, maxHoldingAmount)
 	require.True(t, coreum.IsNotOwnerError(err), err)
 
 	// register from the owner
@@ -284,7 +284,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	require.NoError(t, err)
 
 	// try to register the same denom one more time
-	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, currency)
+	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
 	require.True(t, coreum.IsXRPLTokenAlreadyRegisteredError(err), err)
 
 	xrplTokens, err := contractClient.GetXRPLTokens(ctx)
