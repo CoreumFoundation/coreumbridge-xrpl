@@ -27,7 +27,7 @@ build-relayer-in-docker:
 .PHONY: build-contract
 build-contract:
 	docker run --user $(id -u):$(id -g) --rm -v $(CONTRACT_DIR):/code \
-      --mount type=volume,source="contract_cache",target=/code/target \
+      --mount type=volume,source="coreumbridge_xrpl_cache",target=/code/target \
       --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
        cosmwasm/rust-optimizer:0.14.0
 	mkdir -p $(BUILD_DIR)
@@ -55,7 +55,7 @@ lint-go:
 
 .PHONY: lint-contract
 lint-contract:
-	cd $(CONTRACT_DIR) && cargo clippy --verbose -- -D warnings
+	cd $(CONTRACT_DIR) && cargo clippy --verbose -- -D warnings || exit 1;
 
 .PHONY: test-integration
 test-integration:
@@ -74,7 +74,7 @@ test-contract:
 
 .PHONY: restart-dev-env
 restart-dev-env:
-	crust znet remove && crust znet start --profiles=3cored,xrpl --timeout-commit 0.5s
+	crust znet remove && crust znet start --profiles=1cored,xrpl --timeout-commit 0.5s
 
 .PHONY: rebuild-dev-env
 rebuild-dev-env:

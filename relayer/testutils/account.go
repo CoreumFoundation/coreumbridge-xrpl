@@ -19,6 +19,13 @@ func GenXRPLAccount() rippledata.Account {
 	return acc
 }
 
+// GenXRPLPubKey generates random XRPL pub key.
+func GenXRPLPubKey() rippledata.PublicKey {
+	var pubKey rippledata.PublicKey
+	copy(pubKey[:], ed25519.GenPrivKey().PubKey().Bytes())
+	return pubKey
+}
+
 // GenCoreumAccount generates random coreum account.
 func GenCoreumAccount() sdk.AccAddress {
 	return sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address())

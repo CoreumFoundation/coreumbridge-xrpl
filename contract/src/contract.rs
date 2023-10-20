@@ -31,7 +31,8 @@ use cw_utils::one_coin;
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const DEFAULT_MAX_LIMIT: u32 = 250;
+const MAX_PAGE_LIMIT: u32 = 250;
+
 const XRP_SYMBOL: &str = "XRP";
 const XRP_SUBUNIT: &str = "drop";
 const XRP_DECIMALS: u32 = 6;
@@ -254,8 +255,8 @@ fn register_xrpl_token(
     }
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
-    let to_hash =
-        format!("{}{}{}", issuer, currency.clone(), env.block.time.seconds()).into_bytes();
+    let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds())
+        .into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
     let hex_string = hash_bytes(to_hash)
@@ -417,7 +418,7 @@ fn recover_tickets(
     //If we don't provide a number of tickets to recover we will recover the ones that we already used.
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
-    if number_to_allocate == 0 {
+    if number_to_allocate == 0 || number_to_allocate > MAX_TICKETS  {
         return Err(ContractError::InvalidTicketNumberToAllocate {});
     }
 
@@ -484,7 +485,7 @@ fn query_xrpl_tokens(
     offset: Option<u64>,
     limit: Option<u32>,
 ) -> StdResult<XRPLTokensResponse> {
-    let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let offset = offset.unwrap_or(0);
     let tokens: Vec<XRPLToken> = XRPL_TOKENS
         .range(deps.storage, None, None, Order::Ascending)
@@ -502,7 +503,7 @@ fn query_coreum_tokens(
     offset: Option<u64>,
     limit: Option<u32>,
 ) -> StdResult<CoreumTokensResponse> {
-    let limit = limit.unwrap_or(DEFAULT_MAX_LIMIT).min(DEFAULT_MAX_LIMIT);
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let offset = offset.unwrap_or(0);
     let tokens: Vec<CoreumToken> = COREUM_TOKENS
         .range(deps.storage, None, None, Order::Ascending)
@@ -566,7 +567,7 @@ fn add_mint_and_send(
 
     let send_msg = CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
         to_address: recipient.to_string(),
-        amount: coins(amount.u128(), denom.clone()),
+        amount: coins(amount.u128(), denom),
     });
 
     response.add_messages([mint_msg, send_msg])
@@ -589,7 +590,7 @@ pub fn check_operation_exists(
 
 pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
     //issuer+currency is the key we use to find an XRPL
-    let mut key = issuer.clone();
+    let mut key = issuer;
     key.push_str(currency.as_str());
     key
 }

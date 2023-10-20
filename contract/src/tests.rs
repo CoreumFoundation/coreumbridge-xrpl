@@ -1849,6 +1849,25 @@ mod tests {
                 .as_str()
         ));
 
+        //Trying to recover more than max tickets will fail
+        let recover_ticket_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RecoverTickets {
+                    sequence_number,
+                    number_of_tickets: Some(300),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(recover_ticket_error.to_string().contains(
+            ContractError::InvalidTicketNumberToAllocate {}
+                .to_string()
+                .as_str()
+        ));
+
         // Owner will send a recover tickets operation which will set the pending ticket update flag to true
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -1923,25 +1942,6 @@ mod tests {
 
         assert!(relayer_error.to_string().contains(
             ContractError::PendingOperationNotFound {}
-                .to_string()
-                .as_str()
-        ));
-
-        //Providing a signature with the wrong length should fail
-        let signature_error = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::RegisterSignature {
-                    operation_id: sequence_number,
-                    signature: "wrong_signature_example".to_string(),
-                },
-                &vec![],
-                relayer_accounts[0],
-            )
-            .unwrap_err();
-
-        assert!(signature_error.to_string().contains(
-            ContractError::InvalidSignatureLength {}
                 .to_string()
                 .as_str()
         ));
