@@ -230,10 +230,7 @@ fn register_xrpl_token(
     }
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
-    let to_hash =
-        format!("{}{}{}", issuer, currency.clone(),
-        env.block.time.seconds()
-    )
+    let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds())
         .into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
@@ -520,7 +517,7 @@ fn add_mint_and_send(
 
     let send_msg = CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
         to_address: recipient.to_string(),
-        amount: coins(amount.u128(), denom.clone()),
+        amount: coins(amount.u128(), denom),
     });
 
     response.add_messages([mint_msg, send_msg])
@@ -543,7 +540,7 @@ pub fn check_operation_exists(
 
 pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
     //issuer+currency is the key we use to find an XRPL
-    let mut key = issuer.clone();
+    let mut key = issuer;
     key.push_str(currency.as_str());
     key
 }

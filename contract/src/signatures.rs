@@ -30,8 +30,8 @@ pub fn add_signature(
 
     //Add signature and store it
     signatures.push(Signature {
-        relayer: sender.clone(),
-        signature: signature.clone(),
+        relayer: sender,
+        signature,
     });
 
     pending_operation.signatures = signatures;
