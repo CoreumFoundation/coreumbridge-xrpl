@@ -1,6 +1,7 @@
 package runner_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,6 +19,9 @@ func TestInitAndReadConfig(t *testing.T) {
 	require.Equal(t, getDefaultConfigString(), string(yamlStringConfig))
 	// create temp dir to store the config
 	tempDir := t.TempDir()
+	t.Cleanup(func() {
+		os.Remove(tempDir) //nolint:errcheck // we are ok with that error
+	})
 
 	//  try to read none-existing config
 	_, err = runner.ReadConfig(tempDir)
@@ -45,6 +49,7 @@ logging:
     format: console
 xrpl:
     bridge_account: ""
+    multi_signer_key_name: ""
     http_client:
         request_timeout: 5s
         do_timeout: 30s
@@ -73,5 +78,8 @@ coreum:
         request_timeout: 10s
         tx_timeout: 1m0s
         tx_status_poll_interval: 500ms
+processes:
+    xrpl_tx_submitter:
+        repeat_delay: 10s
 `
 }

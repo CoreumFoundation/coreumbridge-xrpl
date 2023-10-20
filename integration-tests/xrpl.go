@@ -121,11 +121,28 @@ func (c XRPLChain) GenAccount(ctx context.Context, t *testing.T, amount float64)
 	return acc
 }
 
+// GetSignerKeyring returns signer keyring.
+func (c XRPLChain) GetSignerKeyring() keyring.Keyring {
+	return c.signer.GetKeyring()
+}
+
+// GetSignerPubKey returns signer public key.
+func (c XRPLChain) GetSignerPubKey(t *testing.T, acc rippledata.Account) rippledata.PublicKey {
+	pubKey, err := c.signer.PubKey(acc.String())
+	require.NoError(t, err)
+	return pubKey
+}
+
 // ActivateAccount funds the provided account with the amount required for the activation.
 func (c XRPLChain) ActivateAccount(ctx context.Context, t *testing.T, acc rippledata.Account) {
 	t.Helper()
 
 	c.FundAccount(ctx, t, acc, xrplRserveToActivateAccount)
+}
+
+// FundAccountForTicketAllocation funds the provided account with the amount required for the ticket allocation.
+func (c XRPLChain) FundAccountForTicketAllocation(ctx context.Context, t *testing.T, acc rippledata.Account, ticketsNumber uint32) {
+	c.FundAccount(ctx, t, acc, float64(2*ticketsNumber))
 }
 
 // FundAccount funds the provided account with the provided amount.

@@ -121,6 +121,14 @@ func TestMultisigPayment(t *testing.T) {
 	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigAcc))
 	t.Logf("The signers set is updated")
 
+	accInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, multisigAcc)
+	require.NoError(t, err)
+
+	require.Len(t, accInfo.AccountData.SignerList, 1)
+	signerEntries := accInfo.AccountData.SignerList[0].SignerEntries
+	require.Len(t, signerEntries, 3)
+	require.ElementsMatch(t, signerListSetTx.SignerEntries, signerEntries)
+
 	xrplPaymentTx := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAcc, signer1Acc)
 	signer1 := chains.XRPL.Multisign(t, &xrplPaymentTx, signer1Acc)
 
@@ -710,7 +718,7 @@ func TestXRPLHighLowAmountsPayments(t *testing.T) {
 			recipientBalanceAfter := getBalanceAccount(ctx, t, chains.XRPL, recipientAcc, issuerAcc, currency)
 
 			t.Logf(
-				"Sender before: %s | Recipient before: %s | Sending amounts: %v | Sender after: %s | Recipient after: %s | Delivered amount: %v",
+				"Sender before: %s | Recipient before: %s | Sending amounts: %+v | Sender after: %s | Recipient after: %s | Delivered amount: %v",
 				senderBalanceBefore, recipientBalanceBefore, tt.sendingAmounts, senderBalanceAfter, recipientBalanceAfter, deliveredAmounts,
 			)
 

@@ -33,6 +33,17 @@ build-contract:
 	mkdir -p $(BUILD_DIR)
 	cp $(CONTRACT_DIR)/artifacts/coreumbridge_xrpl.wasm $(BUILD_DIR)/coreumbridge_xrpl.wasm
 
+.PHONY: build-dev-contract
+build-dev-contract:
+	rustup target add wasm32-unknown-unknown
+	cargo install wasm-opt --locked
+	# Those RUSTFLAGS reduce binary size from 2MB to 400 KB
+	cd $(CONTRACT_DIR) && RUSTFLAGS='-C link-arg=-s' cargo wasm
+	mkdir -p $(BUILD_DIR)
+	cp $(CONTRACT_DIR)/target/wasm32-unknown-unknown/release/coreumbridge_xrpl.wasm $(BUILD_DIR)/coreumbridge_xrpl_not_opt.wasm
+	wasm-opt -Os --signext-lowering $(BUILD_DIR)/coreumbridge_xrpl_not_opt.wasm -o $(BUILD_DIR)/coreumbridge_xrpl.wasm
+	rm $(BUILD_DIR)/coreumbridge_xrpl_not_opt.wasm
+
 ###############################################################################
 ###                               Development                               ###
 ###############################################################################

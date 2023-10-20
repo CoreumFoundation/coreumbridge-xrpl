@@ -40,6 +40,11 @@ func StringFiled(key, value string) Field {
 	return convertZapFieldToField(zap.String(key, value))
 }
 
+// Uint32Filed constructs a field with the given key and value.
+func Uint32Filed(key string, value uint32) Field {
+	return convertZapFieldToField(zap.Uint32(key, value))
+}
+
 // Int64Filed constructs a field with the given key and value.
 func Int64Filed(key string, value int64) Field {
 	return convertZapFieldToField(zap.Int64(key, value))

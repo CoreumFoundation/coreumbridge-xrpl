@@ -674,7 +674,7 @@ func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, req
 	for _, req := range requests {
 		payload, err := json.Marshal(req.Body)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to marshal payload, requiest:%v", req.Body)
+			return nil, errors.Wrapf(err, "failed to marshal payload, requiest:%+v", req.Body)
 		}
 		c.log.Debug(ctx, "Executing contract", logger.StringFiled("payload", string(payload)))
 		msg := &wasmtypes.MsgExecuteContract{
@@ -688,7 +688,7 @@ func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, req
 
 	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgs...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute transaction, message:%v", msgs)
+		return nil, errors.Wrapf(err, "failed to execute transaction, message:%+v", msgs)
 	}
 	return res, nil
 }
@@ -710,7 +710,7 @@ func (c *ContractClient) query(ctx context.Context, request, response any) error
 	}
 	resp, err := c.wasmClient.SmartContractState(ctx, query)
 	if err != nil {
-		return errors.Wrapf(err, "query failed, requiest:%v", request)
+		return errors.Wrapf(err, "query failed, requiest:%+v", request)
 	}
 
 	c.log.Debug(ctx, "Query is succeeded", logger.StringFiled("data", string(resp.Data)))

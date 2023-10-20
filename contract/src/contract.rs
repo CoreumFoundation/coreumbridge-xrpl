@@ -230,7 +230,9 @@ fn register_xrpl_token(
     }
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
-    let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds())
+    let to_hash = format!("{}{}{}", issuer, currency,
+        env.block.time.seconds()
+    )
         .into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
@@ -332,7 +334,11 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     }
                 }
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
-                register_used_ticket(deps.storage)?;
+                //register used ticket only for the case when the the ticket was use for the tx execution
+                //TODO(keyne) add test for the sequence usage
+                if ticket_number.is_some() {
+                    register_used_ticket(deps.storage)?;
+                }
             }
 
             response = response
@@ -356,9 +362,7 @@ fn recover_tickets(
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
-    let pending_ticket_update = PENDING_TICKET_UPDATE.load(deps.storage)?;
-
-    if pending_ticket_update {
+    if PENDING_TICKET_UPDATE.load(deps.storage)? {
         return Err(ContractError::PendingTicketUpdate {});
     }
 
@@ -367,7 +371,11 @@ fn recover_tickets(
     PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
-    if number_to_allocate == 0 || number_to_allocate > MAX_TICKETS  {
+    let config = CONFIG.load(deps.storage)?;
+    //we check that number_to_allocate > config.used_tickets_threshold in order to cover the
+    //reallocation with just one XRPL transaction, otherwise the relocation might cause the
+    //additional reallocation.
+    if number_to_allocate <= config.used_tickets_threshold || number_to_allocate > MAX_TICKETS  {
         return Err(ContractError::InvalidTicketNumberToAllocate {});
     }
 

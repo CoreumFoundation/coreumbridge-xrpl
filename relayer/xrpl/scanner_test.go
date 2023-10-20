@@ -172,7 +172,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 			s := xrpl.NewAccountScanner(tt.cfg, logger.NewZapLoggerFromLogger(zapDevLogger), rpcTxProvider)
 			txsCh := make(chan rippledata.TransactionWithMetaData)
 			if err := s.ScanTxs(ctx, txsCh); (err != nil) != tt.wantErr {
-				t.Errorf("ScanTxs() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ScanTxs() error = %+v, wantErr %+v", err, tt.wantErr)
 			}
 			if len(tt.wantTxHashes) == 0 {
 				return

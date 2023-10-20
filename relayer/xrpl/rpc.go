@@ -30,15 +30,22 @@ func (e *RPCError) Error() string {
 		e.Name, e.Code, e.Message, e.Exception)
 }
 
+// AccountDataWithSigners is account data with the signers list.
+type AccountDataWithSigners struct {
+	rippledata.AccountRoot
+	SignerList []rippledata.SignerList `json:"signer_lists"`
+}
+
 // AccountInfoRequest is `account_info` method request.
 type AccountInfoRequest struct {
-	Account rippledata.Account `json:"account"`
+	Account     rippledata.Account `json:"account"`
+	SignerLists bool               `json:"signer_lists"`
 }
 
 // AccountInfoResult is `account_info` method result.
 type AccountInfoResult struct {
 	LedgerSequence uint32                 `json:"ledger_current_index"`
-	AccountData    rippledata.AccountRoot `json:"account_data"`
+	AccountData    AccountDataWithSigners `json:"account_data"`
 }
 
 // AccountLinesRequest is `account_lines` method request.
@@ -177,7 +184,8 @@ func NewRPCClient(cfg RPCClientConfig, log logger.Logger, httpClient HTTPClient)
 // AccountInfo returns the account information for the given account.
 func (c *RPCClient) AccountInfo(ctx context.Context, acc rippledata.Account) (AccountInfoResult, error) {
 	params := AccountInfoRequest{
-		Account: acc,
+		Account:     acc,
+		SignerLists: true,
 	}
 	var result AccountInfoResult
 	if err := c.callRPC(ctx, "account_info", params, &result); err != nil {

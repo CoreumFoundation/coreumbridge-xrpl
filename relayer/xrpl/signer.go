@@ -94,6 +94,16 @@ func (s *KeyringTxSigner) Account(keyName string) (rippledata.Account, error) {
 	return extractAccountFromXRPLKey(key), nil
 }
 
+// PubKey returns PubKey form the keyring.
+func (s *KeyringTxSigner) PubKey(keyName string) (rippledata.PublicKey, error) {
+	key, err := s.extractXRPLPrivKey(keyName)
+	if err != nil {
+		return rippledata.PublicKey{}, err
+	}
+
+	return extractPubKeyFromXRPLKey(key), nil
+}
+
 // GetKeyring returns signer keyring.
 func (s *KeyringTxSigner) GetKeyring() keyring.Keyring {
 	return s.kr
@@ -120,4 +130,10 @@ func extractAccountFromXRPLKey(key xrplPrivKey) rippledata.Account {
 	var account rippledata.Account
 	copy(account[:], key.Id(zeroSeq))
 	return account
+}
+
+func extractPubKeyFromXRPLKey(key xrplPrivKey) rippledata.PublicKey {
+	var pubKey rippledata.PublicKey
+	copy(pubKey[:], key.Public(zeroSeq))
+	return pubKey
 }

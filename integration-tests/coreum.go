@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 
 	"github.com/CoreumFoundation/coreum/v3/app"
@@ -62,17 +61,6 @@ func NewCoreumChain(cfg CoreumChainConfig) (CoreumChain, error) {
 // Config returns the chain config.
 func (c CoreumChain) Config() CoreumChainConfig {
 	return c.cfg
-}
-
-// GenAccountWithKeyName generates new coreum account saves it to the keyring and returns the account address and its key name.
-func (c CoreumChain) GenAccountWithKeyName() (sdk.AccAddress, string) {
-	address := c.GenAccount()
-	keyRecord, err := c.ClientContext.Keyring().KeyByAddress(address)
-	if err != nil {
-		panic(errors.Wrapf(err, "faild to get key by address from the keyring"))
-	}
-
-	return address, keyRecord.Name
 }
 
 func getTestContextConfig() client.ContextConfig {
