@@ -21,6 +21,7 @@ import (
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/testutils"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -73,20 +74,20 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 	sendTrustSet(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, xrplBridgeAcc, xrplNotRegisterCurrency)
 
 	relayers := []coreum.Relayer{
-		coreum.Relayer{
+		{
 			CoreumAddress: relayer1,
-			XRPLAddress:   "xrpl_address",
-			XRPLPubKey:    "xrpl_pub_key",
+			XRPLAddress:   testutils.GenXRPLAccount().String(),
+			XRPLPubKey:    testutils.GenXRPLPubKey().String(),
 		},
-		coreum.Relayer{
+		{
 			CoreumAddress: relayer2,
-			XRPLAddress:   "xrpl_address",
-			XRPLPubKey:    "xrpl_pub_key",
+			XRPLAddress:   testutils.GenXRPLAccount().String(),
+			XRPLPubKey:    testutils.GenXRPLPubKey().String(),
 		},
-		coreum.Relayer{
+		{
 			CoreumAddress: relayer3,
-			XRPLAddress:   "xrpl_address",
-			XRPLPubKey:    "xrpl_pub_key",
+			XRPLAddress:   testutils.GenXRPLAccount().String(),
+			XRPLPubKey:    testutils.GenXRPLPubKey().String(),
 		},
 	}
 
