@@ -1,7 +1,4 @@
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, VecDeque},
-};
+use std::collections::{HashMap, VecDeque};
 
 use crate::{
     error::ContractError,
@@ -23,8 +20,8 @@ use coreum_wasm_sdk::{
     core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
-    coin, coins, entry_point, to_binary, Addr, Binary, CosmosMsg, Decimal256, Deps, DepsMut, Empty,
-    Env, MessageInfo, Order, Response, StdResult, Storage, Uint128,
+    coin, coins, entry_point, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env,
+    MessageInfo, Order, Response, StdResult, Storage, Uint128,
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
@@ -107,8 +104,6 @@ pub fn instantiate(
 
     let xrp_in_coreum = format!("{}-{}", XRP_SUBUNIT, env.contract.address).to_lowercase();
 
-    let min_sendable_amount = calculate_min_sendable_amount(XRP_DEFAULT_SENDING_PRECISION, XRP_DECIMALS)?;
-
     //We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
     //a token we can inform the relayers of what is being sent back.
     let token = XRPLToken {
@@ -117,10 +112,10 @@ pub fn instantiate(
         coreum_denom: xrp_in_coreum,
         sending_precision: XRP_DEFAULT_SENDING_PRECISION,
         max_holding_amount: Uint128::new(XRP_MAX_HOLDING_AMOUNT),
-        min_sendable_amount,
     };
 
-    XRPL_TOKENS.save(deps.storage, XRP_SYMBOL.to_string(), &token)?;
+    let key = build_xrpl_token_key(XRP_ISSUER.to_string(), XRP_CURRENCY.to_string());
+    XRPL_TOKENS.save(deps.storage, key, &token)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::Instantiation.as_str())
@@ -243,6 +238,13 @@ fn register_xrpl_token(
 
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
 
+    // Minimum and maximum sending precisions we allow
+    if sending_precision < -(XRPL_TOKENS_DECIMALS as i32)
+        || sending_precision > XRPL_TOKENS_DECIMALS as i32
+    {
+        return Err(ContractError::InvalidSendingPrecision {});
+    }
+
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
     let key = build_xrpl_token_key(issuer.clone(), currency.clone());
@@ -284,16 +286,12 @@ fn register_xrpl_token(
         return Err(ContractError::RegistrationFailure {});
     };
 
-    let min_sendable_amount =
-        calculate_min_sendable_amount(sending_precision, XRPL_TOKENS_DECIMALS)?;
-
     let token = XRPLToken {
         issuer: issuer.clone(),
         currency: currency.clone(),
         coreum_denom: denom.clone(),
         sending_precision,
         max_holding_amount,
-        min_sendable_amount,
     };
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
@@ -330,11 +328,14 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 .load(deps.storage, key)
                 .map_err(|_| ContractError::TokenNotRegistered {})?;
 
-            if amount.lt(&token.min_sendable_amount) {
-                return Err(ContractError::AmountSentUnderMinimum {});
-            }
+            let decimals = match is_token_xrp(token.issuer, token.currency) {
+                true => XRP_DECIMALS,
+                false => XRPL_TOKENS_DECIMALS,
+            };
 
-            if amount
+            let amount_to_send = truncate_amount(token.sending_precision, decimals, amount)?;
+
+            if amount_to_send
                 .checked_add(
                     deps.querier
                         .query_supply(token.coreum_denom.clone())?
@@ -346,8 +347,12 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             }
 
             if threshold_reached {
-                response =
-                    add_mint_and_send(response, amount, token.coreum_denom, recipient.clone());
+                response = add_mint_and_send(
+                    response,
+                    amount_to_send,
+                    token.coreum_denom,
+                    recipient.clone(),
+                );
             }
 
             response = response
@@ -669,32 +674,25 @@ fn validate_xrpl_address(address: String) -> Result<(), ContractError> {
     Ok(())
 }
 
-fn calculate_min_sendable_amount(
+fn truncate_amount(
     sending_precision: i32,
     decimals: u32,
+    amount: Uint128,
 ) -> Result<Uint128, ContractError> {
-    let mut min_amount;
+    // To get exactly by how much we need to divide the original amount
+    // Example: if sending precision = -1. Exponent will be 15 - ( - 1) = 16 for XRPL tokens so we will divide the original amount by 10^16
+    // Example: if sending precision = 14. Exponent will be 15 - 14 = 1 for XRPL tokens so we will divide the original amount by 10^1
+    let exponent = decimals as i32 - sending_precision;
 
-    // We are going to calculate the minimum that we can send
-    match sending_precision.cmp(&0) {
-        Ordering::Less => {
-            //if sending precision is negative it means we can't send less than 10^(-sending_precision). Example: sending_precision = -1 means the minimum se can send is 10.
-            min_amount = Decimal256::from_atomics(10u128.pow(sending_precision.unsigned_abs()), 0)?;
-        }
-        Ordering::Equal => min_amount = Decimal256::one(),
-        Ordering::Greater => {
-            min_amount = Decimal256::from_atomics(1u128, sending_precision as u32)?;
-        }
+    let amount_to_send = amount.checked_div(Uint128::new(10u128.pow(exponent.unsigned_abs())))?;
+
+    if amount_to_send.is_zero() {
+        return Err(ContractError::AmountSentIsZeroAfterTruncating {});
     }
 
-    // We will adjust min amount to take into acount the amount of decimals places this token will have.
-    min_amount = min_amount.checked_mul(Decimal256::from_atomics(10u128.pow(decimals), 0)?)?;
+    Ok(amount_to_send.checked_mul(Uint128::new(10u128.pow(exponent.unsigned_abs())))?)
+}
 
-    // if an invalid sending precision (more than token decimals) has been sent, we will have a minimum sendable amount lower than 1,
-    // which should not be allowed.
-    if min_amount.lt(&Decimal256::one()) {
-        return Err(ContractError::InvalidSendingPrecision {});
-    }
-
-    Ok(min_amount.to_uint_ceil().try_into().unwrap())
+fn is_token_xrp(issuer: String, currency: String) -> bool {
+    issuer == XRP_ISSUER && currency == XRP_CURRENCY
 }

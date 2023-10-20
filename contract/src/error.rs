@@ -1,4 +1,4 @@
-use cosmwasm_std::{Decimal256RangeExceeded, OverflowError, StdError};
+use cosmwasm_std::{DivideByZeroError, OverflowError, StdError};
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
@@ -17,7 +17,7 @@ pub enum ContractError {
     OverflowError(#[from] OverflowError),
 
     #[error(transparent)]
-    Decimal256RangeExceeded(#[from] Decimal256RangeExceeded),
+    DivideByZeroError(#[from] DivideByZeroError),
 
     #[error("Payment error: {0}")]
     Payment(#[from] PaymentError),
@@ -112,14 +112,14 @@ pub enum ContractError {
     #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
     InvalidXRPLCurrency {},
 
-    #[error("AmountSentUnderMinimum: The amount sent must be more than the minimum allowed")]
-    AmountSentUnderMinimum {},
+    #[error("AmountSentIsZeroAfterTruncating: Amount sent is zero after truncating to sending precision")]
+    AmountSentIsZeroAfterTruncating {},
 
     #[error("MaximumBridgedAmountReached: The maximum amount this contract can have bridged has been reached")]
     MaximumBridgedAmountReached {},
 
     #[error(
-        "InvalidSendingPrecision: The sending precision can't be more than the token decimals"
+        "InvalidSendingPrecision: The sending precision can't be more than the token decimals or less than the negative token decimals"
     )]
     InvalidSendingPrecision {},
 }

@@ -24,6 +24,8 @@ mod tests {
     const XRP_SUBUNIT: &str = "drop";
     const COREUM_CURRENCY_PREFIX: &str = "coreum";
     const XRPL_DENOM_PREFIX: &str = "xrpl";
+    const XRP_CURRENCY: &str = "XRP";
+    const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
 
     #[derive(Clone)]
     struct XRPLToken {
@@ -618,6 +620,48 @@ mod tests {
             .to_string()
             .contains(ContractError::InvalidXRPLIssuer {}.to_string().as_str()));
 
+        //Registering a token with an invalid precision should fail.
+        let issuer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[1].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                    sending_precision: -16,
+                    max_holding_amount: Uint128::new(test_tokens[0].max_holding_amount.clone()),
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(issuer_error.to_string().contains(
+            ContractError::InvalidSendingPrecision {}
+                .to_string()
+                .as_str()
+        ));
+
+        //Registering a token with an invalid precision should fail.
+        let issuer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[1].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                    sending_precision: 16,
+                    max_holding_amount: Uint128::new(test_tokens[0].max_holding_amount.clone()),
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(issuer_error.to_string().contains(
+            ContractError::InvalidSendingPrecision {}
+                .to_string()
+                .as_str()
+        ));
+
         //Registering a token with a valid issuer but invalid currency should fail.
         let currency_error = wasm
             .execute::<ExecuteMsg>(
@@ -736,10 +780,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(query_xrpl_tokens.tokens.len(), 1);
-        assert_eq!(
-            query_xrpl_tokens.tokens[0].coreum_denom,
-            format!("{}-{}", XRP_SUBUNIT, &contract_addr.to_lowercase())
-        );
+        assert!(query_xrpl_tokens.tokens[0].coreum_denom.starts_with("xrp"));
 
         //Query all tokens with pagination
         let query_xrpl_tokens = wasm
@@ -752,28 +793,6 @@ mod tests {
             )
             .unwrap();
         assert_eq!(query_xrpl_tokens.tokens.len(), 2);
-        assert!(query_xrpl_tokens.tokens[0]
-            .coreum_denom
-            .starts_with(XRPL_DENOM_PREFIX));
-        assert_eq!(
-            query_xrpl_tokens.tokens[0].issuer.clone(),
-            test_tokens[0].issuer
-        );
-        assert_eq!(
-            query_xrpl_tokens.tokens[0].currency.clone(),
-            test_tokens[0].currency
-        );
-        assert!(query_xrpl_tokens.tokens[1]
-            .coreum_denom
-            .starts_with(XRPL_DENOM_PREFIX));
-        assert_eq!(
-            query_xrpl_tokens.tokens[1].issuer.clone(),
-            test_tokens[1].issuer
-        );
-        assert_eq!(
-            query_xrpl_tokens.tokens[1].currency.clone(),
-            test_tokens[1].currency
-        );
     }
 
     #[test]
@@ -852,7 +871,14 @@ mod tests {
             )
             .unwrap();
 
-        let denom = query_xrpl_tokens.tokens[1].coreum_denom.clone();
+        let denom = query_xrpl_tokens
+            .tokens
+            .iter()
+            .find(|t| t.issuer == test_token.issuer && t.currency == test_token.currency)
+            .unwrap()
+            .coreum_denom
+            .clone();
+
         let hash = "random_hash".to_string();
         let amount = Uint128::new(100);
 
@@ -917,7 +943,13 @@ mod tests {
             )
             .unwrap();
 
-        let denom = query_xrpl_tokens.tokens[1].coreum_denom.clone();
+        let denom = query_xrpl_tokens
+            .tokens
+            .iter()
+            .find(|t| t.issuer == test_token.issuer && t.currency == test_token.currency)
+            .unwrap()
+            .coreum_denom
+            .clone();
 
         //Trying to send from an address that is not a relayer should fail
         let relayer_error = wasm
@@ -1120,6 +1152,10 @@ mod tests {
             .init_account(&coins(100_000_000_000, FEE_DENOM))
             .unwrap();
 
+        let receiver = app
+            .init_account(&coins(100_000_000_000, FEE_DENOM))
+            .unwrap();
+
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
         let relayer = Relayer {
@@ -1140,37 +1176,23 @@ mod tests {
 
         let test_token1 = XRPLToken {
             issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            currency: "TS1".to_string(),
+            currency: "TT1".to_string(),
             sending_precision: -2,
             max_holding_amount: 200000000000000000,
         };
         let test_token2 = XRPLToken {
             issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            currency: "TS2".to_string(),
+            currency: "TT2".to_string(),
             sending_precision: 13,
-            max_holding_amount: 250,
+            max_holding_amount: 499,
         };
 
-        // Try registering a coreum token with a sending precision higher than the token decimals, should fail because the min amount to send will be less than 0.
-        let register_xrpl_error = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::RegisterXRPLToken {
-                    issuer: test_token1.issuer.clone(),
-                    currency: test_token1.currency.clone(),
-                    sending_precision: 16,
-                    max_holding_amount: Uint128::new(test_token1.max_holding_amount.clone()),
-                },
-                &query_issue_fee(&asset_ft),
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(register_xrpl_error.to_string().contains(
-            ContractError::InvalidSendingPrecision {}
-                .to_string()
-                .as_str()
-        ));
+        let test_token3 = XRPLToken {
+            issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
+            currency: "TT3".to_string(),
+            sending_precision: 0,
+            max_holding_amount: 5000000000000000,
+        };
 
         // Test negative sending precisions
 
@@ -1188,6 +1210,24 @@ mod tests {
         )
         .unwrap();
 
+        let query_xrpl_tokens = wasm
+            .query::<QueryMsg, XRPLTokensResponse>(
+                &contract_addr,
+                &QueryMsg::XRPLTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let denom = query_xrpl_tokens
+            .tokens
+            .iter()
+            .find(|t| t.issuer == test_token1.issuer && t.currency == test_token1.currency)
+            .unwrap()
+            .coreum_denom
+            .clone();
+
         let precision_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -1196,10 +1236,9 @@ mod tests {
                         tx_hash: "random_hash1".to_string(),
                         issuer: test_token1.issuer.clone(),
                         currency: test_token1.currency.clone(),
-                        //Sending precision is -2, so minimum amount we can send, taking into account 15 decimals is 100000000000000000
-                        //Sending less should fail.
-                        amount: Uint128::new(10000000000000000),
-                        recipient: Addr::unchecked(signer.address()),
+                        //Sending less than 100000000000000000, in this case 99999999999999999 (1 less digit) should return an error because it will truncate to zero
+                        amount: Uint128::new(99999999999999999),
+                        recipient: Addr::unchecked(receiver.address()),
                     },
                 },
                 &[],
@@ -1208,7 +1247,7 @@ mod tests {
             .unwrap_err();
 
         assert!(precision_error.to_string().contains(
-            ContractError::AmountSentUnderMinimum {}
+            ContractError::AmountSentIsZeroAfterTruncating {}
                 .to_string()
                 .as_str()
         ));
@@ -1220,10 +1259,9 @@ mod tests {
                     tx_hash: "random_hash1".to_string(),
                     issuer: test_token1.issuer.clone(),
                     currency: test_token1.currency.clone(),
-                    //Sending precision is -2, so minimum amount we can send, taking into account 15 decimals is 100000000000000000
-                    //Sending minimum should work
-                    amount: Uint128::new(100000000000000000),
-                    recipient: Addr::unchecked(signer.address()),
+                    //Sending more than 199999999999999999 will truncate to 100000000000000000 and send it to the user
+                    amount: Uint128::new(199999999999999999),
+                    recipient: Addr::unchecked(receiver.address()),
                 },
             },
             &[],
@@ -1231,7 +1269,16 @@ mod tests {
         )
         .unwrap();
 
-        //Sending it again should work too because maximum bridgable amount is 2x minimum amount
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "100000000000000000".to_string());
+
+        //Sending it again should work too because we will not have passed maximum holding amount
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -1239,8 +1286,9 @@ mod tests {
                     tx_hash: "random_hash2".to_string(),
                     issuer: test_token1.issuer.clone(),
                     currency: test_token1.currency.clone(),
-                    amount: Uint128::new(100000000000000000),
-                    recipient: Addr::unchecked(signer.address()),
+                    //Let's try sending 199999999999999999 that will be truncated to 100000000000000000 and send it to the user
+                    amount: Uint128::new(199999999999999999),
+                    recipient: Addr::unchecked(receiver.address()),
                 },
             },
             &[],
@@ -1248,7 +1296,16 @@ mod tests {
         )
         .unwrap();
 
-        //Sending it a 3rd time should fail because we reach the maximum amount that the contract can bridge
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "200000000000000000".to_string());
+
+        //Sending it a 3rd time will fail because will pass the maximum holding amount.
         let maximum_amount_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -1257,8 +1314,9 @@ mod tests {
                         tx_hash: "random_hash3".to_string(),
                         issuer: test_token1.issuer.clone(),
                         currency: test_token1.currency.clone(),
-                        amount: Uint128::new(100000000000000000),
-                        recipient: Addr::unchecked(signer.address()),
+                        //Let's try sending 199999999999999999 that will be truncated to 100000000000000000 and send it to the user
+                        amount: Uint128::new(199999999999999999),
+                        recipient: Addr::unchecked(receiver.address()),
                     },
                 },
                 &[],
@@ -1272,7 +1330,16 @@ mod tests {
                 .as_str()
         ));
 
-        //Test positive sending precisions
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "200000000000000000".to_string());
+
+        // Test positive sending precisions
 
         //Register token
         wasm.execute::<ExecuteMsg>(
@@ -1288,18 +1355,35 @@ mod tests {
         )
         .unwrap();
 
+        let query_xrpl_tokens = wasm
+            .query::<QueryMsg, XRPLTokensResponse>(
+                &contract_addr,
+                &QueryMsg::XRPLTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let denom = query_xrpl_tokens
+            .tokens
+            .iter()
+            .find(|t| t.issuer == test_token2.issuer && t.currency == test_token2.currency)
+            .unwrap()
+            .coreum_denom
+            .clone();
+
         let precision_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash4".to_string(),
+                        tx_hash: "random_hash5".to_string(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
-                        //Sending precision is 13, so minimum amount we can send, taking into account 15 decimals is 100
-                        //Sending less should fail.
-                        amount: Uint128::new(10),
-                        recipient: Addr::unchecked(signer.address()),
+                        //Sending more than 499 should fail because maximum holding amount is 499
+                        amount: Uint128::new(500),
+                        recipient: Addr::unchecked(receiver.address()),
                     },
                 },
                 &[],
@@ -1308,7 +1392,31 @@ mod tests {
             .unwrap_err();
 
         assert!(precision_error.to_string().contains(
-            ContractError::AmountSentUnderMinimum {}
+            ContractError::MaximumBridgedAmountReached {}
+                .to_string()
+                .as_str()
+        ));
+
+        let precision_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: "random_hash6".to_string(),
+                        issuer: test_token2.issuer.clone(),
+                        currency: test_token2.currency.clone(),
+                        //Sending less than 100 will truncate to 0 so should fail
+                        amount: Uint128::new(99),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(precision_error.to_string().contains(
+            ContractError::AmountSentIsZeroAfterTruncating {}
                 .to_string()
                 .as_str()
         ));
@@ -1317,13 +1425,12 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "random_hash5".to_string(),
+                    tx_hash: "random_hash7".to_string(),
                     issuer: test_token2.issuer.clone(),
                     currency: test_token2.currency.clone(),
-                    //Sending precision is 13, so minimum amount we can send, taking into account 15 decimals is 100
-                    //Sending minimum should work.
-                    amount: Uint128::new(100),
-                    recipient: Addr::unchecked(signer.address()),
+                    //Sending 299 should truncate the amount to 200
+                    amount: Uint128::new(299),
+                    recipient: Addr::unchecked(receiver.address()),
                 },
             },
             &[],
@@ -1331,16 +1438,26 @@ mod tests {
         )
         .unwrap();
 
-        //Sending a bit more under maximum bridge minimum should work
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "200".to_string());
+
+        //Sending it again should truncate the amount to 200 again and should pass
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "random_hash6".to_string(),
+                    tx_hash: "random_hash8".to_string(),
                     issuer: test_token2.issuer.clone(),
                     currency: test_token2.currency.clone(),
-                    amount: Uint128::new(149),
-                    recipient: Addr::unchecked(signer.address()),
+                    //Sending 299 should truncate the amount to 200
+                    amount: Uint128::new(299),
+                    recipient: Addr::unchecked(receiver.address()),
                 },
             },
             &[],
@@ -1348,17 +1465,294 @@ mod tests {
         )
         .unwrap();
 
-        //Sending a 3rd transaction should fail because we go over the maximum bridgable amount
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "400".to_string());
+
+        //Sending 199 should truncate to 100 and since maximum is 499, it should fail
         let maximum_amount_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash7".to_string(),
+                        tx_hash: "random_hash9".to_string(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
-                        amount: Uint128::new(100),
-                        recipient: Addr::unchecked(signer.address()),
+                        //Sending 199 should truncate to 100 and since it's over the maximum it should fail
+                        amount: Uint128::new(199),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(maximum_amount_error.to_string().contains(
+            ContractError::MaximumBridgedAmountReached {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Test 0 sending precision
+
+        //Register token
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterXRPLToken {
+                issuer: test_token3.issuer.clone(),
+                currency: test_token3.currency.clone(),
+                sending_precision: test_token3.sending_precision.clone(),
+                max_holding_amount: Uint128::new(test_token3.max_holding_amount.clone()),
+            },
+            &query_issue_fee(&asset_ft),
+            &signer,
+        )
+        .unwrap();
+
+        let query_xrpl_tokens = wasm
+            .query::<QueryMsg, XRPLTokensResponse>(
+                &contract_addr,
+                &QueryMsg::XRPLTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let denom = query_xrpl_tokens
+            .tokens
+            .iter()
+            .find(|t| t.issuer == test_token3.issuer && t.currency == test_token3.currency)
+            .unwrap()
+            .coreum_denom
+            .clone();
+
+        let precision_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: "random_hash10".to_string(),
+                        issuer: test_token3.issuer.clone(),
+                        currency: test_token3.currency.clone(),
+                        //Sending more than 5000000000000000 should fail because maximum holding amount is 5000000000000000
+                        amount: Uint128::new(6000000000000000),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(precision_error.to_string().contains(
+            ContractError::MaximumBridgedAmountReached {}
+                .to_string()
+                .as_str()
+        ));
+
+        let precision_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: "random_hash11".to_string(),
+                        issuer: test_token3.issuer.clone(),
+                        currency: test_token3.currency.clone(),
+                        //Sending less than 1000000000000000 will truncate to 0 so should fail
+                        amount: Uint128::new(900000000000000),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(precision_error.to_string().contains(
+            ContractError::AmountSentIsZeroAfterTruncating {}
+                .to_string()
+                .as_str()
+        ));
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: "random_hash12".to_string(),
+                    issuer: test_token3.issuer.clone(),
+                    currency: test_token3.currency.clone(),
+                    //Sending 1111111111111111 should truncate the amount to 1000000000000000
+                    amount: Uint128::new(1111111111111111),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
+            },
+            &[],
+            &signer,
+        )
+        .unwrap();
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "1000000000000000".to_string());
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: "random_hash13".to_string(),
+                    issuer: test_token3.issuer.clone(),
+                    currency: test_token3.currency.clone(),
+                    //Sending 4111111111111111 should truncate the amount to 4000000000000000 and should pass because maximum is 5000000000000000
+                    amount: Uint128::new(4111111111111111),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
+            },
+            &[],
+            &signer,
+        )
+        .unwrap();
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "5000000000000000".to_string());
+
+        let maximum_amount_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: "random_hash14".to_string(),
+                        issuer: test_token2.issuer.clone(),
+                        currency: test_token2.currency.clone(),
+                        //Sending 1111111111111111 should truncate the amount to 1000000000000000 and should fail because bridge is already holding maximum
+                        amount: Uint128::new(1111111111111111),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(maximum_amount_error.to_string().contains(
+            ContractError::MaximumBridgedAmountReached {}
+                .to_string()
+                .as_str()
+        ));
+
+        //Test sending XRP
+        let denom = query_xrpl_tokens
+            .tokens
+            .iter()
+            .find(|t| t.issuer == XRP_ISSUER.to_string() && t.currency == XRP_CURRENCY.to_string())
+            .unwrap()
+            .coreum_denom
+            .clone();
+
+        let precision_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: "random_hash15".to_string(),
+                        issuer: XRP_ISSUER.to_string(),
+                        currency: XRP_CURRENCY.to_string(),
+                        //Sending more than 100000000000000000 should fail because maximum holding amount is 10000000000000000 (1 less zero)
+                        amount: Uint128::new(100000000000000000),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(precision_error.to_string().contains(
+            ContractError::MaximumBridgedAmountReached {}
+                .to_string()
+                .as_str()
+        ));
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: "random_hash15".to_string(),
+                    issuer: XRP_ISSUER.to_string(),
+                    currency: XRP_CURRENCY.to_string(),
+                    //There should never be truncation because we allow full precision for XRP initially
+                    amount: Uint128::new(1),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
+            },
+            &[],
+            &signer,
+        )
+        .unwrap();
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "1".to_string());
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: "random_hash16".to_string(),
+                    issuer: XRP_ISSUER.to_string(),
+                    currency: XRP_CURRENCY.to_string(),
+                    //This should work because we are sending the rest to reach the maximum amount
+                    amount: Uint128::new(9999999999999999),
+                    recipient: Addr::unchecked(receiver.address()),
+                },
+            },
+            &[],
+            &signer,
+        )
+        .unwrap();
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "10000000000000000".to_string());
+
+        let maximum_amount_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: "random_hash17".to_string(),
+                        issuer: XRP_ISSUER.to_string(),
+                        currency: XRP_CURRENCY.to_string(),
+                        //Sending 1 more token would surpass the maximum so should fail
+                        amount: Uint128::new(1),
+                        recipient: Addr::unchecked(receiver.address()),
                     },
                 },
                 &[],
