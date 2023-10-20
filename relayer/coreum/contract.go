@@ -134,8 +134,8 @@ type XRPLTransactionResultTicketsAllocationEvidence struct {
 
 // Signature is a pair of the relayer provided the signature and signature string.
 type Signature struct {
-	Relayer   string `json:"relayer"`
-	Signature string `json:"signature"`
+	Relayer   sdk.AccAddress `json:"relayer"`
+	Signature string         `json:"signature"`
 }
 
 // OperationTypeAllocateTickets is allocated tickets operation type.

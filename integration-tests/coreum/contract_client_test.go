@@ -581,11 +581,11 @@ func TestRecoverTickets(t *testing.T) {
 		SequenceNumber: firstBridgeAccountSeqNumber,
 		Signatures: []coreum.Signature{
 			{
-				Relayer:   relayer1.String(),
+				Relayer:   relayer1,
 				Signature: signerItem1.TxnSignature.String(),
 			},
 			{
-				Relayer:   relayer2.String(),
+				Relayer:   relayer2,
 				Signature: signerItem2.TxnSignature.String(),
 			},
 		},
