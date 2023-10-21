@@ -139,7 +139,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	}
 
 	currency := deliveredXRPLAmount.Currency.String()
-	if len(currency) == 20 {
+	if len(currency) > 3 {
 		currency = hex.EncodeToString([]byte(currency))
 	}
 	evidence := coreum.XRPLToCoreumTransferEvidence{
