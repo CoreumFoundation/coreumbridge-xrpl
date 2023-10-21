@@ -92,7 +92,7 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 	}
 
 	sendingPrecision := uint32(15)
-	maxHoldingAmount := "10000"
+	maxHoldingAmount := "1000000000000000000000000000000"
 
 	// deploy contract
 	contractOwner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, 2, 10)
