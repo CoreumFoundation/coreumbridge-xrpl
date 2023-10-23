@@ -8,6 +8,7 @@ mod tests {
         },
     };
     use cosmwasm_std::{coin, coins, Addr, Coin, Uint128};
+    use rand::{distributions::Alphanumeric, thread_rng, Rng};
     use sha2::{Digest, Sha256};
 
     use crate::{
@@ -86,6 +87,30 @@ mod tests {
         hex::encode(output)
     }
 
+    pub fn generate_xrpl_address() -> String {
+        let mut address = 'r'.to_string();
+        let rand = String::from_utf8(
+            thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(30)
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+
+        address.push_str(rand.as_str());
+        address
+    }
+
+    pub fn generate_xrpl_pub_key() -> String {
+        String::from_utf8(
+            thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(52)
+                .collect::<Vec<_>>(),
+        )
+        .unwrap()
+    }
+
     #[test]
     fn contract_instantiation() {
         let app = CoreumTestApp::new();
@@ -98,34 +123,38 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+
+        let xrpl_address = generate_xrpl_address();
+        let xrpl_pub_key = generate_xrpl_pub_key();
+
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1".to_string(),
+            xrpl_address: xrpl_address.clone(),
+            xrpl_pub_key: xrpl_pub_key.clone(),
         };
 
         let relayer_duplicated_xrpl_address = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL2".to_string(),
+            xrpl_address: xrpl_address,
+            xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
         let relayer_duplicated_xrpl_pub_key = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpx".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1".to_string(),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key,
         };
 
         let relayer_duplicated_coreum_address = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpx".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL3".to_string(),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
         let relayer_correct = Relayer {
             coreum_address: Addr::unchecked(relayer_account.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpx".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL3".to_string(),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
         //We check that we can store and instantiate
@@ -297,8 +326,8 @@ mod tests {
         let asset_ft = AssetFT::new(&app);
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1".to_string(),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -382,8 +411,8 @@ mod tests {
         let asset_ft = AssetFT::new(&app);
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1".to_string(),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -415,8 +444,8 @@ mod tests {
         let asset_ft = AssetFT::new(&app);
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1".to_string(),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -455,8 +484,8 @@ mod tests {
         let asset_ft = AssetFT::new(&app);
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1".to_string(),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -572,8 +601,8 @@ mod tests {
         let asset_ft = AssetFT::new(&app);
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1".to_string(),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -805,15 +834,9 @@ mod tests {
 
         let signer = accounts.get((accounts_number - 1) as usize).unwrap();
         let receiver = accounts.get((accounts_number - 2) as usize).unwrap();
-        let xrpl_addresses = vec![
-            "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
-            "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpy",
-        ];
+        let xrpl_addresses = vec![generate_xrpl_address(), generate_xrpl_address()];
 
-        let xrpl_pub_keys = vec![
-            "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
-            "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL2",
-        ];
+        let xrpl_pub_keys = vec![generate_xrpl_pub_key(), generate_xrpl_pub_key()];
 
         let mut relayer_accounts = vec![];
         let mut relayers = vec![];
@@ -1160,8 +1183,8 @@ mod tests {
         let asset_ft = AssetFT::new(&app);
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1".to_string(),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -1175,20 +1198,20 @@ mod tests {
         );
 
         let test_token1 = XRPLToken {
-            issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
+            issuer: generate_xrpl_address(),
             currency: "TT1".to_string(),
             sending_precision: -2,
             max_holding_amount: 200000000000000000,
         };
         let test_token2 = XRPLToken {
-            issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
+            issuer: generate_xrpl_address().to_string(),
             currency: "TT2".to_string(),
             sending_precision: 13,
             max_holding_amount: 499,
         };
 
         let test_token3 = XRPLToken {
-            issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
+            issuer: generate_xrpl_address().to_string(),
             currency: "TT3".to_string(),
             sending_precision: 0,
             max_holding_amount: 5000000000000000,
@@ -1776,15 +1799,9 @@ mod tests {
             .unwrap();
 
         let signer = accounts.get((accounts_number - 1) as usize).unwrap();
-        let xrpl_addresses = vec![
-            "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn",
-            "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpy",
-        ];
+        let xrpl_addresses = vec![generate_xrpl_address(), generate_xrpl_address()];
 
-        let xrpl_pub_keys = vec![
-            "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1",
-            "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL2",
-        ];
+        let xrpl_pub_keys = vec![generate_xrpl_pub_key(), generate_xrpl_pub_key()];
 
         let mut relayer_accounts = vec![];
         let mut relayers = vec![];
@@ -2218,8 +2235,8 @@ mod tests {
         let asset_ft = AssetFT::new(&app);
         let relayer = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(),
-            xrpl_pub_key: "aBRNH5wUurfhZcoyR6nRwDSa95gMBkovBJ8V4cp1C1pM28H7EPL1".to_string(),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
         let contract_addr = store_and_instantiate(

@@ -32,6 +32,8 @@ const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const MAX_PAGE_LIMIT: u32 = 250;
+const MIN_SENDING_PRECISION: i32 = -15;
+const MAX_SENDING_PRECISION: i32 = 15;
 
 const XRP_SYMBOL: &str = "XRP";
 const XRP_SUBUNIT: &str = "drop";
@@ -46,7 +48,7 @@ const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
 
 // Initial values for the XRP token that can be modified afterwards.
 const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
-const XRP_MAX_HOLDING_AMOUNT: u128 = 10u128.pow(16);
+const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 = 10u128.pow(16);
 
 pub const MAX_TICKETS: u32 = 250;
 
@@ -112,7 +114,7 @@ pub fn instantiate(
         currency: XRP_CURRENCY.to_string(),
         coreum_denom: xrp_in_coreum,
         sending_precision: XRP_DEFAULT_SENDING_PRECISION,
-        max_holding_amount: Uint128::new(XRP_MAX_HOLDING_AMOUNT),
+        max_holding_amount: Uint128::new(XRP_DEFAULT_MAX_HOLDING_AMOUNT),
     };
 
     let key = build_xrpl_token_key(XRP_ISSUER.to_string(), XRP_CURRENCY.to_string());
@@ -240,8 +242,8 @@ fn register_xrpl_token(
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
 
     // Minimum and maximum sending precisions we allow
-    if sending_precision < -(XRPL_TOKENS_DECIMALS as i32)
-        || sending_precision > XRPL_TOKENS_DECIMALS as i32
+    if sending_precision <= MIN_SENDING_PRECISION
+        || sending_precision >= MAX_SENDING_PRECISION
     {
         return Err(ContractError::InvalidSendingPrecision {});
     }

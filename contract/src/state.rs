@@ -49,8 +49,8 @@ pub struct XRPLToken {
     pub issuer: String,
     pub currency: String,
     pub coreum_denom: String,
-    pub sending_precision: i32, // This precision will indicate the minimum we can send. Example: If sending precision = 2, The minimum we can send is 0.01
-    pub max_holding_amount: Uint128, // The maximum amount the contract can hold
+    pub sending_precision: i32,
+    pub max_holding_amount: Uint128,
 }
 
 #[cw_serde]
