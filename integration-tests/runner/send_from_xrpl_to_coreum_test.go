@@ -91,6 +91,9 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 		},
 	}
 
+	sendingPrecision := uint32(15)
+	maxHoldingAmount := "1000000000000000000000000000000"
+
 	// deploy contract
 	contractOwner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, 2, 10)
 	// fund owner to cover registration fees
@@ -98,10 +101,10 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),
 	})
 	// register XRPL native token with 3 chars
-	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredCurrency.String())
+	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredCurrency.String(), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 	// register XRPL native token with 20 chars
-	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredHexCurrency.String())
+	_, err = contractClient.RegisterXRPLToken(ctx, contractOwner, xrplCurrencyIssuerAcc.String(), hexSymbol, sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
 	registeredXRPLTokens, err := contractClient.GetXRPLTokens(ctx)
@@ -116,7 +119,7 @@ func TestSendFromXRPLToCoreum(t *testing.T) {
 			registeredXRPLToken = token
 			continue
 		}
-		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == xrplRegisteredHexCurrency.String() {
+		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == hexSymbol {
 			registeredXRPLTokenHexCurrency = token
 			continue
 		}

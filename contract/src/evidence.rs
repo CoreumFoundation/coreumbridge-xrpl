@@ -125,11 +125,7 @@ pub fn handle_evidence(
 
     let config = CONFIG.load(storage)?;
     if evidences.relayers.len() >= config.evidence_threshold.try_into().unwrap() {
-        PROCESSED_TXS.save(
-            storage,
-            evidence.clone().get_tx_hash(),
-            &Empty {},
-        )?;
+        PROCESSED_TXS.save(storage, evidence.clone().get_tx_hash(), &Empty {})?;
         // if there is just one relayer there is nothing to delete
         if evidences.relayers.len() != 1 {
             TX_EVIDENCES.remove(storage, evidence.get_hash());

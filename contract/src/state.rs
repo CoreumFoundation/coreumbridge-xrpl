@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Empty};
+use cosmwasm_std::{Addr, Empty, Uint128};
 use cw_storage_plus::{Item, Map};
 
 /// Top level storage key. Values must not conflict.
@@ -49,6 +49,8 @@ pub struct XRPLToken {
     pub issuer: String,
     pub currency: String,
     pub coreum_denom: String,
+    pub sending_precision: i32,
+    pub max_holding_amount: Uint128,
 }
 
 #[cw_serde]

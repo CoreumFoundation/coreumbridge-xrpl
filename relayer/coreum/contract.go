@@ -186,8 +186,10 @@ type registerCoreumTokenRequest struct {
 }
 
 type registerXRPLTokenRequest struct {
-	Issuer   string `json:"issuer"`
-	Currency string `json:"currency"`
+	Issuer           string `json:"issuer"`
+	Currency         string `json:"currency"`
+	SendingPrecision uint32 `json:"sending_precision"`
+	MaxHoldingAmount string `json:"max_holding_amount"`
 }
 
 type saveEvidenceRequest struct {
@@ -431,7 +433,7 @@ func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.Acc
 }
 
 // RegisterXRPLToken executes `register_xrpl_token` method.
-func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAddress, issuer, currency string) (*sdk.TxResponse, error) {
+func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAddress, issuer, currency string, sendingPrecision uint32, maxHoldingAmount string) (*sdk.TxResponse, error) {
 	fee, err := c.queryAssetFTIssueFee(ctx)
 	if err != nil {
 		return nil, err
@@ -440,8 +442,10 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]registerXRPLTokenRequest{
 			ExecMethodRegisterXRPLToken: {
-				Issuer:   issuer,
-				Currency: currency,
+				Issuer:           issuer,
+				Currency:         currency,
+				SendingPrecision: sendingPrecision,
+				MaxHoldingAmount: maxHoldingAmount,
 			},
 		},
 		Funds: sdk.NewCoins(fee),

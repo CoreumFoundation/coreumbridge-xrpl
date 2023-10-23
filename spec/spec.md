@@ -278,7 +278,7 @@ submitting on XRPL transaction just one transaction. But with that coefficient, 
 `1e complexityCoefficient` transactions minimum to do it. The recommended value for the `complexityCoefficient`
 is `4`, so it means `10000` transactions minimum are needed to produce the `significant amount`.
 
-The recommended `max holding amount` should be less or equal `1e^(16 - sending precision)`.  
+The recommended `max holding amount` should be less or equal `1e(16 - sending precision)`.  
 
 The `round with sending precision` formula is:
 
@@ -333,9 +333,9 @@ min sending amount = 0.001
 ```
 
 ```text
-token total supply on coreum XRPL: 1e11 * 10e6(decimals)
+token total supply on coreum XRPL: 1e11 * 1e6(decimals)
 complexityCoefficient: 4
-ratio = 1e11 * 10e6(decimals)/10e6(decimals) / 1e16 = 0.00001
+ratio = 1e11 * 1e6(decimals)/1e6(decimals) / 1e16 = 0.00001
 sendingPrecision = 4 - complexityCoefficient = 0
 min sending amount = 1
 ```

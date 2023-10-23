@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use crate::{
     error::ContractError,
@@ -9,7 +9,7 @@ use crate::{
     },
     signatures::add_signature,
     state::{
-        Config, ContractActions, CoreumToken, Operation, OperationType, XRPLToken,
+        Config, ContractActions, CoreumToken, Operation, OperationType, Relayer, XRPLToken,
         AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
         USED_TICKETS_COUNTER, USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
     },
@@ -32,6 +32,8 @@ const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const MAX_PAGE_LIMIT: u32 = 250;
+const MIN_SENDING_PRECISION: i32 = -15;
+const MAX_SENDING_PRECISION: i32 = 15;
 
 const XRP_SYMBOL: &str = "XRP";
 const XRP_SUBUNIT: &str = "drop";
@@ -43,6 +45,11 @@ const XRPL_TOKENS_DECIMALS: u32 = 15;
 
 const XRP_CURRENCY: &str = "XRP";
 const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
+
+// Initial values for the XRP token that can be modified afterwards.
+const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
+const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 =
+    10u128.pow(16 - XRP_DEFAULT_SENDING_PRECISION as u32 + XRP_DECIMALS);
 
 pub const MAX_TICKETS: u32 = 250;
 
@@ -60,9 +67,7 @@ pub fn instantiate(
         Some(deps.api.addr_validate(msg.owner.as_ref())?.as_ref()),
     )?;
 
-    for relayer in msg.relayers.clone() {
-        deps.api.addr_validate(relayer.coreum_address.as_ref())?;
-    }
+    validate_relayers(&deps, msg.relayers.clone())?;
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
@@ -109,9 +114,12 @@ pub fn instantiate(
         issuer: XRP_ISSUER.to_string(),
         currency: XRP_CURRENCY.to_string(),
         coreum_denom: xrp_in_coreum,
+        sending_precision: XRP_DEFAULT_SENDING_PRECISION,
+        max_holding_amount: Uint128::new(XRP_DEFAULT_MAX_HOLDING_AMOUNT),
     };
 
-    XRPL_TOKENS.save(deps.storage, XRP_SYMBOL.to_string(), &token)?;
+    let key = build_xrpl_token_key(XRP_ISSUER.to_string(), XRP_CURRENCY.to_string());
+    XRPL_TOKENS.save(deps.storage, key, &token)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::Instantiation.as_str())
@@ -135,9 +143,20 @@ pub fn execute(
         ExecuteMsg::RegisterCoreumToken { denom, decimals } => {
             register_coreum_token(deps.into_empty(), env, denom, decimals, info.sender)
         }
-        ExecuteMsg::RegisterXRPLToken { issuer, currency } => {
-            register_xrpl_token(deps, env, issuer, currency, info)
-        }
+        ExecuteMsg::RegisterXRPLToken {
+            issuer,
+            currency,
+            sending_precision,
+            max_holding_amount,
+        } => register_xrpl_token(
+            deps,
+            env,
+            issuer,
+            currency,
+            sending_precision,
+            max_holding_amount,
+            info,
+        ),
         ExecuteMsg::SaveEvidence { evidence } => {
             save_evidence(deps.into_empty(), info.sender, evidence)
         }
@@ -215,11 +234,18 @@ fn register_xrpl_token(
     env: Env,
     issuer: String,
     currency: String,
+    sending_precision: i32,
+    max_holding_amount: Uint128,
     info: MessageInfo,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
 
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
+
+    // Minimum and maximum sending precisions we allow
+    if !(MIN_SENDING_PRECISION..=MAX_SENDING_PRECISION).contains(&sending_precision) {
+        return Err(ContractError::InvalidSendingPrecision {});
+    }
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
@@ -230,8 +256,7 @@ fn register_xrpl_token(
     }
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
-    let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds())
-        .into_bytes();
+    let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds()).into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
     let hex_string = hash_bytes(to_hash)
@@ -266,6 +291,8 @@ fn register_xrpl_token(
         issuer: issuer.clone(),
         currency: currency.clone(),
         coreum_denom: denom.clone(),
+        sending_precision,
+        max_holding_amount,
     };
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
@@ -298,14 +325,37 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             //Create issuer+currency key to find denom on coreum.
             let key = build_xrpl_token_key(issuer.clone(), currency.clone());
 
-            let denom = XRPL_TOKENS
+            let token = XRPL_TOKENS
                 .load(deps.storage, key)
                 .map_err(|_| ContractError::TokenNotRegistered {})?;
 
-            if threshold_reached {
-                response =
-                    add_mint_and_send(response, amount, denom.coreum_denom, recipient.clone());
+            let decimals = match is_token_xrp(token.issuer, token.currency) {
+                true => XRP_DECIMALS,
+                false => XRPL_TOKENS_DECIMALS,
+            };
+
+            let amount_to_send = truncate_amount(token.sending_precision, decimals, amount)?;
+
+            if amount_to_send
+                .checked_add(
+                    deps.querier
+                        .query_supply(token.coreum_denom.clone())?
+                        .amount,
+                )?
+                .gt(&token.max_holding_amount)
+            {
+                return Err(ContractError::MaximumBridgedAmountReached {});
             }
+
+            if threshold_reached {
+                response = add_mint_and_send(
+                    response,
+                    amount_to_send,
+                    token.coreum_denom,
+                    recipient.clone(),
+                );
+            }
+
             response = response
                 .add_attribute("action", ContractActions::SendFromXRPLToCoreum.as_str())
                 .add_attribute("hash", tx_hash)
@@ -365,14 +415,14 @@ fn recover_tickets(
     let used_tickets = USED_TICKETS_COUNTER.load(deps.storage)?;
 
     PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
+    //If we don't provide a number of tickets to recover we will recover the ones that we already used.
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
-    if number_to_allocate == 0 || number_to_allocate > MAX_TICKETS  {
+    if number_to_allocate == 0 || number_to_allocate > MAX_TICKETS {
         return Err(ContractError::InvalidTicketNumberToAllocate {});
     }
 
-    //If we don't provide a number of tickets to recover we will recover the ones that we already used.
-    PENDING_OPERATIONS.save(
+    check_and_save_pending_operation(
         deps.storage,
         sequence_number,
         &Operation {
@@ -559,15 +609,91 @@ pub fn validate_xrpl_issuer_and_currency(
     issuer: String,
     currency: String,
 ) -> Result<(), ContractError> {
-    //We validate that the length of the issuer is between 24 and 34 characters and starts with 'r'
-    if !(issuer.len() >= 24 && issuer.len() <= 34 && issuer.starts_with('r')) {
-        return Err(ContractError::InvalidXRPLIssuer {});
-    }
+    validate_xrpl_address(issuer).map_err(|_| ContractError::InvalidXRPLIssuer {})?;
 
-    //We check that currency is either a standard 3 character currency or its length is valid for a hexadecimal currency
-    if !(currency.len() >= 3 && currency.len() <= 20 && currency.is_ascii()) {
+    //We check that currency is either a standard 3 character currency or it's a 40 character hex string currency
+    if !(currency.len() == 3 && currency.is_ascii()
+        || currency.len() == 40 && currency.chars().all(|c| c.is_ascii_hexdigit()))
+    {
         return Err(ContractError::InvalidXRPLCurrency {});
     }
 
     Ok(())
+}
+
+fn check_and_save_pending_operation(
+    storage: &mut dyn Storage,
+    operation_id: u64,
+    operation: &Operation,
+) -> Result<(), ContractError> {
+    if PENDING_OPERATIONS.has(storage, operation_id) {
+        return Err(ContractError::PendingOperationAlreadyExists {});
+    }
+    PENDING_OPERATIONS.save(storage, operation_id, operation)?;
+
+    Ok(())
+}
+
+fn validate_relayers(
+    deps: &DepsMut<CoreumQueries>,
+    relayers: Vec<Relayer>,
+) -> Result<(), ContractError> {
+    let mut map_xrpl_addresses = HashMap::new();
+    let mut map_xrpl_pubkeys = HashMap::new();
+    let mut map_coreum_addresses = HashMap::new();
+
+    for relayer in relayers.clone() {
+        deps.api.addr_validate(relayer.coreum_address.as_ref())?;
+        validate_xrpl_address(relayer.xrpl_address.clone())?;
+
+        //Store all values in maps so we can easily verify if there are duplicates.
+        map_xrpl_addresses.insert(relayer.xrpl_address, Empty {});
+        map_xrpl_pubkeys.insert(relayer.xrpl_pub_key, Empty {});
+        map_coreum_addresses.insert(relayer.coreum_address, Empty {});
+    }
+
+    if map_xrpl_addresses.len() != relayers.len() {
+        return Err(ContractError::RepeatedRelayerXRPLAddress {});
+    }
+
+    if map_xrpl_pubkeys.len() != relayers.len() {
+        return Err(ContractError::RepeatedRelayerXRPLPubKey {});
+    }
+
+    if map_coreum_addresses.len() != relayers.len() {
+        return Err(ContractError::RepeatedRelayerCoreumAddress {});
+    }
+
+    Ok(())
+}
+
+fn validate_xrpl_address(address: String) -> Result<(), ContractError> {
+    //We validate that the length of the issuer is between 24 and 34 characters and starts with 'r'
+    if !(address.len() >= 24 && address.len() <= 34 && address.starts_with('r')) {
+        return Err(ContractError::InvalidXRPLAddress { address });
+    }
+    Ok(())
+}
+
+fn truncate_amount(
+    sending_precision: i32,
+    decimals: u32,
+    amount: Uint128,
+) -> Result<Uint128, ContractError> {
+    // To get exactly by how much we need to divide the original amount
+    // Example: if sending precision = -1. Exponent will be 15 - ( - 1) = 16 for XRPL tokens so we will divide the original amount by 10^16
+    // Example: if sending precision = 14. Exponent will be 15 - 14 = 1 for XRPL tokens so we will divide the original amount by 10^1
+    let exponent = decimals as i32 - sending_precision;
+
+    let amount_to_send = amount.checked_div(Uint128::new(10u128.pow(exponent.unsigned_abs())))?;
+
+    if amount_to_send.is_zero() {
+        return Err(ContractError::AmountSentIsZeroAfterTruncating {});
+    }
+
+    Ok(amount_to_send.checked_mul(Uint128::new(10u128.pow(exponent.unsigned_abs())))?)
+}
+
+fn is_token_xrp(issuer: String, currency: String) -> bool {
+    issuer == XRP_ISSUER && currency == XRP_CURRENCY
 }

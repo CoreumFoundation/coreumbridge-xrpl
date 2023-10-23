@@ -5,8 +5,8 @@ use cosmwasm_std::{DepsMut, StdResult, Storage};
 use crate::{
     error::ContractError,
     state::{
-        Operation, OperationType, AVAILABLE_TICKETS, CONFIG,
-        PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
+        Operation, OperationType, AVAILABLE_TICKETS, CONFIG, PENDING_OPERATIONS,
+        PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
     },
 };
 
@@ -73,8 +73,7 @@ pub fn handle_ticket_allocation_confirmation(
         //Used tickets can't be under 0 if admin allocated more tickets than used tickets
         USED_TICKETS_COUNTER.update(storage, |used_tickets| -> StdResult<_> {
             let new_used_tickets = used_tickets
-                .checked_sub(tickets.unwrap().len() as u32)
-                .unwrap_or_default();
+                .saturating_sub(tickets.unwrap().len() as u32);
             Ok(new_used_tickets)
         })?;
     }
