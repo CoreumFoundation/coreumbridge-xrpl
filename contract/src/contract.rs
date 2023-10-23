@@ -242,8 +242,8 @@ fn register_xrpl_token(
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
 
     // Minimum and maximum sending precisions we allow
-    if sending_precision <= MIN_SENDING_PRECISION
-        || sending_precision >= MAX_SENDING_PRECISION
+    if sending_precision < MIN_SENDING_PRECISION
+        || sending_precision > MAX_SENDING_PRECISION
     {
         return Err(ContractError::InvalidSendingPrecision {});
     }
