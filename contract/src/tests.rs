@@ -2292,7 +2292,7 @@ mod tests {
     }
 
     #[test]
-    fn invalid_evidences() {
+    fn invalid_transaction_evidences() {
         let app = CoreumTestApp::new();
         let signer = app
             .init_account(&coins(100_000_000_000, FEE_DENOM))
