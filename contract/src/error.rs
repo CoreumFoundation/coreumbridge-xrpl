@@ -76,12 +76,24 @@ pub enum ContractError {
     #[error("LastTicketReserved: Last available ticket is reserved for updating tickets")]
     LastTicketReserved {},
 
+    #[error("StillHaveAvailableTickets: Can't recover tickets if we still have tickets available")]
+    StillHaveAvailableTickets {},
+
     #[error(
         "PendingTicketUpdate: There is a pending ticket update operation already in the queue"
     )]
     PendingTicketUpdate {},
 
-    #[error("InvalidTicketAllocationEvidence: There must be tickets and a sequence number or ticket number")]
+    #[error("InvalidTransactionResultEvidence: An evidence must contain only one of sequence numer or ticket number")]
+    InvalidTransactionResultEvidence {},
+
+    #[error("InvalidValidTransactionResultEvidence: An evidence with a valid transaction must contain a transaction hash")]
+    InvalidValidTransactionResultEvidence {},
+
+    #[error("InvalidNotValidTransactionResultEvidence: An evidence with an invalid transaction can't have a transaction hash or be confirmed")]
+    InvalidNotValidTransactionResultEvidence {},
+
+    #[error("InvalidTicketAllocationEvidence: There must be tickets if operation is confirmed and valid and there can't be tickets if operation is not confirmed or not valid")]
     InvalidTicketAllocationEvidence {},
 
     #[error(

@@ -15,6 +15,7 @@ use crate::{
     },
     tickets::{handle_ticket_allocation_confirmation, register_used_ticket},
 };
+
 use coreum_wasm_sdk::{
     assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
     core::{CoreumMsg, CoreumQueries, CoreumResult},
@@ -371,6 +372,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             ticket_number,
             confirmed,
             operation_result,
+            valid,
         } => {
             let operation_id =
                 check_operation_exists(deps.storage, sequence_number, ticket_number)?;
@@ -382,16 +384,23 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     }
                 }
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
-                register_used_ticket(deps.storage)?;
+
+                if valid && ticket_number.is_some() {
+                    register_used_ticket(deps.storage)?
+                };
             }
 
             response = response
                 .add_attribute("action", ContractActions::XRPLTransactionResult.as_str())
                 .add_attribute("operation_result", operation_result.as_str())
-                .add_attribute("hash", tx_hash)
                 .add_attribute("operation_id", operation_id.to_string())
                 .add_attribute("confirmed", confirmed.to_string())
                 .add_attribute("threshold_reached", threshold_reached.to_string())
+                .add_attribute("valid", valid.to_string());
+
+            if let Some(tx_hash) = tx_hash {
+                response = response.add_attribute("tx_hash", tx_hash)
+            }
         }
     }
 
@@ -405,6 +414,12 @@ fn recover_tickets(
     number_of_tickets: Option<u32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
+
+    let available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
+
+    if !available_tickets.is_empty() {
+        return Err(ContractError::StillHaveAvailableTickets {});
+    }
 
     let pending_ticket_update = PENDING_TICKET_UPDATE.load(deps.storage)?;
 

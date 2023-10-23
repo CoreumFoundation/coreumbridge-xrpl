@@ -123,6 +123,7 @@ type XRPLTransactionResultEvidence struct {
 	SequenceNumber *uint32 `json:"sequence_number"`
 	TicketNumber   *uint32 `json:"ticket_number"`
 	Confirmed      bool    `json:"confirmed"`
+	Valid          bool    `json:"valid"`
 }
 
 // XRPLTransactionResultTicketsAllocationEvidence is evidence of the tickets allocation transaction.
@@ -457,7 +458,7 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	return txRes, nil
 }
 
-// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed XRPL to coreum transfer transaction.
+// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed and validXRPL to coreum transfer transaction.
 func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
@@ -476,7 +477,7 @@ func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, s
 	return txRes, nil
 }
 
-// SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of a confirmed or rejected ticket allocation transaction.
+// SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of a valid and confirmed or rejected ticket allocation transaction.
 func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTicketsAllocationEvidence) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{

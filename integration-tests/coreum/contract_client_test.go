@@ -608,6 +608,7 @@ func TestRecoverTickets(t *testing.T) {
 			TxHash:         rejectedTxHash,
 			SequenceNumber: &firstBridgeAccountSeqNumber,
 			Confirmed:      false,
+			Valid:          true,
 		},
 		Tickets: nil,
 	}
@@ -675,6 +676,7 @@ func TestRecoverTickets(t *testing.T) {
 			TxHash:         acceptedTxHash,
 			SequenceNumber: &secondBridgeAccountSeqNumber,
 			Confirmed:      true,
+			Valid:          true,
 		},
 		Tickets: []uint32{3, 5, 6, 7},
 	}
