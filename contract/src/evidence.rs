@@ -25,7 +25,7 @@ pub enum Evidence {
         ticket_number: Option<u64>,
         //true if confirmed, false if rejected
         confirmed: bool,
-        //If an operation is invalid, we will not register
+        //If an operation is invalid, we will not not register it as processed
         valid: bool,
         operation_result: OperationResult,
     },
@@ -88,23 +88,24 @@ impl Evidence {
                     return Err(ContractError::InvalidTransactionResultEvidence {});
                 }
 
-                // Valid transactions must have a tx_hash and only one operation id
+                // Valid transactions must have a tx_hash
                 if valid && tx_hash.is_none() {
                     return Err(ContractError::InvalidValidTransactionResultEvidence {});
                 }
 
-                // Invalid transactions can't have a tx_hash, sequence number, ticket number or be confirmed
+                // Invalid transactions can't have a tx_hash or be confirmed
                 if !valid && (tx_hash.is_some() || confirmed) {
                     return Err(ContractError::InvalidNotValidTransactionResultEvidence {});
                 }
 
                 match operation_result {
-                    //We can't confirm an operation that allocates no tickets
+                    
                     OperationResult::TicketsAllocation { tickets } => {
+                        //Invalid or unconfirmed transactions should not contain tickets
                         if (!valid || !confirmed) && tickets.is_some() {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
-
+                        //We can't confirm an operation that allocates no tickets
                         if confirmed && (tickets.is_none() || tickets.unwrap().is_empty()) {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
