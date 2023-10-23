@@ -12,35 +12,27 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/testutils"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestXRPLTxSubmitter_Start(t *testing.T) {
 	t.Parallel()
 
-	xrplBridgeAccount := testutils.GenXRPLAccount()
+	xrplBridgeAccount := xrpl.GenPrivKeyTxSigner().Account()
 	xrplTxSignerKeyName := "xrpl-tx-signer"
 
-	xrplRelayer1Account := testutils.GenXRPLAccount()
-	xrplRelayer2Account := testutils.GenXRPLAccount()
-	xrplRelayer3Account := testutils.GenXRPLAccount()
+	xrplRelayer1Signer := xrpl.GenPrivKeyTxSigner()
+	xrplRelayer2Signer := xrpl.GenPrivKeyTxSigner()
+	xrplRelayer3Signer := xrpl.GenPrivKeyTxSigner()
 
-	xrplRelayer1PubKey := testutils.GenXRPLPubKey()
-	xrplRelayer2PubKey := testutils.GenXRPLPubKey()
-	xrplRelayer3PubKey := testutils.GenXRPLPubKey()
-
-	xrplRelayer1Signature := testutils.GenXRPLSignature()
-	xrplRelayer2Signature := testutils.GenXRPLSignature()
-
-	coreumRelayer1Address := testutils.GenCoreumAccount()
-	coreumRelayer2Address := testutils.GenCoreumAccount()
-	coreumRelayer3Address := testutils.GenCoreumAccount()
+	coreumRelayer1Address := coreum.GenAccount()
+	coreumRelayer2Address := coreum.GenAccount()
+	coreumRelayer3Address := coreum.GenAccount()
 
 	xrplSigners := []rippledata.Account{
-		xrplRelayer1Account,
-		xrplRelayer2Account,
-		xrplRelayer3Account,
+		xrplRelayer1Signer.Account(),
+		xrplRelayer2Signer.Account(),
+		xrplRelayer3Signer.Account(),
 	}
 	signerQuorum := uint32(2)
 
@@ -58,18 +50,18 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 	contractRelayers := []coreum.Relayer{
 		{
 			CoreumAddress: coreumRelayer1Address,
-			XRPLAddress:   xrplRelayer1Account.String(),
-			XRPLPubKey:    xrplRelayer1PubKey.String(),
+			XRPLAddress:   xrplRelayer1Signer.Account().String(),
+			XRPLPubKey:    xrplRelayer1Signer.PubKey().String(),
 		},
 		{
 			CoreumAddress: coreumRelayer2Address,
-			XRPLAddress:   xrplRelayer2Account.String(),
-			XRPLPubKey:    xrplRelayer2PubKey.String(),
+			XRPLAddress:   xrplRelayer2Signer.Account().String(),
+			XRPLPubKey:    xrplRelayer2Signer.PubKey().String(),
 		},
 		{
 			CoreumAddress: coreumRelayer3Address,
-			XRPLAddress:   xrplRelayer3Account.String(),
-			XRPLPubKey:    xrplRelayer3PubKey.String(),
+			XRPLAddress:   xrplRelayer3Signer.Account().String(),
+			XRPLPubKey:    xrplRelayer3Signer.PubKey().String(),
 		},
 	}
 
@@ -93,31 +85,36 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 	}
 
 	allocateTicketOperationWithSignatures := allocateTicketOperationWithoutSignatures
+	allocateTicketOperationSigner1 := multiSignAllocateTicketsOperation(
+		t,
+		xrplRelayer1Signer,
+		xrplBridgeAccount,
+		allocateTicketOperationWithSignatures,
+	)
+	allocateTicketOperationSigner2 := multiSignAllocateTicketsOperation(
+		t,
+		xrplRelayer2Signer,
+		xrplBridgeAccount,
+		allocateTicketOperationWithSignatures,
+	)
 	allocateTicketOperationWithSignatures.Signatures = []coreum.Signature{
 		{
 			Relayer:   coreumRelayer1Address,
-			Signature: xrplRelayer1Signature.String(),
+			Signature: allocateTicketOperationSigner1.Signer.TxnSignature.String(),
 		},
 		{
 			Relayer:   coreumRelayer2Address,
-			Signature: xrplRelayer2Signature.String(),
+			Signature: allocateTicketOperationSigner2.Signer.TxnSignature.String(),
+		},
+		{
+			Relayer: coreumRelayer3Address,
+			// the signature is taken from the first signer, so it is invalid
+			Signature: allocateTicketOperationSigner1.Signer.TxnSignature.String(),
 		},
 	}
 	allocateTicketOperationWithSignaturesSigners := []rippledata.Signer{
-		{
-			Signer: rippledata.SignerItem{
-				Account:       xrplRelayer1Account,
-				TxnSignature:  &xrplRelayer1Signature,
-				SigningPubKey: &xrplRelayer1PubKey,
-			},
-		},
-		{
-			Signer: rippledata.SignerItem{
-				Account:       xrplRelayer2Account,
-				TxnSignature:  &xrplRelayer2Signature,
-				SigningPubKey: &xrplRelayer2PubKey,
-			},
-		},
+		allocateTicketOperationSigner1,
+		allocateTicketOperationSigner2,
 	}
 
 	tests := []struct {
@@ -142,7 +139,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
-				contractClientMock.EXPECT().RegisterSignature(gomock.Any(), coreumRelayer1Address, allocateTicketOperationWithoutSignatures.SequenceNumber, xrplRelayer1Signature.String())
+				contractClientMock.EXPECT().RegisterSignature(gomock.Any(), coreumRelayer1Address, allocateTicketOperationWithoutSignatures.SequenceNumber, allocateTicketOperationSigner1.Signer.TxnSignature.String())
 				return contractClientMock
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
@@ -154,19 +151,13 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 				xrplTxSignerMock := NewMockXRPLTxSigner(ctrl)
 				tx, err := processes.BuildTicketCreateTxForMultiSigning(xrplBridgeAccount, allocateTicketOperationWithoutSignatures)
 				require.NoError(t, err)
-				xrplTxSignerMock.EXPECT().MultiSign(tx, xrplTxSignerKeyName).Return(rippledata.Signer{
-					Signer: rippledata.SignerItem{
-						Account:       xrplRelayer1Account,
-						TxnSignature:  &xrplRelayer1Signature,
-						SigningPubKey: &xrplRelayer1PubKey,
-					},
-				}, nil)
+				xrplTxSignerMock.EXPECT().MultiSign(tx, xrplTxSignerKeyName).Return(allocateTicketOperationSigner1, nil)
 
 				return xrplTxSignerMock
 			},
 		},
 		{
-			name: "submit_create_ticket_tx",
+			name: "submit_create_ticket_tx_with_filtered_signature",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
 				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{allocateTicketOperationWithSignatures}, nil)
@@ -233,4 +224,18 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			require.NoError(t, o.Start(ctx))
 		})
 	}
+}
+
+func multiSignAllocateTicketsOperation(
+	t *testing.T,
+	xrplRelayerSigner *xrpl.PrivKeyTxSigner,
+	xrplBridgeAcc rippledata.Account,
+	operation coreum.Operation,
+) rippledata.Signer {
+	tx, err := processes.BuildTicketCreateTxForMultiSigning(xrplBridgeAcc, operation)
+	require.NoError(t, err)
+	signer, err := xrplRelayerSigner.MultiSign(tx)
+	require.NoError(t, err)
+
+	return signer
 }
