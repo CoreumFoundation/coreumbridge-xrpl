@@ -617,13 +617,13 @@ mod tests {
 
         let test_tokens = vec![
             XRPLToken {
-                issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jp1".to_string(), //Valid issuer
+                issuer: generate_xrpl_address(), //Valid issuer
                 currency: "USD".to_string(), //Valid standard currency code
                 sending_precision: -15,
                 max_holding_amount: 100,
             },
             XRPLToken {
-                issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jp2".to_string(), //Valid issuer
+                issuer: generate_xrpl_address(), //Valid issuer
                 currency: "015841551A748AD2C1F76FF6ECB0CCCD00000000".to_string(), //Valid hexadecimal currency
                 sending_precision: 15,
                 max_holding_amount: 50000,
@@ -902,7 +902,7 @@ mod tests {
             .coreum_denom
             .clone();
 
-        let hash = "random_hash".to_string();
+        let hash = "any_hash".to_string();
         let amount = Uint128::new(100);
 
         //Bridge with 1 relayer should immediately mint and send to the receiver address
@@ -1256,7 +1256,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash1".to_string(),
+                        tx_hash: "any_hash1".to_string(),
                         issuer: test_token1.issuer.clone(),
                         currency: test_token1.currency.clone(),
                         //Sending less than 100000000000000000, in this case 99999999999999999 (1 less digit) should return an error because it will truncate to zero
@@ -1279,7 +1279,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "random_hash1".to_string(),
+                    tx_hash: "any_hash1".to_string(),
                     issuer: test_token1.issuer.clone(),
                     currency: test_token1.currency.clone(),
                     //Sending more than 199999999999999999 will truncate to 100000000000000000 and send it to the user
@@ -1306,7 +1306,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "random_hash2".to_string(),
+                    tx_hash: "any_hash2".to_string(),
                     issuer: test_token1.issuer.clone(),
                     currency: test_token1.currency.clone(),
                     //Let's try sending 199999999999999999 that will be truncated to 100000000000000000 and send it to the user
@@ -1334,7 +1334,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash3".to_string(),
+                        tx_hash: "any_hash3".to_string(),
                         issuer: test_token1.issuer.clone(),
                         currency: test_token1.currency.clone(),
                         //Let's try sending 199999999999999999 that will be truncated to 100000000000000000 and send it to the user
@@ -1401,7 +1401,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash5".to_string(),
+                        tx_hash: "any_hash5".to_string(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
                         //Sending more than 499 should fail because maximum holding amount is 499
@@ -1425,7 +1425,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash6".to_string(),
+                        tx_hash: "any_hash6".to_string(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
                         //Sending less than 100 will truncate to 0 so should fail
@@ -1448,7 +1448,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "random_hash7".to_string(),
+                    tx_hash: "any_hash7".to_string(),
                     issuer: test_token2.issuer.clone(),
                     currency: test_token2.currency.clone(),
                     //Sending 299 should truncate the amount to 200
@@ -1475,7 +1475,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "random_hash8".to_string(),
+                    tx_hash: "any_hash8".to_string(),
                     issuer: test_token2.issuer.clone(),
                     currency: test_token2.currency.clone(),
                     //Sending 299 should truncate the amount to 200
@@ -1503,7 +1503,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash9".to_string(),
+                        tx_hash: "any_hash9".to_string(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
                         //Sending 199 should truncate to 100 and since it's over the maximum it should fail
@@ -1561,7 +1561,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash10".to_string(),
+                        tx_hash: "any_hash10".to_string(),
                         issuer: test_token3.issuer.clone(),
                         currency: test_token3.currency.clone(),
                         //Sending more than 5000000000000000 should fail because maximum holding amount is 5000000000000000
@@ -1585,7 +1585,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash11".to_string(),
+                        tx_hash: "any_hash11".to_string(),
                         issuer: test_token3.issuer.clone(),
                         currency: test_token3.currency.clone(),
                         //Sending less than 1000000000000000 will truncate to 0 so should fail
@@ -1608,7 +1608,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "random_hash12".to_string(),
+                    tx_hash: "any_hash12".to_string(),
                     issuer: test_token3.issuer.clone(),
                     currency: test_token3.currency.clone(),
                     //Sending 1111111111111111 should truncate the amount to 1000000000000000
@@ -1634,7 +1634,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "random_hash13".to_string(),
+                    tx_hash: "any_hash13".to_string(),
                     issuer: test_token3.issuer.clone(),
                     currency: test_token3.currency.clone(),
                     //Sending 4111111111111111 should truncate the amount to 4000000000000000 and should pass because maximum is 5000000000000000
@@ -1661,7 +1661,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash14".to_string(),
+                        tx_hash: "any_hash14".to_string(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
                         //Sending 1111111111111111 should truncate the amount to 1000000000000000 and should fail because bridge is already holding maximum
@@ -1694,11 +1694,11 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash15".to_string(),
+                        tx_hash: "any_hash15".to_string(),
                         issuer: XRP_ISSUER.to_string(),
                         currency: XRP_CURRENCY.to_string(),
-                        //Sending more than 100000000000000000 should fail because maximum holding amount is 10000000000000000 (1 less zero)
-                        amount: Uint128::new(100000000000000000),
+                        //Sending more than 100000000000 should fail because maximum holding amount is 10000000000 (1 less zero)
+                        amount: Uint128::new(100000000000),
                         recipient: Addr::unchecked(receiver.address()),
                     },
                 },
@@ -1717,7 +1717,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "random_hash15".to_string(),
+                    tx_hash: "any_hash15".to_string(),
                     issuer: XRP_ISSUER.to_string(),
                     currency: XRP_CURRENCY.to_string(),
                     //There should never be truncation because we allow full precision for XRP initially
@@ -1743,11 +1743,11 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "random_hash16".to_string(),
+                    tx_hash: "any_hash16".to_string(),
                     issuer: XRP_ISSUER.to_string(),
                     currency: XRP_CURRENCY.to_string(),
                     //This should work because we are sending the rest to reach the maximum amount
-                    amount: Uint128::new(9999999999999999),
+                    amount: Uint128::new(9999999999),
                     recipient: Addr::unchecked(receiver.address()),
                 },
             },
@@ -1763,14 +1763,14 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(request_balance.balance, "10000000000000000".to_string());
+        assert_eq!(request_balance.balance, "10000000000".to_string());
 
         let maximum_amount_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash17".to_string(),
+                        tx_hash: "any_hash17".to_string(),
                         issuer: XRP_ISSUER.to_string(),
                         currency: XRP_CURRENCY.to_string(),
                         //Sending 1 more token would surpass the maximum so should fail
@@ -1932,7 +1932,7 @@ mod tests {
             }]
         );
 
-        let tx_hash = "random_hash".to_string();
+        let tx_hash = "any_hash".to_string();
         let sequence_number = 1;
         let tickets = vec![1, 2, 3, 4, 5];
         let correct_signature_example = "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string();
@@ -2162,7 +2162,7 @@ mod tests {
                 .as_str()
         ));
 
-        let tx_hash = "random_hash2".to_string();
+        let tx_hash = "any_hash2".to_string();
 
         //Relaying the confirmed operation twice should remove it from pending operations and allocate tickets
         wasm.execute::<ExecuteMsg>(
@@ -2273,7 +2273,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::RegisterCoreumToken {
-                    denom: "random_denom".to_string(),
+                    denom: "any_denom".to_string(),
                     decimals: 6,
                 },
                 &vec![],
@@ -2314,9 +2314,9 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "random_hash".to_string(),
-                        issuer: "random_issuer".to_string(),
-                        currency: "random_currency".to_string(),
+                        tx_hash: "any_hash".to_string(),
+                        issuer: "any_issuer".to_string(),
+                        currency: "any_currency".to_string(),
                         amount: Uint128::new(100),
                         recipient: Addr::unchecked(signer.address()),
                     },
@@ -2353,17 +2353,17 @@ mod tests {
     #[test]
     fn enum_hashes() {
         let evidence1 = Evidence::XRPLToCoreumTransfer {
-            tx_hash: "random_hash".to_string(),
-            issuer: "random_issuer".to_string(),
-            currency: "random_currency".to_string(),
+            tx_hash: "any_hash".to_string(),
+            issuer: "any_issuer".to_string(),
+            currency: "any_currency".to_string(),
             amount: Uint128::new(100),
             recipient: Addr::unchecked("signer"),
         };
 
         let evidence2 = Evidence::XRPLToCoreumTransfer {
-            tx_hash: "random_hash".to_string(),
-            issuer: "random_issuer".to_string(),
-            currency: "random_currency".to_string(),
+            tx_hash: "any_hash".to_string(),
+            issuer: "any_issuer".to_string(),
+            currency: "any_currency".to_string(),
             amount: Uint128::new(101),
             recipient: Addr::unchecked("signer"),
         };
@@ -2383,7 +2383,7 @@ mod tests {
         );
 
         let evidence3 = Evidence::XRPLTransactionResult {
-            tx_hash: "random_hash123".to_string(),
+            tx_hash: "any_hash123".to_string(),
             sequence_number: Some(1),
             ticket_number: None,
             confirmed: false,
@@ -2393,7 +2393,7 @@ mod tests {
         };
 
         let evidence4 = Evidence::XRPLTransactionResult {
-            tx_hash: "random_hash123".to_string(),
+            tx_hash: "any_hash123".to_string(),
             sequence_number: Some(1),
             ticket_number: None,
             confirmed: true,

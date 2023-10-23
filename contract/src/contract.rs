@@ -48,7 +48,7 @@ const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
 
 // Initial values for the XRP token that can be modified afterwards.
 const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
-const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 = 10u128.pow(16);
+const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 = 10u128.pow(16 - XRP_DEFAULT_SENDING_PRECISION as u32);
 
 pub const MAX_TICKETS: u32 = 250;
 
@@ -242,9 +242,7 @@ fn register_xrpl_token(
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
 
     // Minimum and maximum sending precisions we allow
-    if sending_precision < MIN_SENDING_PRECISION
-        || sending_precision > MAX_SENDING_PRECISION
-    {
+    if !(MIN_SENDING_PRECISION..=MAX_SENDING_PRECISION).contains(&sending_precision) {
         return Err(ContractError::InvalidSendingPrecision {});
     }
 
@@ -257,8 +255,7 @@ fn register_xrpl_token(
     }
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
-    let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds())
-        .into_bytes();
+    let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds()).into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
     let hex_string = hash_bytes(to_hash)
@@ -420,7 +417,7 @@ fn recover_tickets(
     //If we don't provide a number of tickets to recover we will recover the ones that we already used.
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
-    if number_to_allocate == 0 || number_to_allocate > MAX_TICKETS  {
+    if number_to_allocate == 0 || number_to_allocate > MAX_TICKETS {
         return Err(ContractError::InvalidTicketNumberToAllocate {});
     }
 
