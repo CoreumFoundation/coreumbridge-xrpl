@@ -458,7 +458,7 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	return txRes, nil
 }
 
-// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed and validXRPL to coreum transfer transaction.
+// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed and valid XRPL to coreum transfer transaction.
 func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
