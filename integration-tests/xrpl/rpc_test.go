@@ -131,17 +131,10 @@ func TestMultisigPayment(t *testing.T) {
 	signer3 := chains.XRPL.Multisign(t, &xrplPaymentTx, signer3Acc)
 
 	xrpPaymentTxTwoSigners := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAcc, signer1Acc)
-	require.NoError(t, rippledata.SetSigners(&xrpPaymentTxTwoSigners, []rippledata.Signer{
-		signer1,
-		signer2,
-	}...))
+	require.NoError(t, rippledata.SetSigners(&xrpPaymentTxTwoSigners, signer1, signer2))
 
 	xrpPaymentTxThreeSigners := buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAcc, signer1Acc)
-	require.NoError(t, rippledata.SetSigners(&xrpPaymentTxThreeSigners, []rippledata.Signer{
-		signer1,
-		signer2,
-		signer3,
-	}...))
+	require.NoError(t, rippledata.SetSigners(&xrpPaymentTxThreeSigners, signer1, signer2, signer3))
 
 	// compare hashes
 	t.Logf("TwoSignersHash/ThreeSignersHash: %s/%s", xrpPaymentTxTwoSigners.Hash, xrpPaymentTxThreeSigners.Hash)
@@ -290,13 +283,11 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 	t.Logf("The signers set is updated")
 
 	ticketsToCreate := uint32(1)
-	createTicketsTx := buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigAcc)
+	createTicketsTx := buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, 0, nil, multisigAcc)
 	signer1 := chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
 
-	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigAcc)
-	require.NoError(t, rippledata.SetSigners(&createTicketsTx, []rippledata.Signer{
-		signer1,
-	}...))
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, 0, nil, multisigAcc)
+	require.NoError(t, rippledata.SetSigners(&createTicketsTx, signer1))
 
 	require.NoError(t, chains.XRPL.SubmitTx(ctx, t, &createTicketsTx))
 
@@ -306,14 +297,11 @@ func TestCreateAndUseTicketForTicketsCreationWithMultisigning(t *testing.T) {
 	createdTickets := integrationtests.ExtractTicketsFromMeta(txRes)
 	require.Len(t, createdTickets, int(ticketsToCreate))
 
-	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, createdTickets[0].TicketSequence, multisigAcc)
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, 0, createdTickets[0].TicketSequence, multisigAcc)
 	signer1 = chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
-	require.NoError(t, err)
 
-	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, createdTickets[0].TicketSequence, multisigAcc)
-	require.NoError(t, rippledata.SetSigners(&createTicketsTx, []rippledata.Signer{
-		signer1,
-	}...))
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, 0, createdTickets[0].TicketSequence, multisigAcc)
+	require.NoError(t, rippledata.SetSigners(&createTicketsTx, signer1))
 
 	require.NoError(t, chains.XRPL.SubmitTx(ctx, t, &createTicketsTx))
 
@@ -356,13 +344,11 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 
 	ticketsToCreate := uint32(2)
 
-	createTicketsTx := buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigAcc)
+	createTicketsTx := buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, 0, nil, multisigAcc)
 	signer1 := chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
 
-	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, nil, multisigAcc)
-	require.NoError(t, rippledata.SetSigners(&createTicketsTx, []rippledata.Signer{
-		signer1,
-	}...))
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, 0, nil, multisigAcc)
+	require.NoError(t, rippledata.SetSigners(&createTicketsTx, signer1))
 	require.NoError(t, chains.XRPL.SubmitTx(ctx, t, &createTicketsTx))
 
 	txRes, err := chains.XRPL.RPCClient().Tx(ctx, *createTicketsTx.GetHash())
@@ -375,9 +361,7 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 	signer1 = chains.XRPL.Multisign(t, &updateSignerListSetTx, signer1Acc)
 
 	updateSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, signer2Acc, createdTickets[0].TicketSequence, multisigAcc)
-	require.NoError(t, rippledata.SetSigners(&updateSignerListSetTx, []rippledata.Signer{
-		signer1,
-	}...))
+	require.NoError(t, rippledata.SetSigners(&updateSignerListSetTx, signer1))
 	require.NoError(t, chains.XRPL.SubmitTx(ctx, t, &updateSignerListSetTx))
 
 	// try to sign and send with previous signer
@@ -385,9 +369,7 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 	signer1 = chains.XRPL.Multisign(t, &restoreSignerListSetTx, signer1Acc)
 
 	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, signer1Acc, createdTickets[1].TicketSequence, multisigAcc)
-	require.NoError(t, rippledata.SetSigners(&restoreSignerListSetTx, []rippledata.Signer{
-		signer1,
-	}...))
+	require.NoError(t, rippledata.SetSigners(&restoreSignerListSetTx, signer1))
 	require.ErrorContains(t, chains.XRPL.SubmitTx(ctx, t, &restoreSignerListSetTx), "A signature is provided for a non-signer")
 
 	// build and send with correct signer
@@ -395,9 +377,7 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 	signer2 := chains.XRPL.Multisign(t, &restoreSignerListSetTx, signer2Acc)
 
 	restoreSignerListSetTx = buildUpdateSignerListSetTxForMultiSigning(ctx, t, chains.XRPL, signer1Acc, createdTickets[1].TicketSequence, multisigAcc)
-	require.NoError(t, rippledata.SetSigners(&restoreSignerListSetTx, []rippledata.Signer{
-		signer2,
-	}...))
+	require.NoError(t, rippledata.SetSigners(&restoreSignerListSetTx, signer2))
 	require.NoError(t, chains.XRPL.SubmitTx(ctx, t, &restoreSignerListSetTx))
 }
 
@@ -460,14 +440,113 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 	signer2 := chains.XRPL.Multisign(t, &xrpPaymentTx, signer2Acc)
 
 	xrpPaymentTx = buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAccToDisable, signer1Acc)
-	require.NoError(t, rippledata.SetSigners(&xrpPaymentTx, []rippledata.Signer{
-		signer1,
-		signer2,
-	}...))
+	require.NoError(t, rippledata.SetSigners(&xrpPaymentTx, signer1, signer2))
 
 	t.Logf("Recipinet account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, xrpPaymentTx.Destination))
 	require.NoError(t, chains.XRPL.SubmitTx(ctx, t, &xrpPaymentTx))
 	t.Logf("Recipinet account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, xrpPaymentTx.Destination))
+}
+
+func TestCreateAndUseUsedTicketAndSequencesWithMultisigning(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	multisigAcc := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Multisig account: %s", multisigAcc)
+
+	signer1Acc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Signer1 account: %s", signer1Acc)
+
+	signerListSetTx := rippledata.SignerListSet{
+		SignerQuorum: 1, // weighted threshold
+		SignerEntries: []rippledata.SignerEntry{
+			{
+				SignerEntry: rippledata.SignerEntryItem{
+					Account:      &signer1Acc,
+					SignerWeight: lo.ToPtr(uint16(1)),
+				},
+			},
+		},
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.SIGNER_LIST_SET,
+		},
+	}
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multisigAcc))
+	t.Logf("The signers set is updated")
+
+	ticketsToCreate := uint32(1)
+	createTicketsTx := buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, 0, nil, multisigAcc)
+	signer1 := chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
+
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, 0, nil, multisigAcc)
+	require.NoError(t, rippledata.SetSigners(&createTicketsTx, signer1))
+
+	require.NoError(t, chains.XRPL.SubmitTx(ctx, t, &createTicketsTx))
+
+	txRes, err := chains.XRPL.RPCClient().Tx(ctx, *createTicketsTx.GetHash())
+	require.NoError(t, err)
+
+	createdTickets := integrationtests.ExtractTicketsFromMeta(txRes)
+	require.Len(t, createdTickets, int(ticketsToCreate))
+
+	usedTicket := createdTickets[0].TicketSequence
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, 0, usedTicket, multisigAcc)
+	signer1 = chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
+
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, 0, usedTicket, multisigAcc)
+	require.NoError(t, rippledata.SetSigners(&createTicketsTx, signer1))
+	require.NoError(t, chains.XRPL.SubmitTx(ctx, t, &createTicketsTx))
+
+	txRes, err = chains.XRPL.RPCClient().Tx(ctx, *createTicketsTx.GetHash())
+	require.NoError(t, err)
+
+	createdTickets = integrationtests.ExtractTicketsFromMeta(txRes)
+	require.Len(t, createdTickets, int(ticketsToCreate))
+
+	// try to submit the same transaction one more time
+	res, err := chains.XRPL.RPCClient().Submit(ctx, &createTicketsTx)
+	require.NoError(t, err)
+	// the tx wasn't accepted
+	require.Equal(t, "tefNO_TICKET", res.EngineResult.String())
+
+	// use seq number to create the tx
+	multisigAccInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, multisigAcc)
+	require.NoError(t, err)
+	seqNo := multisigAccInfo.AccountData.Sequence
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, *seqNo, nil, multisigAcc)
+	signer1 = chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, *seqNo, nil, multisigAcc)
+	require.NoError(t, rippledata.SetSigners(&createTicketsTx, signer1))
+	require.NoError(t, chains.XRPL.SubmitTx(ctx, t, &createTicketsTx))
+	createdTickets = integrationtests.ExtractTicketsFromMeta(txRes)
+	require.Len(t, createdTickets, int(ticketsToCreate))
+
+	// use ticket number as sequence number
+	ticketNumber := createdTickets[0].TicketSequence
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, *ticketNumber, nil, multisigAcc)
+	signer1 = chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, *ticketNumber, nil, multisigAcc)
+	require.NoError(t, rippledata.SetSigners(&createTicketsTx, signer1))
+	res, err = chains.XRPL.RPCClient().Submit(ctx, &createTicketsTx)
+	require.NoError(t, err)
+	// the tx wasn't accepted
+	require.Equal(t, "tefPAST_SEQ", res.EngineResult.String())
+	t.Logf("Tx was rejected, hash:%s", createTicketsTx.GetHash())
+
+	// use sequence number from the future
+	multisigAccInfo, err = chains.XRPL.RPCClient().AccountInfo(ctx, multisigAcc)
+	require.NoError(t, err)
+	futureSeqNo := *multisigAccInfo.AccountData.Sequence + 10000
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, futureSeqNo, nil, multisigAcc)
+	signer1 = chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, futureSeqNo, nil, multisigAcc)
+	require.NoError(t, rippledata.SetSigners(&createTicketsTx, signer1))
+	res, err = chains.XRPL.RPCClient().Submit(ctx, &createTicketsTx)
+	require.NoError(t, err)
+	// the tx wasn't accepted
+	require.Equal(t, "terPRE_SEQ", res.EngineResult.String())
+	t.Logf("Tx was rejected, hash:%s", createTicketsTx.GetHash())
 }
 
 func TestLedgerCurrent(t *testing.T) {
@@ -772,6 +851,7 @@ func buildCreateTicketsTxForMultiSigning(
 	t *testing.T,
 	xrplChain integrationtests.XRPLChain,
 	ticketsToCreate uint32,
+	seqNumber uint32,
 	ticketSeq *uint32,
 	from rippledata.Account,
 ) rippledata.TicketCreate {
@@ -785,6 +865,9 @@ func buildCreateTicketsTxForMultiSigning(
 	}
 	xrplChain.AutoFillTx(ctx, t, &tx, from)
 
+	if seqNumber != 0 {
+		tx.Sequence = seqNumber
+	}
 	if ticketSeq != nil {
 		tx.Sequence = 0
 		tx.TicketSequence = ticketSeq
