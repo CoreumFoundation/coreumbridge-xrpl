@@ -48,7 +48,8 @@ const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
 
 // Initial values for the XRP token that can be modified afterwards.
 const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
-const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 = 10u128.pow(16 - XRP_DEFAULT_SENDING_PRECISION as u32);
+const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 =
+    10u128.pow(16 - XRP_DEFAULT_SENDING_PRECISION as u32 + XRP_DECIMALS);
 
 pub const MAX_TICKETS: u32 = 250;
 

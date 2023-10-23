@@ -1697,8 +1697,8 @@ mod tests {
                         tx_hash: "any_hash15".to_string(),
                         issuer: XRP_ISSUER.to_string(),
                         currency: XRP_CURRENCY.to_string(),
-                        //Sending more than 100000000000 should fail because maximum holding amount is 10000000000 (1 less zero)
-                        amount: Uint128::new(100000000000),
+                        //Sending more than 100000000000000000 should fail because maximum holding amount is 10000000000000000 (1 less zero)
+                        amount: Uint128::new(100000000000000000),
                         recipient: Addr::unchecked(receiver.address()),
                     },
                 },
@@ -1747,7 +1747,7 @@ mod tests {
                     issuer: XRP_ISSUER.to_string(),
                     currency: XRP_CURRENCY.to_string(),
                     //This should work because we are sending the rest to reach the maximum amount
-                    amount: Uint128::new(9999999999),
+                    amount: Uint128::new(9999999999999999),
                     recipient: Addr::unchecked(receiver.address()),
                 },
             },
@@ -1763,7 +1763,7 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(request_balance.balance, "10000000000".to_string());
+        assert_eq!(request_balance.balance, "10000000000000000".to_string());
 
         let maximum_amount_error = wasm
             .execute::<ExecuteMsg>(
