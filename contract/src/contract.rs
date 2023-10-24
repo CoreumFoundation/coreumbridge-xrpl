@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::{
     error::ContractError,
-    evidence::{handle_evidence, hash_bytes, Evidence, OperationResult},
+    evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
     msg::{
         AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
         InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
@@ -370,9 +370,8 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             tx_hash,
             sequence_number,
             ticket_number,
-            confirmed,
+            transaction_result,
             operation_result,
-            valid,
         } => {
             let operation_id =
                 check_operation_exists(deps.storage, sequence_number, ticket_number)?;
@@ -380,12 +379,16 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             if threshold_reached {
                 match operation_result.clone() {
                     OperationResult::TicketsAllocation { tickets } => {
-                        handle_ticket_allocation_confirmation(deps.storage, tickets, confirmed)?;
+                        handle_ticket_allocation_confirmation(
+                            deps.storage,
+                            tickets,
+                            transaction_result.clone(),
+                        )?;
                     }
                 }
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
 
-                if valid && ticket_number.is_some() {
+                if transaction_result != TransactionResult::Invalid && ticket_number.is_some() {
                     register_used_ticket(deps.storage)?
                 };
             }
@@ -394,9 +397,8 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 .add_attribute("action", ContractActions::XRPLTransactionResult.as_str())
                 .add_attribute("operation_result", operation_result.as_str())
                 .add_attribute("operation_id", operation_id.to_string())
-                .add_attribute("confirmed", confirmed.to_string())
-                .add_attribute("threshold_reached", threshold_reached.to_string())
-                .add_attribute("valid", valid.to_string());
+                .add_attribute("transaction_result", transaction_result.as_str())
+                .add_attribute("threshold_reached", threshold_reached.to_string());
 
             if let Some(tx_hash) = tx_hash {
                 response = response.add_attribute("tx_hash", tx_hash)

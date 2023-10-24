@@ -13,7 +13,7 @@ mod tests {
 
     use crate::{
         error::ContractError,
-        evidence::{Evidence, OperationResult},
+        evidence::{Evidence, OperationResult, TransactionResult},
         msg::{
             AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
             InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
@@ -1945,8 +1945,7 @@ mod tests {
                         tx_hash: Some(tx_hash.clone()),
                         sequence_number: Some(sequence_number + 1),
                         ticket_number: None,
-                        confirmed: false,
-                        valid: true,
+                        transaction_result: TransactionResult::Rejected {},
                         operation_result: OperationResult::TicketsAllocation { tickets: None },
                     },
                 },
@@ -2053,8 +2052,7 @@ mod tests {
                     tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    confirmed: false,
-                    valid: true,
+                    transaction_result: TransactionResult::Rejected {},
                     operation_result: OperationResult::TicketsAllocation { tickets: None },
                 },
             },
@@ -2070,8 +2068,7 @@ mod tests {
                     tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    confirmed: false,
-                    valid: true,
+                    transaction_result: TransactionResult::Rejected {},
                     operation_result: OperationResult::TicketsAllocation { tickets: None },
                 },
             },
@@ -2142,8 +2139,7 @@ mod tests {
                         tx_hash: Some(tx_hash.clone()),
                         sequence_number: Some(sequence_number),
                         ticket_number: None,
-                        confirmed: true,
-                        valid: true,
+                        transaction_result: TransactionResult::Accepted {},
                         operation_result: OperationResult::TicketsAllocation {
                             tickets: Some(tickets.clone()),
                         },
@@ -2160,7 +2156,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Relaying the confirmed operation twice as invalid should removed it from pending operations and not allocate tickets
+        //Relaying the operation twice as invalid should removed it from pending operations and not allocate tickets
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -2168,8 +2164,7 @@ mod tests {
                     tx_hash: None,
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    confirmed: false,
-                    valid: false,
+                    transaction_result: TransactionResult::Invalid {},
                     operation_result: OperationResult::TicketsAllocation {
                         tickets: None,
                     },
@@ -2187,8 +2182,7 @@ mod tests {
                     tx_hash: None,
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    confirmed: false,
-                    valid: false,
+                    transaction_result: TransactionResult::Invalid {},
                     operation_result: OperationResult::TicketsAllocation {
                         tickets: None,
                     },
@@ -2233,7 +2227,7 @@ mod tests {
 
         let tx_hash = "any_hash2".to_string();
 
-        //Relaying the confirmed operation twice should remove it from pending operations and allocate tickets
+        //Relaying the accepted operation twice should remove it from pending operations and allocate tickets
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -2241,8 +2235,7 @@ mod tests {
                     tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    confirmed: true,
-                    valid: true,
+                    transaction_result: TransactionResult::Accepted {},
                     operation_result: OperationResult::TicketsAllocation {
                         tickets: Some(tickets.clone()),
                     },
@@ -2260,8 +2253,7 @@ mod tests {
                     tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    confirmed: true,
-                    valid: true,
+                    transaction_result: TransactionResult::Accepted {},
                     operation_result: OperationResult::TicketsAllocation {
                         tickets: Some(tickets.clone()),
                     },
@@ -2340,8 +2332,7 @@ mod tests {
                         tx_hash: Some(tx_hash.clone()),
                         sequence_number: None,
                         ticket_number: None,
-                        confirmed: false,
-                        valid: true,
+                        transaction_result: TransactionResult::Rejected {},
                         operation_result: OperationResult::TicketsAllocation {
                             tickets: Some(tickets.clone()),
                         },
@@ -2367,8 +2358,7 @@ mod tests {
                         tx_hash: Some(tx_hash.clone()),
                         sequence_number: Some(sequence_number),
                         ticket_number: Some(2),
-                        confirmed: false,
-                        valid: true,
+                        transaction_result: TransactionResult::Rejected {},
                         operation_result: OperationResult::TicketsAllocation {
                             tickets: Some(tickets.clone()),
                         },
@@ -2394,8 +2384,7 @@ mod tests {
                         tx_hash: None,
                         sequence_number: Some(sequence_number),
                         ticket_number: None,
-                        confirmed: false,
-                        valid: true,
+                        transaction_result: TransactionResult::Rejected {},
                         operation_result: OperationResult::TicketsAllocation {
                             tickets: Some(tickets.clone()),
                         },
@@ -2412,7 +2401,7 @@ mod tests {
                 .as_str()
         ));
 
-        // Trying to save an evidence of a transaction that is valid but is not confirmed and has tickets, should fail
+        // Trying to save an evidence of a transaction that is valid but is rejected and has tickets, should fail
         let invalid_evidence = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -2421,8 +2410,7 @@ mod tests {
                         tx_hash: Some(tx_hash.clone()),
                         sequence_number: Some(sequence_number),
                         ticket_number: None,
-                        confirmed: false,
-                        valid: true,
+                        transaction_result: TransactionResult::Rejected {},
                         operation_result: OperationResult::TicketsAllocation {
                             tickets: Some(tickets.clone()),
                         },
@@ -2448,33 +2436,7 @@ mod tests {
                         tx_hash: Some(tx_hash.clone()),
                         sequence_number: Some(sequence_number),
                         ticket_number: None,
-                        confirmed: false,
-                        valid: false,
-                        operation_result: OperationResult::TicketsAllocation { tickets: None },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidNotValidTransactionResultEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of an invalid transaction but is confirmed should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: None,
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        confirmed: true,
-                        valid: false,
+                        transaction_result: TransactionResult::Invalid {},
                         operation_result: OperationResult::TicketsAllocation { tickets: None },
                     },
                 },
@@ -2498,8 +2460,7 @@ mod tests {
                         tx_hash: None,
                         sequence_number: Some(sequence_number),
                         ticket_number: None,
-                        confirmed: false,
-                        valid: false,
+                        transaction_result: TransactionResult::Invalid {},
                         operation_result: OperationResult::TicketsAllocation {
                             tickets: Some(tickets),
                         },
@@ -2683,8 +2644,7 @@ mod tests {
             tx_hash: Some("any_hash123".to_string()),
             sequence_number: Some(1),
             ticket_number: None,
-            confirmed: false,
-            valid: true,
+            transaction_result: TransactionResult::Rejected {},
             operation_result: OperationResult::TicketsAllocation {
                 tickets: Some(vec![1, 2, 3, 4, 5]),
             },
@@ -2694,8 +2654,7 @@ mod tests {
             tx_hash: Some("any_hash123".to_string()),
             sequence_number: Some(1),
             ticket_number: None,
-            confirmed: true,
-            valid: true,
+            transaction_result: TransactionResult::Accepted {},
             operation_result: OperationResult::TicketsAllocation {
                 tickets: Some(vec![1, 2, 3, 4, 5]),
             },

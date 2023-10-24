@@ -23,12 +23,27 @@ pub enum Evidence {
         tx_hash: Option<String>,
         sequence_number: Option<u64>,
         ticket_number: Option<u64>,
-        //true if confirmed, false if rejected
-        confirmed: bool,
-        //If an operation is invalid, we will not not register it as processed
-        valid: bool,
+        transaction_result: TransactionResult,
         operation_result: OperationResult,
     },
+}
+
+#[cw_serde]
+pub enum TransactionResult {
+    Accepted,
+    Rejected,
+    Invalid,
+}
+
+//For convenience in the responses.
+impl TransactionResult {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TransactionResult::Accepted => "transaction_accepted",
+            TransactionResult::Rejected => "transaction_rejected",
+            TransactionResult::Invalid => "transaction_invalid",
+        }
+    }
 }
 
 #[cw_serde]
@@ -62,7 +77,9 @@ impl Evidence {
     pub fn is_operation_valid(self) -> bool {
         match self {
             Evidence::XRPLToCoreumTransfer { .. } => true,
-            Evidence::XRPLTransactionResult { valid, .. } => valid,
+            Evidence::XRPLTransactionResult {
+                transaction_result, ..
+            } => transaction_result != TransactionResult::Invalid,
         }
     }
     //Function for basic validation of evidences in case relayers send something that is not valid
@@ -78,8 +95,7 @@ impl Evidence {
                 tx_hash,
                 sequence_number,
                 ticket_number,
-                confirmed,
-                valid,
+                transaction_result,
                 operation_result,
             } => {
                 if (sequence_number.is_none() && ticket_number.is_none())
@@ -89,24 +105,28 @@ impl Evidence {
                 }
 
                 // Valid transactions must have a tx_hash
-                if valid && tx_hash.is_none() {
+                if transaction_result != TransactionResult::Invalid && tx_hash.is_none() {
                     return Err(ContractError::InvalidValidTransactionResultEvidence {});
                 }
 
-                // Invalid transactions can't have a tx_hash or be confirmed
-                if !valid && (tx_hash.is_some() || confirmed) {
+                // Invalid transactions can't have a tx_hash
+                if transaction_result == TransactionResult::Invalid && tx_hash.is_some() {
                     return Err(ContractError::InvalidNotValidTransactionResultEvidence {});
                 }
 
                 match operation_result {
-                    
                     OperationResult::TicketsAllocation { tickets } => {
-                        //Invalid or unconfirmed transactions should not contain tickets
-                        if (!valid || !confirmed) && tickets.is_some() {
+                        //Invalid or rejected transactions should not contain tickets
+                        if (transaction_result == TransactionResult::Invalid
+                            || transaction_result == TransactionResult::Rejected)
+                            && tickets.is_some()
+                        {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
-                        //We can't confirm an operation that allocates no tickets
-                        if confirmed && (tickets.is_none() || tickets.unwrap().is_empty()) {
+                        //We can't accept an operation that allocates no tickets
+                        if transaction_result == TransactionResult::Accepted
+                            && (tickets.is_none() || tickets.unwrap().is_empty())
+                        {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
                     }
