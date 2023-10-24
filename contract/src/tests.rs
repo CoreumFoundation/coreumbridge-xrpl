@@ -13,7 +13,7 @@ mod tests {
 
     use crate::{
         error::ContractError,
-        evidence::{Evidence, OperationResult},
+        evidence::{Evidence, OperationResult, TransactionResult},
         msg::{
             AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
             InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
@@ -618,7 +618,7 @@ mod tests {
         let test_tokens = vec![
             XRPLToken {
                 issuer: generate_xrpl_address(), //Valid issuer
-                currency: "USD".to_string(), //Valid standard currency code
+                currency: "USD".to_string(),     //Valid standard currency code
                 sending_precision: -15,
                 max_holding_amount: 100,
             },
@@ -865,7 +865,7 @@ mod tests {
         );
 
         let test_token = XRPLToken {
-            issuer: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(), //example of valid issuer
+            issuer: generate_xrpl_address(), //example of valid issuer
             currency: "USD".to_string(),
             sending_precision: 15,
             max_holding_amount: 50000,
@@ -1933,7 +1933,6 @@ mod tests {
         );
 
         let tx_hash = "any_hash".to_string();
-        let sequence_number = 1;
         let tickets = vec![1, 2, 3, 4, 5];
         let correct_signature_example = "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string();
 
@@ -1943,13 +1942,11 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: tx_hash.clone(),
+                        tx_hash: Some(tx_hash.clone()),
                         sequence_number: Some(sequence_number + 1),
                         ticket_number: None,
-                        confirmed: false,
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets.clone()),
-                        },
+                        transaction_result: TransactionResult::Rejected {},
+                        operation_result: OperationResult::TicketsAllocation { tickets: None },
                     },
                 },
                 &vec![],
@@ -2052,13 +2049,11 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
-                    tx_hash: tx_hash.clone(),
+                    tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    confirmed: false,
-                    operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(tickets.clone()),
-                    },
+                    transaction_result: TransactionResult::Rejected {},
+                    operation_result: OperationResult::TicketsAllocation { tickets: None },
                 },
             },
             &vec![],
@@ -2070,13 +2065,11 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
-                    tx_hash: tx_hash.clone(),
+                    tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    confirmed: false,
-                    operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(tickets.clone()),
-                    },
+                    transaction_result: TransactionResult::Rejected {},
+                    operation_result: OperationResult::TicketsAllocation { tickets: None },
                 },
             },
             &vec![],
@@ -2102,7 +2095,8 @@ mod tests {
         assert_eq!(query_pending_operations.operations, vec![]);
         assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
 
-        // Let's do the same now but confirming the operation
+        // Let's do the same now but reporting an invalid transaction
+        let sequence_number = 2;
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RecoverTickets {
@@ -2142,10 +2136,10 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: tx_hash.clone(),
+                        tx_hash: Some(tx_hash.clone()),
                         sequence_number: Some(sequence_number),
                         ticket_number: None,
-                        confirmed: true,
+                        transaction_result: TransactionResult::Accepted {},
                         operation_result: OperationResult::TicketsAllocation {
                             tickets: Some(tickets.clone()),
                         },
@@ -2162,17 +2156,86 @@ mod tests {
                 .as_str()
         ));
 
-        let tx_hash = "any_hash2".to_string();
-
-        //Relaying the confirmed operation twice should remove it from pending operations and allocate tickets
+        //Relaying the operation twice as invalid should removed it from pending operations and not allocate tickets
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
-                    tx_hash: tx_hash.clone(),
+                    tx_hash: None,
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    confirmed: true,
+                    transaction_result: TransactionResult::Invalid {},
+                    operation_result: OperationResult::TicketsAllocation {
+                        tickets: None,
+                    },
+                },
+            },
+            &vec![],
+            relayer_accounts[0],
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: None,
+                    sequence_number: Some(sequence_number),
+                    ticket_number: None,
+                    transaction_result: TransactionResult::Invalid {},
+                    operation_result: OperationResult::TicketsAllocation {
+                        tickets: None,
+                    },
+                },
+            },
+            &vec![],
+            relayer_accounts[1],
+        )
+        .unwrap();
+
+        // Querying the current pending operations should return empty
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        let query_available_tickets = wasm
+            .query::<QueryMsg, AvailableTicketsResponse>(
+                &contract_addr,
+                &QueryMsg::AvailableTickets {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations, vec![]);
+        assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
+
+        // Let's do the same now but confirming the operation
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                sequence_number,
+                number_of_tickets: Some(5),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+
+        let tx_hash = "any_hash2".to_string();
+
+        //Relaying the accepted operation twice should remove it from pending operations and allocate tickets
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(tx_hash.clone()),
+                    sequence_number: Some(sequence_number),
+                    ticket_number: None,
+                    transaction_result: TransactionResult::Accepted {},
                     operation_result: OperationResult::TicketsAllocation {
                         tickets: Some(tickets.clone()),
                     },
@@ -2187,10 +2250,10 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
-                    tx_hash: tx_hash.clone(),
+                    tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    confirmed: true,
+                    transaction_result: TransactionResult::Accepted {},
                     operation_result: OperationResult::TicketsAllocation {
                         tickets: Some(tickets.clone()),
                     },
@@ -2218,6 +2281,201 @@ mod tests {
 
         assert_eq!(query_pending_operations.operations, vec![]);
         assert_eq!(query_available_tickets.tickets, tickets.clone());
+    }
+
+    #[test]
+    fn invalid_transaction_evidences() {
+        let app = CoreumTestApp::new();
+        let signer = app
+            .init_account(&coins(100_000_000_000, FEE_DENOM))
+            .unwrap();
+
+        let wasm = Wasm::new(&app);
+        let asset_ft = AssetFT::new(&app);
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(signer.address()),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
+        };
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            vec![relayer],
+            1,
+            50,
+            query_issue_fee(&asset_ft),
+        );
+
+        let tx_hash = "any_hash".to_string();
+        let sequence_number = 1;
+        let tickets = vec![1, 2, 3, 4, 5];
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                sequence_number,
+                number_of_tickets: Some(5),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Trying to save an evidence that has no sequence or ticket number should fail.
+        let invalid_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.clone()),
+                        sequence_number: None,
+                        ticket_number: None,
+                        transaction_result: TransactionResult::Rejected {},
+                        operation_result: OperationResult::TicketsAllocation {
+                            tickets: Some(tickets.clone()),
+                        },
+                    },
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(invalid_evidence.to_string().contains(
+            ContractError::InvalidTransactionResultEvidence {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Trying to save an evidence that has sequence and ticket number should fail.
+        let invalid_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.clone()),
+                        sequence_number: Some(sequence_number),
+                        ticket_number: Some(2),
+                        transaction_result: TransactionResult::Rejected {},
+                        operation_result: OperationResult::TicketsAllocation {
+                            tickets: Some(tickets.clone()),
+                        },
+                    },
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(invalid_evidence.to_string().contains(
+            ContractError::InvalidTransactionResultEvidence {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Trying to save an evidence of a transaction that is valid but has no tx_hash should fail.
+        let invalid_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: None,
+                        sequence_number: Some(sequence_number),
+                        ticket_number: None,
+                        transaction_result: TransactionResult::Rejected {},
+                        operation_result: OperationResult::TicketsAllocation {
+                            tickets: Some(tickets.clone()),
+                        },
+                    },
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(invalid_evidence.to_string().contains(
+            ContractError::InvalidValidTransactionResultEvidence {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Trying to save an evidence of a transaction that is valid but is rejected and has tickets, should fail
+        let invalid_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.clone()),
+                        sequence_number: Some(sequence_number),
+                        ticket_number: None,
+                        transaction_result: TransactionResult::Rejected {},
+                        operation_result: OperationResult::TicketsAllocation {
+                            tickets: Some(tickets.clone()),
+                        },
+                    },
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(invalid_evidence.to_string().contains(
+            ContractError::InvalidTicketAllocationEvidence {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Trying to save an evidence of an invalid transaction but has a transaction hash should fail.
+        let invalid_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.clone()),
+                        sequence_number: Some(sequence_number),
+                        ticket_number: None,
+                        transaction_result: TransactionResult::Invalid {},
+                        operation_result: OperationResult::TicketsAllocation { tickets: None },
+                    },
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(invalid_evidence.to_string().contains(
+            ContractError::InvalidNotValidTransactionResultEvidence {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Trying to save an evidence of an invalid transaction but has tickets should fail.
+        let invalid_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: None,
+                        sequence_number: Some(sequence_number),
+                        ticket_number: None,
+                        transaction_result: TransactionResult::Invalid {},
+                        operation_result: OperationResult::TicketsAllocation {
+                            tickets: Some(tickets),
+                        },
+                    },
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(invalid_evidence.to_string().contains(
+            ContractError::InvalidTicketAllocationEvidence {}
+                .to_string()
+                .as_str()
+        ));
     }
 
     #[test]
@@ -2383,20 +2641,20 @@ mod tests {
         );
 
         let evidence3 = Evidence::XRPLTransactionResult {
-            tx_hash: "any_hash123".to_string(),
+            tx_hash: Some("any_hash123".to_string()),
             sequence_number: Some(1),
             ticket_number: None,
-            confirmed: false,
+            transaction_result: TransactionResult::Rejected {},
             operation_result: OperationResult::TicketsAllocation {
                 tickets: Some(vec![1, 2, 3, 4, 5]),
             },
         };
 
         let evidence4 = Evidence::XRPLTransactionResult {
-            tx_hash: "any_hash123".to_string(),
+            tx_hash: Some("any_hash123".to_string()),
             sequence_number: Some(1),
             ticket_number: None,
-            confirmed: true,
+            transaction_result: TransactionResult::Accepted {},
             operation_result: OperationResult::TicketsAllocation {
                 tickets: Some(vec![1, 2, 3, 4, 5]),
             },

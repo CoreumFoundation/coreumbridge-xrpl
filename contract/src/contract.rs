@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::{
     error::ContractError,
-    evidence::{handle_evidence, hash_bytes, Evidence, OperationResult},
+    evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
     msg::{
         AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
         InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
@@ -15,6 +15,7 @@ use crate::{
     },
     tickets::{handle_ticket_allocation_confirmation, register_used_ticket},
 };
+
 use coreum_wasm_sdk::{
     assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
     core::{CoreumMsg, CoreumQueries, CoreumResult},
@@ -369,7 +370,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             tx_hash,
             sequence_number,
             ticket_number,
-            confirmed,
+            transaction_result,
             operation_result,
         } => {
             let operation_id =
@@ -378,20 +379,30 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             if threshold_reached {
                 match operation_result.clone() {
                     OperationResult::TicketsAllocation { tickets } => {
-                        handle_ticket_allocation_confirmation(deps.storage, tickets, confirmed)?;
+                        handle_ticket_allocation_confirmation(
+                            deps.storage,
+                            tickets,
+                            transaction_result.clone(),
+                        )?;
                     }
                 }
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
-                register_used_ticket(deps.storage)?;
+
+                if transaction_result != TransactionResult::Invalid && ticket_number.is_some() {
+                    register_used_ticket(deps.storage)?
+                };
             }
 
             response = response
                 .add_attribute("action", ContractActions::XRPLTransactionResult.as_str())
                 .add_attribute("operation_result", operation_result.as_str())
-                .add_attribute("hash", tx_hash)
                 .add_attribute("operation_id", operation_id.to_string())
-                .add_attribute("confirmed", confirmed.to_string())
-                .add_attribute("threshold_reached", threshold_reached.to_string())
+                .add_attribute("transaction_result", transaction_result.as_str())
+                .add_attribute("threshold_reached", threshold_reached.to_string());
+
+            if let Some(tx_hash) = tx_hash {
+                response = response.add_attribute("tx_hash", tx_hash)
+            }
         }
     }
 
@@ -405,6 +416,12 @@ fn recover_tickets(
     number_of_tickets: Option<u32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
+
+    let available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
+
+    if !available_tickets.is_empty() {
+        return Err(ContractError::StillHaveAvailableTickets {});
+    }
 
     let pending_ticket_update = PENDING_TICKET_UPDATE.load(deps.storage)?;
 

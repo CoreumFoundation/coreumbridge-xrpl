@@ -7,7 +7,7 @@ use crate::{
     state::{
         Operation, OperationType, AVAILABLE_TICKETS, CONFIG, PENDING_OPERATIONS,
         PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
-    },
+    }, evidence::TransactionResult,
 };
 
 //This function will be used to provide a ticket for a pending operation
@@ -56,13 +56,13 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractErr
 pub fn handle_ticket_allocation_confirmation(
     storage: &mut dyn Storage,
     tickets: Option<Vec<u64>>,
-    confirmed: bool,
+    transaction_result: TransactionResult,
 ) -> Result<(), ContractError> {
     // We set pending update ticket to false because we complete the ticket allocation operation
     PENDING_TICKET_UPDATE.save(storage, &false)?;
 
-    //Allocate ticket numbers in our ticket array if operation is confirmed
-    if confirmed {
+    //Allocate ticket numbers in our ticket array if operation is accepted
+    if transaction_result == TransactionResult::Accepted {
         let mut available_tickets = AVAILABLE_TICKETS.load(storage)?;
 
         let mut new_tickets = available_tickets.make_contiguous().to_vec();

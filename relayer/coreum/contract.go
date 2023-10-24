@@ -122,7 +122,6 @@ type XRPLTransactionResultEvidence struct {
 	TxHash         string  `json:"tx_hash"`
 	SequenceNumber *uint32 `json:"sequence_number"`
 	TicketNumber   *uint32 `json:"ticket_number"`
-	Confirmed      bool    `json:"confirmed"`
 }
 
 // XRPLTransactionResultTicketsAllocationEvidence is evidence of the tickets allocation transaction.
@@ -216,7 +215,8 @@ type xrplTransactionEvidenceOperationResult struct {
 
 type xrplTransactionResultEvidence struct {
 	XRPLTransactionResultEvidence
-	OperationResult xrplTransactionEvidenceOperationResult `json:"operation_result"`
+	TransactionResult string                                 `json:"transaction_result"`
+	OperationResult   xrplTransactionEvidenceOperationResult `json:"operation_result"`
 }
 
 type evidence struct {
@@ -457,7 +457,7 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	return txRes, nil
 }
 
-// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed XRPL to coreum transfer transaction.
+// SendXRPLToCoreumTransferEvidence sends an Evidence of an accepted XRPL to coreum transfer transaction.
 func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
@@ -476,12 +476,20 @@ func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, s
 	return txRes, nil
 }
 
-// SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of a confirmed or rejected ticket allocation transaction.
-func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTicketsAllocationEvidence) (*sdk.TxResponse, error) {
+// SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of an accepted or rejected ticket allocation transaction.
+func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTicketsAllocationEvidence, accepted bool) (*sdk.TxResponse, error) {
+	var transactionResult string
+	if accepted {
+		transactionResult = "accepted"
+	} else {
+		transactionResult = "rejected"
+	}
+
 	req := saveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
+				TransactionResult:             transactionResult,
 				OperationResult: xrplTransactionEvidenceOperationResult{
 					TicketsAllocation: &xrplTransactionEvidenceTicketsAllocationOperationResult{
 						Tickets: evd.Tickets,
