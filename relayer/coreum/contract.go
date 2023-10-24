@@ -209,12 +209,6 @@ type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
 	Tickets []uint32 `json:"tickets"`
 }
 
-/*type xrplTransactionEvidenceTransactionResult struct {
-	Accepted string `json:"accepted,omitempty"`
-	Rejected string `json:"rejected,omitempty"`
-	Invalid  string `json:"invalid,omitempty"`
-}*/
-
 type xrplTransactionEvidenceOperationResult struct {
 	TicketsAllocation *xrplTransactionEvidenceTicketsAllocationOperationResult `json:"tickets_allocation,omitempty"`
 }
