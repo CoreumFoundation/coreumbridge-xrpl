@@ -14,7 +14,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-func TestKeyringTxSigner_SignMultiSignWithSignatureVerification(t *testing.T) {
+func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	t.Parallel()
 
 	encodingConfig := creumconfig.NewEncodingConfig(coreumapp.ModuleBasics)

@@ -28,21 +28,21 @@ import (
 
 // RunnerEnvConfig is runner environment config.
 type RunnerEnvConfig struct {
-	SigningThreshold        int
-	RelayersNumber          int
-	MaliciousRelayersNumber int
-	DisableMasterKey        bool
-	UsedTicketsThreshold    int
+	SigningThreshold       int
+	RelayerNumber          int
+	MaliciousRelayerNumber int
+	DisableMasterKey       bool
+	UsedTicketsThreshold   int
 }
 
 // DefaultRunnerEnvConfig returns default runner environment config.
 func DefaultRunnerEnvConfig() RunnerEnvConfig {
 	return RunnerEnvConfig{
-		SigningThreshold:        2,
-		RelayersNumber:          3,
-		MaliciousRelayersNumber: 0,
-		DisableMasterKey:        true,
-		UsedTicketsThreshold:    150,
+		SigningThreshold:       2,
+		RelayerNumber:          3,
+		MaliciousRelayerNumber: 0,
+		DisableMasterKey:       true,
+		UsedTicketsThreshold:   150,
 	}
 }
 
@@ -60,19 +60,19 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		ctx,
 		t,
 		chains.Coreum,
-		cfg.RelayersNumber,
+		cfg.RelayerNumber,
 	)
 	xrplBridgeAccount, xrplRelayerAccounts, xrplRelayersPubKeys := genXRPLBridgeAccountWithRelayers(
 		ctx,
 		t,
 		chains.XRPL,
-		cfg.RelayersNumber,
+		cfg.RelayerNumber,
 		uint32(cfg.SigningThreshold),
 		cfg.DisableMasterKey,
 	)
 
-	contractRelayer := make([]coreum.Relayer, 0, cfg.RelayersNumber)
-	for i := 0; i < cfg.RelayersNumber; i++ {
+	contractRelayer := make([]coreum.Relayer, 0, cfg.RelayerNumber)
+	for i := 0; i < cfg.RelayerNumber; i++ {
 		contractRelayer = append(contractRelayer, coreum.Relayer{
 			CoreumAddress: coreumRelayerAddresses[i],
 			XRPLAddress:   xrplRelayerAccounts[i].String(),
@@ -89,9 +89,9 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		cfg.UsedTicketsThreshold,
 	)
 
-	runners := make([]*runner.Runner, 0, cfg.RelayersNumber)
+	runners := make([]*runner.Runner, 0, cfg.RelayerNumber)
 	// add correct relayers
-	for i := 0; i < cfg.RelayersNumber-cfg.MaliciousRelayersNumber; i++ {
+	for i := 0; i < cfg.RelayerNumber-cfg.MaliciousRelayerNumber; i++ {
 		runners = append(
 			runners,
 			createDevRunner(
@@ -105,8 +105,8 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		)
 	}
 	// add malicious relayers
-	// we keep the relayers indexes to make all config valid a part from the XRPL signing
-	for i := cfg.RelayersNumber - cfg.MaliciousRelayersNumber; i < cfg.RelayersNumber-cfg.MaliciousRelayersNumber+cfg.MaliciousRelayersNumber; i++ {
+	// we keep the relayer indexes to make all config valid apart from the XRPL signing
+	for i := cfg.RelayerNumber - cfg.MaliciousRelayerNumber; i < cfg.RelayerNumber; i++ {
 		maliciousSignerAcc := chains.XRPL.GenAccount(ctx, t, 10)
 		runners = append(
 			runners,

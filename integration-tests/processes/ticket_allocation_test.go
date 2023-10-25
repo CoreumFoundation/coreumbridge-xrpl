@@ -86,8 +86,8 @@ func TestTicketsAllocationRecoveryWithMaliciousRelayers(t *testing.T) {
 
 	envCfg := DefaultRunnerEnvConfig()
 	// add malicious relayers to the config
-	envCfg.RelayersNumber = 5
-	envCfg.MaliciousRelayersNumber = 2
+	envCfg.RelayerNumber = 5
+	envCfg.MaliciousRelayerNumber = 2
 	envCfg.SigningThreshold = 3
 
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
