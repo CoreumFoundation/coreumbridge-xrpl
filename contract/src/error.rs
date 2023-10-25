@@ -74,7 +74,7 @@ pub enum ContractError {
     #[error("SignatureAlreadyProvided: There is already a signature provided for this relayer and this operation")]
     SignatureAlreadyProvided {},
 
-    #[error("InvalidTicketNumberToAllocate: The number of tickets to recover must be greater than used tickets threshold and less or equal max allowed")]
+    #[error("InvalidTicketNumberToAllocate: The number of tickets to recover must be greater than used ticket threshold and less than or equal to max allowed")]
     InvalidTicketNumberToAllocate {},
 
     #[error("InvalidXRPLIssuer: The issuer must be a valid XRPL address")]

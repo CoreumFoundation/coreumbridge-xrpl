@@ -245,7 +245,7 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 	if cfg.Coreum.Contract.ContractAddress != "" {
 		contractAddress, err = sdk.AccAddressFromBech32(cfg.Coreum.Contract.ContractAddress)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed decode contract address to sdk.AccAddress, address:%s", cfg.Coreum.Contract.ContractAddress)
+			return nil, errors.Wrapf(err, "failed to decode contract address to sdk.AccAddress, address:%s", cfg.Coreum.Contract.ContractAddress)
 		}
 	}
 	contractClientCfg := coreum.ContractClientConfig{
@@ -402,7 +402,7 @@ func buildFilePath(homePath string) string {
 func getGRPCClientConn(grpcURL string) (*grpc.ClientConn, error) {
 	parsedURL, err := url.Parse(grpcURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed parse grpc URL")
+		return nil, errors.Wrap(err, "failed to parse grpc URL")
 	}
 
 	encodingConfig := coreumchainconfig.NewEncodingConfig(coreumapp.ModuleBasics)

@@ -29,29 +29,29 @@ type Logger interface {
 	Error(ctx context.Context, msg string, fields ...Field)
 }
 
-// AnyFiled takes a key and an arbitrary value and chooses the best way to represent them as a field, falling back to a
+// AnyField takes a key and an arbitrary value and chooses the best way to represent them as a field, falling back to a
 // reflection-based approach only if necessary.
-func AnyFiled(key string, value any) Field {
+func AnyField(key string, value any) Field {
 	return convertZapFieldToField(zap.Any(key, value))
 }
 
-// StringFiled constructs a field with the given key and value.
-func StringFiled(key, value string) Field {
+// StringField constructs a field with the given key and value.
+func StringField(key, value string) Field {
 	return convertZapFieldToField(zap.String(key, value))
 }
 
-// Uint32Filed constructs a field with the given key and value.
-func Uint32Filed(key string, value uint32) Field {
+// Uint32Field constructs a field with the given key and value.
+func Uint32Field(key string, value uint32) Field {
 	return convertZapFieldToField(zap.Uint32(key, value))
 }
 
-// Int64Filed constructs a field with the given key and value.
-func Int64Filed(key string, value int64) Field {
+// Int64Field constructs a field with the given key and value.
+func Int64Field(key string, value int64) Field {
 	return convertZapFieldToField(zap.Int64(key, value))
 }
 
-// Uint64Filed constructs a field with the given key and value.
-func Uint64Filed(key string, value uint64) Field {
+// Uint64Field constructs a field with the given key and value.
+func Uint64Field(key string, value uint64) Field {
 	return convertZapFieldToField(zap.Uint64(key, value))
 }
 
@@ -60,12 +60,12 @@ func Error(err error) Field {
 	return convertZapFieldToField(zap.Error(err))
 }
 
-func convertZapFieldToField(zapFiled zap.Field) Field {
+func convertZapFieldToField(zapField zap.Field) Field {
 	return Field{
-		Key:       zapFiled.Key,
-		Type:      FieldType(zapFiled.Type),
-		Integer:   zapFiled.Integer,
-		String:    zapFiled.String,
-		Interface: zapFiled.Interface,
+		Key:       zapField.Key,
+		Type:      FieldType(zapField.Type),
+		Integer:   zapField.Integer,
+		String:    zapField.String,
+		Interface: zapField.Interface,
 	}
 }

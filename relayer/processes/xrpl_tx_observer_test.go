@@ -2,6 +2,7 @@ package processes_test
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
@@ -322,7 +323,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				tt.txScannerBuilder(ctrl, cancel),
 				contractClient,
 			)
-			require.ErrorIs(t, context.Canceled, o.Start(ctx))
+			require.True(t, errors.Is(o.Start(ctx), context.Canceled), err)
 		})
 	}
 }

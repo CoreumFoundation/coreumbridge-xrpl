@@ -19,7 +19,7 @@ import (
 	"github.com/CoreumFoundation/coreum-tools/pkg/http"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
-	creumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
+	coreumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
 	coreumkeyring "github.com/CoreumFoundation/coreum/v3/pkg/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -305,7 +305,7 @@ func extractPrivateKeyFromSeed(seedPhrase string) (string, error) {
 }
 
 func createInMemoryKeyring() keyring.Keyring {
-	encodingConfig := creumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
+	encodingConfig := coreumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
 	return coreumkeyring.NewConcurrentSafeKeyring(keyring.NewInMemory(encodingConfig.Codec))
 }
 

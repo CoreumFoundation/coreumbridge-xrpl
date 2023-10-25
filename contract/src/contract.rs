@@ -334,7 +334,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     }
                 }
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
-                //register used ticket only for the case when the the ticket was use for the tx execution
+                //register used ticket only for the case when the ticket was used for the tx execution
                 //TODO(keyne) add test for the sequence usage
                 if ticket_number.is_some() {
                     register_used_ticket(deps.storage)?;
@@ -372,7 +372,7 @@ fn recover_tickets(
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
     let config = CONFIG.load(deps.storage)?;
-    //we check that number_to_allocate > config.used_tickets_threshold in order to cover the
+    //we check that number_to_allocate > config.used_ticket_threshold in order to cover the
     //reallocation with just one XRPL transaction, otherwise the relocation might cause the
     //additional reallocation.
     if number_to_allocate <= config.used_tickets_threshold || number_to_allocate > MAX_TICKETS  {

@@ -19,7 +19,7 @@ import (
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
-	creumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
+	coreumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
 	coreumintegration "github.com/CoreumFoundation/coreum/v3/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -316,7 +316,7 @@ func createDevRunner(
 		xrplRelayerKeyName   = "xrpl"
 	)
 
-	encodingConfig := creumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
+	encodingConfig := coreumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
 	kr := keyring.NewInMemory(encodingConfig.Codec)
 
 	// reimport coreum key

@@ -67,7 +67,7 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.WithStack(ctx.Err())
 		case tx := <-txCh:
 			if err := o.processTx(ctx, tx); err != nil {
 				o.log.Error(ctx, "Failed to process XRPL tx", logger.Error(err))
@@ -91,16 +91,16 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		o.log.Debug(
 			ctx,
 			"Skipping not successful transaction",
-			logger.StringFiled("type", txType),
-			logger.StringFiled("txResult", tx.MetaData.TransactionResult.String()),
+			logger.StringField("type", txType),
+			logger.StringField("txResult", tx.MetaData.TransactionResult.String()),
 		)
 		return nil
 	}
 
-	o.log.Debug(ctx, "Start processing of XRPL incoming tx", logger.StringFiled("type", txType))
+	o.log.Debug(ctx, "Start processing of XRPL incoming tx", logger.StringField("type", txType))
 	// we process only incoming payment transactions, other transactions are ignored
 	if txType != rippledata.PAYMENT.String() {
-		o.log.Debug(ctx, "Skipping not payment transaction", logger.StringFiled("type", txType))
+		o.log.Debug(ctx, "Skipping not payment transaction", logger.StringField("type", txType))
 		return nil
 	}
 	paymentTx, ok := tx.Transaction.(*rippledata.Payment)
@@ -109,7 +109,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	}
 	coreumRecipient := xrpl.DecodeCoreumRecipientFromMemo(paymentTx.Memos)
 	if coreumRecipient == nil {
-		o.log.Info(ctx, "Bridge memo does not include expected structure", logger.AnyFiled("memos", paymentTx.Memos))
+		o.log.Info(ctx, "Bridge memo does not include expected structure", logger.AnyField("memos", paymentTx.Memos))
 		return nil
 	}
 
@@ -152,7 +152,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	txType := tx.GetType()
 	o.log.Debug(ctx, "Start processing of XRPL outgoing tx",
-		logger.StringFiled("type", txType),
+		logger.StringField("type", txType),
 	)
 
 	switch txType {
@@ -182,7 +182,7 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 		)
 		if err == nil {
 			if !evidence.Confirmed {
-				o.log.Warn(ctx, "Transaction was rejected", logger.StringFiled("txResult", tx.MetaData.TransactionResult.String()))
+				o.log.Warn(ctx, "Transaction was rejected", logger.StringField("txResult", tx.MetaData.TransactionResult.String()))
 			}
 			return nil
 		}
@@ -199,7 +199,7 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 
 	default:
 		// TODO(dzmitryhil) replace with the error once we integrate all supported types
-		o.log.Warn(ctx, "Found unsupported transaction type", logger.AnyFiled("tx", tx))
+		o.log.Warn(ctx, "Found unsupported transaction type", logger.AnyField("tx", tx))
 		return nil
 	}
 }

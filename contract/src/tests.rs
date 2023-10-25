@@ -1040,7 +1040,7 @@ mod tests {
         assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
 
         let sequence_number = 1;
-        //Trying to recover tickets will the value less than used_tickets_threshold
+        //Trying to recover tickets with the value less than used_tickets_threshold
         let recover_ticket_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,

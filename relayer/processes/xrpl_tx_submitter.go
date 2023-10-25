@@ -94,7 +94,7 @@ func (s *XRPLTxSubmitter) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.WithStack(ctx.Err())
 		default:
 			if err := s.processPendingOperations(ctx); err != nil && !errors.Is(err, context.Canceled) {
 				s.log.Error(ctx, "Failed to process pending operations", logger.Error(err))
@@ -103,8 +103,12 @@ func (s *XRPLTxSubmitter) Start(ctx context.Context) error {
 				s.log.Info(ctx, "Process repeating is disabled, process is finished")
 				return nil
 			}
-			s.log.Info(ctx, "Waiting before the next execution", logger.StringFiled("delay", s.cfg.RepeatDelay.String()))
-			<-time.After(s.cfg.RepeatDelay)
+			s.log.Info(ctx, "Waiting before the next execution", logger.StringField("delay", s.cfg.RepeatDelay.String()))
+			select {
+			case <-ctx.Done():
+				return errors.WithStack(ctx.Err())
+			case <-time.After(s.cfg.RepeatDelay):
+			}
 		}
 	}
 }
@@ -199,16 +203,16 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation c
 		return errors.Wrapf(err, "failed to submit transaction:%+v", tx)
 	}
 	if txRes.EngineResult.Success() {
-		s.log.Info(ctx, "Transaction successfully submitted", logger.StringFiled("txHash", tx.GetHash().String()))
+		s.log.Info(ctx, "Transaction successfully submitted", logger.StringField("txHash", tx.GetHash().String()))
 		return nil
 	}
 
 	switch txRes.EngineResult.String() {
 	case xrpl.TefNOTicketTxResult:
-		s.log.Info(ctx, "Transaction was already submitted", logger.StringFiled("txHash", tx.GetHash().String()))
+		s.log.Info(ctx, "Transaction was already submitted", logger.StringField("txHash", tx.GetHash().String()))
 		return nil
 	case xrpl.TefPastSeqTxResult, xrpl.TerPreSeqTxResult:
-		s.log.Warn(ctx, "Used invalid sequence number", logger.Uint32Filed("sequence", tx.GetBase().Sequence))
+		s.log.Warn(ctx, "Used invalid sequence number", logger.Uint32Field("sequence", tx.GetBase().Sequence))
 		// TODO(dzmitryhil) cancel operation without the hash
 		return nil
 	default:
@@ -227,17 +231,17 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 	for _, signature := range operation.Signatures {
 		xrplAcc, ok := bridgeSigners.CoreumToXRPLAccount[signature.Relayer.String()]
 		if !ok {
-			s.log.Warn(ctx, "Found unknown signer", logger.StringFiled("coreumAddress", signature.Relayer.String()))
+			s.log.Warn(ctx, "Found unknown signer", logger.StringField("coreumAddress", signature.Relayer.String()))
 			continue
 		}
 		xrplPubKey, ok := bridgeSigners.XRPLPubKeys[xrplAcc]
 		if !ok {
-			s.log.Warn(ctx, "Found XRPL signer address without pub key in the contract", logger.StringFiled("xrplAddress", xrplAcc.String()))
+			s.log.Warn(ctx, "Found XRPL signer address without pub key in the contract", logger.StringField("xrplAddress", xrplAcc.String()))
 			continue
 		}
 		xrplAccWeight, ok := bridgeSigners.XRPLWeights[xrplAcc]
 		if !ok {
-			s.log.Warn(ctx, "Found XRPL signer address without weight", logger.StringFiled("xrplAddress", xrplAcc.String()))
+			s.log.Warn(ctx, "Found XRPL signer address without weight", logger.StringField("xrplAddress", xrplAcc.String()))
 			continue
 		}
 		tx, err := s.buildXRPLTxFromOperation(operation)
@@ -252,8 +256,8 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 				ctx,
 				"Failed to unmarshal tx signature",
 				logger.Error(err),
-				logger.StringFiled("signature", signature.Signature),
-				logger.StringFiled("xrplAcc", xrplAcc.String()),
+				logger.StringField("signature", signature.Signature),
+				logger.StringField("xrplAcc", xrplAcc.String()),
 			)
 		}
 		txSigner := rippledata.Signer{
@@ -265,7 +269,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		}
 		txSigners = append(txSigners, txSigner)
 		if err := rippledata.SetSigners(tx, txSigner); err != nil {
-			return nil, false, errors.Errorf("failed set tx signer, signer:%+v", txSigner)
+			return nil, false, errors.Errorf("failed to set tx signer, signer:%+v", txSigner)
 		}
 		// TODO(dzmitryhil) validate signature here and filter out if invalid with warning
 		signedWeight += uint32(xrplAccWeight)
@@ -280,7 +284,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		return nil, false, err
 	}
 	if err := rippledata.SetSigners(tx, txSigners...); err != nil {
-		return nil, false, errors.Errorf("failed set tx signer, signeres:%+v", txSigners)
+		return nil, false, errors.Errorf("failed to set tx signer, signeres:%+v", txSigners)
 	}
 
 	return tx, true, nil
