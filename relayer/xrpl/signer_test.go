@@ -62,7 +62,7 @@ func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	require.True(t, valid)
 }
 
-func TestPrivKeyTxSigner_SignMultiSignWithSignatureVerification(t *testing.T) {
+func TestPrivKeyTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	t.Parallel()
 
 	signer := xrpl.GenPrivKeyTxSigner()
