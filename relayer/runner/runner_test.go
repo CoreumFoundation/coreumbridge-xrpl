@@ -1,7 +1,6 @@
 package runner_test
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,10 +18,6 @@ func TestInitAndReadConfig(t *testing.T) {
 	require.Equal(t, getDefaultConfigString(), string(yamlStringConfig))
 	// create temp dir to store the config
 	tempDir := t.TempDir()
-	t.Cleanup(func() {
-		os.Remove(tempDir) //nolint:errcheck // we are ok with that error
-	})
-
 	//  try to read none-existing config
 	_, err = runner.ReadConfig(tempDir)
 	require.Error(t, err)

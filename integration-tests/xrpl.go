@@ -31,6 +31,7 @@ const (
 
 	xrplTxFee                   = "100"
 	xrplRserveToActivateAccount = float64(10)
+	xrplRservePerTicket         = float64(2)
 
 	ecdsaKeyType         = rippledata.ECDSA
 	faucetKeyringKeyName = "faucet"
@@ -142,7 +143,7 @@ func (c XRPLChain) ActivateAccount(ctx context.Context, t *testing.T, acc ripple
 
 // FundAccountForTicketAllocation funds the provided account with the amount required for the ticket allocation.
 func (c XRPLChain) FundAccountForTicketAllocation(ctx context.Context, t *testing.T, acc rippledata.Account, ticketsNumber uint32) {
-	c.FundAccount(ctx, t, acc, float64(2*ticketsNumber))
+	c.FundAccount(ctx, t, acc, xrplRservePerTicket*float64(ticketsNumber))
 }
 
 // FundAccount funds the provided account with the provided amount.

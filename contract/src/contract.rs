@@ -372,7 +372,7 @@ fn recover_tickets(
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
     let config = CONFIG.load(deps.storage)?;
-    //we check that number_to_allocate > config.used_ticket_threshold in order to cover the
+    //we check that number_to_allocate > config.used_tickets_threshold in order to cover the
     //reallocation with just one XRPL transaction, otherwise the relocation might cause the
     //additional reallocation.
     if number_to_allocate <= config.used_tickets_threshold || number_to_allocate > MAX_TICKETS  {

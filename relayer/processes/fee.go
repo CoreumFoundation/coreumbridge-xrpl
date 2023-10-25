@@ -6,7 +6,7 @@ import (
 )
 
 // XRPLFee is static fee we use for the XRPL transaction submission.
-// Currently, it is fixes defined as a constant but might be updated in the future.
+// Currently, it is fixed as a constant but might be updated in the future.
 const XRPLFee = "100"
 
 // GetTxFee returns the fee required for the transaction.
