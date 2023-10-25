@@ -24,7 +24,7 @@ func TestTicketsAllocationRecoveryWithSequenceNumber(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, availableTickets)
 
-	runnerEnv.StartAllRunnerProcesses(ctx)
+	runnerEnv.StartAllRunnerProcesses(ctx, t)
 
 	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.XRPLBridgeAccount, numberOfTicketsToAllocate)
 
@@ -57,7 +57,7 @@ func TestTicketsAllocationRecoveryWithRejection(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, availableTickets)
 
-	runnerEnv.StartAllRunnerProcesses(ctx)
+	runnerEnv.StartAllRunnerProcesses(ctx, t)
 
 	xrplBridgeAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.XRPLBridgeAccount)
 	require.NoError(t, err)

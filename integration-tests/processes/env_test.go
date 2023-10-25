@@ -111,7 +111,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 }
 
 // StartAllRunnerProcesses starts all relayer processes.
-func (r *RunnerEnv) StartAllRunnerProcesses(ctx context.Context) {
+func (r *RunnerEnv) StartAllRunnerProcesses(ctx context.Context, t *testing.T) {
 	for _, relayerRunner := range r.Runners {
 		go func(relayerRunner *runner.Runner) {
 			// disable restart on error to handler unexpected errors
@@ -122,7 +122,7 @@ func (r *RunnerEnv) StartAllRunnerProcesses(ctx context.Context) {
 
 			err := relayerRunner.Processor.StartProcesses(ctx, xrplTxObserverProcess, xrplTxSubmitterProcess)
 			if err != nil && !errors.Is(err, context.Canceled) {
-				panic("Unexpected processes error:" + err.Error())
+				require.NoError(t, err)
 			}
 		}(relayerRunner)
 	}

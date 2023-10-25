@@ -29,9 +29,9 @@ const (
 	// XRPCurrencyCode is XRP toke currency code on XRPL chain.
 	XRPCurrencyCode = "XRP"
 
-	xrplTxFee                   = "100"
-	xrplRserveToActivateAccount = float64(10)
-	xrplRservePerTicket         = float64(2)
+	xrplTxFee                    = "100"
+	xrplReserveToActivateAccount = float64(10)
+	xrplReservePerTicket         = float64(2)
 
 	ecdsaKeyType         = rippledata.ECDSA
 	faucetKeyringKeyName = "faucet"
@@ -117,7 +117,7 @@ func (c XRPLChain) GenAccount(ctx context.Context, t *testing.T, amount float64)
 	)
 	require.NoError(t, err)
 
-	c.FundAccount(ctx, t, acc, amount+xrplRserveToActivateAccount)
+	c.FundAccount(ctx, t, acc, amount+xrplReserveToActivateAccount)
 
 	return acc
 }
@@ -138,12 +138,12 @@ func (c XRPLChain) GetSignerPubKey(t *testing.T, acc rippledata.Account) rippled
 func (c XRPLChain) ActivateAccount(ctx context.Context, t *testing.T, acc rippledata.Account) {
 	t.Helper()
 
-	c.FundAccount(ctx, t, acc, xrplRserveToActivateAccount)
+	c.FundAccount(ctx, t, acc, xrplReserveToActivateAccount)
 }
 
 // FundAccountForTicketAllocation funds the provided account with the amount required for the ticket allocation.
 func (c XRPLChain) FundAccountForTicketAllocation(ctx context.Context, t *testing.T, acc rippledata.Account, ticketsNumber uint32) {
-	c.FundAccount(ctx, t, acc, xrplRservePerTicket*float64(ticketsNumber))
+	c.FundAccount(ctx, t, acc, xrplReservePerTicket*float64(ticketsNumber))
 }
 
 // FundAccount funds the provided account with the provided amount.

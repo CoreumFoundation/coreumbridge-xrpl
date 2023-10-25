@@ -83,7 +83,7 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	require.NotEmpty(t, registeredXRPLToken.CoreumDenom)
 	require.NotEmpty(t, registeredXRPLTokenHexCurrency.CoreumDenom)
 
-	runnerEnv.StartAllRunnerProcesses(ctx)
+	runnerEnv.StartAllRunnerProcesses(ctx, t)
 
 	maxDecimalsValue, err := rippledata.NewValue("1.000000000000001", false)
 	require.NoError(t, err)
