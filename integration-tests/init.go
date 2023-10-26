@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -62,7 +63,7 @@ func init() {
 
 // NewTestingContext returns the configured coreum and xrpl chains and new context for the integration tests.
 func NewTestingContext(t *testing.T) (context.Context, Chains) {
-	testCtx, testCtxCancel := context.WithCancel(context.Background())
+	testCtx, testCtxCancel := context.WithTimeout(context.Background(), time.Minute)
 	t.Cleanup(testCtxCancel)
 
 	return testCtx, chains

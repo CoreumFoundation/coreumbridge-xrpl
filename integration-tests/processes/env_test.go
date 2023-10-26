@@ -114,6 +114,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		ProcessErrors:     make([]error, 0),
 	}
 	t.Cleanup(func() {
+		<-ctx.Done()
 		runnerEnv.RequireNoErrors(t)
 	})
 
@@ -122,11 +123,16 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 
 // StartAllRunnerProcesses starts all relayer processes.
 func (r *RunnerEnv) StartAllRunnerProcesses(ctx context.Context, t *testing.T) {
-	errCh := make(chan error)
+	errCh := make(chan error, len(r.Runners))
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
+				if !errors.Is(ctx.Err(), context.Canceled) {
+					r.ProcessErrorsMu.Lock()
+					r.ProcessErrors = append(r.ProcessErrors)
+					r.ProcessErrorsMu.Unlock()
+				}
 				return
 			case err := <-errCh:
 				r.ProcessErrorsMu.Lock()
