@@ -130,7 +130,7 @@ func (r *RunnerEnv) StartAllRunnerProcesses(ctx context.Context, t *testing.T) {
 			case <-ctx.Done():
 				if !errors.Is(ctx.Err(), context.Canceled) {
 					r.ProcessErrorsMu.Lock()
-					r.ProcessErrors = append(r.ProcessErrors)
+					r.ProcessErrors = append(r.ProcessErrors, ctx.Err())
 					r.ProcessErrorsMu.Unlock()
 				}
 				return
