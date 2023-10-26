@@ -31,6 +31,9 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	coreumRecipient := chains.Coreum.GenAccount()
 	t.Logf("Coreum recipient: %s", coreumRecipient.String())
 
+	sendingPrecision := uint32(15)
+	maxHoldingAmount := "1000000000000000000000000000000"
+
 	envCfg := DefaultRunnerEnvConfig()
 	// we need it to manually do the TrustSet
 	envCfg.DisableMasterKey = false
@@ -57,10 +60,10 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),
 	})
 	// register XRPL native token with 3 chars
-	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredCurrency.String())
+	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredCurrency.String(), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 	// register XRPL native token with 20 chars
-	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredHexCurrency.String())
+	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredHexCurrency.String(), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
 	registeredXRPLTokens, err := runnerEnv.ContractClient.GetXRPLTokens(ctx)
