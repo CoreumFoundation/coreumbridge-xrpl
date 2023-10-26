@@ -122,7 +122,7 @@ func (r *RunnerEnv) StartAllRunnerProcesses(ctx context.Context, t *testing.T) {
 
 			err := relayerRunner.Processor.StartProcesses(ctx, xrplTxObserverProcess, xrplTxSubmitterProcess)
 			if err != nil && !errors.Is(err, context.Canceled) {
-				require.NoError(t, err)
+				t.Fatalf("Error on process start:%s", err)
 			}
 		}(relayerRunner)
 	}
