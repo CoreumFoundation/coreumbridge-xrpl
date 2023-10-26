@@ -5,9 +5,9 @@ use cosmwasm_std::{DepsMut, StdResult, Storage};
 use crate::{
     error::ContractError,
     state::{
-        Operation, OperationType, AVAILABLE_TICKETS, CONFIG,
-        PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
-    },
+        Operation, OperationType, AVAILABLE_TICKETS, CONFIG, PENDING_OPERATIONS,
+        PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
+    }, evidence::TransactionResult,
 };
 
 //This function will be used to provide a ticket for a pending operation
@@ -56,13 +56,13 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractErr
 pub fn handle_ticket_allocation_confirmation(
     storage: &mut dyn Storage,
     tickets: Option<Vec<u64>>,
-    confirmed: bool,
+    transaction_result: TransactionResult,
 ) -> Result<(), ContractError> {
     // We set pending update ticket to false because we complete the ticket allocation operation
     PENDING_TICKET_UPDATE.save(storage, &false)?;
 
-    //Allocate ticket numbers in our ticket array if operation is confirmed
-    if confirmed {
+    //Allocate ticket numbers in our ticket array if operation is accepted
+    if transaction_result == TransactionResult::Accepted {
         let mut available_tickets = AVAILABLE_TICKETS.load(storage)?;
 
         let mut new_tickets = available_tickets.make_contiguous().to_vec();
@@ -73,8 +73,7 @@ pub fn handle_ticket_allocation_confirmation(
         //Used tickets can't be under 0 if admin allocated more tickets than used tickets
         USED_TICKETS_COUNTER.update(storage, |used_tickets| -> StdResult<_> {
             let new_used_tickets = used_tickets
-                .checked_sub(tickets.unwrap().len() as u32)
-                .unwrap_or_default();
+                .saturating_sub(tickets.unwrap().len() as u32);
             Ok(new_used_tickets)
         })?;
     }

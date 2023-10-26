@@ -122,7 +122,6 @@ type XRPLTransactionResultEvidence struct {
 	TxHash         string  `json:"tx_hash"`
 	SequenceNumber *uint32 `json:"sequence_number"`
 	TicketNumber   *uint32 `json:"ticket_number"`
-	Confirmed      bool    `json:"confirmed"`
 }
 
 // XRPLTransactionResultTicketsAllocationEvidence is evidence of the tickets allocation transaction.
@@ -186,8 +185,10 @@ type registerCoreumTokenRequest struct {
 }
 
 type registerXRPLTokenRequest struct {
-	Issuer   string `json:"issuer"`
-	Currency string `json:"currency"`
+	Issuer           string `json:"issuer"`
+	Currency         string `json:"currency"`
+	SendingPrecision uint32 `json:"sending_precision"`
+	MaxHoldingAmount string `json:"max_holding_amount"`
 }
 
 type saveEvidenceRequest struct {
@@ -214,7 +215,8 @@ type xrplTransactionEvidenceOperationResult struct {
 
 type xrplTransactionResultEvidence struct {
 	XRPLTransactionResultEvidence
-	OperationResult xrplTransactionEvidenceOperationResult `json:"operation_result"`
+	TransactionResult string                                 `json:"transaction_result"`
+	OperationResult   xrplTransactionEvidenceOperationResult `json:"operation_result"`
 }
 
 type evidence struct {
@@ -431,7 +433,7 @@ func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.Acc
 }
 
 // RegisterXRPLToken executes `register_xrpl_token` method.
-func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAddress, issuer, currency string) (*sdk.TxResponse, error) {
+func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAddress, issuer, currency string, sendingPrecision uint32, maxHoldingAmount string) (*sdk.TxResponse, error) {
 	fee, err := c.queryAssetFTIssueFee(ctx)
 	if err != nil {
 		return nil, err
@@ -440,8 +442,10 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]registerXRPLTokenRequest{
 			ExecMethodRegisterXRPLToken: {
-				Issuer:   issuer,
-				Currency: currency,
+				Issuer:           issuer,
+				Currency:         currency,
+				SendingPrecision: sendingPrecision,
+				MaxHoldingAmount: maxHoldingAmount,
 			},
 		},
 		Funds: sdk.NewCoins(fee),
@@ -453,7 +457,7 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 	return txRes, nil
 }
 
-// SendXRPLToCoreumTransferEvidence sends an Evidence of a confirmed XRPL to coreum transfer transaction.
+// SendXRPLToCoreumTransferEvidence sends an Evidence of an accepted XRPL to coreum transfer transaction.
 func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
@@ -472,12 +476,20 @@ func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, s
 	return txRes, nil
 }
 
-// SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of a confirmed or rejected ticket allocation transaction.
-func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTicketsAllocationEvidence) (*sdk.TxResponse, error) {
+// SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of an accepted or rejected ticket allocation transaction.
+func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTicketsAllocationEvidence, accepted bool) (*sdk.TxResponse, error) {
+	var transactionResult string
+	if accepted {
+		transactionResult = "accepted"
+	} else {
+		transactionResult = "rejected"
+	}
+
 	req := saveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
+				TransactionResult:             transactionResult,
 				OperationResult: xrplTransactionEvidenceOperationResult{
 					TicketsAllocation: &xrplTransactionEvidenceTicketsAllocationOperationResult{
 						Tickets: evd.Tickets,

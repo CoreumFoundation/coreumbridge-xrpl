@@ -2,6 +2,7 @@ package processes
 
 import (
 	"context"
+	"encoding/hex"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
@@ -123,10 +124,14 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		return nil
 	}
 
+	currency := deliveredXRPLAmount.Currency.String()
+	if len(currency) > 3 {
+		currency = hex.EncodeToString([]byte(currency))
+	}
 	evidence := coreum.XRPLToCoreumTransferEvidence{
 		TxHash:    paymentTx.GetHash().String(),
 		Issuer:    deliveredXRPLAmount.Issuer.String(),
-		Currency:  deliveredXRPLAmount.Currency.String(),
+		Currency:  currency,
 		Amount:    coreumAmount,
 		Recipient: coreumRecipient,
 	}
