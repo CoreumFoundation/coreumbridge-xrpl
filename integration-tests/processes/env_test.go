@@ -5,6 +5,7 @@ package processes_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -50,6 +51,8 @@ type RunnerEnv struct {
 	ContractClient    *coreum.ContractClient
 	ContractOwner     sdk.AccAddress
 	Runners           []*runner.Runner
+	ProcessErrorsMu   sync.RWMutex
+	ProcessErrors     []error
 }
 
 // NewRunnerEnv returns new instance of the RunnerEnv.
@@ -102,16 +105,37 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		)
 	}
 
-	return &RunnerEnv{
+	runnerEnv := &RunnerEnv{
 		XRPLBridgeAccount: xrplBridgeAccount,
 		ContractClient:    contractClient,
 		ContractOwner:     contractOwner,
 		Runners:           runners,
+		ProcessErrorsMu:   sync.RWMutex{},
+		ProcessErrors:     make([]error, 0),
 	}
+	t.Cleanup(func() {
+		runnerEnv.RequireNoErrors(t)
+	})
+
+	return runnerEnv
 }
 
 // StartAllRunnerProcesses starts all relayer processes.
 func (r *RunnerEnv) StartAllRunnerProcesses(ctx context.Context, t *testing.T) {
+	errCh := make(chan error)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case err := <-errCh:
+				r.ProcessErrorsMu.Lock()
+				r.ProcessErrors = append(r.ProcessErrors, err)
+				r.ProcessErrorsMu.Unlock()
+			}
+		}
+	}()
+
 	for _, relayerRunner := range r.Runners {
 		go func(relayerRunner *runner.Runner) {
 			// disable restart on error to handler unexpected errors
@@ -122,7 +146,8 @@ func (r *RunnerEnv) StartAllRunnerProcesses(ctx context.Context, t *testing.T) {
 
 			err := relayerRunner.Processor.StartProcesses(ctx, xrplTxObserverProcess, xrplTxSubmitterProcess)
 			if err != nil && !errors.Is(err, context.Canceled) {
-				t.Fatalf("Error on process start:%s", err)
+				t.Errorf("Unexpected error on process start:%s", err)
+				errCh <- err
 			}
 		}(relayerRunner)
 	}
@@ -225,6 +250,12 @@ func AwaitState(ctx context.Context, t *testing.T, stateChecker func(t *testing.
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func (r *RunnerEnv) RequireNoErrors(t *testing.T) {
+	r.ProcessErrorsMu.RLock()
+	defer r.ProcessErrorsMu.RUnlock()
+	require.Empty(t, r.ProcessErrors, "Found unexpected process errors after the execution")
 }
 
 func genCoreumRelayers(
