@@ -177,9 +177,9 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					relayerAddress,
 					coreum.XRPLTransactionResultTicketsAllocationEvidence{
 						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-							TxHash:         rippledata.Hash256{}.String(),
-							SequenceNumber: lo.ToPtr(uint32(5)),
-							Confirmed:      true,
+							TxHash:            rippledata.Hash256{}.String(),
+							SequenceNumber:    lo.ToPtr(uint32(5)),
+							TransactionResult: coreum.TransactionResultAccepted,
 						},
 						Tickets: []uint32{3, 5, 7},
 					},
@@ -219,9 +219,9 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					relayerAddress,
 					coreum.XRPLTransactionResultTicketsAllocationEvidence{
 						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-							TxHash:       rippledata.Hash256{}.String(),
-							TicketNumber: lo.ToPtr(uint32(11)),
-							Confirmed:    true,
+							TxHash:            rippledata.Hash256{}.String(),
+							TicketNumber:      lo.ToPtr(uint32(11)),
+							TransactionResult: coreum.TransactionResultAccepted,
 						},
 						Tickets: []uint32{3, 5, 7},
 					},
@@ -264,9 +264,9 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					relayerAddress,
 					coreum.XRPLTransactionResultTicketsAllocationEvidence{
 						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-							TxHash:         rippledata.Hash256{}.String(),
-							SequenceNumber: lo.ToPtr(uint32(5)),
-							Confirmed:      false,
+							TxHash:            rippledata.Hash256{}.String(),
+							SequenceNumber:    lo.ToPtr(uint32(5)),
+							TransactionResult: coreum.TransactionResultRejected,
 						},
 						Tickets: []uint32{},
 					},

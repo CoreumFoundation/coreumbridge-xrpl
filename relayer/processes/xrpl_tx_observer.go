@@ -163,10 +163,14 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 	switch txType {
 	case rippledata.TICKET_CREATE.String():
 		tickets := extractTicketSequencesFromMetaData(tx.MetaData)
+		txResult := coreum.TransactionResultAccepted
+		if !tx.MetaData.TransactionResult.Success() {
+			txResult = coreum.TransactionResultRejected
+		}
 		evidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 			XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-				TxHash:    tx.GetHash().String(),
-				Confirmed: tx.MetaData.TransactionResult.Success(),
+				TxHash:            tx.GetHash().String(),
+				TransactionResult: txResult,
 			},
 			Tickets: tickets,
 		}
@@ -186,7 +190,7 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 			evidence,
 		)
 		if err == nil {
-			if !evidence.Confirmed {
+			if evidence.TransactionResult != coreum.TransactionResultAccepted {
 				o.log.Warn(ctx, "Transaction was rejected", logger.StringField("txResult", tx.MetaData.TransactionResult.String()))
 			}
 			return nil
