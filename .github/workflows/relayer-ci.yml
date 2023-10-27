@@ -25,7 +25,7 @@ jobs:
             wasm-cache: true
             linter-cache: true
             docker-cache: false
-          - ci_step: "lint"
+          - ci_step: "test"
             command: "make test-relayer"
             go-cache: true
             wasm-cache: true

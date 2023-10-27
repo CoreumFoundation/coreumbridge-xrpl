@@ -266,7 +266,9 @@ fn register_xrpl_token(
     }
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
-    let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds()).into_bytes();
+    let to_hash = format!("{}{}{}", issuer, currency,
+        env.block.time.seconds()
+    ).into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
     let hex_string = hash_bytes(to_hash)
@@ -471,7 +473,11 @@ fn recover_tickets(
     //If we don't provide a number of tickets to recover we will recover the ones that we already used.
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
-    if number_to_allocate == 0 || number_to_allocate > MAX_TICKETS {
+    let config = CONFIG.load(deps.storage)?;
+    //we check that number_to_allocate > config.used_tickets_threshold in order to cover the
+    //reallocation with just one XRPL transaction, otherwise the relocation might cause the
+    //additional reallocation.
+    if number_to_allocate <= config.used_tickets_threshold || number_to_allocate > MAX_TICKETS {
         return Err(ContractError::InvalidTicketNumberToAllocate {});
     }
 

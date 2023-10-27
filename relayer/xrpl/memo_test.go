@@ -9,14 +9,14 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/testutils"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestDecodeCoreumRecipientFromMemo(t *testing.T) {
 	t.Parallel()
 
-	accAddress := testutils.GenCoreumAccount()
+	accAddress := coreum.GenAccount()
 	staticJSONMemo := fmt.Sprintf("{\"type\":\"coreumbridge-xrpl-v1\",\"coreum_recipient\":\"%s\"}", accAddress.String())
 
 	tests := []struct {

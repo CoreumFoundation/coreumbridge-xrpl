@@ -73,10 +73,11 @@ type XRPLScannerConfig struct {
 
 // XRPLConfig is XRPL config.
 type XRPLConfig struct {
-	BridgeAccount string            `yaml:"bridge_account"`
-	HTTPClient    HTTPClientConfig  `yaml:"http_client"`
-	RPC           XRPLRPCConfig     `yaml:"rpc"`
-	Scanner       XRPLScannerConfig `yaml:"scanner"`
+	BridgeAccount      string            `yaml:"bridge_account"`
+	MultiSignerKeyName string            `yaml:"multi_signer_key_name"`
+	HTTPClient         HTTPClientConfig  `yaml:"http_client"`
+	RPC                XRPLRPCConfig     `yaml:"rpc"`
+	Scanner            XRPLScannerConfig `yaml:"scanner"`
 }
 
 // CoreumGRPCConfig is coreum GRPC config.
@@ -109,12 +110,23 @@ type CoreumConfig struct {
 	Contract       CoreumContractConfig `yaml:"contract"`
 }
 
+// XRPLTxSubmitterConfig is XRPLTxSubmitter config.
+type XRPLTxSubmitterConfig struct {
+	RepeatDelay time.Duration `yaml:"repeat_delay"`
+}
+
+// ProcessesConfig  is processes config.
+type ProcessesConfig struct {
+	XRPLTxSubmitter XRPLTxSubmitterConfig `yaml:"xrpl_tx_submitter"`
+}
+
 // Config is runner config.
 type Config struct {
-	Version       string        `yaml:"version"`
-	LoggingConfig LoggingConfig `yaml:"logging"`
-	XRPL          XRPLConfig    `yaml:"xrpl"`
-	Coreum        CoreumConfig  `yaml:"coreum"`
+	Version       string          `yaml:"version"`
+	LoggingConfig LoggingConfig   `yaml:"logging"`
+	XRPL          XRPLConfig      `yaml:"xrpl"`
+	Coreum        CoreumConfig    `yaml:"coreum"`
+	Processes     ProcessesConfig `yaml:"processes"`
 }
 
 // DefaultConfig returns default runner config.
@@ -123,14 +135,18 @@ func DefaultConfig() Config {
 	defaultXRPLAccountScannerCfg := xrpl.DefaultAccountScannerConfig(rippledata.Account{})
 
 	defaultCoreumContactConfig := coreum.DefaultContractClientConfig(sdk.AccAddress(nil))
-	clientCtxDefaultCfg := coreumchainclient.DefaultContextConfig()
+	defaultClientCtxDefaultCfg := coreumchainclient.DefaultContextConfig()
+
+	defaultXRPLTxSubmitterConfig := processes.DefaultXRPLTxSubmitterConfig(rippledata.Account{}, sdk.AccAddress(nil))
 	return Config{
 		Version:       configVersion,
 		LoggingConfig: LoggingConfig(logger.DefaultZapLoggerConfig()),
 		XRPL: XRPLConfig{
 			// empty be default
 			BridgeAccount: "",
-			HTTPClient:    HTTPClientConfig(toolshttp.DefaultClientConfig()),
+			// empty be default
+			MultiSignerKeyName: "",
+			HTTPClient:         HTTPClientConfig(toolshttp.DefaultClientConfig()),
 			RPC: XRPLRPCConfig{
 				// empty be default
 				URL:       "",
@@ -163,9 +179,15 @@ func DefaultConfig() Config {
 				GasPriceAdjustment: defaultCoreumContactConfig.GasAdjustment,
 				PageLimit:          defaultCoreumContactConfig.PageLimit,
 
-				RequestTimeout:       clientCtxDefaultCfg.TimeoutConfig.RequestTimeout,
-				TxTimeout:            clientCtxDefaultCfg.TimeoutConfig.TxTimeout,
-				TxStatusPollInterval: clientCtxDefaultCfg.TimeoutConfig.TxStatusPollInterval,
+				RequestTimeout:       defaultClientCtxDefaultCfg.TimeoutConfig.RequestTimeout,
+				TxTimeout:            defaultClientCtxDefaultCfg.TimeoutConfig.TxTimeout,
+				TxStatusPollInterval: defaultClientCtxDefaultCfg.TimeoutConfig.TxStatusPollInterval,
+			},
+		},
+
+		Processes: ProcessesConfig{
+			XRPLTxSubmitter: XRPLTxSubmitterConfig{
+				RepeatDelay: defaultXRPLTxSubmitterConfig.RepeatDelay,
 			},
 		},
 	}
@@ -175,7 +197,8 @@ func DefaultConfig() Config {
 
 // Processes struct which aggregate all supported processes.
 type Processes struct {
-	XRPLObserver processes.ProcessWithOptions
+	XRPLTxObserver  processes.ProcessWithOptions
+	XRPLTxSubmitter processes.ProcessWithOptions
 }
 
 // Runner is relayer runner which aggregates all relayer components.
@@ -222,7 +245,7 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 	if cfg.Coreum.Contract.ContractAddress != "" {
 		contractAddress, err = sdk.AccAddressFromBech32(cfg.Coreum.Contract.ContractAddress)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed decode contract address to sdk.AccAddress, address:%s", cfg.Coreum.Contract.ContractAddress)
+			return nil, errors.Wrapf(err, "failed to decode contract address to sdk.AccAddress, address:%s", cfg.Coreum.Contract.ContractAddress)
 		}
 	}
 	contractClientCfg := coreum.ContractClientConfig{
@@ -269,22 +292,43 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 			return nil, errors.Wrapf(err, "failed to address from keyring key recodr, key name:%s", cfg.Coreum.RelayerKeyName)
 		}
 	}
-
 	contractClient := coreum.NewContractClient(contractClientCfg, zapLogger, clientContext)
+
+	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
+	if kr != nil {
+		xrplKeyringTxSigner = xrpl.NewKeyringTxSigner(kr)
+	}
 
 	processor := processes.NewProcessor(zapLogger)
 	runnerProcesses := Processes{
-		XRPLObserver: processes.ProcessWithOptions{
+		XRPLTxObserver: processes.ProcessWithOptions{
 			Process: processes.NewXRPLTxObserver(
 				processes.XRPLTxObserverConfig{
-					BridgeAccount: *xrplBridgeAccount,
+					BridgeAccount:  *xrplBridgeAccount,
+					RelayerAddress: relayerAddress,
 				},
 				zapLogger,
-				relayerAddress,
 				xrplScanner,
 				contractClient,
 			),
 			Name:                 "xrpl_tx_observer",
+			IsRestartableOnError: true,
+		},
+		XRPLTxSubmitter: processes.ProcessWithOptions{
+			Process: processes.NewXRPLTxSubmitter(
+				processes.XRPLTxSubmitterConfig{
+					BridgeAccount:       *xrplBridgeAccount,
+					RelayerAddress:      relayerAddress,
+					XRPLTxSignerKeyName: cfg.XRPL.MultiSignerKeyName,
+					RepeatRecentScan:    true,
+					RepeatDelay:         cfg.Processes.XRPLTxSubmitter.RepeatDelay,
+				},
+				zapLogger,
+				contractClient,
+				xrplRPCClient,
+				xrplKeyringTxSigner,
+			),
+			Name:                 "xrpl_tx_submitter",
 			IsRestartableOnError: true,
 		},
 	}
@@ -358,7 +402,7 @@ func buildFilePath(homePath string) string {
 func getGRPCClientConn(grpcURL string) (*grpc.ClientConn, error) {
 	parsedURL, err := url.Parse(grpcURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed parse grpc URL")
+		return nil, errors.Wrap(err, "failed to parse grpc URL")
 	}
 
 	encodingConfig := coreumchainconfig.NewEncodingConfig(coreumapp.ModuleBasics)
