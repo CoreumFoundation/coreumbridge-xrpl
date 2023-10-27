@@ -7,6 +7,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/golang/mock/gomock"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -65,9 +66,9 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                     string
-		txScannerBuilder         func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner
-		evidencesConsumerBuilder func(ctrl *gomock.Controller) processes.EvidencesConsumer
+		name                  string
+		txScannerBuilder      func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner
+		contractClientBuilder func(ctrl *gomock.Controller) processes.ContractClient
 	}{
 		{
 			name: "incoming_valid_payment",
@@ -84,9 +85,9 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 
 				return xrplAccountTxScannerMock
 			},
-			evidencesConsumerBuilder: func(ctrl *gomock.Controller) processes.EvidencesConsumer {
-				evidencesConsumer := NewMockEvidencesConsumer(ctrl)
-				evidencesConsumer.EXPECT().SendXRPLToCoreumTransferEvidence(
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().SendXRPLToCoreumTransferEvidence(
 					gomock.Any(),
 					relayerAddress,
 					coreum.XRPLToCoreumTransferEvidence{
@@ -98,7 +99,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					},
 				).Return(nil, nil)
 
-				return evidencesConsumer
+				return contractClientMock
 			},
 		},
 		{
@@ -145,6 +146,158 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				return xrplAccountTxScannerMock
 			},
 		},
+		{
+			name: "outgoing_ticket_create_tx_with_sequence_number",
+			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
+				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
+				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+						go func() {
+							ch <- rippledata.TransactionWithMetaData{
+								Transaction: &rippledata.TicketCreate{
+									TxBase: rippledata.TxBase{
+										Account:         bridgeAccount,
+										Sequence:        5,
+										TransactionType: rippledata.TICKET_CREATE,
+									},
+								},
+								MetaData: createAllocatedTicketsMetaData([]uint32{3, 5, 7}),
+							}
+							cancel()
+						}()
+						return nil
+					})
+
+				return xrplAccountTxScannerMock
+			},
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().SendXRPLTicketsAllocationTransactionResultEvidence(
+					gomock.Any(),
+					relayerAddress,
+					coreum.XRPLTransactionResultTicketsAllocationEvidence{
+						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+							TxHash:            rippledata.Hash256{}.String(),
+							SequenceNumber:    lo.ToPtr(uint32(5)),
+							TransactionResult: coreum.TransactionResultAccepted,
+						},
+						Tickets: []uint32{3, 5, 7},
+					},
+				).Return(nil, nil)
+
+				return contractClientMock
+			},
+		},
+		{
+			name: "outgoing_ticket_create_tx_with_ticket_seq",
+			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
+				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
+				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+						go func() {
+							ch <- rippledata.TransactionWithMetaData{
+								Transaction: &rippledata.TicketCreate{
+									TxBase: rippledata.TxBase{
+										Account:         bridgeAccount,
+										TransactionType: rippledata.TICKET_CREATE,
+									},
+									TicketSequence: lo.ToPtr(uint32(11)),
+								},
+								MetaData: createAllocatedTicketsMetaData([]uint32{3, 5, 7}),
+							}
+							cancel()
+						}()
+						return nil
+					})
+
+				return xrplAccountTxScannerMock
+			},
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().SendXRPLTicketsAllocationTransactionResultEvidence(
+					gomock.Any(),
+					relayerAddress,
+					coreum.XRPLTransactionResultTicketsAllocationEvidence{
+						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+							TxHash:            rippledata.Hash256{}.String(),
+							TicketNumber:      lo.ToPtr(uint32(11)),
+							TransactionResult: coreum.TransactionResultAccepted,
+						},
+						Tickets: []uint32{3, 5, 7},
+					},
+				).Return(nil, nil)
+
+				return contractClientMock
+			},
+		},
+		{
+			name: "outgoing_ticket_create_tx_with_failure",
+			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
+				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
+				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+						go func() {
+							ch <- rippledata.TransactionWithMetaData{
+								Transaction: &rippledata.TicketCreate{
+									TxBase: rippledata.TxBase{
+										Account:         bridgeAccount,
+										Sequence:        5,
+										TransactionType: rippledata.TICKET_CREATE,
+									},
+								},
+								MetaData: rippledata.MetaData{
+									// if code not 0 - not success
+									TransactionResult: rippledata.TransactionResult(111),
+								},
+							}
+							cancel()
+						}()
+						return nil
+					})
+
+				return xrplAccountTxScannerMock
+			},
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().SendXRPLTicketsAllocationTransactionResultEvidence(
+					gomock.Any(),
+					relayerAddress,
+					coreum.XRPLTransactionResultTicketsAllocationEvidence{
+						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+							TxHash:            rippledata.Hash256{}.String(),
+							SequenceNumber:    lo.ToPtr(uint32(5)),
+							TransactionResult: coreum.TransactionResultRejected,
+						},
+						Tickets: nil,
+					},
+				).Return(nil, nil)
+
+				return contractClientMock
+			},
+		},
+		{
+			name: "outgoing_not_expected_tx",
+			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
+				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
+				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+						go func() {
+							ch <- rippledata.TransactionWithMetaData{
+								Transaction: &rippledata.TrustSet{
+									TxBase: rippledata.TxBase{
+										Account:         bridgeAccount,
+										TransactionType: rippledata.NFTOKEN_CREATE_OFFER,
+									},
+								},
+							}
+							cancel()
+						}()
+						return nil
+					})
+
+				return xrplAccountTxScannerMock
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -156,20 +309,39 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 
 			ctrl := gomock.NewController(t)
 			logMock := logger.NewAnyLogMock(ctrl)
-			var evidencesConsumer processes.EvidencesConsumer
-			if tt.evidencesConsumerBuilder != nil {
-				evidencesConsumer = tt.evidencesConsumerBuilder(ctrl)
+			var contractClient processes.ContractClient
+			if tt.contractClientBuilder != nil {
+				contractClient = tt.contractClientBuilder(ctrl)
 			}
 			o := processes.NewXRPLTxObserver(
 				processes.XRPLTxObserverConfig{
-					BridgeAccount: bridgeAccount,
+					BridgeAccount:  bridgeAccount,
+					RelayerAddress: relayerAddress,
 				},
 				logMock,
-				relayerAddress,
 				tt.txScannerBuilder(ctrl, cancel),
-				evidencesConsumer,
+				contractClient,
 			)
-			require.ErrorIs(t, context.Canceled, o.Start(ctx))
+			require.ErrorIs(t, o.Start(ctx), context.Canceled)
 		})
+	}
+}
+
+func createAllocatedTicketsMetaData(ticketNumbers []uint32) rippledata.MetaData {
+	nodeEffects := make(rippledata.NodeEffects, 0)
+	for _, ticket := range ticketNumbers {
+		ticketNodeField := &rippledata.Ticket{
+			TicketSequence: lo.ToPtr(ticket),
+		}
+		ticketNodeField.LedgerEntryType = rippledata.TICKET
+		nodeEffects = append(nodeEffects, rippledata.NodeEffect{
+			CreatedNode: &rippledata.AffectedNode{
+				NewFields: ticketNodeField,
+			},
+		})
+	}
+
+	return rippledata.MetaData{
+		AffectedNodes: nodeEffects,
 	}
 }

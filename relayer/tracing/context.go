@@ -42,7 +42,7 @@ func GetTracingXRPLTxHash(ctx context.Context) string {
 	return getTracingCtxValue(ctx, tracingXRPLTxHashKey{})
 }
 
-func getTracingCtxValue(ctx context.Context, key struct{}) string {
+func getTracingCtxValue(ctx context.Context, key any) string {
 	v, ok := ctx.Value(key).(string)
 	if !ok {
 		return ""

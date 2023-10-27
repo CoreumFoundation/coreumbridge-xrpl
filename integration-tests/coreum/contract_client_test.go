@@ -201,7 +201,7 @@ func TestRegisterCoreumToken(t *testing.T) {
 	recipientAcc := chains.XRPL.GenAccount(ctx, t, 10)
 
 	// allow to receive the currency
-	currency, err := xrpl.StringToHexXRPLCurrency(registeredToken.XRPLCurrency)
+	currency, err := xrpl.ConvertStringToHexXRPLCurrency(registeredToken.XRPLCurrency)
 	require.NoError(t, err)
 	amountToSend, err := rippledata.NewValue("10000000000000000", false)
 	require.NoError(t, err)
@@ -605,8 +605,9 @@ func TestRecoverTickets(t *testing.T) {
 	rejectedTxHash := "FC7B3043C73998C6696C788D73621D55D7C05BEBBA0A14C186AF43F6B12AE8E3"
 	rejectedTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:         rejectedTxHash,
-			SequenceNumber: &firstBridgeAccountSeqNumber,
+			TxHash:            rejectedTxHash,
+			SequenceNumber:    &firstBridgeAccountSeqNumber,
+			TransactionResult: coreum.TransactionResultRejected,
 		},
 		Tickets: nil,
 	}
@@ -614,40 +615,40 @@ func TestRecoverTickets(t *testing.T) {
 	// try to send with not existing sequence
 	invalidRejectedTxEvidence := rejectedTxEvidence
 	invalidRejectedTxEvidence.SequenceNumber = lo.ToPtr(uint32(999))
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidRejectedTxEvidence, false)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidRejectedTxEvidence)
 	require.True(t, coreum.IsPendingOperationNotFoundError(err), err)
 
 	// try to send with not existing ticket
 	invalidRejectedTxEvidence = rejectedTxEvidence
 	invalidRejectedTxEvidence.SequenceNumber = nil
 	invalidRejectedTxEvidence.TicketNumber = lo.ToPtr(uint32(999))
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidRejectedTxEvidence, false)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidRejectedTxEvidence)
 	require.True(t, coreum.IsPendingOperationNotFoundError(err), err)
 
 	// try to send from not relayer
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, owner, rejectedTxEvidence, false)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, owner, rejectedTxEvidence)
 	require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
 	// send evidence from first relayer
-	txRes, err := contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, rejectedTxEvidence, false)
+	txRes, err := contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, rejectedTxEvidence)
 	require.NoError(t, err)
 	thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
 	require.Equal(t, "false", thresholdReached)
 
 	// try to send evidence from second relayer one more time
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, rejectedTxEvidence, false)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, rejectedTxEvidence)
 	require.True(t, coreum.IsEvidenceAlreadyProvidedError(err), err)
 
 	// send evidence from second relayer
-	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer2, rejectedTxEvidence, false)
+	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer2, rejectedTxEvidence)
 	require.NoError(t, err)
 	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
 	require.Equal(t, "true", thresholdReached)
 
 	// try to send the evidence one more time
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, rejectedTxEvidence, false)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, rejectedTxEvidence)
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
@@ -671,8 +672,9 @@ func TestRecoverTickets(t *testing.T) {
 	acceptedTxHash := "D5F78F452DFFBE239EFF668E4B34B1AF66CD2F4D5C5D9E54A5AF34121B5862C8"
 	acceptedTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:         acceptedTxHash,
-			SequenceNumber: &secondBridgeAccountSeqNumber,
+			TxHash:            acceptedTxHash,
+			SequenceNumber:    &secondBridgeAccountSeqNumber,
+			TransactionResult: coreum.TransactionResultAccepted,
 		},
 		Tickets: []uint32{3, 5, 6, 7},
 	}
@@ -680,18 +682,18 @@ func TestRecoverTickets(t *testing.T) {
 	// try to send with already used txHash
 	invalidAcceptedTxEvidence := acceptedTxEvidence
 	invalidAcceptedTxEvidence.TxHash = rejectedTxHash
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidAcceptedTxEvidence, true)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidAcceptedTxEvidence)
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
 
 	// send evidence from first relayer
-	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, acceptedTxEvidence, true)
+	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, acceptedTxEvidence)
 	require.NoError(t, err)
 	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
 	require.Equal(t, "false", thresholdReached)
 
 	// send evidence from second relayer
-	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer2, acceptedTxEvidence, true)
+	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer2, acceptedTxEvidence)
 	require.NoError(t, err)
 	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)

@@ -2,11 +2,11 @@ package processes
 
 import (
 	"context"
-	"encoding/hex"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
@@ -14,47 +14,32 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-//go:generate mockgen -destination=xrpl_tx_observer_mocks_test.go -package=processes_test . EvidencesConsumer,XRPLAccountTxScanner
-
-// EvidencesConsumer is the interface the evidences consumer interface.
-type EvidencesConsumer interface {
-	IsInitialized() bool
-	SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence coreum.XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error)
-}
-
-// XRPLAccountTxScanner is XRPL account tx scanner.
-type XRPLAccountTxScanner interface {
-	ScanTxs(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error
-}
-
 // XRPLTxObserverConfig is XRPLTxObserver config.
 type XRPLTxObserverConfig struct {
-	BridgeAccount rippledata.Account
+	BridgeAccount  rippledata.Account
+	RelayerAddress sdk.AccAddress
 }
 
 // XRPLTxObserver is process which observes the XRPL txs and register the evidences in the contract.
 type XRPLTxObserver struct {
-	cfg               XRPLTxObserverConfig
-	log               logger.Logger
-	relayerAddress    sdk.AccAddress
-	txScanner         XRPLAccountTxScanner
-	evidencesConsumer EvidencesConsumer
+	cfg            XRPLTxObserverConfig
+	log            logger.Logger
+	txScanner      XRPLAccountTxScanner
+	contractClient ContractClient
 }
 
 // NewXRPLTxObserver returns a new instance of the XRPLTxObserver.
 func NewXRPLTxObserver(
 	cfg XRPLTxObserverConfig,
 	log logger.Logger,
-	relayerAddress sdk.AccAddress,
 	txScanner XRPLAccountTxScanner,
-	evidencesConsumer EvidencesConsumer,
+	contractClient ContractClient,
 ) *XRPLTxObserver {
 	return &XRPLTxObserver{
-		cfg:               cfg,
-		log:               log,
-		relayerAddress:    relayerAddress,
-		txScanner:         txScanner,
-		evidencesConsumer: evidencesConsumer,
+		cfg:            cfg,
+		log:            log,
+		txScanner:      txScanner,
+		contractClient: contractClient,
 	}
 }
 
@@ -62,10 +47,10 @@ func NewXRPLTxObserver(
 func (o *XRPLTxObserver) Init(ctx context.Context) error {
 	o.log.Debug(ctx, "Initializing process")
 
-	if o.relayerAddress.Empty() {
+	if o.cfg.RelayerAddress.Empty() {
 		return errors.Errorf("failed to init process, relayer address is nil or empty")
 	}
-	if !o.evidencesConsumer.IsInitialized() {
+	if !o.contractClient.IsInitialized() {
 		return errors.Errorf("failed to init process, contract client is not initialized")
 	}
 
@@ -82,7 +67,7 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.WithStack(ctx.Err())
 		case tx := <-txCh:
 			if err := o.processTx(ctx, tx); err != nil {
 				o.log.Error(ctx, "Failed to process XRPL tx", logger.Error(err))
@@ -101,30 +86,30 @@ func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.Transactio
 }
 
 func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+	txType := tx.GetType()
 	if !tx.MetaData.TransactionResult.Success() {
 		o.log.Debug(
 			ctx,
 			"Skipping not successful transaction",
-			logger.StringFiled("type", tx.GetType()),
-			logger.StringFiled("txResult", tx.MetaData.TransactionResult.String()),
+			logger.StringField("type", txType),
+			logger.StringField("txResult", tx.MetaData.TransactionResult.String()),
 		)
 		return nil
 	}
 
-	txType := tx.GetType()
-	o.log.Debug(ctx, "Start processing of XRPL incoming tx", logger.StringFiled("type", txType))
+	o.log.Debug(ctx, "Start processing of XRPL incoming tx", logger.StringField("type", txType))
 	// we process only incoming payment transactions, other transactions are ignored
 	if txType != rippledata.PAYMENT.String() {
-		o.log.Debug(ctx, "Skipping not payment transaction", logger.StringFiled("type", tx.GetType()))
+		o.log.Debug(ctx, "Skipping not payment transaction", logger.StringField("type", txType))
 		return nil
 	}
 	paymentTx, ok := tx.Transaction.(*rippledata.Payment)
 	if !ok {
-		return errors.Errorf("failed to cast tx to Payment, data:%v", tx)
+		return errors.Errorf("failed to cast tx to Payment, data:%+v", tx)
 	}
 	coreumRecipient := xrpl.DecodeCoreumRecipientFromMemo(paymentTx.Memos)
 	if coreumRecipient == nil {
-		o.log.Info(ctx, "Bridge memo does not include expected structure", logger.AnyFiled("memos", paymentTx.Memos))
+		o.log.Info(ctx, "Bridge memo does not include expected structure", logger.AnyField("memos", paymentTx.Memos))
 		return nil
 	}
 
@@ -138,19 +123,15 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		return nil
 	}
 
-	currency := deliveredXRPLAmount.Currency.String()
-	if len(currency) > 3 {
-		currency = hex.EncodeToString([]byte(currency))
-	}
 	evidence := coreum.XRPLToCoreumTransferEvidence{
 		TxHash:    paymentTx.GetHash().String(),
 		Issuer:    deliveredXRPLAmount.Issuer.String(),
-		Currency:  currency,
+		Currency:  xrpl.ConvertCurrencyToString(deliveredXRPLAmount.Currency),
 		Amount:    coreumAmount,
 		Recipient: coreumRecipient,
 	}
 
-	_, err = o.evidencesConsumer.SendXRPLToCoreumTransferEvidence(ctx, o.relayerAddress, evidence)
+	_, err = o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerAddress, evidence)
 	if err == nil {
 		return nil
 	}
@@ -166,7 +147,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	}
 
 	if coreum.IsOperationAlreadyExecutedError(err) {
-		o.log.Info(ctx, "Operation already executed")
+		o.log.Debug(ctx, "Operation already executed")
 		return nil
 	}
 
@@ -174,9 +155,86 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 }
 
 func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+	txType := tx.GetType()
 	o.log.Debug(ctx, "Start processing of XRPL outgoing tx",
-		logger.StringFiled("type", tx.GetType()),
+		logger.StringField("type", txType),
 	)
-	// the func will be implemented later and will contain the implementation of the XRPL tx result confirmation
-	return nil
+
+	switch txType {
+	case rippledata.TICKET_CREATE.String():
+		tickets := extractTicketSequencesFromMetaData(tx.MetaData)
+		txResult := coreum.TransactionResultAccepted
+		if !tx.MetaData.TransactionResult.Success() {
+			txResult = coreum.TransactionResultRejected
+			tickets = nil
+		}
+		evidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
+			XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+				TxHash:            tx.GetHash().String(),
+				TransactionResult: txResult,
+			},
+			Tickets: tickets,
+		}
+		ticketCreateTx, ok := tx.Transaction.(*rippledata.TicketCreate)
+		if !ok {
+			return errors.Errorf("failed to cast tx to TicketCreate, data:%+v", tx)
+		}
+		if ticketCreateTx.Sequence != 0 {
+			evidence.SequenceNumber = lo.ToPtr(ticketCreateTx.Sequence)
+		}
+		if ticketCreateTx.TicketSequence != nil && *ticketCreateTx.TicketSequence != 0 {
+			evidence.TicketNumber = lo.ToPtr(*ticketCreateTx.TicketSequence)
+		}
+		_, err := o.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(
+			ctx,
+			o.cfg.RelayerAddress,
+			evidence,
+		)
+		if err == nil {
+			if evidence.TransactionResult != coreum.TransactionResultAccepted {
+				o.log.Warn(ctx, "Transaction was rejected", logger.StringField("txResult", tx.MetaData.TransactionResult.String()))
+			}
+			return nil
+		}
+		if coreum.IsEvidenceAlreadyProvidedError(err) {
+			o.log.Info(ctx, "Evidence already provided")
+			return nil
+		}
+		if coreum.IsOperationAlreadyExecutedError(err) {
+			o.log.Info(ctx, "Operation already executed")
+			return nil
+		}
+
+		return err
+
+	default:
+		// TODO(dzmitryhil) replace with the error once we integrate all supported types
+		o.log.Warn(ctx, "Found unsupported transaction type", logger.AnyField("tx", tx))
+		return nil
+	}
+}
+
+func extractTicketSequencesFromMetaData(metaData rippledata.MetaData) []uint32 {
+	ticketSequences := make([]uint32, 0)
+	for _, node := range metaData.AffectedNodes {
+		createdNode := node.CreatedNode
+		if createdNode == nil {
+			continue
+		}
+		newFields := createdNode.NewFields
+		if newFields == nil {
+			continue
+		}
+		if rippledata.TICKET.String() != newFields.GetType() {
+			continue
+		}
+		ticket, ok := newFields.(*rippledata.Ticket)
+		if !ok {
+			continue
+		}
+
+		ticketSequences = append(ticketSequences, *ticket.TicketSequence)
+	}
+
+	return ticketSequences
 }

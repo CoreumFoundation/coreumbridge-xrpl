@@ -26,6 +26,17 @@ func GenXRPLPubKey() rippledata.PublicKey {
 	return pubKey
 }
 
+// GenXRPLSignature generates random XRPL signature.
+func GenXRPLSignature() rippledata.VariableLength {
+	var signature rippledata.VariableLength
+	buf := make([]byte, 20)
+	if _, err := rand.Read(buf); err != nil {
+		panic(err)
+	}
+	copy(signature[:], ed25519.GenPrivKey().PubKey().Bytes())
+	return signature
+}
+
 // GenCoreumAccount generates random coreum account.
 func GenCoreumAccount() sdk.AccAddress {
 	return sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address())

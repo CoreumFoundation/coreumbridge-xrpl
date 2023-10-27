@@ -66,7 +66,7 @@ func NewAccountScanner(cfg AccountScannerConfig, log logger.Logger, rpcTxProvide
 
 // ScanTxs subscribes on rpc account transactions and continuously scans the recent and historical transactions.
 func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-	s.log.Info(ctx, "Subscribing xrpl scanner", logger.AnyFiled("config", s.cfg))
+	s.log.Info(ctx, "Subscribing xrpl scanner", logger.AnyField("config", s.cfg))
 	if s.cfg.RecentScanEnabled {
 		currentLedgerRes, err := s.rpcTxProvider.LedgerCurrent(ctx)
 		if err != nil {
@@ -95,12 +95,12 @@ func (s *AccountScanner) scanRecentHistory(ctx context.Context, currentLedger in
 	}
 
 	s.doWithRepeat(ctx, s.cfg.RepeatRecentScan, func() {
-		s.log.Info(ctx, "Scanning recent history", logger.Int64Filed("minLedger", minLedger))
+		s.log.Info(ctx, "Scanning recent history", logger.Int64Field("minLedger", minLedger))
 		lastLedger := s.scanTransactions(ctx, minLedger, ch)
 		if lastLedger != 0 {
 			minLedger = lastLedger + 1
 		}
-		s.log.Info(ctx, "Scanning of the recent history is done", logger.Int64Filed("lastLedger", lastLedger))
+		s.log.Info(ctx, "Scanning of the recent history is done", logger.Int64Field("lastLedger", lastLedger))
 	})
 }
 
@@ -108,7 +108,7 @@ func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippleda
 	s.doWithRepeat(ctx, s.cfg.RepeatFullScan, func() {
 		s.log.Info(ctx, "Scanning full history")
 		lastLedger := s.scanTransactions(ctx, -1, ch)
-		s.log.Info(ctx, "Scanning of full history is done", logger.Int64Filed("lastLedger", lastLedger))
+		s.log.Info(ctx, "Scanning of full history is done", logger.Int64Field("lastLedger", lastLedger))
 	})
 }
 
@@ -179,8 +179,12 @@ func (s *AccountScanner) doWithRepeat(ctx context.Context, shouldRepeat bool, f 
 				s.log.Info(ctx, "Execution is fully stopped.")
 				return
 			}
-			s.log.Info(ctx, "Waiting before the next execution.", logger.StringFiled("delay", s.cfg.RetryDelay.String()))
-			<-time.After(s.cfg.RetryDelay)
+			s.log.Info(ctx, "Waiting before the next execution.", logger.StringField("delay", s.cfg.RetryDelay.String()))
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(s.cfg.RetryDelay):
+			}
 		}
 	}
 }

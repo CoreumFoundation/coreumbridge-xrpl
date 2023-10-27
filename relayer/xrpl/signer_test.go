@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
-	creumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
+	coreumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestKeyringTxSigner_Sign_And_MultiSign(t *testing.T) {
 	t.Parallel()
 
-	encodingConfig := creumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
+	encodingConfig := coreumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
 	kr := keyring.NewInMemory(encodingConfig.Codec)
 	const keyName = "xrpl"
 	_, err := kr.NewAccount(

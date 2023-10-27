@@ -12,7 +12,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 )
 
-const compiledContractFilePath = "../../contract/artifacts/coreumbridge_xrpl.wasm"
+const compiledContractFilePath = "../../build/coreumbridge_xrpl.wasm"
 
 // DeployAndInstantiateContract deploys and instantiates the contract.
 func DeployAndInstantiateContract(
@@ -29,9 +29,9 @@ func DeployAndInstantiateContract(
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 	owner := chains.Coreum.GenAccount()
 
-	// fund with issuance fee and some coins on to cover fees
+	// fund with issuance fee and some coins to cover fees
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
-		Amount: issueFee.Amount.AddRaw(10_000_000),
+		Amount: issueFee.Amount.AddRaw(1_000_000),
 	})
 
 	contractClient := coreum.NewContractClient(coreum.DefaultContractClientConfig(sdk.AccAddress(nil)), chains.Log, chains.Coreum.ClientContext)

@@ -36,6 +36,16 @@ const (
 	ExecMethodRegisterSignature   ExecMethod = "register_signature"
 )
 
+// TransactionResult is transaction result.
+type TransactionResult string
+
+// TransactionResult values.
+const (
+	TransactionResultAccepted TransactionResult = "accepted"
+	TransactionResultRejected TransactionResult = "rejected"
+	TransactionResultInvalid  TransactionResult = "invalid"
+)
+
 // QueryMethod is contract query method.
 type QueryMethod string
 
@@ -119,9 +129,10 @@ type XRPLToCoreumTransferEvidence struct {
 
 // XRPLTransactionResultEvidence is type which contains common transaction result data.
 type XRPLTransactionResultEvidence struct {
-	TxHash         string  `json:"tx_hash"`
-	SequenceNumber *uint32 `json:"sequence_number"`
-	TicketNumber   *uint32 `json:"ticket_number"`
+	TxHash            string            `json:"tx_hash"`
+	SequenceNumber    *uint32           `json:"sequence_number"`
+	TicketNumber      *uint32           `json:"ticket_number"`
+	TransactionResult TransactionResult `json:"transaction_result"`
 }
 
 // XRPLTransactionResultTicketsAllocationEvidence is evidence of the tickets allocation transaction.
@@ -215,8 +226,7 @@ type xrplTransactionEvidenceOperationResult struct {
 
 type xrplTransactionResultEvidence struct {
 	XRPLTransactionResultEvidence
-	TransactionResult string                                 `json:"transaction_result"`
-	OperationResult   xrplTransactionEvidenceOperationResult `json:"operation_result"`
+	OperationResult xrplTransactionEvidenceOperationResult `json:"operation_result"`
 }
 
 type evidence struct {
@@ -314,7 +324,7 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find code ID in the tx result")
 	}
-	c.log.Info(ctx, "The contract bytecode is deployed.", logger.Uint64Filed("codeID", codeID))
+	c.log.Info(ctx, "The contract bytecode is deployed.", logger.Uint64Field("codeID", codeID))
 
 	reqPayload, err := json.Marshal(instantiateRequest{
 		Owner:                config.Owner,
@@ -341,7 +351,7 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 		Funds: sdk.NewCoins(issuerFee),
 	}
 
-	c.log.Info(ctx, "Instantiating contract.", logger.AnyFiled("msg", msg))
+	c.log.Info(ctx, "Instantiating contract.", logger.AnyField("msg", msg))
 	res, err = client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msg)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deploy bytecode")
@@ -356,7 +366,7 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert contract address to sdk.AccAddress")
 	}
-	c.log.Info(ctx, "The contract is instantiated.", logger.StringFiled("address", sdkContractAddr.String()))
+	c.log.Info(ctx, "The contract is instantiated.", logger.StringField("address", sdkContractAddr.String()))
 
 	return sdkContractAddr, nil
 }
@@ -477,19 +487,11 @@ func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, s
 }
 
 // SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of an accepted or rejected ticket allocation transaction.
-func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTicketsAllocationEvidence, accepted bool) (*sdk.TxResponse, error) {
-	var transactionResult string
-	if accepted {
-		transactionResult = "accepted"
-	} else {
-		transactionResult = "rejected"
-	}
-
+func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTicketsAllocationEvidence) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
-				TransactionResult:             transactionResult,
 				OperationResult: xrplTransactionEvidenceOperationResult{
 					TicketsAllocation: &xrplTransactionEvidenceTicketsAllocationOperationResult{
 						Tickets: evd.Tickets,
@@ -686,9 +688,9 @@ func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, req
 	for _, req := range requests {
 		payload, err := json.Marshal(req.Body)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to marshal payload, requiest:%v", req.Body)
+			return nil, errors.Wrapf(err, "failed to marshal payload, request:%+v", req.Body)
 		}
-		c.log.Debug(ctx, "Executing contract", logger.StringFiled("payload", string(payload)))
+		c.log.Debug(ctx, "Executing contract", logger.StringField("payload", string(payload)))
 		msg := &wasmtypes.MsgExecuteContract{
 			Sender:   sender.String(),
 			Contract: c.cfg.ContractAddress.String(),
@@ -700,7 +702,7 @@ func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, req
 
 	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgs...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute transaction, message:%v", msgs)
+		return nil, errors.Wrapf(err, "failed to execute transaction, message:%+v", msgs)
 	}
 	return res, nil
 }
@@ -714,7 +716,7 @@ func (c *ContractClient) query(ctx context.Context, request, response any) error
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal query request")
 	}
-	c.log.Debug(ctx, "Querying contract", logger.StringFiled("payload", string(payload)))
+	c.log.Debug(ctx, "Querying contract", logger.StringField("payload", string(payload)))
 
 	query := &wasmtypes.QuerySmartContractStateRequest{
 		Address:   c.cfg.ContractAddress.String(),
@@ -722,12 +724,12 @@ func (c *ContractClient) query(ctx context.Context, request, response any) error
 	}
 	resp, err := c.wasmClient.SmartContractState(ctx, query)
 	if err != nil {
-		return errors.Wrapf(err, "query failed, requiest:%v", request)
+		return errors.Wrapf(err, "query failed, request:%+v", request)
 	}
 
-	c.log.Debug(ctx, "Query is succeeded", logger.StringFiled("data", string(resp.Data)))
+	c.log.Debug(ctx, "Query is succeeded", logger.StringField("data", string(resp.Data)))
 	if err := json.Unmarshal(resp.Data, response); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal wasm contract response, requiest:%s, response:%s", string(payload), string(resp.Data))
+		return errors.Wrapf(err, "failed to unmarshal wasm contract response, request:%s, response:%s", string(payload), string(resp.Data))
 	}
 
 	return nil

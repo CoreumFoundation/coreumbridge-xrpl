@@ -16,8 +16,8 @@ var _ Logger = &ZapLogger{}
 
 const (
 	tracingXRPLTxHashFieldName = "xrplTxHash"
-	tracingIDFiledName         = "tracingID"
-	tracingProcessFiledName    = "process"
+	tracingIDFieldName         = "tracingID"
+	tracingProcessFieldName    = "process"
 )
 
 // ZapLoggerConfig is ZapLogger config.
@@ -78,28 +78,28 @@ func NewZapLogger(cfg ZapLoggerConfig) (*ZapLogger, error) {
 // Debug logs a message at DebugLevel. The message includes any fields passed at the log site, as well as any fields
 // accumulated on the logger.
 func (z ZapLogger) Debug(ctx context.Context, msg string, fields ...Field) {
-	z.zapLogger.Debug(msg, filedToZapFiled(ctx, fields...)...)
+	z.zapLogger.Debug(msg, filedToZapField(ctx, fields...)...)
 }
 
 // Info logs a message at InfoLevel. The message includes any fields passed at the log site, as well as any fields
 // accumulated on the logger.
 func (z ZapLogger) Info(ctx context.Context, msg string, fields ...Field) {
-	z.zapLogger.Info(msg, filedToZapFiled(ctx, fields...)...)
+	z.zapLogger.Info(msg, filedToZapField(ctx, fields...)...)
 }
 
 // Warn logs a message at WarnLevel. The message includes any fields passed at the log site, as well as any fields
 // accumulated on the logger.
 func (z ZapLogger) Warn(ctx context.Context, msg string, fields ...Field) {
-	z.zapLogger.Warn(msg, filedToZapFiled(ctx, fields...)...)
+	z.zapLogger.Warn(msg, filedToZapField(ctx, fields...)...)
 }
 
 // Error logs a message at ErrorLevel. The message includes any fields passed at the log site, as well as any fields
 // accumulated on the logger.
 func (z ZapLogger) Error(ctx context.Context, msg string, fields ...Field) {
-	z.zapLogger.Error(msg, filedToZapFiled(ctx, fields...)...)
+	z.zapLogger.Error(msg, filedToZapField(ctx, fields...)...)
 }
 
-func filedToZapFiled(ctx context.Context, fields ...Field) []zap.Field {
+func filedToZapField(ctx context.Context, fields ...Field) []zap.Field {
 	zapFields := lo.Map(fields, func(filed Field, _ int) zap.Field {
 		return zap.Field{
 			Key:       filed.Key,
@@ -117,11 +117,11 @@ func filedToZapFiled(ctx context.Context, fields ...Field) []zap.Field {
 	}
 	tracingID := tracing.GetTracingID(ctx)
 	if tracingID != "" {
-		zapFields = append(zapFields, zap.String(tracingIDFiledName, tracingID))
+		zapFields = append(zapFields, zap.String(tracingIDFieldName, tracingID))
 	}
 	processID := tracing.GetTracingProcess(ctx)
 	if processID != "" {
-		zapFields = append(zapFields, zap.String(tracingProcessFiledName, processID))
+		zapFields = append(zapFields, zap.String(tracingProcessFieldName, processID))
 	}
 
 	return zapFields

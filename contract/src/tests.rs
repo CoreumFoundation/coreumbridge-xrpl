@@ -20,6 +20,7 @@ mod tests {
         },
         state::{Config, Operation, OperationType, Relayer, Signature},
     };
+
     const FEE_DENOM: &str = "ucore";
     const XRP_SYMBOL: &str = "XRP";
     const XRP_SUBUNIT: &str = "drop";
@@ -45,7 +46,7 @@ mod tests {
         used_tickets_threshold: u32,
         issue_fee: Vec<Coin>,
     ) -> String {
-        let wasm_byte_code = std::fs::read("./artifacts/coreumbridge_xrpl.wasm").unwrap();
+        let wasm_byte_code = std::fs::read("../build/coreumbridge_xrpl.wasm").unwrap();
         let code_id = wasm
             .store_code(&wasm_byte_code, None, &signer)
             .unwrap()
@@ -882,7 +883,7 @@ mod tests {
             &query_issue_fee(&asset_ft),
             signer,
         )
-        .unwrap();
+            .unwrap();
 
         let query_xrpl_tokens = wasm
             .query::<QueryMsg, XRPLTokensResponse>(
@@ -1824,7 +1825,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![relayers[0].clone(), relayers[1].clone()],
             2,
-            50,
+            4,
             query_issue_fee(&asset_ft),
         );
 
@@ -1847,13 +1848,32 @@ mod tests {
         assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
 
         let sequence_number = 1;
-        //Trying to recover 0 tickets will fail
+        //Trying to recover tickets with the value less than used_tickets_threshold
         let recover_ticket_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::RecoverTickets {
                     sequence_number,
-                    number_of_tickets: Some(0),
+                    number_of_tickets: Some(1),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(recover_ticket_error.to_string().contains(
+            ContractError::InvalidTicketNumberToAllocate {}
+                .to_string()
+                .as_str()
+        ));
+
+        //Trying to recover more than max tickets will fail
+        let recover_ticket_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RecoverTickets {
+                    sequence_number,
+                    number_of_tickets: Some(300),
                 },
                 &vec![],
                 &signer,
@@ -2304,7 +2324,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![relayer],
             1,
-            50,
+            4,
             query_issue_fee(&asset_ft),
         );
 
