@@ -1,9 +1,13 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, DepsMut};
 
-use crate::{
-    error::ContractError,
-    state::{Signature, PENDING_OPERATIONS},
-};
+use crate::{error::ContractError, state::PENDING_OPERATIONS};
+
+#[cw_serde]
+pub struct Signature {
+    pub relayer: Addr,
+    pub signature: String,
+}
 
 pub fn add_signature(
     deps: DepsMut,

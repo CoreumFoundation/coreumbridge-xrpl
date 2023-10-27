@@ -1,8 +1,10 @@
 use std::collections::VecDeque;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Empty, Uint128};
+use cosmwasm_std::{Empty, Uint128};
 use cw_storage_plus::{Item, Map};
+
+use crate::{evidence::Evidences, operation::Operation, relayer::Relayer};
 
 /// Top level storage key. Values must not conflict.
 /// Each key is only one byte long to ensure we use the smallest possible storage keys.
@@ -35,13 +37,7 @@ pub struct Config {
     pub relayers: Vec<Relayer>,
     pub evidence_threshold: u32,
     pub used_tickets_threshold: u32,
-}
-
-#[cw_serde]
-pub struct Relayer {
-    pub coreum_address: Addr,
-    pub xrpl_address: String,
-    pub xrpl_pub_key: String,
+    pub trust_set_limit_amount: Uint128,
 }
 
 #[cw_serde]
@@ -51,6 +47,7 @@ pub struct XRPLToken {
     pub coreum_denom: String,
     pub sending_precision: i32,
     pub max_holding_amount: Uint128,
+    pub active: bool,
 }
 
 #[cw_serde]
@@ -76,9 +73,9 @@ pub const PROCESSED_TXS: Map<String, Empty> = Map::new(TopKey::ProcessedTxs.as_s
 pub const AVAILABLE_TICKETS: Item<VecDeque<u64>> = Item::new(TopKey::AvailableTickets.as_str());
 // Counter we use to control the used tickets threshold.
 // If we surpass this counter, we will trigger a new allocation operation.
-// Every time we allocate new tickets (operation is confirmed), we will substract the amount of new tickets allocated from this amount
+// Every time we allocate new tickets (operation is accepted), we will substract the amount of new tickets allocated from this amount
 pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str());
-// Operations that are not confirmed/rejected yet. When enough relayers send evidences confirming the correct execution or rejection of this operation,
+// Operations that are not accepted/rejected yet. When enough relayers send evidences confirming the correct execution or rejection of this operation,
 // it will move to PROCESSED_TXS. Key is the ticket/sequence number
 pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
 // Flag to know if we are currently waiting for new_tickets to be allocated
@@ -106,28 +103,4 @@ impl ContractActions {
             ContractActions::RegisterSignature => "register_signature",
         }
     }
-}
-
-#[cw_serde]
-pub struct Evidences {
-    pub relayers: Vec<Addr>,
-}
-
-#[cw_serde]
-pub struct Operation {
-    pub ticket_number: Option<u64>,
-    pub sequence_number: Option<u64>,
-    pub signatures: Vec<Signature>,
-    pub operation_type: OperationType,
-}
-
-#[cw_serde]
-pub enum OperationType {
-    AllocateTickets { number: u32 },
-}
-
-#[cw_serde]
-pub struct Signature {
-    pub relayer: Addr,
-    pub signature: String,
 }

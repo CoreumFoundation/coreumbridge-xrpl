@@ -1,25 +1,30 @@
 use std::collections::VecDeque;
 
-use cosmwasm_std::{DepsMut, StdResult, Storage};
+use cosmwasm_std::{StdResult, Storage};
 
 use crate::{
     error::ContractError,
+    evidence::TransactionResult,
+    operation::{Operation, OperationType},
     state::{
-        Operation, OperationType, AVAILABLE_TICKETS, CONFIG, PENDING_OPERATIONS,
-        PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
-    }, evidence::TransactionResult,
+        AVAILABLE_TICKETS, CONFIG, PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
+    },
 };
 
 //This function will be used to provide a ticket for a pending operation
-pub fn _allocate_ticket(deps: DepsMut) -> Result<u64, ContractError> {
-    let available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
+pub fn allocate_ticket(storage: &mut dyn Storage) -> Result<u64, ContractError> {
+    let available_tickets = AVAILABLE_TICKETS.load(storage)?;
+
+    if available_tickets.is_empty() {
+        return Err(ContractError::NoAvailableTickets {});
+    }
 
     //This last ticket will always be reserved for an update of the tickets
     if available_tickets.len() <= 1 {
         return Err(ContractError::LastTicketReserved {});
     }
 
-    let ticket = reserve_ticket(deps.storage)?;
+    let ticket = reserve_ticket(storage)?;
 
     Ok(ticket)
 }
@@ -62,7 +67,7 @@ pub fn handle_ticket_allocation_confirmation(
     PENDING_TICKET_UPDATE.save(storage, &false)?;
 
     //Allocate ticket numbers in our ticket array if operation is accepted
-    if transaction_result == TransactionResult::Accepted {
+    if transaction_result.eq(&TransactionResult::Accepted) {
         let mut available_tickets = AVAILABLE_TICKETS.load(storage)?;
 
         let mut new_tickets = available_tickets.make_contiguous().to_vec();
@@ -72,9 +77,7 @@ pub fn handle_ticket_allocation_confirmation(
 
         //Used tickets can't be under 0 if admin allocated more tickets than used tickets
         USED_TICKETS_COUNTER.update(storage, |used_tickets| -> StdResult<_> {
-            let new_used_tickets = used_tickets
-                .saturating_sub(tickets.unwrap().len() as u32);
-            Ok(new_used_tickets)
+            Ok(used_tickets.saturating_sub(tickets.unwrap().len() as u32))
         })?;
     }
 

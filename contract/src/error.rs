@@ -73,6 +73,9 @@ pub enum ContractError {
     #[error("InvalidUsedTicketsThreshold: Used tickets threshold must be more than 1 and less or equal than {}", MAX_TICKETS)]
     InvalidUsedTicketsThreshold {},
 
+    #[error("NoAvailableTickets: There are no tickets available")]
+    NoAvailableTickets {},
+
     #[error("LastTicketReserved: Last available ticket is reserved for updating tickets")]
     LastTicketReserved {},
 
@@ -90,10 +93,13 @@ pub enum ContractError {
     #[error("InvalidValidTransactionResultEvidence: An evidence with a valid transaction must contain a transaction hash")]
     InvalidValidTransactionResultEvidence {},
 
-    #[error("InvalidNotValidTransactionResultEvidence: An evidence with an invalid transaction can't have a transaction hash or be confirmed")]
+    #[error("InvalidNotValidTransactionResultEvidence: An evidence with an invalid transaction can't have a transaction hash")]
     InvalidNotValidTransactionResultEvidence {},
 
-    #[error("InvalidTicketAllocationEvidence: There must be tickets if operation is confirmed and valid and there can't be tickets if operation is not confirmed or not valid")]
+    #[error("InvalidTicketAllocationEvidence: There must be an issuer and currency if operation is accepted and there can't be if operation is rejected or invalid")]
+    InvalidTrustSetEvidence {},
+
+    #[error("InvalidTicketAllocationEvidence: There must be tickets if operation is accepted and there can't be tickets if operation is rejected or invalid")]
     InvalidTicketAllocationEvidence {},
 
     #[error(
@@ -117,6 +123,9 @@ pub enum ContractError {
 
     #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
     InvalidXRPLCurrency {},
+
+    #[error("XRPLTokenNotActive: This token must be activated before bridging")]
+    XRPLTokenNotActive {},
 
     #[error("AmountSentIsZeroAfterTruncating: Amount sent is zero after truncating to sending precision")]
     AmountSentIsZeroAfterTruncating {},

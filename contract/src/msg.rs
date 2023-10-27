@@ -4,10 +4,7 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[allow(unused_imports)]
 use crate::state::{Config, CoreumToken, XRPLToken};
-use crate::{
-    evidence::Evidence,
-    state::{Operation, Relayer},
-};
+use crate::{evidence::Evidence, operation::Operation, relayer::Relayer};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -18,6 +15,8 @@ pub struct InstantiateMsg {
     pub evidence_threshold: u32,
     //Amount of tickets that  we can use before triggering a ticket allocation action
     pub used_tickets_threshold: u32,
+    //Trust set limit amount that will be used when registering XRPL tokens
+    pub trust_set_limit_amount: Uint128,
 }
 
 #[cw_ownable_execute]
