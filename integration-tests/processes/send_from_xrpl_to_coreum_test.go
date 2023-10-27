@@ -59,12 +59,88 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	chains.Coreum.FundAccountWithOptions(ctx, t, runnerEnv.ContractOwner, coreumintegration.BalancesOptions{
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),
 	})
+
+	// recover tickets so that we can register tokens
+	numberOfTicketsToInit := uint32(200)
+	firstBridgeAccountSeqNumber := uint32(1)
+	_, err = runnerEnv.ContractClient.RecoverTickets(ctx, runnerEnv.ContractOwner, firstBridgeAccountSeqNumber, &numberOfTicketsToInit)
+	require.NoError(t, err)
+
+	// Send evidences from relayers
+	acceptedTxHash := "D5F78F452DFFBE239EFF668E4B34B1AF66CD2F4D5C5D9E54A5AF34121B5862C5"
+	tickets := make([]uint32, 200)
+	for i := range tickets {
+		tickets[i] = uint32(i)
+	}
+
+	acceptedTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            acceptedTxHash,
+			SequenceNumber:    &firstBridgeAccountSeqNumber,
+			TransactionResult: coreum.TransactionResultAccepted,
+		},
+		Tickets: tickets,
+	}
+
+	// send evidences from relayers
+	for i := 0; i < runnerEnv.Cfg.SigningThreshold; i++ {
+		_, err = runnerEnv.ContractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, runnerEnv.RelayerAddresses[i], acceptedTxEvidence)
+		require.NoError(t, err)
+	}
+
 	// register XRPL native token with 3 chars
 	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredCurrency), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
+
+	// activate the token
+	pendingOperations, err := runnerEnv.ContractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+	ticketAllocated := pendingOperations[0].TicketNumber
+
+	acceptedTxHashTrustSet := "D5F78F452DFFBE239EFF668E4B34B1AF66CD2F4D5C5D9E54A5AF34121B5862C6"
+	acceptedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            acceptedTxHashTrustSet,
+			TicketNumber:      &ticketAllocated,
+			TransactionResult: coreum.TransactionResultAccepted,
+		},
+		Issuer:   xrplCurrencyIssuerAcc.String(),
+		Currency: xrpl.ConvertCurrencyToString(xrplRegisteredCurrency),
+	}
+
+	// send evidences from relayers
+	for i := 0; i < runnerEnv.Cfg.SigningThreshold; i++ {
+		_, err = runnerEnv.ContractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, runnerEnv.RelayerAddresses[i], acceptedTxEvidenceTrustSet)
+		require.NoError(t, err)
+	}
+
 	// register XRPL native token with 20 chars
 	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredHexCurrency), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
+
+	// activate the token
+	pendingOperations, err = runnerEnv.ContractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+	ticketAllocated = pendingOperations[0].TicketNumber
+
+	acceptedTxHashTrustSet = "D5F78F452DFFBE239EFF668E4B34B1AF66CD2F4D5C5D9E54A5AF34121B5862C7"
+	acceptedTxEvidenceTrustSet = coreum.XRPLTransactionResultTrustSetEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            acceptedTxHashTrustSet,
+			TicketNumber:      &ticketAllocated,
+			TransactionResult: coreum.TransactionResultAccepted,
+		},
+		Issuer:   xrplCurrencyIssuerAcc.String(),
+		Currency: xrpl.ConvertCurrencyToString(xrplRegisteredHexCurrency),
+	}
+
+	// send evidences from relayers
+	for i := 0; i < runnerEnv.Cfg.SigningThreshold; i++ {
+		_, err = runnerEnv.ContractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, runnerEnv.RelayerAddresses[i], acceptedTxEvidenceTrustSet)
+		require.NoError(t, err)
+	}
 
 	registeredXRPLTokens, err := runnerEnv.ContractClient.GetXRPLTokens(ctx)
 	require.NoError(t, err)

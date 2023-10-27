@@ -87,6 +87,7 @@ type InstantiationConfig struct {
 	Relayers             []Relayer
 	EvidenceThreshold    int
 	UsedTicketsThreshold int
+	TrustSetLimitAmount  string
 }
 
 // ContractConfig is contract config.
@@ -94,6 +95,7 @@ type ContractConfig struct {
 	Relayers             []Relayer `json:"relayers"`
 	EvidenceThreshold    int       `json:"evidence_threshold"`
 	UsedTicketsThreshold int       `json:"used_tickets_threshold"`
+	TrustSetLimitAmount  string    `json:"trust_set_limit_amount"`
 }
 
 // ContractOwnership is owner contract config.
@@ -107,6 +109,7 @@ type XRPLToken struct {
 	Issuer      string `json:"issuer"`
 	Currency    string `json:"currency"`
 	CoreumDenom string `json:"coreum_denom"`
+	Active      bool   `json:"active"`
 }
 
 // CoreumToken is coreum token registered on the contract.
@@ -140,6 +143,14 @@ type XRPLTransactionResultTicketsAllocationEvidence struct {
 	XRPLTransactionResultEvidence
 	// we don't use the tag here since have we don't use that struct as transport object
 	Tickets []uint32
+}
+
+// XRPLTransactionResultTrustSetEvidence is evidence of the trust set transaction.
+type XRPLTransactionResultTrustSetEvidence struct {
+	XRPLTransactionResultEvidence
+	// we don't use the tag here since have we don't use that struct as transport object
+	Issuer   string
+	Currency string
 }
 
 // Signature is a pair of the relayer provided the signature and signature string.
@@ -182,6 +193,7 @@ type instantiateRequest struct {
 	Relayers             []Relayer      `json:"relayers"`
 	EvidenceThreshold    int            `json:"evidence_threshold"`
 	UsedTicketsThreshold int            `json:"used_tickets_threshold"`
+	TrustSetLimitAmount  string         `json:"trust_set_limit_amount"`
 }
 
 type transferOwnershipRequest struct {
@@ -220,8 +232,14 @@ type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
 	Tickets []uint32 `json:"tickets"`
 }
 
+type xrplTransactionEvidenceTrustSetOperationResult struct {
+	Issuer   string `json:"issuer"`
+	Currency string `json:"currency"`
+}
+
 type xrplTransactionEvidenceOperationResult struct {
 	TicketsAllocation *xrplTransactionEvidenceTicketsAllocationOperationResult `json:"tickets_allocation,omitempty"`
+	TrustSet          *xrplTransactionEvidenceTrustSetOperationResult          `json:"trust_set,omitempty"`
 }
 
 type xrplTransactionResultEvidence struct {
@@ -331,6 +349,7 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 		Relayers:             config.Relayers,
 		EvidenceThreshold:    config.EvidenceThreshold,
 		UsedTicketsThreshold: config.UsedTicketsThreshold,
+		TrustSetLimitAmount:  config.TrustSetLimitAmount,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal instantiate payload")
@@ -495,6 +514,33 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx 
 				OperationResult: xrplTransactionEvidenceOperationResult{
 					TicketsAllocation: &xrplTransactionEvidenceTicketsAllocationOperationResult{
 						Tickets: evd.Tickets,
+					},
+				},
+			},
+		},
+	}
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]saveEvidenceRequest{
+			ExecMethodSaveEvidence: req,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// SendXRPLTrustSetTransactionResultEvidence sends an Evidence of an accepted or rejected trust set transaction.
+func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTrustSetEvidence) (*sdk.TxResponse, error) {
+	req := saveEvidenceRequest{
+		Evidence: evidence{
+			XRPLTransactionResult: &xrplTransactionResultEvidence{
+				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
+				OperationResult: xrplTransactionEvidenceOperationResult{
+					TrustSet: &xrplTransactionEvidenceTrustSetOperationResult{
+						Issuer:   evd.Issuer,
+						Currency: evd.Currency,
 					},
 				},
 			},
