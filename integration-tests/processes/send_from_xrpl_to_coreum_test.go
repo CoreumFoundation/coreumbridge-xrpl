@@ -43,8 +43,8 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	require.NoError(t, err)
 
 	// register token with 20 chars
-	hexSymbol := hex.EncodeToString([]byte(strings.Repeat("R", 20)))
-	xrplRegisteredHexCurrency, err := rippledata.NewCurrency(hexSymbol)
+	currencyHexSymbol := hex.EncodeToString([]byte(strings.Repeat("R", 20)))
+	xrplRegisteredHexCurrency, err := rippledata.NewCurrency(currencyHexSymbol)
 	require.NoError(t, err)
 
 	xrplNotRegisterCurrency, err := rippledata.NewCurrency("NRG")
@@ -60,10 +60,10 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),
 	})
 	// register XRPL native token with 3 chars
-	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredCurrency.String(), sendingPrecision, maxHoldingAmount)
+	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredCurrency), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 	// register XRPL native token with 20 chars
-	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrplRegisteredHexCurrency.String(), sendingPrecision, maxHoldingAmount)
+	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredHexCurrency), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
 	registeredXRPLTokens, err := runnerEnv.ContractClient.GetXRPLTokens(ctx)
@@ -78,7 +78,7 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 			registeredXRPLToken = token
 			continue
 		}
-		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == xrplRegisteredHexCurrency.String() {
+		if token.Issuer == xrplCurrencyIssuerAcc.String() && token.Currency == xrpl.ConvertCurrencyToString(xrplRegisteredHexCurrency) {
 			registeredXRPLTokenHexCurrency = token
 			continue
 		}
@@ -139,8 +139,8 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	// send tx with hex currency
 	SendXRPLPaymentTx(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, runnerEnv.XRPLBridgeAccount, registeredHexCurrencyAmount, memo)
 
-	require.NoError(t, chains.Coreum.AwaitForBalance(ctx, t, coreumRecipient, sdk.NewCoin(registeredXRPLToken.CoreumDenom, convertStringToSDKInt(t, "10000000001000000000000001"))))
-	require.NoError(t, chains.Coreum.AwaitForBalance(ctx, t, coreumRecipient, sdk.NewCoin(registeredXRPLTokenHexCurrency.CoreumDenom, convertStringToSDKInt(t, "9900000000000000"))))
+	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLToken.CoreumDenom, convertStringToSDKInt(t, "10000000001000000000000001")))
+	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLTokenHexCurrency.CoreumDenom, convertStringToSDKInt(t, "9900000000000000")))
 }
 
 func convertStringToSDKInt(t *testing.T, invVal string) sdkmath.Int {

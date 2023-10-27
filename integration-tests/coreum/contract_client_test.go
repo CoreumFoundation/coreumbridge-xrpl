@@ -201,7 +201,7 @@ func TestRegisterCoreumToken(t *testing.T) {
 	recipientAcc := chains.XRPL.GenAccount(ctx, t, 10)
 
 	// allow to receive the currency
-	currency, err := xrpl.StringToHexXRPLCurrency(registeredToken.XRPLCurrency)
+	currency, err := xrpl.ConvertStringToHexXRPLCurrency(registeredToken.XRPLCurrency)
 	require.NoError(t, err)
 	amountToSend, err := rippledata.NewValue("10000000000000000", false)
 	require.NoError(t, err)

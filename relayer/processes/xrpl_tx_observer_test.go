@@ -268,7 +268,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 							SequenceNumber:    lo.ToPtr(uint32(5)),
 							TransactionResult: coreum.TransactionResultRejected,
 						},
-						Tickets: []uint32{},
+						Tickets: nil,
 					},
 				).Return(nil, nil)
 

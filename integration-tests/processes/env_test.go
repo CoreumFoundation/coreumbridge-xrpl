@@ -29,6 +29,7 @@ import (
 
 // RunnerEnvConfig is runner environment config.
 type RunnerEnvConfig struct {
+	AwaitTimeout         time.Duration
 	SigningThreshold     int
 	RelayersCount        int
 	DisableMasterKey     bool
@@ -38,6 +39,7 @@ type RunnerEnvConfig struct {
 // DefaultRunnerEnvConfig returns default runner environment config.
 func DefaultRunnerEnvConfig() RunnerEnvConfig {
 	return RunnerEnvConfig{
+		AwaitTimeout:         15 * time.Second,
 		SigningThreshold:     2,
 		RelayersCount:        3,
 		DisableMasterKey:     true,
@@ -47,6 +49,7 @@ func DefaultRunnerEnvConfig() RunnerEnvConfig {
 
 // RunnerEnv is runner environment used for the integration tests.
 type RunnerEnv struct {
+	Cfg               RunnerEnvConfig
 	XRPLBridgeAccount rippledata.Account
 	ContractClient    *coreum.ContractClient
 	ContractOwner     sdk.AccAddress
@@ -106,6 +109,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	}
 
 	runnerEnv := &RunnerEnv{
+		Cfg:               cfg,
 		XRPLBridgeAccount: xrplBridgeAccount,
 		ContractClient:    contractClient,
 		ContractOwner:     contractOwner,
@@ -114,7 +118,6 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		ProcessErrors:     make([]error, 0),
 	}
 	t.Cleanup(func() {
-		<-ctx.Done()
 		runnerEnv.RequireNoErrors(t)
 	})
 
@@ -163,7 +166,7 @@ func (r *RunnerEnv) StartAllRunnerProcesses(ctx context.Context, t *testing.T) {
 func (r *RunnerEnv) AwaitNoPendingOperations(ctx context.Context, t *testing.T) {
 	t.Helper()
 
-	AwaitState(ctx, t, func(t *testing.T) error {
+	r.AwaitState(ctx, t, func(t *testing.T) error {
 		operations, err := r.ContractClient.GetPendingOperations(ctx)
 		require.NoError(t, err)
 		if len(operations) != 0 {
@@ -171,6 +174,41 @@ func (r *RunnerEnv) AwaitNoPendingOperations(ctx context.Context, t *testing.T) 
 		}
 		return nil
 	})
+}
+
+// AwaitCoreumBalance waits for expected coreum balance.
+func (r *RunnerEnv) AwaitCoreumBalance(
+	ctx context.Context,
+	t *testing.T,
+	coreumChain integrationtests.CoreumChain,
+	address sdk.AccAddress,
+	expectedBalance sdk.Coin,
+) {
+	t.Helper()
+	awaitContext, awaitContextCancel := context.WithTimeout(ctx, r.Cfg.AwaitTimeout)
+	t.Cleanup(awaitContextCancel)
+	require.NoError(t, coreumChain.AwaitForBalance(awaitContext, t, address, expectedBalance))
+}
+
+// AwaitState waits for stateChecker function to rerun nil and retires in case of failure.
+func (r *RunnerEnv) AwaitState(ctx context.Context, t *testing.T, stateChecker func(t *testing.T) error) {
+	t.Helper()
+	retryCtx, retryCancel := context.WithTimeout(ctx, r.Cfg.AwaitTimeout)
+	defer retryCancel()
+	err := retry.Do(retryCtx, 500*time.Millisecond, func() error {
+		if err := stateChecker(t); err != nil {
+			return retry.Retryable(err)
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func (r *RunnerEnv) RequireNoErrors(t *testing.T) {
+	r.ProcessErrorsMu.RLock()
+	defer r.ProcessErrorsMu.RUnlock()
+	require.Empty(t, r.ProcessErrors, "Found unexpected process errors after the execution")
 }
 
 // SendTrustSet sends TrustSet transaction.
@@ -241,27 +279,6 @@ func SendXRPLPartialPaymentTx(
 		},
 	}
 	require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
-}
-
-// AwaitState waits for stateChecker function to rerun nil and retires in case of failure.
-func AwaitState(ctx context.Context, t *testing.T, stateChecker func(t *testing.T) error) {
-	t.Helper()
-	retryCtx, retryCancel := context.WithTimeout(ctx, 30*time.Second)
-	defer retryCancel()
-	err := retry.Do(retryCtx, 500*time.Millisecond, func() error {
-		if err := stateChecker(t); err != nil {
-			return retry.Retryable(err)
-		}
-
-		return nil
-	})
-	require.NoError(t, err)
-}
-
-func (r *RunnerEnv) RequireNoErrors(t *testing.T) {
-	r.ProcessErrorsMu.RLock()
-	defer r.ProcessErrorsMu.RUnlock()
-	require.Empty(t, r.ProcessErrors, "Found unexpected process errors after the execution")
 }
 
 func genCoreumRelayers(

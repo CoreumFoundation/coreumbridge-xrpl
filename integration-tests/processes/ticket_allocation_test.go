@@ -25,7 +25,6 @@ func TestTicketsAllocationRecoveryWithSequenceNumber(t *testing.T) {
 	require.Empty(t, availableTickets)
 
 	runnerEnv.StartAllRunnerProcesses(ctx, t)
-
 	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.XRPLBridgeAccount, numberOfTicketsToAllocate)
 
 	xrplBridgeAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.XRPLBridgeAccount)
@@ -58,6 +57,7 @@ func TestTicketsAllocationRecoveryWithRejection(t *testing.T) {
 	require.Empty(t, availableTickets)
 
 	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	// we don't func the contract enough for the tickets allocation to cancel the operation
 
 	xrplBridgeAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.XRPLBridgeAccount)
 	require.NoError(t, err)

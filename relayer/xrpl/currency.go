@@ -7,8 +7,9 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 )
 
-// StringToHexXRPLCurrency decodes string currency to the Currency type.
-func StringToHexXRPLCurrency(currencyString string) (rippledata.Currency, error) {
+// ConvertStringToHexXRPLCurrency decodes string currency to the Currency type.
+// Deprecated: FunctionName is deprecated and will be removed soon, once we migrate to HEX string, and the rippledata.NewCurrency() will be used.
+func ConvertStringToHexXRPLCurrency(currencyString string) (rippledata.Currency, error) {
 	encodedCurrency := hex.EncodeToString([]byte(currencyString))
 	if len(encodedCurrency) > 40 {
 		return rippledata.Currency{}, errors.Errorf("failed to convert currency string to Currency, invalid decoded hex length")
@@ -23,4 +24,14 @@ func StringToHexXRPLCurrency(currencyString string) (rippledata.Currency, error)
 	copy(currency[:], decodedCurrency)
 
 	return currency, nil
+}
+
+// ConvertCurrencyToString decodes XRPL currency to string which matches the contract expectation.
+func ConvertCurrencyToString(currency rippledata.Currency) string {
+	currencyString := currency.String()
+	if len(currencyString) == 3 {
+		return currencyString
+	}
+
+	return hex.EncodeToString([]byte(currencyString))
 }

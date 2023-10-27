@@ -2,7 +2,6 @@ package processes
 
 import (
 	"context"
-	"encoding/hex"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
@@ -124,14 +123,10 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		return nil
 	}
 
-	currency := deliveredXRPLAmount.Currency.String()
-	if len(currency) > 3 {
-		currency = hex.EncodeToString([]byte(currency))
-	}
 	evidence := coreum.XRPLToCoreumTransferEvidence{
 		TxHash:    paymentTx.GetHash().String(),
 		Issuer:    deliveredXRPLAmount.Issuer.String(),
-		Currency:  currency,
+		Currency:  xrpl.ConvertCurrencyToString(deliveredXRPLAmount.Currency),
 		Amount:    coreumAmount,
 		Recipient: coreumRecipient,
 	}
@@ -151,6 +146,11 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		return nil
 	}
 
+	if coreum.IsOperationAlreadyExecutedError(err) {
+		o.log.Debug(ctx, "Operation already executed")
+		return nil
+	}
+
 	return err
 }
 
@@ -166,6 +166,7 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 		txResult := coreum.TransactionResultAccepted
 		if !tx.MetaData.TransactionResult.Success() {
 			txResult = coreum.TransactionResultRejected
+			tickets = nil
 		}
 		evidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 			XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{

@@ -217,6 +217,7 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation c
 		return nil
 	default:
 		// TODO(dzmitryhil) handle the case when the key are rotated but the bridgeSigners are from the previous state
+		// TODO(dzmitryhil) handle case when there is not enough tokens on the contract for the reserve
 		return errors.Errorf("failed to submit transaction, receveid unexpected result, result:%+v", txRes)
 	}
 }

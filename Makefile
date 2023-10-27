@@ -89,4 +89,4 @@ restart-dev-env:
 
 .PHONY: rebuild-dev-env
 rebuild-dev-env:
-	crust build/crust images/cored
+	crust build images
