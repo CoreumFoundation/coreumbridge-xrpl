@@ -20,6 +20,7 @@ mod tests {
         },
         state::{Config, Operation, OperationType, Relayer, Signature},
     };
+
     const FEE_DENOM: &str = "ucore";
     const XRP_SYMBOL: &str = "XRP";
     const XRP_SUBUNIT: &str = "drop";
@@ -882,7 +883,7 @@ mod tests {
             &query_issue_fee(&asset_ft),
             signer,
         )
-        .unwrap();
+            .unwrap();
 
         let query_xrpl_tokens = wasm
             .query::<QueryMsg, XRPLTokensResponse>(
@@ -2323,7 +2324,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![relayer],
             1,
-            50,
+            4,
             query_issue_fee(&asset_ft),
         );
 
