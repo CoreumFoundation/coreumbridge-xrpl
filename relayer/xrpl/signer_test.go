@@ -14,7 +14,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-func TestKeyringTxSigner_Sign_And_MultiSign(t *testing.T) {
+func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	t.Parallel()
 
 	encodingConfig := coreumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
@@ -40,31 +40,68 @@ func TestKeyringTxSigner_Sign_And_MultiSign(t *testing.T) {
 	xrpAmount, err := rippledata.NewAmount("100000")
 	require.NoError(t, err)
 
-	xrpPaymentTx := rippledata.Payment{
+	xrpPaymentTx := buildPaymentTx(recipientAccount, xrpAmount, signerAcc)
+	// check that signature is correct
+	require.NoError(t, signer.Sign(&xrpPaymentTx, keyName))
+	require.Equal(t, "30440220744D7F83BA64809384164814DAED4F54732303C783BCD5433356B4A9962F8E5702205548A956AB57B17B0A93A5E932CB0C2E7BCA060B660222989E6163E1C0C8BF00", xrpPaymentTx.TxnSignature.String())
+
+	valid, err := rippledata.CheckSignature(&xrpPaymentTx)
+	require.NoError(t, err)
+	require.True(t, valid)
+
+	// update tx for the multi-sign
+	xrpPaymentTx = buildPaymentTx(recipientAccount, xrpAmount, signerAcc)
+	txSigner, err := signer.MultiSign(&xrpPaymentTx, keyName)
+	require.NoError(t, err)
+	require.Equal(t, "304402201F5A4835DA5C525A6FF0F3689139FA1519325B9018E62C44D7903F553671350A02204250230E601C929063634B6B121C2F95E4D8588902487D4F9182BB43F01FAC3C", txSigner.Signer.TxnSignature.String())
+
+	xrpPaymentTx = buildPaymentTx(recipientAccount, xrpAmount, signerAcc)
+	require.NoError(t, rippledata.SetSigners(&xrpPaymentTx, txSigner))
+	valid, _, err = rippledata.CheckMultiSignature(&xrpPaymentTx)
+	require.NoError(t, err)
+	require.True(t, valid)
+}
+
+func TestPrivKeyTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
+	t.Parallel()
+
+	signer := xrpl.GenPrivKeyTxSigner()
+	signerAcc := signer.Account()
+
+	recipientAccount, err := rippledata.NewAccountFromAddress("rnZfuixFVhyAXWZDnYsCGEg2zGtpg4ZjKn")
+	require.NoError(t, err)
+	xrpAmount, err := rippledata.NewAmount("100000")
+	require.NoError(t, err)
+
+	xrpPaymentTx := buildPaymentTx(recipientAccount, xrpAmount, signerAcc)
+	// check that signature is correct
+	require.NoError(t, signer.Sign(&xrpPaymentTx))
+	valid, err := rippledata.CheckSignature(&xrpPaymentTx)
+	require.NoError(t, err)
+	require.True(t, valid)
+
+	// update tx for the multi-sign
+	xrpPaymentTx = buildPaymentTx(recipientAccount, xrpAmount, signerAcc)
+	txSigner, err := signer.MultiSign(&xrpPaymentTx)
+	require.NoError(t, err)
+
+	xrpPaymentTx = buildPaymentTx(recipientAccount, xrpAmount, signerAcc)
+	require.NoError(t, rippledata.SetSigners(&xrpPaymentTx, txSigner))
+	valid, _, err = rippledata.CheckMultiSignature(&xrpPaymentTx)
+	require.NoError(t, err)
+	require.True(t, valid)
+}
+
+func buildPaymentTx(recipientAccount *rippledata.Account, xrpAmount *rippledata.Amount, signerAcc rippledata.Account) rippledata.Payment {
+	return rippledata.Payment{
 		Destination: *recipientAccount,
 		Amount:      *xrpAmount,
 		TxBase: rippledata.TxBase{
 			Account:         signerAcc,
 			Sequence:        1,
 			TransactionType: rippledata.PAYMENT,
+			// important for the multi-signing
+			SigningPubKey: &rippledata.PublicKey{},
 		},
 	}
-	// check that signature is correct
-	require.NoError(t, signer.Sign(&xrpPaymentTx, keyName))
-	require.Equal(t, "30440220744D7F83BA64809384164814DAED4F54732303C783BCD5433356B4A9962F8E5702205548A956AB57B17B0A93A5E932CB0C2E7BCA060B660222989E6163E1C0C8BF00", xrpPaymentTx.TxnSignature.String())
-
-	// update tx for the multi-sign
-	xrpPaymentTx = rippledata.Payment{
-		Destination: *recipientAccount,
-		Amount:      *xrpAmount,
-		TxBase: rippledata.TxBase{
-			Account:         signerAcc,
-			TransactionType: rippledata.PAYMENT,
-			SigningPubKey:   &rippledata.PublicKey{},
-		},
-	}
-
-	txSigner, err := signer.MultiSign(&xrpPaymentTx, keyName)
-	require.NoError(t, err)
-	require.Equal(t, "304402206FE783A8D4BEED7146189E35015CA3BC32A27330118F26B3D3CEF4C6948292FA022046CE786087B61AA46903867178C13963B6A6C308AB758DD6A9BEABB9EDABE52D", txSigner.Signer.TxnSignature.String())
 }

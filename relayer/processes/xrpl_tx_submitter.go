@@ -245,21 +245,16 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 			s.log.Warn(ctx, "Found XRPL signer address without weight", logger.StringField("xrplAddress", xrplAcc.String()))
 			continue
 		}
-		tx, err := s.buildXRPLTxFromOperation(operation)
-		if err != nil {
-			return nil, false, err
-		}
-
 		var txSignature rippledata.VariableLength
 		if err := txSignature.UnmarshalText([]byte(signature.Signature)); err != nil {
-			// TODO(dzmitryhil) if the signature is invalid we use should use the kill switch
-			s.log.Error(
+			s.log.Warn(
 				ctx,
 				"Failed to unmarshal tx signature",
 				logger.Error(err),
 				logger.StringField("signature", signature.Signature),
 				logger.StringField("xrplAcc", xrplAcc.String()),
 			)
+			continue
 		}
 		txSigner := rippledata.Signer{
 			Signer: rippledata.SignerItem{
@@ -268,11 +263,28 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 				SigningPubKey: &xrplPubKey,
 			},
 		}
-		txSigners = append(txSigners, txSigner)
+		tx, err := s.buildXRPLTxFromOperation(operation)
+		if err != nil {
+			return nil, false, err
+		}
 		if err := rippledata.SetSigners(tx, txSigner); err != nil {
 			return nil, false, errors.Errorf("failed to set tx signer, signer:%+v", txSigner)
 		}
-		// TODO(dzmitryhil) validate signature here and filter out if invalid with warning
+		isValid, _, err := rippledata.CheckMultiSignature(tx)
+		if err != nil {
+			s.log.Warn(ctx, "failed to check transaction signature, err:%s, signer:%+v", logger.Error(err), logger.AnyField("signer", txSigner))
+			continue
+		}
+		if !isValid {
+			s.log.Warn(
+				ctx,
+				"Invalid tx signature",
+				logger.Error(err),
+				logger.AnyField("txSigner", txSigner),
+			)
+			continue
+		}
+		txSigners = append(txSigners, txSigner)
 		signedWeight += uint32(xrplAccWeight)
 	}
 	// quorum is not reached
