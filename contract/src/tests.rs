@@ -658,7 +658,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![relayer],
             1,
-            50,
+            2,
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
@@ -983,7 +983,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![relayers[0].clone()],
             1,
-            50,
+            2,
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
@@ -1036,7 +1036,7 @@ mod tests {
             &query_issue_fee(&asset_ft),
             signer,
         )
-            .unwrap();
+        .unwrap();
 
         let query_xrpl_tokens = wasm
             .query::<QueryMsg, XRPLTokensResponse>(
@@ -1143,7 +1143,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![relayers[0].clone(), relayers[1].clone()],
             2,
-            50,
+            2,
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
@@ -1495,7 +1495,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![relayer],
             1,
-            50,
+            7,
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );

@@ -266,9 +266,7 @@ fn register_xrpl_token(
     }
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
-    let to_hash = format!("{}{}{}", issuer, currency,
-        env.block.time.seconds()
-    ).into_bytes();
+    let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds()).into_bytes();
 
     // We encode the hash in hexadecimal and take the first 10 characters
     let hex_string = hash_bytes(to_hash)
@@ -421,7 +419,12 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                         )?;
                     }
                     OperationResult::TrustSet { issuer, currency } => {
-                        handle_trust_set_confirmation(deps.storage, issuer, currency, transaction_result.clone())?;
+                        handle_trust_set_confirmation(
+                            deps.storage,
+                            issuer,
+                            currency,
+                            transaction_result.clone(),
+                        )?;
                     }
                 }
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
