@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/testutils"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -26,7 +25,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	t.Cleanup(cancel)
 
-	account := testutils.GenXRPLAccount()
+	account := xrpl.GenPrivKeyTxSigner().Account()
 	notEmptyMarker := map[string]any{"key": "val"}
 
 	tests := []struct {

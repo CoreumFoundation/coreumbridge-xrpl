@@ -13,18 +13,17 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/testutils"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestXRPLTxObserver_Start(t *testing.T) {
 	t.Parallel()
 
-	bridgeAccount := testutils.GenXRPLAccount()
-	issuerAccount := testutils.GenXRPLAccount()
+	bridgeAccount := xrpl.GenPrivKeyTxSigner().Account()
+	issuerAccount := xrpl.GenPrivKeyTxSigner().Account()
 
-	relayerAddress := testutils.GenCoreumAccount()
-	coreumRecipientAddress := testutils.GenCoreumAccount()
+	relayerAddress := coreum.GenAccount()
+	coreumRecipientAddress := coreum.GenAccount()
 	memo, err := xrpl.EncodeCoreumRecipientToMemo(coreumRecipientAddress)
 	require.NoError(t, err)
 
