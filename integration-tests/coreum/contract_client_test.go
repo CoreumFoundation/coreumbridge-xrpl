@@ -4,7 +4,9 @@
 package coreum_test
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -12,6 +14,7 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/gogoproto/proto"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -274,9 +277,9 @@ func TestRegisterXRPLToken(t *testing.T) {
 
 	issuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
 	issuer := issuerAcc.String()
-	currency := "CRR"
-	sendingPrecision := uint32(15)
-	maxHoldingAmount := "10000"
+	currency := "CRA"
+	sendingPrecision := int32(15)
+	maxHoldingAmount := sdk.NewIntFromUint64(10000)
 
 	// try to register from not owner
 	_, err := contractClient.RegisterXRPLToken(ctx, notOwner, issuer, currency, sendingPrecision, maxHoldingAmount)
@@ -383,9 +386,9 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 
 	issuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
 	issuer := issuerAcc.String()
-	currency := "CRR"
-	sendingPrecision := uint32(15)
-	maxHoldingAmount := "10000"
+	currency := "RCR"
+	sendingPrecision := int32(15)
+	maxHoldingAmount := sdk.NewIntFromUint64(10000)
 
 	// register from the owner
 	_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
@@ -407,7 +410,7 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 
 	// create an evidence
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    "65DEE3E51083CF037A7ED413A49DD7357964923F8CC3E3D35A24019FB771475D",
+		TxHash:    genXRPLTxHash(t),
 		Issuer:    issuerAcc.String(),
 		Currency:  currency,
 		Amount:    sdkmath.NewInt(10),
@@ -460,6 +463,170 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	// try to push the same evidence
 	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer1.CoreumAddress, xrplToCoreumTransferEvidence)
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
+}
+
+func TestSendFromXRPLToCoreumXRPLNativeTokenWithDifferentSendingPrecision(t *testing.T) {
+	t.Parallel()
+
+	var (
+		tokenDecimals        = int64(15)
+		highMaxHoldingAmount = convertStringWithDecimalsToSDKInt(t, "1", 30)
+	)
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+
+	relayers := make([]coreum.Relayer, 0)
+	const relayersCount = 2
+	for i := 0; i < relayersCount; i++ {
+		xrplRelayerSigner := xrpl.GenPrivKeyTxSigner()
+		relayerCoreumAddress := chains.Coreum.GenAccount()
+		relayers = append(relayers, coreum.Relayer{
+			CoreumAddress: relayerCoreumAddress,
+			XRPLAddress:   xrplRelayerSigner.Account().String(),
+			XRPLPubKey:    xrplRelayerSigner.PubKey().String(),
+		})
+		chains.Coreum.FundAccountWithOptions(ctx, t, relayerCoreumAddress, coreumintegration.BalancesOptions{
+			Amount: sdkmath.NewInt(1_000_000),
+		})
+	}
+
+	coreumRecipient := chains.Coreum.GenAccount()
+
+	usedTicketsThreshold := 10
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), usedTicketsThreshold)
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+
+	tests := []struct {
+		name                                       string
+		sendingPrecision                           int32
+		sendingAmount                              sdkmath.Int
+		maxHoldingAmount                           sdkmath.Int
+		wantReceivedAmount                         sdkmath.Int
+		wantIsAmountSentIsZeroAfterTruncatingError bool
+		wantIsMaximumBridgedAmountReachedError     bool
+	}{
+		{
+			name:               "positive_precision_no_truncation",
+			sendingPrecision:   2,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
+			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
+		},
+		{
+			name:               "positive_precision_with_truncation",
+			sendingPrecision:   2,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "0.15567", tokenDecimals),
+			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "0.15", tokenDecimals),
+		},
+		{
+			name:             "positive_precision_low_amount",
+			sendingPrecision: 2,
+			maxHoldingAmount: highMaxHoldingAmount,
+			sendingAmount:    convertStringWithDecimalsToSDKInt(t, "0.009999", tokenDecimals),
+			wantIsAmountSentIsZeroAfterTruncatingError: true,
+		},
+		{
+			name:               "zero_precision_no_truncation",
+			sendingPrecision:   0,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "9999999999", tokenDecimals),
+			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "9999999999", tokenDecimals),
+		},
+		{
+			name:               "zero_precision_with_truncation",
+			sendingPrecision:   0,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "1.15567", tokenDecimals),
+			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "1", tokenDecimals),
+		},
+		{
+			name:             "zero_precision_low_amount",
+			sendingPrecision: 0,
+			maxHoldingAmount: highMaxHoldingAmount,
+			sendingAmount:    convertStringWithDecimalsToSDKInt(t, "0.9999", tokenDecimals),
+			wantIsAmountSentIsZeroAfterTruncatingError: true,
+		},
+		{
+			name:               "negative_precision_no_truncation",
+			sendingPrecision:   -2,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "9999999900", tokenDecimals),
+			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "9999999900", tokenDecimals),
+		},
+		{
+			name:               "negative_precision_with_truncation",
+			sendingPrecision:   -2,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "9999.15567", tokenDecimals),
+			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "9900", tokenDecimals),
+		},
+		{
+			name:             "negative_precision_low_amount",
+			sendingPrecision: -2,
+			maxHoldingAmount: highMaxHoldingAmount,
+			sendingAmount:    convertStringWithDecimalsToSDKInt(t, "99.9999", tokenDecimals),
+			wantIsAmountSentIsZeroAfterTruncatingError: true,
+		},
+		{
+			name:                                   "reached_max_holding_amount",
+			sendingPrecision:                       2,
+			maxHoldingAmount:                       convertStringWithDecimalsToSDKInt(t, "9999", tokenDecimals),
+			sendingAmount:                          convertStringWithDecimalsToSDKInt(t, "9999.01", tokenDecimals),
+			wantIsMaximumBridgedAmountReachedError: true,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// fund owner to cover registration fee twice
+			chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
+				Amount: issueFee.Amount,
+			})
+
+			issuerAcc := xrpl.GenPrivKeyTxSigner().Account()
+			issuer := issuerAcc.String()
+			currency := "CRC"
+
+			// register from the owner
+			txRes, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, tt.sendingPrecision, tt.maxHoldingAmount)
+			require.NoError(t, err)
+			issuedDenom := findIssuedDenomInTxResponse(t, txRes)
+
+			// create an evidence
+			xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+				TxHash:    genXRPLTxHash(t),
+				Issuer:    issuerAcc.String(),
+				Currency:  currency,
+				Amount:    tt.sendingAmount,
+				Recipient: coreumRecipient,
+			}
+
+			// call from all relayers
+			for _, relayer := range relayers {
+				_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer.CoreumAddress, xrplToCoreumTransferEvidence)
+				if tt.wantIsAmountSentIsZeroAfterTruncatingError {
+					require.True(t, coreum.IsAmountSentIsZeroAfterTruncatingError(err), err)
+					return
+				}
+				if tt.wantIsMaximumBridgedAmountReachedError {
+					require.True(t, coreum.IsMaximumBridgedAmountReachedError(err), err)
+					return
+				}
+				require.NoError(t, err)
+			}
+
+			balanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+				Address: coreumRecipient.String(),
+				Denom:   issuedDenom,
+			})
+			require.NoError(t, err)
+			require.Equal(t, tt.wantReceivedAmount.String(), balanceRes.Balance.Amount.String())
+		})
+	}
 }
 
 func TestRecoverTickets(t *testing.T) {
@@ -712,4 +879,40 @@ func TestRecoverTickets(t *testing.T) {
 	availableTickets, err = contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
 	require.Equal(t, acceptedTxEvidence.Tickets, availableTickets)
+}
+
+func convertStringWithDecimalsToSDKInt(t *testing.T, stringValue string, tokenDecimals int64) sdkmath.Int {
+	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(tokenDecimals), nil)
+	valueRat, ok := big.NewRat(0, 1).SetString(stringValue)
+	require.True(t, ok)
+	valueRat = big.NewRat(0, 1).Mul(valueRat, big.NewRat(0, 1).SetFrac(tenPowerDec, big.NewInt(1)))
+	valueBigInt := big.NewInt(0).Quo(valueRat.Num(), valueRat.Denom())
+
+	return sdkmath.NewIntFromBigInt(valueBigInt)
+}
+
+func findIssuedDenomInTxResponse(t *testing.T, txRes *sdk.TxResponse) string {
+	t.Helper()
+
+	eventIssuedName := proto.MessageName(&assetfttypes.EventIssued{})
+	for i := range txRes.Events {
+		if txRes.Events[i].Type != eventIssuedName {
+			continue
+		}
+		eventsTokenIssued, err := event.FindTypedEvents[*assetfttypes.EventIssued](txRes.Events)
+		require.NoError(t, err)
+		return eventsTokenIssued[0].Denom
+	}
+	require.Failf(t, "event: %s not found in the issue response", eventIssuedName)
+	return ""
+}
+
+func genXRPLTxHash(t *testing.T) string {
+	t.Helper()
+
+	hash := rippledata.Hash256{}
+	_, err := rand.Read(hash[:])
+	require.NoError(t, err)
+
+	return hash.String()
 }

@@ -60,17 +60,19 @@ const (
 )
 
 const (
-	notOwnerErrorString                      = "Caller is not the contract's current owner"
-	coreumTokenAlreadyRegisteredErrorString  = "CoreumTokenAlreadyRegistered"
-	xrplTokenAlreadyRegisteredErrorString    = "XRPLTokenAlreadyRegistered"
-	unauthorizedSenderErrorString            = "UnauthorizedSender"
-	operationAlreadyExecutedErrorString      = "OperationAlreadyExecuted"
-	tokenNotRegisteredErrorString            = "TokenNotRegistered"
-	evidenceAlreadyProvidedErrorString       = "EvidenceAlreadyProvided"
-	pendingTicketUpdateErrorString           = "PendingTicketUpdate"
-	invalidTicketNumberToAllocateErrorString = "InvalidTicketNumberToAllocate"
-	signatureAlreadyProvidedErrorString      = "SignatureAlreadyProvided"
-	pendingOperationNotFoundErrorString      = "PendingOperationNotFound"
+	notOwnerErrorString                        = "Caller is not the contract's current owner"
+	coreumTokenAlreadyRegisteredErrorString    = "CoreumTokenAlreadyRegistered"
+	xrplTokenAlreadyRegisteredErrorString      = "XRPLTokenAlreadyRegistered"
+	unauthorizedSenderErrorString              = "UnauthorizedSender"
+	operationAlreadyExecutedErrorString        = "OperationAlreadyExecuted"
+	tokenNotRegisteredErrorString              = "TokenNotRegistered"
+	evidenceAlreadyProvidedErrorString         = "EvidenceAlreadyProvided"
+	pendingTicketUpdateErrorString             = "PendingTicketUpdate"
+	invalidTicketNumberToAllocateErrorString   = "InvalidTicketNumberToAllocate"
+	signatureAlreadyProvidedErrorString        = "SignatureAlreadyProvided"
+	pendingOperationNotFoundErrorString        = "PendingOperationNotFound"
+	amountSentIsZeroAfterTruncatingErrorString = "AmountSentIsZeroAfterTruncating"
+	maximumBridgedAmountReachedErrorString     = "MaximumBridgedAmountReached"
 )
 
 // Relayer is the relayer information in the contract config.
@@ -198,7 +200,7 @@ type registerCoreumTokenRequest struct {
 type registerXRPLTokenRequest struct {
 	Issuer           string `json:"issuer"`
 	Currency         string `json:"currency"`
-	SendingPrecision uint32 `json:"sending_precision"`
+	SendingPrecision int32  `json:"sending_precision"`
 	MaxHoldingAmount string `json:"max_holding_amount"`
 }
 
@@ -443,7 +445,7 @@ func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.Acc
 }
 
 // RegisterXRPLToken executes `register_xrpl_token` method.
-func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAddress, issuer, currency string, sendingPrecision uint32, maxHoldingAmount string) (*sdk.TxResponse, error) {
+func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAddress, issuer, currency string, sendingPrecision int32, maxHoldingAmount sdkmath.Int) (*sdk.TxResponse, error) {
 	fee, err := c.queryAssetFTIssueFee(ctx)
 	if err != nil {
 		return nil, err
@@ -455,7 +457,7 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 				Issuer:           issuer,
 				Currency:         currency,
 				SendingPrecision: sendingPrecision,
-				MaxHoldingAmount: maxHoldingAmount,
+				MaxHoldingAmount: maxHoldingAmount.String(),
 			},
 		},
 		Funds: sdk.NewCoins(fee),
@@ -790,14 +792,24 @@ func IsInvalidTicketNumberToAllocateError(err error) bool {
 	return isError(err, invalidTicketNumberToAllocateErrorString)
 }
 
-// IsSignatureAlreadyProvidedError returns true if error is `IsSignatureAlreadyProvided` error.
+// IsSignatureAlreadyProvidedError returns true if error is `SignatureAlreadyProvided` error.
 func IsSignatureAlreadyProvidedError(err error) bool {
 	return isError(err, signatureAlreadyProvidedErrorString)
 }
 
-// IsPendingOperationNotFoundError returns true if error is `IsPendingOperationNotFound` error.
+// IsPendingOperationNotFoundError returns true if error is `PendingOperationNotFound` error.
 func IsPendingOperationNotFoundError(err error) bool {
 	return isError(err, pendingOperationNotFoundErrorString)
+}
+
+// IsAmountSentIsZeroAfterTruncatingError returns true if error is `AmountSentIsZeroAfterTruncating` error.
+func IsAmountSentIsZeroAfterTruncatingError(err error) bool {
+	return isError(err, amountSentIsZeroAfterTruncatingErrorString)
+}
+
+// IsMaximumBridgedAmountReachedError returns true if error is `MaximumBridgedAmountReached` error.
+func IsMaximumBridgedAmountReachedError(err error) bool {
+	return isError(err, maximumBridgedAmountReachedErrorString)
 }
 
 func isError(err error, errorString string) bool {
