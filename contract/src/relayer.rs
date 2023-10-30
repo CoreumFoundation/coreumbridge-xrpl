@@ -26,7 +26,7 @@ pub fn validate_relayers(
         deps.api.addr_validate(relayer.coreum_address.as_ref())?;
         validate_xrpl_address(relayer.xrpl_address.clone())?;
 
-        //Store all values in maps so we can easily verify if there are duplicates.
+        // Store all values in maps so we can easily verify if there are duplicates.
         map_xrpl_addresses.insert(relayer.xrpl_address, Empty {});
         map_xrpl_pubkeys.insert(relayer.xrpl_pub_key, Empty {});
         map_coreum_addresses.insert(relayer.coreum_address, Empty {});
@@ -48,7 +48,7 @@ pub fn validate_relayers(
 }
 
 pub fn validate_xrpl_address(address: String) -> Result<(), ContractError> {
-    //We validate that the length of the issuer is between 24 and 34 characters and starts with 'r'
+    // We validate that the length of the issuer is between 24 and 34 characters and starts with 'r'
     if !(address.len() >= 24 && address.len() <= 34 && address.starts_with('r')) {
         return Err(ContractError::InvalidXRPLAddress { address });
     }

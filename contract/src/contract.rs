@@ -78,17 +78,17 @@ pub fn instantiate(
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
 
-    //Threshold can't be more than number of relayers
+    // Threshold can't be more than number of relayers
     if msg.evidence_threshold > msg.relayers.len().try_into().unwrap() {
         return Err(ContractError::InvalidThreshold {});
     }
 
-    //We need to allow at least 2 tickets and less than 250 (XRPL limit) to be used
+    // We need to allow at least 2 tickets and less than 250 (XRPL limit) to be used
     if msg.used_tickets_threshold <= 1 || msg.used_tickets_threshold > MAX_TICKETS {
         return Err(ContractError::InvalidUsedTicketsThreshold {});
     }
 
-    //We initialize these values here so that we can immediately start working with them
+    // We initialize these values here so that we can immediately start working with them
     USED_TICKETS_COUNTER.save(deps.storage, &0)?;
     PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
     AVAILABLE_TICKETS.save(deps.storage, &VecDeque::new())?;
@@ -115,15 +115,15 @@ pub fn instantiate(
 
     let xrp_in_coreum = format!("{}-{}", XRP_SUBUNIT, env.contract.address).to_lowercase();
 
-    //We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
-    //a token we can inform the relayers of what is being sent back.
+    // We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
+    // a token we can inform the relayers of what is being sent back.
     let token = XRPLToken {
         issuer: XRP_ISSUER.to_string(),
         currency: XRP_CURRENCY.to_string(),
         coreum_denom: xrp_in_coreum,
         sending_precision: XRP_DEFAULT_SENDING_PRECISION,
         max_holding_amount: Uint128::new(XRP_DEFAULT_MAX_HOLDING_AMOUNT),
-        //The XRP active token will be active from the start because it doesn't need approval to be received by the multisig
+        // The XRP active token will be active from the start because it doesn't need approval to be received by the multisig
         active: true,
     };
 
@@ -216,7 +216,7 @@ fn register_coreum_token(
         .to_string()
         .to_lowercase();
 
-    //format will be the hex representation in XRPL of the string coreum<hash>
+    // Format will be the hex representation in XRPL of the string coreum<hash>
     let xrpl_currency =
         convert_currency_to_xrpl_hexadecimal(format!("{}{}", COREUM_CURRENCY_PREFIX, hex_string));
 
@@ -309,7 +309,7 @@ fn register_xrpl_token(
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
-    //Create the pending operation to approve the token
+    // Create the pending operation to approve the token
     let config = CONFIG.load(deps.storage)?;
     let ticket = allocate_ticket(deps.storage)?;
     check_and_save_pending_operation(
@@ -352,7 +352,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             amount,
             recipient,
         } => {
-            //Create issuer+currency key to find denom on coreum.
+            // Create issuer+currency key to find denom on coreum.
             let key = build_xrpl_token_key(issuer.clone(), currency.clone());
 
             let token = XRPL_TOKENS
@@ -473,13 +473,13 @@ fn recover_tickets(
     let used_tickets = USED_TICKETS_COUNTER.load(deps.storage)?;
 
     PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
-    //If we don't provide a number of tickets to recover we will recover the ones that we already used.
+    // If we don't provide a number of tickets to recover we will recover the ones that we already used.
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
     let config = CONFIG.load(deps.storage)?;
-    //we check that number_to_allocate > config.used_tickets_threshold in order to cover the
-    //reallocation with just one XRPL transaction, otherwise the relocation might cause the
-    //additional reallocation.
+    // We check that number_to_allocate > config.used_tickets_threshold in order to cover the
+    // reallocation with just one XRPL transaction, otherwise the relocation might cause the
+    // additional reallocation.
     if number_to_allocate <= config.used_tickets_threshold || number_to_allocate > MAX_TICKETS {
         return Err(ContractError::InvalidTicketNumberToAllocate {});
     }
@@ -616,7 +616,7 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
     Ok(())
 }
 
-//TODO: In the future we might have a way to do this in one instruction.
+// TODO(keyleu): In the future we might have a way to do this in one instruction.
 fn add_mint_and_send(
     response: Response<CoreumMsg>,
     amount: Uint128,
@@ -636,7 +636,7 @@ fn add_mint_and_send(
 }
 
 pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
-    //issuer+currency is the key we use to find an XRPL
+    // Issuer+currency is the key we use to find an XRPL
     let mut key = issuer;
     key.push_str(currency.as_str());
     key
@@ -648,7 +648,7 @@ pub fn validate_xrpl_issuer_and_currency(
 ) -> Result<(), ContractError> {
     validate_xrpl_address(issuer).map_err(|_| ContractError::InvalidXRPLIssuer {})?;
 
-    //We check that currency is either a standard 3 character currency or it's a 40 character hex string currency
+    // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency
     if !(currency.len() == 3 && currency.is_ascii()
         || currency.len() == 40 && currency.chars().all(|c| c.is_ascii_hexdigit()))
     {
@@ -682,6 +682,6 @@ fn is_token_xrp(issuer: String, currency: String) -> bool {
 }
 
 fn convert_currency_to_xrpl_hexadecimal(currency: String) -> String {
-    //Fill with zeros to get the correct hex representation in XRPL of our currency.
+    // Fill with zeros to get the correct hex representation in XRPL of our currency.
     format!("{:0<40}", hex::encode(currency))
 }

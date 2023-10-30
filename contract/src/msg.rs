@@ -9,13 +9,13 @@ use crate::{evidence::Evidence, operation::Operation, relayer::Relayer};
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: Addr,
-    //Addresses allowed to relay messages
+    // Addresses allowed to relay messages
     pub relayers: Vec<Relayer>,
-    //How many relayers need to provide evidence for a message
+    // How many relayers need to provide evidence for a message
     pub evidence_threshold: u32,
-    //Amount of tickets that  we can use before triggering a ticket allocation action
+    // Amount of tickets that  we can use before triggering a ticket allocation action
     pub used_tickets_threshold: u32,
-    //Trust set limit amount that will be used when registering XRPL tokens
+    // Trust set limit amount that will be used when registering XRPL tokens
     pub trust_set_limit_amount: Uint128,
 }
 

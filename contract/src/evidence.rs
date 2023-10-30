@@ -17,7 +17,7 @@ pub enum Evidence {
         amount: Uint128,
         recipient: Addr,
     },
-    //This type will be used for ANY transaction that comes from XRPL and that is notifying a confirmation or rejection.
+    // This type will be used for ANY transaction that comes from XRPL and that is notifying a confirmation or rejection.
     #[serde(rename = "xrpl_transaction_result")]
     XRPLTransactionResult {
         tx_hash: Option<String>,
@@ -35,7 +35,7 @@ pub enum TransactionResult {
     Invalid,
 }
 
-//For convenience in the responses.
+// For convenience in the responses.
 impl TransactionResult {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -57,7 +57,7 @@ pub enum OperationResult {
     },
 }
 
-//For convenience in the responses.
+// For convenience in the responses.
 impl OperationResult {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -68,7 +68,7 @@ impl OperationResult {
 }
 
 impl Evidence {
-    //We hash the entire Evidence struct to avoid having to deal with different types of hashes
+    // We hash the entire Evidence struct to avoid having to deal with different types of hashes
     pub fn get_hash(&self) -> String {
         let to_hash_bytes = serde_json::to_string(self).unwrap().into_bytes();
         hash_bytes(to_hash_bytes)
@@ -89,7 +89,7 @@ impl Evidence {
             } => transaction_result.clone() != TransactionResult::Invalid,
         }
     }
-    //Function for basic validation of evidences in case relayers send something that is not valid
+    // Function for basic validation of evidences in case relayers send something that is not valid
     pub fn validate(&self) -> Result<(), ContractError> {
         match self {
             Evidence::XRPLToCoreumTransfer { amount, .. } => {
@@ -208,7 +208,7 @@ pub fn handle_evidence(
         if operation_valid {
             PROCESSED_TXS.save(storage, evidence.get_tx_hash(), &Empty {})?;
         }
-        // if there is just one relayer there is nothing to delete
+        // If there is just one relayer there is nothing to delete
         if evidences.relayers.len() != 1 {
             TX_EVIDENCES.remove(storage, evidence.get_hash());
         }

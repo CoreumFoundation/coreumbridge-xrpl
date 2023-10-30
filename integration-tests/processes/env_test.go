@@ -55,12 +55,13 @@ func DefaultRunnerEnvConfig() RunnerEnvConfig {
 type RunnerEnv struct {
 	Cfg               RunnerEnvConfig
 	XRPLBridgeAccount rippledata.Account
-	RelayerAddresses  []sdk.AccAddress
-	ContractClient    *coreum.ContractClient
-	ContractOwner     sdk.AccAddress
-	Runners           []*runner.Runner
-	ProcessErrorsMu   sync.RWMutex
-	ProcessErrors     []error
+	// TODO(dzmitryhil) replace with the relayer logic
+	RelayerAddresses []sdk.AccAddress
+	ContractClient   *coreum.ContractClient
+	ContractOwner    sdk.AccAddress
+	Runners          []*runner.Runner
+	ProcessErrorsMu  sync.RWMutex
+	ProcessErrors    []error
 }
 
 // NewRunnerEnv returns new instance of the RunnerEnv.

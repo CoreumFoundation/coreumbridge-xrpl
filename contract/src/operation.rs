@@ -34,7 +34,7 @@ pub fn check_operation_exists(
     sequence_number: Option<u64>,
     ticket_number: Option<u64>,
 ) -> Result<u64, ContractError> {
-    //Get the sequence or ticket number (priority for sequence number)
+    // Get the sequence or ticket number (priority for sequence number)
     let operation_id = sequence_number.unwrap_or(ticket_number.unwrap_or_default());
 
     if !PENDING_OPERATIONS.has(storage, operation_id) {

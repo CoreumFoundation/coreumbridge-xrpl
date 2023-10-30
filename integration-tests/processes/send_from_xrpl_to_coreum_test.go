@@ -4,6 +4,8 @@
 package processes_test
 
 import (
+	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"math/big"
 	"strings"
@@ -93,54 +95,14 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	require.NoError(t, err)
 
 	// activate the token
-	pendingOperations, err := runnerEnv.ContractClient.GetPendingOperations(ctx)
-	require.NoError(t, err)
-	require.Len(t, pendingOperations, 1)
-	ticketAllocated := pendingOperations[0].TicketNumber
-
-	acceptedTxHashTrustSet := "D5F78F452DFFBE239EFF668E4B34B1AF66CD2F4D5C5D9E54A5AF34121B5862C6"
-	acceptedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
-		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            acceptedTxHashTrustSet,
-			TicketNumber:      &ticketAllocated,
-			TransactionResult: coreum.TransactionResultAccepted,
-		},
-		Issuer:   xrplCurrencyIssuerAcc.String(),
-		Currency: xrpl.ConvertCurrencyToString(xrplRegisteredCurrency),
-	}
-
-	// send evidences from relayers
-	for i := 0; i < runnerEnv.Cfg.SigningThreshold; i++ {
-		_, err = runnerEnv.ContractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, runnerEnv.RelayerAddresses[i], acceptedTxEvidenceTrustSet)
-		require.NoError(t, err)
-	}
+	activateToken(ctx, t, runnerEnv, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredCurrency))
 
 	// register XRPL native token with 20 chars
 	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredHexCurrency), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
 	// activate the token
-	pendingOperations, err = runnerEnv.ContractClient.GetPendingOperations(ctx)
-	require.NoError(t, err)
-	require.Len(t, pendingOperations, 1)
-	ticketAllocated = pendingOperations[0].TicketNumber
-
-	acceptedTxHashTrustSet = "D5F78F452DFFBE239EFF668E4B34B1AF66CD2F4D5C5D9E54A5AF34121B5862C7"
-	acceptedTxEvidenceTrustSet = coreum.XRPLTransactionResultTrustSetEvidence{
-		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            acceptedTxHashTrustSet,
-			TicketNumber:      &ticketAllocated,
-			TransactionResult: coreum.TransactionResultAccepted,
-		},
-		Issuer:   xrplCurrencyIssuerAcc.String(),
-		Currency: xrpl.ConvertCurrencyToString(xrplRegisteredHexCurrency),
-	}
-
-	// send evidences from relayers
-	for i := 0; i < runnerEnv.Cfg.SigningThreshold; i++ {
-		_, err = runnerEnv.ContractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, runnerEnv.RelayerAddresses[i], acceptedTxEvidenceTrustSet)
-		require.NoError(t, err)
-	}
+	activateToken(ctx, t, runnerEnv, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredHexCurrency))
 
 	registeredXRPLTokens, err := runnerEnv.ContractClient.GetXRPLTokens(ctx)
 	require.NoError(t, err)
@@ -225,4 +187,39 @@ func convertStringToSDKInt(t *testing.T, invVal string) sdkmath.Int {
 	expectedBigIntAmount, ok := big.NewInt(0).SetString(invVal, 0)
 	require.True(t, ok)
 	return sdkmath.NewIntFromBigInt(expectedBigIntAmount)
+}
+
+func activateToken(ctx context.Context, t *testing.T, runnerEnv *RunnerEnv, issuer string, currency string) {
+	t.Helper()
+
+	pendingOperations, err := runnerEnv.ContractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+	ticketAllocated := pendingOperations[0].TicketNumber
+
+	acceptedTxHashTrustSet, err := randomTxHash(40)
+	require.NoError(t, err)
+	acceptedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            acceptedTxHashTrustSet,
+			TicketNumber:      &ticketAllocated,
+			TransactionResult: coreum.TransactionResultAccepted,
+		},
+		Issuer:   issuer,
+		Currency: currency,
+	}
+
+	// send evidences from relayers
+	for i := 0; i < runnerEnv.Cfg.SigningThreshold; i++ {
+		_, err = runnerEnv.ContractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, runnerEnv.RelayerAddresses[i], acceptedTxEvidenceTrustSet)
+		require.NoError(t, err)
+	}
+}
+
+func randomTxHash(n int) (string, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }

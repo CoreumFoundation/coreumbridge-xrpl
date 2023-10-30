@@ -73,7 +73,7 @@ pub enum ContractError {
     #[error("InvalidUsedTicketsThreshold: Used tickets threshold must be more than 1 and less or equal than {}", MAX_TICKETS)]
     InvalidUsedTicketsThreshold {},
 
-    #[error("NoAvailableTickets: There are no tickets available")]
+    #[error("NoAvailableTickets: There are no available tickets")]
     NoAvailableTickets {},
 
     #[error("LastTicketReserved: Last available ticket is reserved for updating tickets")]
@@ -124,7 +124,7 @@ pub enum ContractError {
     #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
     InvalidXRPLCurrency {},
 
-    #[error("XRPLTokenNotActive: This token must be activated before bridging")]
+    #[error("XRPLTokenNotActive: This token must be active to be bridged")]
     XRPLTokenNotActive {},
 
     #[error("AmountSentIsZeroAfterTruncating: Amount sent is zero after truncating to sending precision")]
