@@ -32,6 +32,7 @@ const (
 	xrpCurrency   = "XRP"
 
 	eventAttributeThresholdReached = "threshold_reached"
+	trustSetLimitAmount            = "10000000000000000"
 )
 
 func TestDeployAndInstantiateContract(t *testing.T) {
@@ -50,7 +51,6 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 	}
 
 	usedTicketsThreshold := 10
-	trustSetLimitAmount := "10000000000000000"
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), usedTicketsThreshold, trustSetLimitAmount)
 
 	contractCfg, err := contractClient.GetContractConfig(ctx)
@@ -121,7 +121,6 @@ func TestChangeContractOwnership(t *testing.T) {
 	}
 
 	usedTicketsThreshold := 10
-	trustSetLimitAmount := "10000000000000000"
 
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), usedTicketsThreshold, trustSetLimitAmount)
 
@@ -170,7 +169,6 @@ func TestRegisterCoreumToken(t *testing.T) {
 		},
 	}
 	usedTicketsThreshold := 10
-	trustSetLimitAmount := "10000000000000000"
 
 	notOwner := chains.Coreum.GenAccount()
 	chains.Coreum.FundAccountWithOptions(ctx, t, notOwner, coreumintegration.BalancesOptions{
@@ -261,7 +259,6 @@ func TestRegisterXRPLToken(t *testing.T) {
 		},
 	}
 	usedTicketsThreshold := 3
-	trustSetLimitAmount := "10000000000000000"
 
 	notOwner := chains.Coreum.GenAccount()
 
@@ -406,7 +403,6 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	})
 
 	usedTicketsThreshold := 3
-	trustSetLimitAmount := "10000000000000000"
 
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), usedTicketsThreshold, trustSetLimitAmount)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
@@ -563,7 +559,6 @@ func TestRecoverTickets(t *testing.T) {
 
 	// TODO(dzmitryhil) extend the test to check multiple operations once we have them allowed to be created
 	usedTicketsThreshold := 5
-	trustSetLimitAmount := "10000000000000000"
 	numberOfTicketsToInit := uint32(6)
 
 	ctx, chains := integrationtests.NewTestingContext(t)

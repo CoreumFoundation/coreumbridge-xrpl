@@ -113,12 +113,12 @@ impl Evidence {
 
                 // Valid transactions must have a tx_hash
                 if transaction_result.ne(&TransactionResult::Invalid) && tx_hash.is_none() {
-                    return Err(ContractError::InvalidValidTransactionResultEvidence {});
+                    return Err(ContractError::InvalidSuccessfulTransactionResultEvidence {});
                 }
 
                 // Invalid transactions can't have a tx_hash
                 if transaction_result.eq(&TransactionResult::Invalid) && tx_hash.is_some() {
-                    return Err(ContractError::InvalidNotValidTransactionResultEvidence {});
+                    return Err(ContractError::InvalidFailedTransactionResultEvidence {});
                 }
 
                 match operation_result {

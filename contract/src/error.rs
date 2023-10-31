@@ -28,14 +28,14 @@ pub enum ContractError {
     #[error("InvalidXRPLAddress: XRPL address {} is not valid, must start with r and have a length between 24 and 34", address)]
     InvalidXRPLAddress { address: String },
 
-    #[error("RepeatedRelayerXRPLAddress: All relayers must have different XRPL addresses")]
-    RepeatedRelayerXRPLAddress {},
+    #[error("DuplicatedRelayerXRPLAddress: All relayers must have different XRPL addresses")]
+    DuplicatedRelayerXRPLAddress {},
 
-    #[error("RepeatedRelayerXRPLPubKey: All relayers must have different XRPL public keys")]
-    RepeatedRelayerXRPLPubKey {},
+    #[error("DuplicatedRelayerXRPLPubKey: All relayers must have different XRPL public keys")]
+    DuplicatedRelayerXRPLPubKey {},
 
-    #[error("RepeatedRelayerCoreumAddress: All relayers must have different coreum addresses")]
-    RepeatedRelayerCoreumAddress {},
+    #[error("DuplicatedRelayerCoreumAddress: All relayers must have different coreum addresses")]
+    DuplicatedRelayerCoreumAddress {},
 
     #[error("CoreumTokenAlreadyRegistered: Token {} already registered", denom)]
     CoreumTokenAlreadyRegistered { denom: String },
@@ -90,13 +90,13 @@ pub enum ContractError {
     #[error("InvalidTransactionResultEvidence: An evidence must contain only one of sequence numer or ticket number")]
     InvalidTransactionResultEvidence {},
 
-    #[error("InvalidValidTransactionResultEvidence: An evidence with a valid transaction must contain a transaction hash")]
-    InvalidValidTransactionResultEvidence {},
+    #[error("InvalidSuccessfulTransactionResultEvidence: An evidence with a successful transaction must contain a transaction hash")]
+    InvalidSuccessfulTransactionResultEvidence {},
 
-    #[error("InvalidNotValidTransactionResultEvidence: An evidence with an invalid transaction can't have a transaction hash")]
-    InvalidNotValidTransactionResultEvidence {},
+    #[error("InvalidFailedTransactionResultEvidence: An evidence with an failed transaction can't have a transaction hash")]
+    InvalidFailedTransactionResultEvidence {},
 
-    #[error("InvalidTicketAllocationEvidence: There must be an issuer and currency if operation is accepted and there can't be if operation is rejected or invalid")]
+    #[error("InvalidTrustSetEvidence: There must be an issuer and currency if operation is accepted and there can't be if operation is rejected or invalid")]
     InvalidTrustSetEvidence {},
 
     #[error("InvalidTicketAllocationEvidence: There must be tickets if operation is accepted and there can't be tickets if operation is rejected or invalid")]

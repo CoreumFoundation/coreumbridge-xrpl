@@ -33,15 +33,15 @@ pub fn validate_relayers(
     }
 
     if map_xrpl_addresses.len() != number_of_relayers {
-        return Err(ContractError::RepeatedRelayerXRPLAddress {});
+        return Err(ContractError::DuplicatedRelayerXRPLAddress {});
     }
 
     if map_xrpl_pubkeys.len() != number_of_relayers {
-        return Err(ContractError::RepeatedRelayerXRPLPubKey {});
+        return Err(ContractError::DuplicatedRelayerXRPLPubKey {});
     }
 
     if map_coreum_addresses.len() != number_of_relayers {
-        return Err(ContractError::RepeatedRelayerCoreumAddress {});
+        return Err(ContractError::DuplicatedRelayerCoreumAddress {});
     }
 
     Ok(())
@@ -49,18 +49,18 @@ pub fn validate_relayers(
 
 pub fn validate_xrpl_address(address: String) -> Result<(), ContractError> {
     // We validate that the length of the issuer is between 24 and 34 characters and starts with 'r'
-    if !(address.len() >= 24 && address.len() <= 34 && address.starts_with('r')) {
-        return Err(ContractError::InvalidXRPLAddress { address });
+    if address.len() >= 24 && address.len() <= 34 && address.starts_with('r') {
+        return Ok(());
     }
-    Ok(())
+    Err(ContractError::InvalidXRPLAddress { address })
 }
 
 pub fn assert_relayer(deps: Deps, sender: Addr) -> Result<(), ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    if !config.relayers.iter().any(|r| r.coreum_address == sender) {
-        return Err(ContractError::UnauthorizedSender {});
+    if config.relayers.iter().any(|r| r.coreum_address == sender) {
+        return Ok(());
     }
 
-    Ok(())
+    Err(ContractError::UnauthorizedSender {})
 }

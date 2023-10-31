@@ -30,7 +30,7 @@ mod tests {
     const XRPL_DENOM_PREFIX: &str = "xrpl";
     const XRP_CURRENCY: &str = "XRP";
     const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
-    const TRUST_SET_LIMIT_AMOUNT: u128 = 1000000000000000000;
+    const TRUST_SET_LIMIT_AMOUNT: u128 = 1000000000000000000; // 1e18
     const XRP_DECIMALS: u32 = 6;
     const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
     const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 =
@@ -209,7 +209,7 @@ mod tests {
             .unwrap_err();
 
         assert!(error.to_string().contains(
-            ContractError::RepeatedRelayerXRPLAddress {}
+            ContractError::DuplicatedRelayerXRPLAddress {}
                 .to_string()
                 .as_str()
         ));
@@ -233,7 +233,7 @@ mod tests {
             .unwrap_err();
 
         assert!(error.to_string().contains(
-            ContractError::RepeatedRelayerXRPLPubKey {}
+            ContractError::DuplicatedRelayerXRPLPubKey {}
                 .to_string()
                 .as_str()
         ));
@@ -257,7 +257,7 @@ mod tests {
             .unwrap_err();
 
         assert!(error.to_string().contains(
-            ContractError::RepeatedRelayerCoreumAddress {}
+            ContractError::DuplicatedRelayerCoreumAddress {}
                 .to_string()
                 .as_str()
         ));
@@ -801,7 +801,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RecoverTickets {
-                sequence_number: 0,
+                sequence_number: 1,
                 number_of_tickets: Some(3),
             },
             &vec![],
@@ -814,7 +814,7 @@ mod tests {
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: Some(generate_hash()),
-                    sequence_number: Some(0),
+                    sequence_number: Some(1),
                     ticket_number: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
@@ -999,7 +999,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RecoverTickets {
-                sequence_number: 0,
+                sequence_number: 1,
                 number_of_tickets: Some(3),
             },
             &vec![],
@@ -1012,7 +1012,7 @@ mod tests {
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: Some(generate_hash()),
-                    sequence_number: Some(0),
+                    sequence_number: Some(1),
                     ticket_number: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
@@ -1152,7 +1152,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RecoverTickets {
-                sequence_number: 0,
+                sequence_number: 1,
                 number_of_tickets: Some(3),
             },
             &vec![],
@@ -1166,7 +1166,7 @@ mod tests {
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: Some(hash2.clone()),
-                    sequence_number: Some(0),
+                    sequence_number: Some(1),
                     ticket_number: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
@@ -1184,7 +1184,7 @@ mod tests {
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: Some(hash2),
-                    sequence_number: Some(0),
+                    sequence_number: Some(1),
                     ticket_number: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
@@ -1524,7 +1524,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RecoverTickets {
-                sequence_number: 0,
+                sequence_number: 1,
                 number_of_tickets: Some(8),
             },
             &vec![],
@@ -1537,7 +1537,7 @@ mod tests {
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: Some(generate_hash()),
-                    sequence_number: Some(0),
+                    sequence_number: Some(1),
                     ticket_number: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
@@ -2742,6 +2742,125 @@ mod tests {
         let sequence_number = 1;
         let tickets = vec![1, 2, 3, 4, 5];
 
+        let invalid_evidences_input = vec![
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: None,
+                ticket_number: None,
+                transaction_result: TransactionResult::Rejected,
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(tickets.clone()),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: Some(sequence_number),
+                ticket_number: Some(2),
+                transaction_result: TransactionResult::Rejected,
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(tickets.clone()),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: None,
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Rejected,
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(tickets.clone()),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Rejected,
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(tickets.clone()),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Invalid,
+                operation_result: OperationResult::TicketsAllocation { tickets: None },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: None,
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Invalid,
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(tickets),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: None,
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Invalid,
+                operation_result: OperationResult::TrustSet {
+                    issuer: Some("issuer".to_string()),
+                    currency: None,
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: None,
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Invalid,
+                operation_result: OperationResult::TrustSet {
+                    issuer: None,
+                    currency: Some("USD".to_string()),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Accepted,
+                operation_result: OperationResult::TrustSet {
+                    issuer: None,
+                    currency: Some("USD".to_string()),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Accepted,
+                operation_result: OperationResult::TrustSet {
+                    issuer: Some("issuer".to_string()),
+                    currency: None,
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Accepted,
+                operation_result: OperationResult::TrustSet {
+                    issuer: Some("".to_string()),
+                    currency: Some("USD".to_string()),
+                },
+            },
+        ];
+
+        let expected_errors = vec![
+            ContractError::InvalidTransactionResultEvidence {},
+            ContractError::InvalidTransactionResultEvidence {},
+            ContractError::InvalidSuccessfulTransactionResultEvidence {},
+            ContractError::InvalidTicketAllocationEvidence {},
+            ContractError::InvalidFailedTransactionResultEvidence {},
+            ContractError::InvalidTicketAllocationEvidence {},
+            ContractError::InvalidTrustSetEvidence {},
+            ContractError::InvalidTrustSetEvidence {},
+            ContractError::InvalidTrustSetEvidence {},
+            ContractError::InvalidTrustSetEvidence {},
+            ContractError::InvalidTrustSetEvidence {},
+        ];
+
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RecoverTickets {
@@ -2753,298 +2872,20 @@ mod tests {
         )
         .unwrap();
 
-        // Trying to save an evidence that has no sequence or ticket number should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: None,
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets.clone()),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
+        for (index, evidence) in invalid_evidences_input.iter().enumerate() {
+            let invalid_evidence = wasm
+                .execute::<ExecuteMsg>(
+                    &contract_addr,
+                    &ExecuteMsg::SaveEvidence { evidence: evidence.clone()},
+                    &[],
+                    &signer,
+                )
+                .unwrap_err();
 
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTransactionResultEvidence {}
+            assert!(invalid_evidence
                 .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence that has sequence and ticket number should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: Some(sequence_number),
-                        ticket_number: Some(2),
-                        transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets.clone()),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTransactionResultEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of a transaction that is valid but has no tx_hash should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: None,
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets.clone()),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidValidTransactionResultEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        //  **** Ticket allocation evidences ****
-
-        // Trying to save an evidence of a transaction that is valid but is rejected and has tickets, should fail
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets.clone()),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTicketAllocationEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of an invalid transaction but has a transaction hash should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Invalid,
-                        operation_result: OperationResult::TicketsAllocation { tickets: None },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidNotValidTransactionResultEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of an invalid transaction but has tickets should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: None,
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Invalid,
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTicketAllocationEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        //  **** Trust Set evidences ****
-
-        // Trying to save an evidence of an invalid transaction but has issuer should fail
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: None,
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Invalid,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: Some("issuer".to_string()),
-                            currency: None,
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTrustSetEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of an invalid transaction but has currency should fail
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: None,
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Invalid,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: None,
-                            currency: Some("USD".to_string()),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTrustSetEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of an accepted transaction but has no issuer should fail
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: None,
-                            currency: Some("USD".to_string()),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTrustSetEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of an accepted transaction but has no currency should fail
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: Some("issuer".to_string()),
-                            currency: None,
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTrustSetEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of an accepted transaction but has an empty issuer or currency should fail
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: Some("".to_string()),
-                            currency: Some("USD".to_string()),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTrustSetEvidence {}
-                .to_string()
-                .as_str()
-        ));
+                .contains(expected_errors[index].to_string().as_str()));
+        }
     }
 
     #[test]
