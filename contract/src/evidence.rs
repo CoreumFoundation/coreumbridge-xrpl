@@ -30,8 +30,11 @@ pub enum Evidence {
 
 #[cw_serde]
 pub enum TransactionResult {
+    // Transactions that were accepted in XRPL and have their corresponding Transaction Hash 
     Accepted,
+    // Transactions that were rejected in XRPL and have their corresponding Transaction Hash
     Rejected,
+    // These transactions have no transaction hash because they couldn't be processed in XRPL.
     Invalid,
 }
 
