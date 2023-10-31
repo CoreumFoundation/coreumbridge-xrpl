@@ -2876,7 +2876,9 @@ mod tests {
             let invalid_evidence = wasm
                 .execute::<ExecuteMsg>(
                     &contract_addr,
-                    &ExecuteMsg::SaveEvidence { evidence: evidence.clone()},
+                    &ExecuteMsg::SaveEvidence {
+                        evidence: evidence.clone(),
+                    },
                     &[],
                     &signer,
                 )
