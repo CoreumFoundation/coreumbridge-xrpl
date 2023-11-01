@@ -7,6 +7,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
@@ -190,6 +191,15 @@ func (s *XRPLTxSubmitter) getXRPLBridgeSignerAccountsWithWeights(ctx context.Con
 }
 
 func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation coreum.Operation, bridgeSigners BridgeSigners) error {
+	valid, err := s.preValidateOperation(ctx, operation)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		s.log.Info(ctx, "Operation is invalid", logger.AnyField("operation", operation))
+		return nil
+	}
+
 	tx, quorumIsReached, err := s.buildSubmittableTransaction(ctx, operation, bridgeSigners)
 	if err != nil {
 		return err
@@ -203,21 +213,20 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation c
 		return errors.Wrapf(err, "failed to submit transaction:%+v", tx)
 	}
 	if txRes.EngineResult.Success() {
-		s.log.Info(ctx, "Transaction successfully submitted", logger.StringField("txHash", tx.GetHash().String()))
+		s.log.Info(ctx, "Transaction has been successfully submitted", logger.StringField("txHash", tx.GetHash().String()))
 		return nil
 	}
 
 	switch txRes.EngineResult.String() {
-	case xrpl.TefNOTicketTxResult:
-		s.log.Info(ctx, "Transaction was already submitted", logger.StringField("txHash", tx.GetHash().String()))
+	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult, xrpl.TerPreSeqTxResult:
+		s.log.Debug(ctx, "Transaction has been already submitted", logger.StringField("txHash", tx.GetHash().String()))
 		return nil
-	case xrpl.TefPastSeqTxResult, xrpl.TerPreSeqTxResult:
-		s.log.Warn(ctx, "Used invalid sequence number", logger.Uint32Field("sequence", tx.GetBase().Sequence))
-		// TODO(dzmitryhil) cancel operation without the hash
+	case xrpl.TecInsufficientReserveTxResult:
+		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
+		s.log.Error(ctx, "Insufficient reserve to complete the operation", logger.StringField("txHash", tx.GetHash().String()))
 		return nil
 	default:
-		// TODO(dzmitryhil) handle the case when the key are rotated but the bridgeSigners are from the previous state
-		// TODO(dzmitryhil) handle case when there is not enough tokens on the contract for the reserve
+		// TODO(dzmitryhil) handle the case when the keys are rotated but the bridgeSigners are from the previous state
 		return errors.Errorf("failed to submit transaction, receveid unexpected result, result:%+v", txRes)
 	}
 }
@@ -229,6 +238,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 ) (MultiSignableTransaction, bool, error) {
 	txSigners := make([]rippledata.Signer, 0)
 	signedWeight := uint32(0)
+	signingThresholdIsReached := false
 	for _, signature := range operation.Signatures {
 		xrplAcc, ok := bridgeSigners.CoreumToXRPLAccount[signature.Relayer.String()]
 		if !ok {
@@ -286,9 +296,14 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		}
 		txSigners = append(txSigners, txSigner)
 		signedWeight += uint32(xrplAccWeight)
+		// the fewer signatures we use the less fee we pay
+		if signedWeight >= bridgeSigners.XRPLWeightsQuorum {
+			signingThresholdIsReached = true
+			break
+		}
 	}
 	// quorum is not reached
-	if signedWeight < bridgeSigners.XRPLWeightsQuorum {
+	if !signingThresholdIsReached {
 		return nil, false, nil
 	}
 	// build tx one more time to be sure that it is not affected
@@ -301,6 +316,52 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 	}
 
 	return tx, true, nil
+}
+
+// preValidateOperation checks if the operation is valid, and it makes sense to submit the corresponding transaction
+// or the operation should be canceled with the `invalid` state. For now the main purpose of the function is to filter
+// out the `AllocateTickets` operation with the invalid sequence.
+func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation coreum.Operation) (bool, error) {
+	// currently we validate only the allocate tickets operation with not zero sequence
+	if operation.OperationType.AllocateTickets == nil ||
+		operation.OperationType.AllocateTickets.Number == 0 ||
+		operation.SequenceNumber == 0 {
+		return true, nil
+	}
+
+	bridgeAccInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeAccount)
+	if err != nil {
+		return false, err
+	}
+	// sequence is valid
+	if *bridgeAccInfo.AccountData.Sequence == operation.SequenceNumber {
+		return true, nil
+	}
+	s.log.Info(
+		ctx,
+		"Invalid bridge account sequence",
+		logger.Uint32Field("expected", *bridgeAccInfo.AccountData.Sequence),
+		logger.Uint32Field("inOperation", operation.SequenceNumber),
+	)
+	evidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TransactionResult: coreum.TransactionResultInvalid,
+			SequenceNumber:    lo.ToPtr(operation.SequenceNumber),
+			// we intentionally don't set the ticket number since it is unexpected to have invalid
+			// tx with the ticket number
+		},
+	}
+	s.log.Info(ctx, "Sending invalid tx evidence")
+	_, err = s.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, s.cfg.RelayerAddress, evidence)
+	if err == nil {
+		return false, nil
+	}
+	if IsExpectedSendEvidenceError(err) {
+		s.log.Debug(ctx, "Received expected send evidence error")
+		return false, nil
+	}
+
+	return false, nil
 }
 
 func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation coreum.Operation) error {

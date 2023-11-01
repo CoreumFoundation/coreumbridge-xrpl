@@ -78,6 +78,63 @@ func TestTicketsAllocationRecoveryWithRejection(t *testing.T) {
 	require.Empty(t, availableTickets)
 }
 
+func TestTicketsAllocationRecoveryWithInvalidSequenceNumber(t *testing.T) {
+	t.Parallel()
+
+	numberOfTicketsToAllocate := uint32(250)
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	runnerEnv := NewRunnerEnv(ctx, t, DefaultRunnerEnvConfig(), chains)
+	availableTickets, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.Empty(t, availableTickets)
+
+	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.XRPLBridgeAccount, numberOfTicketsToAllocate)
+
+	xrplBridgeAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.XRPLBridgeAccount)
+	require.NoError(t, err)
+
+	// make the sequence number lower than current
+	_, err = runnerEnv.ContractClient.RecoverTickets(
+		ctx,
+		runnerEnv.ContractOwner,
+		*xrplBridgeAccountInfo.AccountData.Sequence-1,
+		&numberOfTicketsToAllocate,
+	)
+	require.NoError(t, err)
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+	availableTickets, err = runnerEnv.ContractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.Empty(t, availableTickets)
+
+	// make the sequence number greater than current
+	_, err = runnerEnv.ContractClient.RecoverTickets(
+		ctx,
+		runnerEnv.ContractOwner,
+		*xrplBridgeAccountInfo.AccountData.Sequence+1,
+		&numberOfTicketsToAllocate,
+	)
+	require.NoError(t, err)
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+	availableTickets, err = runnerEnv.ContractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.Empty(t, availableTickets)
+
+	// use correct input to be sure that we can recover tickets after the failures
+	_, err = runnerEnv.ContractClient.RecoverTickets(
+		ctx,
+		runnerEnv.ContractOwner,
+		*xrplBridgeAccountInfo.AccountData.Sequence,
+		&numberOfTicketsToAllocate,
+	)
+	require.NoError(t, err)
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+	availableTickets, err = runnerEnv.ContractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.Len(t, availableTickets, int(numberOfTicketsToAllocate))
+}
+
 func TestTicketsAllocationRecoveryWithMaliciousRelayers(t *testing.T) {
 	t.Parallel()
 

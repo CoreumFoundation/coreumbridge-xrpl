@@ -196,12 +196,8 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 			}
 			return nil
 		}
-		if coreum.IsEvidenceAlreadyProvidedError(err) {
-			o.log.Info(ctx, "Evidence already provided")
-			return nil
-		}
-		if coreum.IsOperationAlreadyExecutedError(err) {
-			o.log.Info(ctx, "Operation already executed")
+		if IsExpectedSendEvidenceError(err) {
+			o.log.Debug(ctx, "Received expected send evidence error")
 			return nil
 		}
 
@@ -212,6 +208,11 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 		o.log.Warn(ctx, "Found unsupported transaction type", logger.AnyField("tx", tx))
 		return nil
 	}
+}
+
+// IsExpectedSendEvidenceError returns true is error is cause of the re-submitting of the transaction.
+func IsExpectedSendEvidenceError(err error) bool {
+	return coreum.IsEvidenceAlreadyProvidedError(err) || coreum.IsOperationAlreadyExecutedError(err)
 }
 
 func extractTicketSequencesFromMetaData(metaData rippledata.MetaData) []uint32 {

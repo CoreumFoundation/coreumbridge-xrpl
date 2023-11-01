@@ -665,6 +665,47 @@ func TestRecoverTickets(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, availableTickets)
 
+	// ********** TransactionResultEvidence / Transaction invalid **********
+
+	invalidBridgeAccountSeqNumber := uint32(1000)
+	_, err = contractClient.RecoverTickets(ctx, owner, invalidBridgeAccountSeqNumber, &numberOfTicketsToInit)
+	require.NoError(t, err)
+
+	invalidTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            "",
+			SequenceNumber:    &invalidBridgeAccountSeqNumber,
+			TransactionResult: coreum.TransactionResultInvalid,
+		},
+		Tickets: nil,
+	}
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidTxEvidence)
+	require.NoError(t, err)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer2, invalidTxEvidence)
+	require.NoError(t, err)
+
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 0)
+
+	availableTickets, err = contractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.Empty(t, availableTickets)
+
+	// try to use the same sequence number (it should be possible)
+	_, err = contractClient.RecoverTickets(ctx, owner, invalidBridgeAccountSeqNumber, &numberOfTicketsToInit)
+	require.NoError(t, err)
+
+	// reject one more time
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidTxEvidence)
+	require.NoError(t, err)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer2, invalidTxEvidence)
+	require.NoError(t, err)
+
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 0)
+
 	// ********** Ticket allocation after previous failure / Recovery **********
 
 	secondBridgeAccountSeqNumber := uint32(2)
@@ -712,4 +753,8 @@ func TestRecoverTickets(t *testing.T) {
 	availableTickets, err = contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
 	require.Equal(t, acceptedTxEvidence.Tickets, availableTickets)
+
+	// try to call recovery when there are available tickets
+	_, err = contractClient.RecoverTickets(ctx, owner, secondBridgeAccountSeqNumber, &numberOfTicketsToInit)
+	require.True(t, coreum.IsStillHaveAvailableTicketsError(err), err)
 }
