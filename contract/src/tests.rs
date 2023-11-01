@@ -1271,7 +1271,7 @@ mod tests {
             .unwrap_err();
 
         assert!(precision_error.to_string().contains(
-            ContractError::AmountSentIsZeroAfterTruncating {}
+            ContractError::AmountSentIsZeroAfterTruncation {}
                 .to_string()
                 .as_str()
         ));
@@ -1440,7 +1440,7 @@ mod tests {
             .unwrap_err();
 
         assert!(precision_error.to_string().contains(
-            ContractError::AmountSentIsZeroAfterTruncating {}
+            ContractError::AmountSentIsZeroAfterTruncation {}
                 .to_string()
                 .as_str()
         ));
@@ -1600,7 +1600,7 @@ mod tests {
             .unwrap_err();
 
         assert!(precision_error.to_string().contains(
-            ContractError::AmountSentIsZeroAfterTruncating {}
+            ContractError::AmountSentIsZeroAfterTruncation {}
                 .to_string()
                 .as_str()
         ));

@@ -6,7 +6,6 @@ package coreum_test
 import (
 	"crypto/rand"
 	"fmt"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -470,7 +469,7 @@ func TestSendFromXRPLToCoreumXRPLNativeTokenWithDifferentSendingPrecision(t *tes
 
 	var (
 		tokenDecimals        = int64(15)
-		highMaxHoldingAmount = convertStringWithDecimalsToSDKInt(t, "1", 30)
+		highMaxHoldingAmount = integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
 	)
 
 	ctx, chains := integrationtests.NewTestingContext(t)
@@ -503,77 +502,77 @@ func TestSendFromXRPLToCoreumXRPLNativeTokenWithDifferentSendingPrecision(t *tes
 		sendingAmount                              sdkmath.Int
 		maxHoldingAmount                           sdkmath.Int
 		wantReceivedAmount                         sdkmath.Int
-		wantIsAmountSentIsZeroAfterTruncatingError bool
+		wantIsAmountSentIsZeroAfterTruncationError bool
 		wantIsMaximumBridgedAmountReachedError     bool
 	}{
 		{
 			name:               "positive_precision_no_truncation",
 			sendingPrecision:   2,
 			maxHoldingAmount:   highMaxHoldingAmount,
-			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
-			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
 		},
 		{
 			name:               "positive_precision_with_truncation",
 			sendingPrecision:   2,
 			maxHoldingAmount:   highMaxHoldingAmount,
-			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "0.15567", tokenDecimals),
-			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "0.15", tokenDecimals),
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15567", tokenDecimals),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15", tokenDecimals),
 		},
 		{
 			name:             "positive_precision_low_amount",
 			sendingPrecision: 2,
 			maxHoldingAmount: highMaxHoldingAmount,
-			sendingAmount:    convertStringWithDecimalsToSDKInt(t, "0.009999", tokenDecimals),
-			wantIsAmountSentIsZeroAfterTruncatingError: true,
+			sendingAmount:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.009999", tokenDecimals),
+			wantIsAmountSentIsZeroAfterTruncationError: true,
 		},
 		{
 			name:               "zero_precision_no_truncation",
 			sendingPrecision:   0,
 			maxHoldingAmount:   highMaxHoldingAmount,
-			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "9999999999", tokenDecimals),
-			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "9999999999", tokenDecimals),
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", tokenDecimals),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", tokenDecimals),
 		},
 		{
 			name:               "zero_precision_with_truncation",
 			sendingPrecision:   0,
 			maxHoldingAmount:   highMaxHoldingAmount,
-			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "1.15567", tokenDecimals),
-			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "1", tokenDecimals),
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1.15567", tokenDecimals),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", tokenDecimals),
 		},
 		{
 			name:             "zero_precision_low_amount",
 			sendingPrecision: 0,
 			maxHoldingAmount: highMaxHoldingAmount,
-			sendingAmount:    convertStringWithDecimalsToSDKInt(t, "0.9999", tokenDecimals),
-			wantIsAmountSentIsZeroAfterTruncatingError: true,
+			sendingAmount:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.9999", tokenDecimals),
+			wantIsAmountSentIsZeroAfterTruncationError: true,
 		},
 		{
 			name:               "negative_precision_no_truncation",
 			sendingPrecision:   -2,
 			maxHoldingAmount:   highMaxHoldingAmount,
-			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "9999999900", tokenDecimals),
-			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "9999999900", tokenDecimals),
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", tokenDecimals),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", tokenDecimals),
 		},
 		{
 			name:               "negative_precision_with_truncation",
 			sendingPrecision:   -2,
 			maxHoldingAmount:   highMaxHoldingAmount,
-			sendingAmount:      convertStringWithDecimalsToSDKInt(t, "9999.15567", tokenDecimals),
-			wantReceivedAmount: convertStringWithDecimalsToSDKInt(t, "9900", tokenDecimals),
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999.15567", tokenDecimals),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9900", tokenDecimals),
 		},
 		{
 			name:             "negative_precision_low_amount",
 			sendingPrecision: -2,
 			maxHoldingAmount: highMaxHoldingAmount,
-			sendingAmount:    convertStringWithDecimalsToSDKInt(t, "99.9999", tokenDecimals),
-			wantIsAmountSentIsZeroAfterTruncatingError: true,
+			sendingAmount:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "99.9999", tokenDecimals),
+			wantIsAmountSentIsZeroAfterTruncationError: true,
 		},
 		{
 			name:                                   "reached_max_holding_amount",
 			sendingPrecision:                       2,
-			maxHoldingAmount:                       convertStringWithDecimalsToSDKInt(t, "9999", tokenDecimals),
-			sendingAmount:                          convertStringWithDecimalsToSDKInt(t, "9999.01", tokenDecimals),
+			maxHoldingAmount:                       integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999", tokenDecimals),
+			sendingAmount:                          integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999.01", tokenDecimals),
 			wantIsMaximumBridgedAmountReachedError: true,
 		},
 	}
@@ -594,7 +593,7 @@ func TestSendFromXRPLToCoreumXRPLNativeTokenWithDifferentSendingPrecision(t *tes
 			// register from the owner
 			txRes, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, tt.sendingPrecision, tt.maxHoldingAmount)
 			require.NoError(t, err)
-			issuedDenom := findIssuedDenomInTxResponse(t, txRes)
+			issuedDenom := findOneIssuedDenomInTxResponse(t, txRes)
 
 			// create an evidence
 			xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
@@ -608,8 +607,8 @@ func TestSendFromXRPLToCoreumXRPLNativeTokenWithDifferentSendingPrecision(t *tes
 			// call from all relayers
 			for _, relayer := range relayers {
 				_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer.CoreumAddress, xrplToCoreumTransferEvidence)
-				if tt.wantIsAmountSentIsZeroAfterTruncatingError {
-					require.True(t, coreum.IsAmountSentIsZeroAfterTruncatingError(err), err)
+				if tt.wantIsAmountSentIsZeroAfterTruncationError {
+					require.True(t, coreum.IsAmountSentIsZeroAfterTruncationError(err), err)
 					return
 				}
 				if tt.wantIsMaximumBridgedAmountReachedError {
@@ -881,30 +880,27 @@ func TestRecoverTickets(t *testing.T) {
 	require.Equal(t, acceptedTxEvidence.Tickets, availableTickets)
 }
 
-func convertStringWithDecimalsToSDKInt(t *testing.T, stringValue string, tokenDecimals int64) sdkmath.Int {
-	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(tokenDecimals), nil)
-	valueRat, ok := big.NewRat(0, 1).SetString(stringValue)
-	require.True(t, ok)
-	valueRat = big.NewRat(0, 1).Mul(valueRat, big.NewRat(0, 1).SetFrac(tenPowerDec, big.NewInt(1)))
-	valueBigInt := big.NewInt(0).Quo(valueRat.Num(), valueRat.Denom())
-
-	return sdkmath.NewIntFromBigInt(valueBigInt)
-}
-
-func findIssuedDenomInTxResponse(t *testing.T, txRes *sdk.TxResponse) string {
+func findOneIssuedDenomInTxResponse(t *testing.T, txRes *sdk.TxResponse) string {
 	t.Helper()
 
 	eventIssuedName := proto.MessageName(&assetfttypes.EventIssued{})
+	foundDenom := ""
 	for i := range txRes.Events {
 		if txRes.Events[i].Type != eventIssuedName {
 			continue
 		}
+		if foundDenom != "" {
+			require.Failf(t, "found multiple issued denom is the tx response, but expected one", "events:%+v", txRes.Events)
+		}
 		eventsTokenIssued, err := event.FindTypedEvents[*assetfttypes.EventIssued](txRes.Events)
 		require.NoError(t, err)
-		return eventsTokenIssued[0].Denom
+		foundDenom = eventsTokenIssued[0].Denom
 	}
-	require.Failf(t, "event: %s not found in the issue response", eventIssuedName)
-	return ""
+	if foundDenom == "" {
+		require.Failf(t, "not found in the issue response", "event: %s ", eventIssuedName)
+	}
+
+	return foundDenom
 }
 
 func genXRPLTxHash(t *testing.T) string {

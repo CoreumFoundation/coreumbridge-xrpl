@@ -71,7 +71,7 @@ const (
 	invalidTicketNumberToAllocateErrorString   = "InvalidTicketNumberToAllocate"
 	signatureAlreadyProvidedErrorString        = "SignatureAlreadyProvided"
 	pendingOperationNotFoundErrorString        = "PendingOperationNotFound"
-	amountSentIsZeroAfterTruncatingErrorString = "AmountSentIsZeroAfterTruncating"
+	amountSentIsZeroAfterTruncatingErrorString = "AmountSentIsZeroAfterTruncation"
 	maximumBridgedAmountReachedErrorString     = "MaximumBridgedAmountReached"
 )
 
@@ -802,8 +802,8 @@ func IsPendingOperationNotFoundError(err error) bool {
 	return isError(err, pendingOperationNotFoundErrorString)
 }
 
-// IsAmountSentIsZeroAfterTruncatingError returns true if error is `AmountSentIsZeroAfterTruncating` error.
-func IsAmountSentIsZeroAfterTruncatingError(err error) bool {
+// IsAmountSentIsZeroAfterTruncationError returns true if error is `AmountSentIsZeroAfterTruncation` error.
+func IsAmountSentIsZeroAfterTruncationError(err error) bool {
 	return isError(err, amountSentIsZeroAfterTruncatingErrorString)
 }
 

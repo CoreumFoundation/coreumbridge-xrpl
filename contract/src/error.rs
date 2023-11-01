@@ -118,8 +118,8 @@ pub enum ContractError {
     #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
     InvalidXRPLCurrency {},
 
-    #[error("AmountSentIsZeroAfterTruncating: Amount sent is zero after truncating to sending precision")]
-    AmountSentIsZeroAfterTruncating {},
+    #[error("AmountSentIsZeroAfterTruncation: Amount sent is zero after truncating to sending precision")]
+    AmountSentIsZeroAfterTruncation {},
 
     #[error("MaximumBridgedAmountReached: The maximum amount this contract can have bridged has been reached")]
     MaximumBridgedAmountReached {},

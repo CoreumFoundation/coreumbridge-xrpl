@@ -30,7 +30,7 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	t.Logf("Coreum recipient: %s", coreumRecipient.String())
 
 	sendingPrecision := int32(6)
-	maxHoldingAmount := ConvertStringWithDecimalsToSDKInt(t, "1", 30)
+	maxHoldingAmount := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
 
 	envCfg := DefaultRunnerEnvConfig()
 	// we need it to manually do the TrustSet
@@ -137,6 +137,6 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	// send tx with hex currency
 	SendXRPLPaymentTx(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, runnerEnv.XRPLBridgeAccount, registeredHexCurrencyAmount, memo)
 
-	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLToken.CoreumDenom, ConvertStringWithDecimalsToSDKInt(t, "100001.000001", XRPLTokenDecimals)))
-	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLTokenHexCurrency.CoreumDenom, ConvertStringWithDecimalsToSDKInt(t, "9.9", XRPLTokenDecimals)))
+	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLToken.CoreumDenom, integrationtests.ConvertStringWithDecimalsToSDKInt(t, "100001.000001", XRPLTokenDecimals)))
+	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLTokenHexCurrency.CoreumDenom, integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9.9", XRPLTokenDecimals)))
 }
