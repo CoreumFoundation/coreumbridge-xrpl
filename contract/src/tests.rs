@@ -21,7 +21,7 @@ mod tests {
         operation::{Operation, OperationType},
         relayer::Relayer,
         signatures::Signature,
-        state::{Config, XRPLToken as QueriedXRPLToken},
+        state::{Config, TokenState, XRPLToken as QueriedXRPLToken},
     };
 
     const FEE_DENOM: &str = "ucore";
@@ -511,7 +511,7 @@ mod tests {
                 coreum_denom: format!("{}-{}", XRP_SUBUNIT, contract_addr).to_lowercase(),
                 sending_precision: XRP_DEFAULT_SENDING_PRECISION,
                 max_holding_amount: Uint128::new(XRP_DEFAULT_MAX_HOLDING_AMOUNT),
-                active: true,
+                state: TokenState::Active,
             }
         );
     }
@@ -1100,8 +1100,8 @@ mod tests {
                     ticket_number: query_pending_operations.operations[0].ticket_number,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TrustSet {
-                        issuer: Some(test_token.issuer.clone()),
-                        currency: Some(test_token.currency.clone()),
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
                     },
                 },
             },
@@ -1229,8 +1229,8 @@ mod tests {
                     ticket_number: query_pending_operations.operations[0].ticket_number,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TrustSet {
-                        issuer: Some(test_token.issuer.clone()),
-                        currency: Some(test_token.currency.clone()),
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
                     },
                 },
             },
@@ -1248,8 +1248,8 @@ mod tests {
                     ticket_number: query_pending_operations.operations[0].ticket_number,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TrustSet {
-                        issuer: Some(test_token.issuer.clone()),
-                        currency: Some(test_token.currency.clone()),
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
                     },
                 },
             },
@@ -1601,8 +1601,8 @@ mod tests {
                     ticket_number: query_pending_operations.operations[0].ticket_number,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TrustSet {
-                        issuer: Some(test_token1.issuer.clone()),
-                        currency: Some(test_token1.currency.clone()),
+                        issuer: test_token1.issuer.clone(),
+                        currency: test_token1.currency.clone(),
                     },
                 },
             },
@@ -1755,8 +1755,8 @@ mod tests {
                     ticket_number: query_pending_operations.operations[0].ticket_number,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TrustSet {
-                        issuer: Some(test_token2.issuer.clone()),
-                        currency: Some(test_token2.currency.clone()),
+                        issuer: test_token2.issuer.clone(),
+                        currency: test_token2.currency.clone(),
                     },
                 },
             },
@@ -1942,8 +1942,8 @@ mod tests {
                     ticket_number: query_pending_operations.operations[0].ticket_number,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TrustSet {
-                        issuer: Some(test_token3.issuer.clone()),
-                        currency: Some(test_token3.currency.clone()),
+                        issuer: test_token3.issuer.clone(),
+                        currency: test_token3.currency.clone(),
                     },
                 },
             },
@@ -2795,56 +2795,6 @@ mod tests {
                     tickets: Some(tickets),
                 },
             },
-            Evidence::XRPLTransactionResult {
-                tx_hash: None,
-                sequence_number: Some(sequence_number),
-                ticket_number: None,
-                transaction_result: TransactionResult::Invalid,
-                operation_result: OperationResult::TrustSet {
-                    issuer: Some("issuer".to_string()),
-                    currency: None,
-                },
-            },
-            Evidence::XRPLTransactionResult {
-                tx_hash: None,
-                sequence_number: Some(sequence_number),
-                ticket_number: None,
-                transaction_result: TransactionResult::Invalid,
-                operation_result: OperationResult::TrustSet {
-                    issuer: None,
-                    currency: Some("USD".to_string()),
-                },
-            },
-            Evidence::XRPLTransactionResult {
-                tx_hash: Some(tx_hash.clone()),
-                sequence_number: Some(sequence_number),
-                ticket_number: None,
-                transaction_result: TransactionResult::Accepted,
-                operation_result: OperationResult::TrustSet {
-                    issuer: None,
-                    currency: Some("USD".to_string()),
-                },
-            },
-            Evidence::XRPLTransactionResult {
-                tx_hash: Some(tx_hash.clone()),
-                sequence_number: Some(sequence_number),
-                ticket_number: None,
-                transaction_result: TransactionResult::Accepted,
-                operation_result: OperationResult::TrustSet {
-                    issuer: Some("issuer".to_string()),
-                    currency: None,
-                },
-            },
-            Evidence::XRPLTransactionResult {
-                tx_hash: Some(tx_hash.clone()),
-                sequence_number: Some(sequence_number),
-                ticket_number: None,
-                transaction_result: TransactionResult::Accepted,
-                operation_result: OperationResult::TrustSet {
-                    issuer: Some("".to_string()),
-                    currency: Some("USD".to_string()),
-                },
-            },
         ];
 
         let expected_errors = vec![
@@ -2854,11 +2804,6 @@ mod tests {
             ContractError::InvalidTicketAllocationEvidence {},
             ContractError::InvalidFailedTransactionResultEvidence {},
             ContractError::InvalidTicketAllocationEvidence {},
-            ContractError::InvalidTrustSetEvidence {},
-            ContractError::InvalidTrustSetEvidence {},
-            ContractError::InvalidTrustSetEvidence {},
-            ContractError::InvalidTrustSetEvidence {},
-            ContractError::InvalidTrustSetEvidence {},
         ];
 
         wasm.execute::<ExecuteMsg>(

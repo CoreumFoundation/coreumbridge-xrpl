@@ -14,8 +14,8 @@ use crate::{
     relayer::{assert_relayer, validate_relayers, validate_xrpl_address},
     signatures::add_signature,
     state::{
-        Config, ContractActions, CoreumToken, XRPLToken, AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS,
-        PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
+        Config, ContractActions, CoreumToken, TokenState, XRPLToken, AVAILABLE_TICKETS, CONFIG,
+        COREUM_TOKENS, PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
         USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
     },
     tickets::{allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket},
@@ -124,7 +124,7 @@ pub fn instantiate(
         sending_precision: XRP_DEFAULT_SENDING_PRECISION,
         max_holding_amount: Uint128::new(XRP_DEFAULT_MAX_HOLDING_AMOUNT),
         // The XRP active token will be active from the start because it doesn't need approval to be received by the multisig
-        active: true,
+        state: TokenState::Active,
     };
 
     let key = build_xrpl_token_key(XRP_ISSUER.to_string(), XRP_CURRENCY.to_string());
@@ -303,8 +303,8 @@ fn register_xrpl_token(
         coreum_denom: denom.clone(),
         sending_precision,
         max_holding_amount,
-        // Registered tokens will start being inactive until they are approved
-        active: false,
+        // Registered tokens will start in processing until TrustSet operation is accepted/rejected
+        state: TokenState::Processing,
     };
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
@@ -359,7 +359,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 .load(deps.storage, key)
                 .map_err(|_| ContractError::TokenNotRegistered {})?;
 
-            if !token.active {
+            if token.state.ne(&TokenState::Active) {
                 return Err(ContractError::XRPLTokenNotActive {});
             }
 

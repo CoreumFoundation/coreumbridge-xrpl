@@ -6,7 +6,7 @@ use crate::{
     error::ContractError,
     evidence::TransactionResult,
     signatures::Signature,
-    state::{PENDING_OPERATIONS, XRPL_TOKENS},
+    state::{TokenState, PENDING_OPERATIONS, XRPL_TOKENS},
 };
 
 #[cw_serde]
@@ -59,22 +59,23 @@ pub fn check_and_save_pending_operation(
 
 pub fn handle_trust_set_confirmation(
     storage: &mut dyn Storage,
-    issuer: Option<String>,
-    currency: Option<String>,
+    issuer: String,
+    currency: String,
     transaction_result: TransactionResult,
 ) -> Result<(), ContractError> {
+    let key = build_xrpl_token_key(issuer, currency);
+
+    let mut token = XRPL_TOKENS
+        .load(storage, key.clone())
+        .map_err(|_| ContractError::TokenNotRegistered {})?;
+
     // Set token to active if TrustSet operation was successful
     if transaction_result.eq(&TransactionResult::Accepted) {
-        let key = build_xrpl_token_key(issuer.unwrap(), currency.unwrap());
-
-        let mut token = XRPL_TOKENS
-            .load(storage, key.clone())
-            .map_err(|_| ContractError::TokenNotRegistered {})?;
-
-        token.active = true;
-
-        XRPL_TOKENS.save(storage, key, &token)?;
+        token.state = TokenState::Active;
+    } else {
+        token.state = TokenState::Inactive;
     }
 
+    XRPL_TOKENS.save(storage, key, &token)?;
     Ok(())
 }

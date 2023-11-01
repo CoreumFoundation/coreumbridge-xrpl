@@ -46,6 +46,17 @@ const (
 	TransactionResultInvalid  TransactionResult = "invalid"
 )
 
+// TokenState is transaction result.
+type TokenState string
+
+// TokenState values.
+const (
+	TokenStateActive     TokenState = "active"
+	TokenStateInactive   TokenState = "inactive"
+	TokenStateDisabled   TokenState = "disabled"
+	TokenStateProcessing TokenState = "processing"
+)
+
 // QueryMethod is contract query method.
 type QueryMethod string
 
@@ -106,10 +117,10 @@ type ContractOwnership struct {
 
 // XRPLToken is XRPL token representation on coreum.
 type XRPLToken struct {
-	Issuer      string `json:"issuer"`
-	Currency    string `json:"currency"`
-	CoreumDenom string `json:"coreum_denom"`
-	Active      bool   `json:"active"`
+	Issuer      string     `json:"issuer"`
+	Currency    string     `json:"currency"`
+	CoreumDenom string     `json:"coreum_denom"`
+	State       TokenState `json:"state"`
 }
 
 // CoreumToken is coreum token registered on the contract.

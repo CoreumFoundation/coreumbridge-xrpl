@@ -102,7 +102,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		Issuer:      xrpIssuer,
 		Currency:    xrpCurrency,
 		CoreumDenom: coreumDenom,
-		Active:      true,
+		State:       coreum.TokenStateActive,
 	}, xrplTokens[0])
 }
 
@@ -333,7 +333,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	}
 	require.Equal(t, issuer, registeredToken.Issuer)
 	require.Equal(t, currency, registeredToken.Currency)
-	require.False(t, registeredToken.Active)
+	require.Equal(t, registeredToken.State, coreum.TokenStateProcessing)
 	require.NotEmpty(t, registeredToken.CoreumDenom)
 
 	// check that corresponding token is issued

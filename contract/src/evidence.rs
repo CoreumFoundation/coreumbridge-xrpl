@@ -30,7 +30,7 @@ pub enum Evidence {
 
 #[cw_serde]
 pub enum TransactionResult {
-    // Transactions that were accepted in XRPL and have their corresponding Transaction Hash 
+    // Transactions that were accepted in XRPL and have their corresponding Transaction Hash
     Accepted,
     // Transactions that were rejected in XRPL and have their corresponding Transaction Hash
     Rejected,
@@ -51,13 +51,8 @@ impl TransactionResult {
 
 #[cw_serde]
 pub enum OperationResult {
-    TicketsAllocation {
-        tickets: Option<Vec<u64>>,
-    },
-    TrustSet {
-        issuer: Option<String>,
-        currency: Option<String>,
-    },
+    TicketsAllocation { tickets: Option<Vec<u64>> },
+    TrustSet { issuer: String, currency: String },
 }
 
 // For convenience in the responses.
@@ -140,26 +135,10 @@ impl Evidence {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
                     }
-                    OperationResult::TrustSet { issuer, currency } => {
-                        // Invalid or rejected transactions should not have issuer or currency
-                        if (transaction_result.eq(&TransactionResult::Invalid)
-                            || transaction_result.eq(&TransactionResult::Rejected))
-                            && (issuer.is_some() || currency.is_some())
-                        {
-                            return Err(ContractError::InvalidTrustSetEvidence {});
-                        }
-
-                        // Accepted transactions must have issuer and currency
-                        if transaction_result.eq(&TransactionResult::Accepted)
-                            && (issuer.is_none()
-                                || issuer.as_ref().unwrap().is_empty()
-                                || currency.is_none()
-                                || currency.as_ref().unwrap().is_empty())
-                        {
-                            return Err(ContractError::InvalidTrustSetEvidence {});
-                        }
-                    }
+                    // TrustSet operation results are always valid because sending the issuer and currency is mandatory because we need to update the token state
+                    OperationResult::TrustSet { .. } => (),
                 }
+
                 Ok(())
             }
         }

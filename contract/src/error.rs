@@ -96,9 +96,6 @@ pub enum ContractError {
     #[error("InvalidFailedTransactionResultEvidence: An evidence with an failed transaction can't have a transaction hash")]
     InvalidFailedTransactionResultEvidence {},
 
-    #[error("InvalidTrustSetEvidence: Issuer and currency have to be present if operation is accepted and absent if operation is rejected or invalid")]
-    InvalidTrustSetEvidence {},
-
     #[error("InvalidTicketAllocationEvidence: Tickets have to be present if operation is accepted and absent if operation is rejected or invalid")]
     InvalidTicketAllocationEvidence {},
 
