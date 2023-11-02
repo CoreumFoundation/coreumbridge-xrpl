@@ -501,8 +501,7 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 }
 
 func TestSendFromXRPLToCoreumXRPLNativeTokenWithDifferentSendingPrecision(t *testing.T) {
-	t.Parallel()
-
+	// intentionally not parallel
 	var (
 		tokenDecimals        = int64(15)
 		highMaxHoldingAmount = integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
@@ -610,8 +609,6 @@ func TestSendFromXRPLToCoreumXRPLNativeTokenWithDifferentSendingPrecision(t *tes
 		},
 	}
 	for _, tt := range tests {
-		// intentionally not parallel
-
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund owner to cover registration fee twice

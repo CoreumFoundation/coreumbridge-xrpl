@@ -179,7 +179,7 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLTokenHexCurrency.CoreumDenom, integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9.9", XRPLTokenDecimals)))
 }
 
-// TODO(dzmitryhil) remove the manual activation and use automatic VIA relayer
+// TODO(dzmitryhil) remove the manual activation and use automatic VIA relayer.
 func activateToken(ctx context.Context, t *testing.T, runnerEnv *RunnerEnv, issuer, currency string) {
 	t.Helper()
 
