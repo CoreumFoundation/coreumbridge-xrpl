@@ -37,6 +37,7 @@ type RunnerEnvConfig struct {
 	MaliciousRelayerNumber int
 	DisableMasterKey       bool
 	UsedTicketsThreshold   int
+	TrustSetLimitAmount    string
 }
 
 // DefaultRunnerEnvConfig returns default runner environment config.
@@ -48,6 +49,7 @@ func DefaultRunnerEnvConfig() RunnerEnvConfig {
 		MaliciousRelayerNumber: 0,
 		DisableMasterKey:       true,
 		UsedTicketsThreshold:   150,
+		TrustSetLimitAmount:    "10000000000000000",
 	}
 }
 
@@ -55,11 +57,13 @@ func DefaultRunnerEnvConfig() RunnerEnvConfig {
 type RunnerEnv struct {
 	Cfg               RunnerEnvConfig
 	XRPLBridgeAccount rippledata.Account
-	ContractClient    *coreum.ContractClient
-	ContractOwner     sdk.AccAddress
-	Runners           []*runner.Runner
-	ProcessErrorsMu   sync.RWMutex
-	ProcessErrors     []error
+	// TODO(dzmitryhil) replace with the relayer logic
+	RelayerAddresses []sdk.AccAddress
+	ContractClient   *coreum.ContractClient
+	ContractOwner    sdk.AccAddress
+	Runners          []*runner.Runner
+	ProcessErrorsMu  sync.RWMutex
+	ProcessErrors    []error
 }
 
 // NewRunnerEnv returns new instance of the RunnerEnv.
@@ -95,6 +99,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		contractRelayer,
 		cfg.SigningThreshold,
 		cfg.UsedTicketsThreshold,
+		cfg.TrustSetLimitAmount,
 	)
 
 	runners := make([]*runner.Runner, 0, cfg.RelayerNumber)
@@ -132,6 +137,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	runnerEnv := &RunnerEnv{
 		Cfg:               cfg,
 		XRPLBridgeAccount: xrplBridgeAccount,
+		RelayerAddresses:  coreumRelayerAddresses,
 		ContractClient:    contractClient,
 		ContractOwner:     contractOwner,
 		Runners:           runners,

@@ -18,16 +18,23 @@ mod tests {
             AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
             InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
         },
-        state::{Config, Operation, OperationType, Relayer, Signature},
+        operation::{Operation, OperationType},
+        relayer::Relayer,
+        signatures::Signature,
+        state::{Config, TokenState, XRPLToken as QueriedXRPLToken},
     };
 
     const FEE_DENOM: &str = "ucore";
     const XRP_SYMBOL: &str = "XRP";
     const XRP_SUBUNIT: &str = "drop";
-    const COREUM_CURRENCY_PREFIX: &str = "coreum";
     const XRPL_DENOM_PREFIX: &str = "xrpl";
     const XRP_CURRENCY: &str = "XRP";
     const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
+    const TRUST_SET_LIMIT_AMOUNT: u128 = 1000000000000000000; // 1e18
+    const XRP_DECIMALS: u32 = 6;
+    const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
+    const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 =
+        10u128.pow(16 - XRP_DEFAULT_SENDING_PRECISION as u32 + XRP_DECIMALS);
 
     #[derive(Clone)]
     struct XRPLToken {
@@ -44,6 +51,7 @@ mod tests {
         relayers: Vec<Relayer>,
         evidence_threshold: u32,
         used_tickets_threshold: u32,
+        trust_set_limit_amount: Uint128,
         issue_fee: Vec<Coin>,
     ) -> String {
         let wasm_byte_code = std::fs::read("../build/coreumbridge_xrpl.wasm").unwrap();
@@ -59,6 +67,7 @@ mod tests {
                 relayers,
                 evidence_threshold,
                 used_tickets_threshold,
+                trust_set_limit_amount,
             },
             None,
             "coreumbridge-xrpl".into(),
@@ -78,7 +87,7 @@ mod tests {
             .unwrap()
             .issue_fee
             .unwrap();
-        coins(issue_fee.amount.trim().parse().unwrap(), issue_fee.denom)
+        coins(issue_fee.amount.parse().unwrap(), issue_fee.denom)
     }
 
     pub fn hash_bytes(bytes: Vec<u8>) -> String {
@@ -86,6 +95,16 @@ mod tests {
         hasher.update(bytes);
         let output = hasher.finalize();
         hex::encode(output)
+    }
+
+    pub fn generate_hash() -> String {
+        String::from_utf8(
+            thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(20)
+                .collect::<Vec<_>>(),
+        )
+        .unwrap()
     }
 
     pub fn generate_xrpl_address() -> String {
@@ -158,7 +177,7 @@ mod tests {
             xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
-        //We check that we can store and instantiate
+        // We check that we can store and instantiate
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
@@ -166,6 +185,7 @@ mod tests {
             vec![relayer.clone(), relayer_correct.clone()],
             1,
             50,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
         assert!(!contract_addr.is_empty());
@@ -179,6 +199,7 @@ mod tests {
                     relayers: vec![relayer.clone(), relayer_duplicated_xrpl_address.clone()],
                     evidence_threshold: 1,
                     used_tickets_threshold: 50,
+                    trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                 },
                 None,
                 "label".into(),
@@ -188,7 +209,7 @@ mod tests {
             .unwrap_err();
 
         assert!(error.to_string().contains(
-            ContractError::RepeatedRelayerXRPLAddress {}
+            ContractError::DuplicatedRelayerXRPLAddress {}
                 .to_string()
                 .as_str()
         ));
@@ -202,6 +223,7 @@ mod tests {
                     relayers: vec![relayer.clone(), relayer_duplicated_xrpl_pub_key.clone()],
                     evidence_threshold: 1,
                     used_tickets_threshold: 50,
+                    trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                 },
                 None,
                 "label".into(),
@@ -211,7 +233,7 @@ mod tests {
             .unwrap_err();
 
         assert!(error.to_string().contains(
-            ContractError::RepeatedRelayerXRPLPubKey {}
+            ContractError::DuplicatedRelayerXRPLPubKey {}
                 .to_string()
                 .as_str()
         ));
@@ -225,6 +247,7 @@ mod tests {
                     relayers: vec![relayer.clone(), relayer_duplicated_coreum_address.clone()],
                     evidence_threshold: 1,
                     used_tickets_threshold: 50,
+                    trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                 },
                 None,
                 "label".into(),
@@ -234,7 +257,7 @@ mod tests {
             .unwrap_err();
 
         assert!(error.to_string().contains(
-            ContractError::RepeatedRelayerCoreumAddress {}
+            ContractError::DuplicatedRelayerCoreumAddress {}
                 .to_string()
                 .as_str()
         ));
@@ -248,6 +271,7 @@ mod tests {
                     relayers: vec![relayer.clone()],
                     evidence_threshold: 1,
                     used_tickets_threshold: 50,
+                    trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                 },
                 None,
                 "label".into(),
@@ -269,6 +293,7 @@ mod tests {
                     relayers: vec![relayer],
                     evidence_threshold: 1,
                     used_tickets_threshold: 1,
+                    trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                 },
                 None,
                 "label".into(),
@@ -338,10 +363,11 @@ mod tests {
             vec![relayer],
             1,
             50,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
-        //Query current owner
+        // Query current owner
         let query_owner = wasm
             .query::<QueryMsg, cw_ownable::Ownership<String>>(
                 &contract_addr,
@@ -381,7 +407,7 @@ mod tests {
 
         assert_eq!(query_owner.owner.unwrap(), new_owner.address().to_string());
 
-        //Try transfering from old owner again, should fail
+        // Try transfering from old owner again, should fail
         let transfer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -423,15 +449,23 @@ mod tests {
             vec![relayer.clone()],
             1,
             50,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
         let query_config = wasm
             .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
             .unwrap();
-        assert_eq!(query_config.evidence_threshold, 1);
-        assert_eq!(query_config.used_tickets_threshold, 50);
-        assert_eq!(query_config.relayers, vec![relayer]);
+
+        assert_eq!(
+            query_config,
+            Config {
+                relayers: vec![relayer],
+                evidence_threshold: 1,
+                used_tickets_threshold: 50,
+                trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT)
+            }
+        );
     }
 
     #[test]
@@ -456,6 +490,7 @@ mod tests {
             vec![relayer],
             1,
             50,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
@@ -469,8 +504,15 @@ mod tests {
             )
             .unwrap();
         assert_eq!(
-            query_xrpl_tokens.tokens[0].coreum_denom,
-            format!("{}-{}", XRP_SUBUNIT, &contract_addr.to_lowercase())
+            query_xrpl_tokens.tokens[0],
+            QueriedXRPLToken {
+                issuer: XRP_ISSUER.to_string(),
+                currency: XRP_CURRENCY.to_string(),
+                coreum_denom: format!("{}-{}", XRP_SUBUNIT, contract_addr).to_lowercase(),
+                sending_precision: XRP_DEFAULT_SENDING_PRECISION,
+                max_holding_amount: Uint128::new(XRP_DEFAULT_MAX_HOLDING_AMOUNT),
+                state: TokenState::Active,
+            }
         );
     }
 
@@ -496,12 +538,13 @@ mod tests {
             vec![relayer],
             1,
             50,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
         let test_tokens = vec!["test_denom1".to_string(), "test_denom2".to_string()];
 
-        //Register two tokens correctly
+        // Register two tokens correctly
         for token in test_tokens.clone() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
@@ -515,7 +558,7 @@ mod tests {
             .unwrap();
         }
 
-        //Register 1 token with same denom, should fail
+        // Register 1 token with same denom, should fail
         let register_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -536,7 +579,7 @@ mod tests {
             .as_str()
         ));
 
-        //Query 1 token
+        // Query 1 token
         let query_coreum_token = wasm
             .query::<QueryMsg, CoreumTokenResponse>(
                 &contract_addr,
@@ -545,13 +588,16 @@ mod tests {
                 },
             )
             .unwrap();
-        assert_eq!(query_coreum_token.token.xrpl_currency.len(), 16);
+
+        assert_eq!(query_coreum_token.token.xrpl_currency.len(), 40);
+        assert!(query_coreum_token.token.xrpl_currency.ends_with("00000000"));
         assert!(query_coreum_token
             .token
             .xrpl_currency
-            .starts_with(COREUM_CURRENCY_PREFIX));
+            .chars()
+            .all(|c| c.is_ascii_hexdigit()));
 
-        //Query all tokens
+        // Query all tokens
         let query_coreum_tokens = wasm
             .query::<QueryMsg, CoreumTokensResponse>(
                 &contract_addr,
@@ -564,7 +610,7 @@ mod tests {
         assert_eq!(query_coreum_tokens.tokens.len(), 2);
         assert_eq!(query_coreum_tokens.tokens[0].denom, test_tokens[0]);
 
-        //Query tokens with limit
+        // Query tokens with limit
         let query_coreum_tokens = wasm
             .query::<QueryMsg, CoreumTokensResponse>(
                 &contract_addr,
@@ -577,7 +623,7 @@ mod tests {
         assert_eq!(query_coreum_tokens.tokens.len(), 1);
         assert_eq!(query_coreum_tokens.tokens[0].denom, test_tokens[0]);
 
-        //Query tokens with pagination
+        // Query tokens with pagination
         let query_coreum_tokens = wasm
             .query::<QueryMsg, CoreumTokensResponse>(
                 &contract_addr,
@@ -612,26 +658,27 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![relayer],
             1,
-            50,
+            2,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
         let test_tokens = vec![
             XRPLToken {
-                issuer: generate_xrpl_address(), //Valid issuer
-                currency: "USD".to_string(),     //Valid standard currency code
+                issuer: generate_xrpl_address(), // Valid issuer
+                currency: "USD".to_string(),     // Valid standard currency code
                 sending_precision: -15,
                 max_holding_amount: 100,
             },
             XRPLToken {
-                issuer: generate_xrpl_address(), //Valid issuer
-                currency: "015841551A748AD2C1F76FF6ECB0CCCD00000000".to_string(), //Valid hexadecimal currency
+                issuer: generate_xrpl_address(), // Valid issuer
+                currency: "015841551A748AD2C1F76FF6ECB0CCCD00000000".to_string(), // Valid hexadecimal currency
                 sending_precision: 15,
                 max_holding_amount: 50000,
             },
         ];
 
-        //Registering a token with an invalid issuer should fail.
+        // Registering a token with an invalid issuer should fail.
         let issuer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -650,7 +697,7 @@ mod tests {
             .to_string()
             .contains(ContractError::InvalidXRPLIssuer {}.to_string().as_str()));
 
-        //Registering a token with an invalid precision should fail.
+        // Registering a token with an invalid precision should fail.
         let issuer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -671,7 +718,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Registering a token with an invalid precision should fail.
+        // Registering a token with an invalid precision should fail.
         let issuer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -692,7 +739,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Registering a token with a valid issuer but invalid currency should fail.
+        // Registering a token with a valid issuer but invalid currency should fail.
         let currency_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -711,7 +758,7 @@ mod tests {
             .to_string()
             .contains(ContractError::InvalidXRPLCurrency {}.to_string().as_str()));
 
-        //Register token with incorrect fee (too much), should fail
+        // Register token with incorrect fee (too much), should fail
         let register_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -730,7 +777,56 @@ mod tests {
             .to_string()
             .contains(ContractError::InvalidFundsAmount {}.to_string().as_str()));
 
-        //Register two tokens correctly
+        // Registering a token without having tickets for the TrustSet operation should fail
+        let available_tickets_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[0].issuer.clone(),
+                    currency: test_tokens[0].currency.clone(),
+                    sending_precision: test_tokens[0].sending_precision,
+                    max_holding_amount: Uint128::new(test_tokens[0].max_holding_amount),
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(available_tickets_error
+            .to_string()
+            .contains(ContractError::NoAvailableTickets {}.to_string().as_str()));
+
+        // Register two tokens correctly
+        // Set up enough tickets first to allow registering tokens.
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                sequence_number: 1,
+                number_of_tickets: Some(3),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    sequence_number: Some(1),
+                    ticket_number: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TicketsAllocation {
+                        tickets: Some(vec![1, 2, 3]),
+                    },
+                },
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
         for token in test_tokens.clone() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
@@ -745,6 +841,32 @@ mod tests {
             )
             .unwrap();
         }
+
+        // Trying to register another token would fail because there is only 1 ticket left and that one is reserved
+        let extra_token = XRPLToken {
+            issuer: generate_xrpl_address(), // Valid issuer
+            currency: "USD".to_string(),     // Valid standard currency code
+            sending_precision: -15,
+            max_holding_amount: 100,
+        };
+
+        let last_ticket_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: extra_token.issuer,
+                    currency: extra_token.currency,
+                    sending_precision: extra_token.sending_precision,
+                    max_holding_amount: Uint128::new(extra_token.max_holding_amount),
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(last_ticket_error
+            .to_string()
+            .contains(ContractError::LastTicketReserved {}.to_string().as_str()));
 
         // Check tokens are in the bank module
         let asset_ft = AssetFT::new(&app);
@@ -763,7 +885,7 @@ mod tests {
             .denom
             .starts_with(XRPL_DENOM_PREFIX),);
 
-        //Register 1 token with same issuer+currency, should fail
+        // Register 1 token with same issuer+currency, should fail
         let register_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -787,7 +909,7 @@ mod tests {
             .as_str()
         ));
 
-        //Query all tokens
+        // Query all tokens
         let query_xrpl_tokens = wasm
             .query::<QueryMsg, XRPLTokensResponse>(
                 &contract_addr,
@@ -799,7 +921,7 @@ mod tests {
             .unwrap();
         assert_eq!(query_xrpl_tokens.tokens.len(), 3);
 
-        //Query all tokens with limit
+        // Query all tokens with limit
         let query_xrpl_tokens = wasm
             .query::<QueryMsg, XRPLTokensResponse>(
                 &contract_addr,
@@ -810,9 +932,9 @@ mod tests {
             )
             .unwrap();
         assert_eq!(query_xrpl_tokens.tokens.len(), 1);
-        assert!(query_xrpl_tokens.tokens[0].coreum_denom.starts_with("xrp"));
+        assert!(query_xrpl_tokens.tokens[0].coreum_denom.starts_with("xrpl"));
 
-        //Query all tokens with pagination
+        // Query all tokens with pagination
         let query_xrpl_tokens = wasm
             .query::<QueryMsg, XRPLTokensResponse>(
                 &contract_addr,
@@ -854,23 +976,54 @@ mod tests {
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
 
-        //Test with 1 relayer and 1 evidence threshold first
+        // Test with 1 relayer and 1 evidence threshold first
         let contract_addr = store_and_instantiate(
             &wasm,
             signer,
             Addr::unchecked(signer.address()),
             vec![relayers[0].clone()],
             1,
-            50,
+            2,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
         let test_token = XRPLToken {
-            issuer: generate_xrpl_address(), //example of valid issuer
+            issuer: generate_xrpl_address(),
             currency: "USD".to_string(),
             sending_precision: 15,
             max_holding_amount: 50000,
         };
+
+        // Set up enough tickets first to allow registering tokens.
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                sequence_number: 1,
+                number_of_tickets: Some(3),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    sequence_number: Some(1),
+                    ticket_number: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TicketsAllocation {
+                        tickets: Some(vec![1, 2, 3]),
+                    },
+                },
+            },
+            &vec![],
+            &relayer_accounts[0],
+        )
+        .unwrap();
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -883,7 +1036,7 @@ mod tests {
             &query_issue_fee(&asset_ft),
             signer,
         )
-            .unwrap();
+        .unwrap();
 
         let query_xrpl_tokens = wasm
             .query::<QueryMsg, XRPLTokensResponse>(
@@ -903,10 +1056,61 @@ mod tests {
             .coreum_denom
             .clone();
 
-        let hash = "any_hash".to_string();
+        let hash = generate_hash();
         let amount = Uint128::new(100);
 
-        //Bridge with 1 relayer should immediately mint and send to the receiver address
+        // Bridging with 1 relayer before activating the token should return an error
+        let not_active_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: hash.clone(),
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
+                        amount: amount.clone(),
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(not_active_error
+            .to_string()
+            .contains(ContractError::XRPLTokenNotActive {}.to_string().as_str()));
+
+        // Activate the token
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    sequence_number: None,
+                    ticket_number: query_pending_operations.operations[0].ticket_number,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TrustSet {
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
+                    },
+                },
+            },
+            &[],
+            &relayer_accounts[0],
+        )
+        .unwrap();
+
+        // Bridge with 1 relayer should immediately mint and send to the receiver address
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -932,18 +1136,68 @@ mod tests {
 
         assert_eq!(request_balance.balance, amount.to_string());
 
-        //Test with more than 1 relayer
+        // Test with more than 1 relayer
         let contract_addr = store_and_instantiate(
             &wasm,
             signer,
             Addr::unchecked(signer.address()),
             vec![relayers[0].clone(), relayers[1].clone()],
             2,
-            50,
+            2,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
-        //Register a token
+        // Set up enough tickets first to allow registering tokens.
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                sequence_number: 1,
+                number_of_tickets: Some(3),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let hash2 = generate_hash();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(hash2.clone()),
+                    sequence_number: Some(1),
+                    ticket_number: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TicketsAllocation {
+                        tickets: Some(vec![1, 2, 3]),
+                    },
+                },
+            },
+            &vec![],
+            &relayer_accounts[0],
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(hash2),
+                    sequence_number: Some(1),
+                    ticket_number: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TicketsAllocation {
+                        tickets: Some(vec![1, 2, 3]),
+                    },
+                },
+            },
+            &vec![],
+            &relayer_accounts[1],
+        )
+        .unwrap();
+
+        // Register a token
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterXRPLToken {
@@ -954,6 +1208,53 @@ mod tests {
             },
             &query_issue_fee(&asset_ft),
             signer,
+        )
+        .unwrap();
+
+        // Activate the token
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        let tx_hash = generate_hash();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(tx_hash.clone()),
+                    sequence_number: None,
+                    ticket_number: query_pending_operations.operations[0].ticket_number,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TrustSet {
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
+                    },
+                },
+            },
+            &[],
+            &relayer_accounts[0],
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(tx_hash),
+                    sequence_number: None,
+                    ticket_number: query_pending_operations.operations[0].ticket_number,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TrustSet {
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
+                    },
+                },
+            },
+            &[],
+            &relayer_accounts[1],
         )
         .unwrap();
 
@@ -975,7 +1276,7 @@ mod tests {
             .coreum_denom
             .clone();
 
-        //Trying to send from an address that is not a relayer should fail
+        // Trying to send from an address that is not a relayer should fail
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -997,7 +1298,7 @@ mod tests {
             .to_string()
             .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
 
-        //Trying to send a token that is not previously registered should also fail
+        // Trying to send a token that is not previously registered should also fail
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -1019,7 +1320,7 @@ mod tests {
             .to_string()
             .contains(ContractError::TokenNotRegistered {}.to_string().as_str()));
 
-        //Trying to send invalid evidence should fail
+        // Trying to send invalid evidence should fail
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -1041,7 +1342,7 @@ mod tests {
             .to_string()
             .contains(ContractError::InvalidAmount {}.to_string().as_str()));
 
-        //First relayer to execute should not trigger a mint and send
+        // First relayer to execute should not trigger a mint and send
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -1058,7 +1359,7 @@ mod tests {
         )
         .unwrap();
 
-        //Balance should be 0
+        // Balance should be 0
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: receiver.address(),
@@ -1068,7 +1369,7 @@ mod tests {
 
         assert_eq!(request_balance.balance, "0".to_string());
 
-        //Relaying again from same relayer should trigger an error
+        // Relaying again from same relayer should trigger an error
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -1092,7 +1393,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Second relayer to execute should trigger a mint and send
+        // Second relayer to execute should trigger a mint and send
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -1109,7 +1410,7 @@ mod tests {
         )
         .unwrap();
 
-        //Balance should be 0
+        // Balance should be 0
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: receiver.address(),
@@ -1119,7 +1420,7 @@ mod tests {
 
         assert_eq!(request_balance.balance, amount.to_string());
 
-        //Trying to relay again will trigger an error because operation is already executed
+        // Trying to relay again will trigger an error because operation is already executed
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -1144,7 +1445,7 @@ mod tests {
         ));
 
         let new_amount = Uint128::new(150);
-        //Trying to relay a different operation with same hash will trigger an error
+        // Trying to relay a different operation with same hash will trigger an error
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -1194,7 +1495,8 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![relayer],
             1,
-            50,
+            7,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
@@ -1218,9 +1520,39 @@ mod tests {
             max_holding_amount: 5000000000000000,
         };
 
+        // Set up enough tickets first to allow registering tokens.
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                sequence_number: 1,
+                number_of_tickets: Some(8),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    sequence_number: Some(1),
+                    ticket_number: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TicketsAllocation {
+                        tickets: Some(vec![1, 2, 3, 4, 5, 6, 7, 8]),
+                    },
+                },
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
         // Test negative sending precisions
 
-        //Register token
+        // Register token
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterXRPLToken {
@@ -1252,15 +1584,42 @@ mod tests {
             .coreum_denom
             .clone();
 
+        // Activate the token
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    sequence_number: None,
+                    ticket_number: query_pending_operations.operations[0].ticket_number,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TrustSet {
+                        issuer: test_token1.issuer.clone(),
+                        currency: test_token1.currency.clone(),
+                    },
+                },
+            },
+            &[],
+            &signer,
+        )
+        .unwrap();
+
         let precision_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash1".to_string(),
+                        tx_hash: generate_hash(),
                         issuer: test_token1.issuer.clone(),
                         currency: test_token1.currency.clone(),
-                        //Sending less than 100000000000000000, in this case 99999999999999999 (1 less digit) should return an error because it will truncate to zero
+                        // Sending less than 100000000000000000, in this case 99999999999999999 (1 less digit) should return an error because it will truncate to zero
                         amount: Uint128::new(99999999999999999),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1280,10 +1639,10 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "any_hash1".to_string(),
+                    tx_hash: generate_hash(),
                     issuer: test_token1.issuer.clone(),
                     currency: test_token1.currency.clone(),
-                    //Sending more than 199999999999999999 will truncate to 100000000000000000 and send it to the user
+                    // Sending more than 199999999999999999 will truncate to 100000000000000000 and send it to the user
                     amount: Uint128::new(199999999999999999),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -1302,15 +1661,15 @@ mod tests {
 
         assert_eq!(request_balance.balance, "100000000000000000".to_string());
 
-        //Sending it again should work too because we will not have passed maximum holding amount
+        // Sending it again should work too because we will not have passed maximum holding amount
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "any_hash2".to_string(),
+                    tx_hash: generate_hash(),
                     issuer: test_token1.issuer.clone(),
                     currency: test_token1.currency.clone(),
-                    //Let's try sending 199999999999999999 that will be truncated to 100000000000000000 and send it to the user
+                    // Let's try sending 199999999999999999 that will be truncated to 100000000000000000 and send it to the user
                     amount: Uint128::new(199999999999999999),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -1329,16 +1688,16 @@ mod tests {
 
         assert_eq!(request_balance.balance, "200000000000000000".to_string());
 
-        //Sending it a 3rd time will fail because will pass the maximum holding amount.
+        // Sending it a 3rd time will fail because will pass the maximum holding amount.
         let maximum_amount_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash3".to_string(),
+                        tx_hash: generate_hash(),
                         issuer: test_token1.issuer.clone(),
                         currency: test_token1.currency.clone(),
-                        //Let's try sending 199999999999999999 that will be truncated to 100000000000000000 and send it to the user
+                        // Let's try sending 199999999999999999 that will be truncated to 100000000000000000 and send it to the user
                         amount: Uint128::new(199999999999999999),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1365,7 +1724,7 @@ mod tests {
 
         // Test positive sending precisions
 
-        //Register token
+        // Register token
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterXRPLToken {
@@ -1375,6 +1734,33 @@ mod tests {
                 max_holding_amount: Uint128::new(test_token2.max_holding_amount.clone()),
             },
             &query_issue_fee(&asset_ft),
+            &signer,
+        )
+        .unwrap();
+
+        // Activate the token
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    sequence_number: None,
+                    ticket_number: query_pending_operations.operations[0].ticket_number,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TrustSet {
+                        issuer: test_token2.issuer.clone(),
+                        currency: test_token2.currency.clone(),
+                    },
+                },
+            },
+            &[],
             &signer,
         )
         .unwrap();
@@ -1402,10 +1788,10 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash5".to_string(),
+                        tx_hash: generate_hash(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
-                        //Sending more than 499 should fail because maximum holding amount is 499
+                        // Sending more than 499 should fail because maximum holding amount is 499
                         amount: Uint128::new(500),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1426,10 +1812,10 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash6".to_string(),
+                        tx_hash: generate_hash(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
-                        //Sending less than 100 will truncate to 0 so should fail
+                        // Sending less than 100 will truncate to 0 so should fail
                         amount: Uint128::new(99),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1449,10 +1835,10 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "any_hash7".to_string(),
+                    tx_hash: generate_hash(),
                     issuer: test_token2.issuer.clone(),
                     currency: test_token2.currency.clone(),
-                    //Sending 299 should truncate the amount to 200
+                    // Sending 299 should truncate the amount to 200
                     amount: Uint128::new(299),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -1471,15 +1857,15 @@ mod tests {
 
         assert_eq!(request_balance.balance, "200".to_string());
 
-        //Sending it again should truncate the amount to 200 again and should pass
+        // Sending it again should truncate the amount to 200 again and should pass
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "any_hash8".to_string(),
+                    tx_hash: generate_hash(),
                     issuer: test_token2.issuer.clone(),
                     currency: test_token2.currency.clone(),
-                    //Sending 299 should truncate the amount to 200
+                    // Sending 299 should truncate the amount to 200
                     amount: Uint128::new(299),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -1498,16 +1884,16 @@ mod tests {
 
         assert_eq!(request_balance.balance, "400".to_string());
 
-        //Sending 199 should truncate to 100 and since maximum is 499, it should fail
+        // Sending 199 should truncate to 100 and since maximum is 499, it should fail
         let maximum_amount_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash9".to_string(),
+                        tx_hash: generate_hash(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
-                        //Sending 199 should truncate to 100 and since it's over the maximum it should fail
+                        // Sending 199 should truncate to 100 and since it's over the maximum it should fail
                         amount: Uint128::new(199),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1525,7 +1911,7 @@ mod tests {
 
         // Test 0 sending precision
 
-        //Register token
+        // Register token
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterXRPLToken {
@@ -1535,6 +1921,33 @@ mod tests {
                 max_holding_amount: Uint128::new(test_token3.max_holding_amount.clone()),
             },
             &query_issue_fee(&asset_ft),
+            &signer,
+        )
+        .unwrap();
+
+        // Activate the token
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    sequence_number: None,
+                    ticket_number: query_pending_operations.operations[0].ticket_number,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TrustSet {
+                        issuer: test_token3.issuer.clone(),
+                        currency: test_token3.currency.clone(),
+                    },
+                },
+            },
+            &[],
             &signer,
         )
         .unwrap();
@@ -1562,10 +1975,10 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash10".to_string(),
+                        tx_hash: generate_hash(),
                         issuer: test_token3.issuer.clone(),
                         currency: test_token3.currency.clone(),
-                        //Sending more than 5000000000000000 should fail because maximum holding amount is 5000000000000000
+                        // Sending more than 5000000000000000 should fail because maximum holding amount is 5000000000000000
                         amount: Uint128::new(6000000000000000),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1586,10 +1999,10 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash11".to_string(),
+                        tx_hash: generate_hash(),
                         issuer: test_token3.issuer.clone(),
                         currency: test_token3.currency.clone(),
-                        //Sending less than 1000000000000000 will truncate to 0 so should fail
+                        // Sending less than 1000000000000000 will truncate to 0 so should fail
                         amount: Uint128::new(900000000000000),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1609,10 +2022,10 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "any_hash12".to_string(),
+                    tx_hash: generate_hash(),
                     issuer: test_token3.issuer.clone(),
                     currency: test_token3.currency.clone(),
-                    //Sending 1111111111111111 should truncate the amount to 1000000000000000
+                    // Sending 1111111111111111 should truncate the amount to 1000000000000000
                     amount: Uint128::new(1111111111111111),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -1635,10 +2048,10 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "any_hash13".to_string(),
+                    tx_hash: generate_hash(),
                     issuer: test_token3.issuer.clone(),
                     currency: test_token3.currency.clone(),
-                    //Sending 4111111111111111 should truncate the amount to 4000000000000000 and should pass because maximum is 5000000000000000
+                    // Sending 4111111111111111 should truncate the amount to 4000000000000000 and should pass because maximum is 5000000000000000
                     amount: Uint128::new(4111111111111111),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -1662,10 +2075,10 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash14".to_string(),
+                        tx_hash: generate_hash(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
-                        //Sending 1111111111111111 should truncate the amount to 1000000000000000 and should fail because bridge is already holding maximum
+                        // Sending 1111111111111111 should truncate the amount to 1000000000000000 and should fail because bridge is already holding maximum
                         amount: Uint128::new(1111111111111111),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1681,7 +2094,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Test sending XRP
+        // Test sending XRP
         let denom = query_xrpl_tokens
             .tokens
             .iter()
@@ -1695,10 +2108,10 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash15".to_string(),
+                        tx_hash: generate_hash(),
                         issuer: XRP_ISSUER.to_string(),
                         currency: XRP_CURRENCY.to_string(),
-                        //Sending more than 100000000000000000 should fail because maximum holding amount is 10000000000000000 (1 less zero)
+                        // Sending more than 100000000000000000 should fail because maximum holding amount is 10000000000000000 (1 less zero)
                         amount: Uint128::new(100000000000000000),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1718,10 +2131,10 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "any_hash15".to_string(),
+                    tx_hash: generate_hash(),
                     issuer: XRP_ISSUER.to_string(),
                     currency: XRP_CURRENCY.to_string(),
-                    //There should never be truncation because we allow full precision for XRP initially
+                    // There should never be truncation because we allow full precision for XRP initially
                     amount: Uint128::new(1),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -1744,10 +2157,10 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: "any_hash16".to_string(),
+                    tx_hash: generate_hash(),
                     issuer: XRP_ISSUER.to_string(),
                     currency: XRP_CURRENCY.to_string(),
-                    //This should work because we are sending the rest to reach the maximum amount
+                    // This should work because we are sending the rest to reach the maximum amount
                     amount: Uint128::new(9999999999999999),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -1771,10 +2184,10 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash17".to_string(),
+                        tx_hash: generate_hash(),
                         issuer: XRP_ISSUER.to_string(),
                         currency: XRP_CURRENCY.to_string(),
-                        //Sending 1 more token would surpass the maximum so should fail
+                        // Sending 1 more token would surpass the maximum so should fail
                         amount: Uint128::new(1),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -1826,6 +2239,7 @@ mod tests {
             vec![relayers[0].clone(), relayers[1].clone()],
             2,
             4,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
@@ -1848,7 +2262,7 @@ mod tests {
         assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
 
         let sequence_number = 1;
-        //Trying to recover tickets with the value less than used_tickets_threshold
+        // Trying to recover tickets with the value less than used_tickets_threshold
         let recover_ticket_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -1867,7 +2281,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Trying to recover more than max tickets will fail
+        // Trying to recover more than max tickets will fail
         let recover_ticket_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -1886,7 +2300,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Trying to recover more than max tickets will fail
+        // Trying to recover more than max tickets will fail
         let recover_ticket_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -1947,12 +2361,12 @@ mod tests {
             [Operation {
                 ticket_number: None,
                 sequence_number: Some(sequence_number),
-                signatures: vec![], //No signatures yet
+                signatures: vec![], // No signatures yet
                 operation_type: OperationType::AllocateTickets { number: 5 }
             }]
         );
 
-        let tx_hash = "any_hash".to_string();
+        let tx_hash = generate_hash();
         let tickets = vec![1, 2, 3, 4, 5];
         let correct_signature_example = "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string();
 
@@ -1965,7 +2379,7 @@ mod tests {
                         tx_hash: Some(tx_hash.clone()),
                         sequence_number: Some(sequence_number + 1),
                         ticket_number: None,
-                        transaction_result: TransactionResult::Rejected {},
+                        transaction_result: TransactionResult::Rejected,
                         operation_result: OperationResult::TicketsAllocation { tickets: None },
                     },
                 },
@@ -1980,7 +2394,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Provide signatures for the operation for each relayer
+        // Provide signatures for the operation for each relayer
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterSignature {
@@ -1992,7 +2406,7 @@ mod tests {
         )
         .unwrap();
 
-        //Provide the signature again for the operation will fail
+        // Provide the signature again for the operation will fail
         let signature_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -2011,7 +2425,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Provide a signature for an operation that is not pending should fail
+        // Provide a signature for an operation that is not pending should fail
         let signature_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -2041,7 +2455,7 @@ mod tests {
         )
         .unwrap();
 
-        //Verify that we have both signatures in the operation
+        // Verify that we have both signatures in the operation
         let query_pending_operation = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
@@ -2064,7 +2478,7 @@ mod tests {
             ]
         );
 
-        //Relaying the rejected operation twice should remove it from pending operations but not allocate tickets
+        // Relaying the rejected operation twice should remove it from pending operations but not allocate tickets
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -2072,7 +2486,7 @@ mod tests {
                     tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    transaction_result: TransactionResult::Rejected {},
+                    transaction_result: TransactionResult::Rejected,
                     operation_result: OperationResult::TicketsAllocation { tickets: None },
                 },
             },
@@ -2088,7 +2502,7 @@ mod tests {
                     tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    transaction_result: TransactionResult::Rejected {},
+                    transaction_result: TransactionResult::Rejected,
                     operation_result: OperationResult::TicketsAllocation { tickets: None },
                 },
             },
@@ -2128,7 +2542,7 @@ mod tests {
         )
         .unwrap();
 
-        //We provide the signatures again
+        // We provide the signatures again
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterSignature {
@@ -2159,7 +2573,7 @@ mod tests {
                         tx_hash: Some(tx_hash.clone()),
                         sequence_number: Some(sequence_number),
                         ticket_number: None,
-                        transaction_result: TransactionResult::Accepted {},
+                        transaction_result: TransactionResult::Accepted,
                         operation_result: OperationResult::TicketsAllocation {
                             tickets: Some(tickets.clone()),
                         },
@@ -2176,7 +2590,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Relaying the operation twice as invalid should removed it from pending operations and not allocate tickets
+        // Relaying the operation twice as invalid should removed it from pending operations and not allocate tickets
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -2184,10 +2598,8 @@ mod tests {
                     tx_hash: None,
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    transaction_result: TransactionResult::Invalid {},
-                    operation_result: OperationResult::TicketsAllocation {
-                        tickets: None,
-                    },
+                    transaction_result: TransactionResult::Invalid,
+                    operation_result: OperationResult::TicketsAllocation { tickets: None },
                 },
             },
             &vec![],
@@ -2202,10 +2614,8 @@ mod tests {
                     tx_hash: None,
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    transaction_result: TransactionResult::Invalid {},
-                    operation_result: OperationResult::TicketsAllocation {
-                        tickets: None,
-                    },
+                    transaction_result: TransactionResult::Invalid,
+                    operation_result: OperationResult::TicketsAllocation { tickets: None },
                 },
             },
             &vec![],
@@ -2244,10 +2654,9 @@ mod tests {
         )
         .unwrap();
 
+        let tx_hash = generate_hash();
 
-        let tx_hash = "any_hash2".to_string();
-
-        //Relaying the accepted operation twice should remove it from pending operations and allocate tickets
+        // Relaying the accepted operation twice should remove it from pending operations and allocate tickets
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -2255,7 +2664,7 @@ mod tests {
                     tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    transaction_result: TransactionResult::Accepted {},
+                    transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
                         tickets: Some(tickets.clone()),
                     },
@@ -2273,7 +2682,7 @@ mod tests {
                     tx_hash: Some(tx_hash.clone()),
                     sequence_number: Some(sequence_number),
                     ticket_number: None,
-                    transaction_result: TransactionResult::Accepted {},
+                    transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
                         tickets: Some(tickets.clone()),
                     },
@@ -2325,12 +2734,77 @@ mod tests {
             vec![relayer],
             1,
             4,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
-        let tx_hash = "any_hash".to_string();
+        let tx_hash = generate_hash();
         let sequence_number = 1;
         let tickets = vec![1, 2, 3, 4, 5];
+
+        let invalid_evidences_input = vec![
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: None,
+                ticket_number: None,
+                transaction_result: TransactionResult::Rejected,
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(tickets.clone()),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: Some(sequence_number),
+                ticket_number: Some(2),
+                transaction_result: TransactionResult::Rejected,
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(tickets.clone()),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: None,
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Rejected,
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(tickets.clone()),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Rejected,
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(tickets.clone()),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(tx_hash.clone()),
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Invalid,
+                operation_result: OperationResult::TicketsAllocation { tickets: None },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: None,
+                sequence_number: Some(sequence_number),
+                ticket_number: None,
+                transaction_result: TransactionResult::Invalid,
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(tickets),
+                },
+            },
+        ];
+
+        let expected_errors = vec![
+            ContractError::InvalidTransactionResultEvidence {},
+            ContractError::InvalidTransactionResultEvidence {},
+            ContractError::InvalidSuccessfulTransactionResultEvidence {},
+            ContractError::InvalidTicketAllocationEvidence {},
+            ContractError::InvalidFailedTransactionResultEvidence {},
+            ContractError::InvalidTicketAllocationEvidence {},
+        ];
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -2343,159 +2817,22 @@ mod tests {
         )
         .unwrap();
 
-        // Trying to save an evidence that has no sequence or ticket number should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: None,
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Rejected {},
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets.clone()),
-                        },
+        for (index, evidence) in invalid_evidences_input.iter().enumerate() {
+            let invalid_evidence = wasm
+                .execute::<ExecuteMsg>(
+                    &contract_addr,
+                    &ExecuteMsg::SaveEvidence {
+                        evidence: evidence.clone(),
                     },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
+                    &[],
+                    &signer,
+                )
+                .unwrap_err();
 
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTransactionResultEvidence {}
+            assert!(invalid_evidence
                 .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence that has sequence and ticket number should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: Some(sequence_number),
-                        ticket_number: Some(2),
-                        transaction_result: TransactionResult::Rejected {},
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets.clone()),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTransactionResultEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of a transaction that is valid but has no tx_hash should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: None,
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Rejected {},
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets.clone()),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidValidTransactionResultEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of a transaction that is valid but is rejected and has tickets, should fail
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Rejected {},
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets.clone()),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTicketAllocationEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of an invalid transaction but has a transaction hash should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: Some(tx_hash.clone()),
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Invalid {},
-                        operation_result: OperationResult::TicketsAllocation { tickets: None },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidNotValidTransactionResultEvidence {}
-                .to_string()
-                .as_str()
-        ));
-
-        // Trying to save an evidence of an invalid transaction but has tickets should fail.
-        let invalid_evidence = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::SaveEvidence {
-                    evidence: Evidence::XRPLTransactionResult {
-                        tx_hash: None,
-                        sequence_number: Some(sequence_number),
-                        ticket_number: None,
-                        transaction_result: TransactionResult::Invalid {},
-                        operation_result: OperationResult::TicketsAllocation {
-                            tickets: Some(tickets),
-                        },
-                    },
-                },
-                &vec![],
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(invalid_evidence.to_string().contains(
-            ContractError::InvalidTicketAllocationEvidence {}
-                .to_string()
-                .as_str()
-        ));
+                .contains(expected_errors[index].to_string().as_str()));
+        }
     }
 
     #[test]
@@ -2524,10 +2861,11 @@ mod tests {
             vec![relayer],
             1,
             50,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
         );
 
-        //Try transfering from user that is not owner, should fail
+        // Try transfering from user that is not owner, should fail
         let transfer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -2546,7 +2884,7 @@ mod tests {
                 .as_str()
         ));
 
-        //Try registering a coreum token as not_owner, should fail
+        // Try registering a coreum token as not_owner, should fail
         let register_coreum_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -2565,13 +2903,13 @@ mod tests {
                 .as_str()
         ));
 
-        //Try registering an XRPL token as not_owner, should fail
+        // Try registering an XRPL token as not_owner, should fail
         let register_xrpl_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::RegisterXRPLToken {
-                    issuer: "issuer".to_string(),
-                    currency: "currency".to_string(),
+                    issuer: generate_xrpl_address(),
+                    currency: "USD".to_string(),
                     sending_precision: 4,
                     max_holding_amount: Uint128::new(50000),
                 },
@@ -2586,15 +2924,15 @@ mod tests {
                 .as_str()
         ));
 
-        //Trying to send from an address that is not a relayer should fail
+        // Trying to send from an address that is not a relayer should fail
         let relayer_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
                     evidence: Evidence::XRPLToCoreumTransfer {
-                        tx_hash: "any_hash".to_string(),
-                        issuer: "any_issuer".to_string(),
-                        currency: "any_currency".to_string(),
+                        tx_hash: generate_hash(),
+                        issuer: generate_xrpl_address(),
+                        currency: "USD".to_string(),
                         amount: Uint128::new(100),
                         recipient: Addr::unchecked(signer.address()),
                     },
@@ -2608,7 +2946,7 @@ mod tests {
             .to_string()
             .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
 
-        //Try recovering tickets as not_owner, should fail
+        // Try recovering tickets as not_owner, should fail
         let recover_tickets = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -2664,7 +3002,7 @@ mod tests {
             tx_hash: Some("any_hash123".to_string()),
             sequence_number: Some(1),
             ticket_number: None,
-            transaction_result: TransactionResult::Rejected {},
+            transaction_result: TransactionResult::Rejected,
             operation_result: OperationResult::TicketsAllocation {
                 tickets: Some(vec![1, 2, 3, 4, 5]),
             },
@@ -2674,7 +3012,7 @@ mod tests {
             tx_hash: Some("any_hash123".to_string()),
             sequence_number: Some(1),
             ticket_number: None,
-            transaction_result: TransactionResult::Accepted {},
+            transaction_result: TransactionResult::Accepted,
             operation_result: OperationResult::TicketsAllocation {
                 tickets: Some(vec![1, 2, 3, 4, 5]),
             },
