@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     error::ContractError,
-    state::{Evidences, CONFIG, PROCESSED_TXS, TX_EVIDENCES},
+    state::{CONFIG, PROCESSED_TXS, TX_EVIDENCES},
 };
 
 #[cw_serde]
@@ -17,7 +17,7 @@ pub enum Evidence {
         amount: Uint128,
         recipient: Addr,
     },
-    //This type will be used for ANY transaction that comes from XRPL and that is notifying a confirmation or rejection.
+    // This type will be used for ANY transaction that comes from XRPL and that is notifying a confirmation or rejection.
     #[serde(rename = "xrpl_transaction_result")]
     XRPLTransactionResult {
         tx_hash: Option<String>,
@@ -30,12 +30,15 @@ pub enum Evidence {
 
 #[cw_serde]
 pub enum TransactionResult {
+    // Transactions that were accepted in XRPL and have their corresponding Transaction Hash
     Accepted,
+    // Transactions that were rejected in XRPL and have their corresponding Transaction Hash
     Rejected,
+    // These transactions have no transaction hash because they couldn't be processed in XRPL.
     Invalid,
 }
 
-//For convenience in the responses.
+// For convenience in the responses.
 impl TransactionResult {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -49,41 +52,43 @@ impl TransactionResult {
 #[cw_serde]
 pub enum OperationResult {
     TicketsAllocation { tickets: Option<Vec<u64>> },
+    TrustSet { issuer: String, currency: String },
 }
 
-//For convenience in the responses.
+// For convenience in the responses.
 impl OperationResult {
     pub fn as_str(&self) -> &'static str {
         match self {
             OperationResult::TicketsAllocation { .. } => "tickets_allocation",
+            OperationResult::TrustSet { .. } => "trust_set",
         }
     }
 }
 
 impl Evidence {
-    //We hash the entire Evidence struct to avoid having to deal with different types of hashes
-    pub fn get_hash(self) -> String {
-        let to_hash_bytes = serde_json::to_string(&self).unwrap().into_bytes();
+    // We hash the entire Evidence struct to avoid having to deal with different types of hashes
+    pub fn get_hash(&self) -> String {
+        let to_hash_bytes = serde_json::to_string(self).unwrap().into_bytes();
         hash_bytes(to_hash_bytes)
     }
 
-    pub fn get_tx_hash(self) -> String {
+    pub fn get_tx_hash(&self) -> String {
         match self {
-            Evidence::XRPLToCoreumTransfer { tx_hash, .. } => tx_hash,
-            Evidence::XRPLTransactionResult { tx_hash, .. } => tx_hash.unwrap(),
+            Evidence::XRPLToCoreumTransfer { tx_hash, .. } => tx_hash.clone(),
+            Evidence::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone().unwrap(),
         }
         .to_lowercase()
     }
-    pub fn is_operation_valid(self) -> bool {
+    pub fn is_operation_valid(&self) -> bool {
         match self {
             Evidence::XRPLToCoreumTransfer { .. } => true,
             Evidence::XRPLTransactionResult {
                 transaction_result, ..
-            } => transaction_result != TransactionResult::Invalid,
+            } => transaction_result.clone() != TransactionResult::Invalid,
         }
     }
-    //Function for basic validation of evidences in case relayers send something that is not valid
-    pub fn validate(self) -> Result<(), ContractError> {
+    // Function for basic validation of evidences in case relayers send something that is not valid
+    pub fn validate(&self) -> Result<(), ContractError> {
         match self {
             Evidence::XRPLToCoreumTransfer { amount, .. } => {
                 if amount.u128() == 0 {
@@ -105,36 +110,44 @@ impl Evidence {
                 }
 
                 // Valid transactions must have a tx_hash
-                if transaction_result != TransactionResult::Invalid && tx_hash.is_none() {
-                    return Err(ContractError::InvalidValidTransactionResultEvidence {});
+                if transaction_result.ne(&TransactionResult::Invalid) && tx_hash.is_none() {
+                    return Err(ContractError::InvalidSuccessfulTransactionResultEvidence {});
                 }
 
                 // Invalid transactions can't have a tx_hash
-                if transaction_result == TransactionResult::Invalid && tx_hash.is_some() {
-                    return Err(ContractError::InvalidNotValidTransactionResultEvidence {});
+                if transaction_result.eq(&TransactionResult::Invalid) && tx_hash.is_some() {
+                    return Err(ContractError::InvalidFailedTransactionResultEvidence {});
                 }
 
                 match operation_result {
                     OperationResult::TicketsAllocation { tickets } => {
-                        //Invalid or rejected transactions should not contain tickets
-                        if (transaction_result == TransactionResult::Invalid
-                            || transaction_result == TransactionResult::Rejected)
+                        // Invalid or rejected transactions should not contain tickets
+                        if (transaction_result.eq(&TransactionResult::Invalid)
+                            || transaction_result.eq(&TransactionResult::Rejected))
                             && tickets.is_some()
                         {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
-                        //We can't accept an operation that allocates no tickets
-                        if transaction_result == TransactionResult::Accepted
-                            && (tickets.is_none() || tickets.unwrap().is_empty())
+                        // We can't accept an operation that allocates no tickets
+                        if transaction_result.eq(&TransactionResult::Accepted)
+                            && (tickets.is_none() || tickets.as_ref().unwrap().is_empty())
                         {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
                     }
+                    // TrustSet operation results are always valid because sending the issuer and currency is mandatory because we need to update the token state
+                    OperationResult::TrustSet { .. } => (),
                 }
+
                 Ok(())
             }
         }
     }
+}
+
+#[cw_serde]
+pub struct Evidences {
+    pub relayers: Vec<Addr>,
 }
 
 pub fn hash_bytes(bytes: Vec<u8>) -> String {
@@ -149,14 +162,14 @@ pub fn handle_evidence(
     sender: Addr,
     evidence: Evidence,
 ) -> Result<bool, ContractError> {
-    let operation_valid = evidence.clone().is_operation_valid();
+    let operation_valid = evidence.is_operation_valid();
 
-    if operation_valid && PROCESSED_TXS.has(storage, evidence.clone().get_tx_hash()) {
+    if operation_valid && PROCESSED_TXS.has(storage, evidence.get_tx_hash()) {
         return Err(ContractError::OperationAlreadyExecuted {});
     }
 
     let mut evidences: Evidences;
-    match TX_EVIDENCES.may_load(storage, evidence.clone().get_hash())? {
+    match TX_EVIDENCES.may_load(storage, evidence.get_hash())? {
         Some(stored_evidences) => {
             if stored_evidences.relayers.contains(&sender) {
                 return Err(ContractError::EvidenceAlreadyProvided {});
@@ -175,9 +188,9 @@ pub fn handle_evidence(
     if evidences.relayers.len() >= config.evidence_threshold.try_into().unwrap() {
         // We only registered the transaction as processed if its execution didn't fail
         if operation_valid {
-            PROCESSED_TXS.save(storage, evidence.clone().get_tx_hash(), &Empty {})?;
+            PROCESSED_TXS.save(storage, evidence.get_tx_hash(), &Empty {})?;
         }
-        // if there is just one relayer there is nothing to delete
+        // If there is just one relayer there is nothing to delete
         if evidences.relayers.len() != 1 {
             TX_EVIDENCES.remove(storage, evidence.get_hash());
         }

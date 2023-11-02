@@ -28,14 +28,14 @@ pub enum ContractError {
     #[error("InvalidXRPLAddress: XRPL address {} is not valid, must start with r and have a length between 24 and 34", address)]
     InvalidXRPLAddress { address: String },
 
-    #[error("RepeatedRelayerXRPLAddress: All relayers must have different XRPL addresses")]
-    RepeatedRelayerXRPLAddress {},
+    #[error("DuplicatedRelayerXRPLAddress: All relayers must have different XRPL addresses")]
+    DuplicatedRelayerXRPLAddress {},
 
-    #[error("RepeatedRelayerXRPLPubKey: All relayers must have different XRPL public keys")]
-    RepeatedRelayerXRPLPubKey {},
+    #[error("DuplicatedRelayerXRPLPubKey: All relayers must have different XRPL public keys")]
+    DuplicatedRelayerXRPLPubKey {},
 
-    #[error("RepeatedRelayerCoreumAddress: All relayers must have different coreum addresses")]
-    RepeatedRelayerCoreumAddress {},
+    #[error("DuplicatedRelayerCoreumAddress: All relayers must have different coreum addresses")]
+    DuplicatedRelayerCoreumAddress {},
 
     #[error("CoreumTokenAlreadyRegistered: Token {} already registered", denom)]
     CoreumTokenAlreadyRegistered { denom: String },
@@ -73,6 +73,9 @@ pub enum ContractError {
     #[error("InvalidUsedTicketsThreshold: Used tickets threshold must be more than 1 and less or equal than {}", MAX_TICKETS)]
     InvalidUsedTicketsThreshold {},
 
+    #[error("NoAvailableTickets: There are no available tickets")]
+    NoAvailableTickets {},
+
     #[error("LastTicketReserved: Last available ticket is reserved for updating tickets")]
     LastTicketReserved {},
 
@@ -87,13 +90,13 @@ pub enum ContractError {
     #[error("InvalidTransactionResultEvidence: An evidence must contain only one of sequence numer or ticket number")]
     InvalidTransactionResultEvidence {},
 
-    #[error("InvalidValidTransactionResultEvidence: An evidence with a valid transaction must contain a transaction hash")]
-    InvalidValidTransactionResultEvidence {},
+    #[error("InvalidSuccessfulTransactionResultEvidence: An evidence with a successful transaction must contain a transaction hash")]
+    InvalidSuccessfulTransactionResultEvidence {},
 
-    #[error("InvalidNotValidTransactionResultEvidence: An evidence with an invalid transaction can't have a transaction hash or be confirmed")]
-    InvalidNotValidTransactionResultEvidence {},
+    #[error("InvalidFailedTransactionResultEvidence: An evidence with an failed transaction can't have a transaction hash")]
+    InvalidFailedTransactionResultEvidence {},
 
-    #[error("InvalidTicketAllocationEvidence: There must be tickets if operation is confirmed and valid and there can't be tickets if operation is not confirmed or not valid")]
+    #[error("InvalidTicketAllocationEvidence: Tickets have to be present if operation is accepted and absent if operation is rejected or invalid")]
     InvalidTicketAllocationEvidence {},
 
     #[error(
@@ -117,6 +120,9 @@ pub enum ContractError {
 
     #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
     InvalidXRPLCurrency {},
+
+    #[error("XRPLTokenNotActive: This token must be active to be bridged")]
+    XRPLTokenNotActive {},
 
     #[error("AmountSentIsZeroAfterTruncating: Amount sent is zero after truncating to sending precision")]
     AmountSentIsZeroAfterTruncating {},
