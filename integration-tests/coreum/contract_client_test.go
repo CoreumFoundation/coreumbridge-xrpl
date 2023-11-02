@@ -4,6 +4,7 @@
 package coreum_test
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"strings"
@@ -42,14 +43,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 	ctx, chains := integrationtests.NewTestingContext(t)
 	assetftClient := assetfttypes.NewQueryClient(chains.Coreum.ClientContext)
 
-	xrplRelayerSigner := xrpl.GenPrivKeyTxSigner()
-	relayers := []coreum.Relayer{
-		{
-			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   xrplRelayerSigner.Account().String(),
-			XRPLPubKey:    xrplRelayerSigner.PubKey().String(),
-		},
-	}
+	relayers := genRelayers(ctx, t, chains, 1)
 
 	usedTicketsThreshold := 10
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), usedTicketsThreshold)
@@ -110,15 +104,7 @@ func TestChangeContractOwnership(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	xrplRelayerSigner := xrpl.GenPrivKeyTxSigner()
-	relayers := []coreum.Relayer{
-		{
-			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   xrplRelayerSigner.Account().String(),
-			XRPLPubKey:    xrplRelayerSigner.PubKey().String(),
-		},
-	}
-
+	relayers := genRelayers(ctx, t, chains, 1)
 	usedTicketsThreshold := 10
 
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, len(relayers), usedTicketsThreshold)
@@ -249,14 +235,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	ctx, chains := integrationtests.NewTestingContext(t)
 	assetftClient := assetfttypes.NewQueryClient(chains.Coreum.ClientContext)
 
-	xrplRelayerSigner := xrpl.GenPrivKeyTxSigner()
-	relayers := []coreum.Relayer{
-		{
-			CoreumAddress: chains.Coreum.GenAccount(),
-			XRPLAddress:   xrplRelayerSigner.Account().String(),
-			XRPLPubKey:    xrplRelayerSigner.PubKey().String(),
-		},
-	}
+	relayers := genRelayers(ctx, t, chains, 1)
 	usedTicketsThreshold := 10
 
 	notOwner := chains.Coreum.GenAccount()
@@ -340,36 +319,12 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	xrplRelayer1Signer := xrpl.GenPrivKeyTxSigner()
-	relayer1 := coreum.Relayer{
-		CoreumAddress: chains.Coreum.GenAccount(),
-		XRPLAddress:   xrplRelayer1Signer.Account().String(),
-		XRPLPubKey:    xrplRelayer1Signer.PubKey().String(),
-	}
-
-	xrplRelayer2Signer := xrpl.GenPrivKeyTxSigner()
-	relayer2 := coreum.Relayer{
-		CoreumAddress: chains.Coreum.GenAccount(),
-		XRPLAddress:   xrplRelayer2Signer.Account().String(),
-		XRPLPubKey:    xrplRelayer2Signer.PubKey().String(),
-	}
-
 	coreumRecipient := chains.Coreum.GenAccount()
 	randomAddress := chains.Coreum.GenAccount()
+	relayers := genRelayers(ctx, t, chains, 2)
 
 	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
 
-	relayers := []coreum.Relayer{
-		relayer1,
-		relayer2,
-	}
-
-	chains.Coreum.FundAccountWithOptions(ctx, t, relayer1.CoreumAddress, coreumintegration.BalancesOptions{
-		Amount: sdkmath.NewInt(1_000_000),
-	})
-	chains.Coreum.FundAccountWithOptions(ctx, t, relayer2.CoreumAddress, coreumintegration.BalancesOptions{
-		Amount: sdkmath.NewInt(1_000_000),
-	})
 	chains.Coreum.FundAccountWithOptions(ctx, t, randomAddress, coreumintegration.BalancesOptions{
 		Amount: sdkmath.NewInt(1_000_000),
 	})
@@ -423,11 +378,11 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	// try use not registered token
 	wrongXRPLToCoreumTransferEvidence := xrplToCoreumTransferEvidence
 	wrongXRPLToCoreumTransferEvidence.Currency = "NEZ"
-	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer1.CoreumAddress, wrongXRPLToCoreumTransferEvidence)
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[0].CoreumAddress, wrongXRPLToCoreumTransferEvidence)
 	require.True(t, coreum.IsTokenNotRegisteredError(err), err)
 
 	// call from first relayer
-	txRes, err := contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer1.CoreumAddress, xrplToCoreumTransferEvidence)
+	txRes, err := contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidence)
 	require.NoError(t, err)
 	recipientBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 		Address: coreumRecipient.String(),
@@ -440,11 +395,11 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	require.Equal(t, "false", thresholdReached)
 
 	// call from first relayer one more time
-	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer1.CoreumAddress, xrplToCoreumTransferEvidence)
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidence)
 	require.True(t, coreum.IsEvidenceAlreadyProvidedError(err), err)
 
 	// call from second relayer
-	txRes, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer2.CoreumAddress, xrplToCoreumTransferEvidence)
+	txRes, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[1].CoreumAddress, xrplToCoreumTransferEvidence)
 	require.NoError(t, err)
 	recipientBalanceRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 		Address: coreumRecipient.String(),
@@ -460,7 +415,7 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	require.Equal(t, xrplToCoreumTransferEvidence.Amount.String(), recipientBalanceRes.Balance.Amount.String())
 
 	// try to push the same evidence
-	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer1.CoreumAddress, xrplToCoreumTransferEvidence)
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidence)
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
 }
 
@@ -475,21 +430,7 @@ func TestSendFromXRPLToCoreumXRPLNativeTokenWithDifferentSendingPrecision(t *tes
 	ctx, chains := integrationtests.NewTestingContext(t)
 	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
 
-	relayers := make([]coreum.Relayer, 0)
-	const relayersCount = 2
-	for i := 0; i < relayersCount; i++ {
-		xrplRelayerSigner := xrpl.GenPrivKeyTxSigner()
-		relayerCoreumAddress := chains.Coreum.GenAccount()
-		relayers = append(relayers, coreum.Relayer{
-			CoreumAddress: relayerCoreumAddress,
-			XRPLAddress:   xrplRelayerSigner.Account().String(),
-			XRPLPubKey:    xrplRelayerSigner.PubKey().String(),
-		})
-		chains.Coreum.FundAccountWithOptions(ctx, t, relayerCoreumAddress, coreumintegration.BalancesOptions{
-			Amount: sdkmath.NewInt(1_000_000),
-		})
-	}
-
+	relayers := genRelayers(ctx, t, chains, 2)
 	coreumRecipient := chains.Coreum.GenAccount()
 
 	usedTicketsThreshold := 10
@@ -636,38 +577,8 @@ func TestRecoverTickets(t *testing.T) {
 	numberOfTicketsToInit := uint32(6)
 
 	ctx, chains := integrationtests.NewTestingContext(t)
-	relayer1 := chains.Coreum.GenAccount()
-	relayer2 := chains.Coreum.GenAccount()
-	relayer3 := chains.Coreum.GenAccount()
 
-	xrplSigner1Acc := chains.XRPL.GenAccount(ctx, t, 0)
-	xrplSigner2Acc := chains.XRPL.GenAccount(ctx, t, 0)
-	xrplSigner3Acc := chains.XRPL.GenAccount(ctx, t, 0)
-
-	relayers := []coreum.Relayer{
-		{
-			CoreumAddress: relayer1,
-			XRPLAddress:   xrplSigner1Acc.String(),
-			XRPLPubKey:    chains.XRPL.GetSignerPubKey(t, xrplSigner1Acc).String(),
-		},
-		{
-			CoreumAddress: relayer2,
-			XRPLAddress:   xrplSigner2Acc.String(),
-			XRPLPubKey:    chains.XRPL.GetSignerPubKey(t, xrplSigner2Acc).String(),
-		},
-		{
-			CoreumAddress: relayer3,
-			XRPLAddress:   xrplSigner3Acc.String(),
-			XRPLPubKey:    chains.XRPL.GetSignerPubKey(t, xrplSigner3Acc).String(),
-		},
-	}
-
-	for _, relayer := range relayers {
-		chains.Coreum.FundAccountWithOptions(ctx, t, relayer.CoreumAddress, coreumintegration.BalancesOptions{
-			Amount: sdkmath.NewInt(1_000_000),
-		})
-	}
-
+	relayers := genRelayers(ctx, t, chains, 3)
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(ctx, t, chains, relayers, 2, usedTicketsThreshold)
 
 	// ********** Ticket allocation / Recovery **********
@@ -720,21 +631,23 @@ func TestRecoverTickets(t *testing.T) {
 			TransactionType: rippledata.TICKET_CREATE,
 		},
 	}
-	signerItem1 := chains.XRPL.Multisign(t, &createTicketsTx, xrplSigner1Acc).Signer
+	relayer1XRPLAcc, err := rippledata.NewAccountFromAddress(relayers[0].XRPLAddress)
+	require.NoError(t, err)
+	signerItem1 := chains.XRPL.Multisign(t, &createTicketsTx, *relayer1XRPLAcc).Signer
 	// try to send from not relayer
 	_, err = contractClient.RegisterSignature(ctx, owner, firstBridgeAccountSeqNumber, signerItem1.TxnSignature.String())
 	require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
 	// try to send with incorrect operation ID
-	_, err = contractClient.RegisterSignature(ctx, relayer1, uint32(999), signerItem1.TxnSignature.String())
+	_, err = contractClient.RegisterSignature(ctx, relayers[0].CoreumAddress, uint32(999), signerItem1.TxnSignature.String())
 	require.True(t, coreum.IsPendingOperationNotFoundError(err), err)
 
 	// send from first relayer
-	_, err = contractClient.RegisterSignature(ctx, relayer1, firstBridgeAccountSeqNumber, signerItem1.TxnSignature.String())
+	_, err = contractClient.RegisterSignature(ctx, relayers[0].CoreumAddress, firstBridgeAccountSeqNumber, signerItem1.TxnSignature.String())
 	require.NoError(t, err)
 
 	// try to send from the same relayer one more time
-	_, err = contractClient.RegisterSignature(ctx, relayer1, firstBridgeAccountSeqNumber, signerItem1.TxnSignature.String())
+	_, err = contractClient.RegisterSignature(ctx, relayers[0].CoreumAddress, firstBridgeAccountSeqNumber, signerItem1.TxnSignature.String())
 	require.True(t, coreum.IsSignatureAlreadyProvidedError(err), err)
 
 	// send from second relayer
@@ -744,8 +657,10 @@ func TestRecoverTickets(t *testing.T) {
 			TransactionType: rippledata.TICKET_CREATE,
 		},
 	}
-	signerItem2 := chains.XRPL.Multisign(t, &createTicketsTx, xrplSigner2Acc).Signer
-	_, err = contractClient.RegisterSignature(ctx, relayer2, firstBridgeAccountSeqNumber, signerItem2.TxnSignature.String())
+	relayer2XRPLAcc, err := rippledata.NewAccountFromAddress(relayers[0].XRPLAddress)
+	require.NoError(t, err)
+	signerItem2 := chains.XRPL.Multisign(t, &createTicketsTx, *relayer2XRPLAcc).Signer
+	_, err = contractClient.RegisterSignature(ctx, relayers[1].CoreumAddress, firstBridgeAccountSeqNumber, signerItem2.TxnSignature.String())
 	require.NoError(t, err)
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
@@ -757,11 +672,11 @@ func TestRecoverTickets(t *testing.T) {
 		SequenceNumber: firstBridgeAccountSeqNumber,
 		Signatures: []coreum.Signature{
 			{
-				Relayer:   relayer1,
+				Relayer:   relayers[0].CoreumAddress,
 				Signature: signerItem1.TxnSignature.String(),
 			},
 			{
-				Relayer:   relayer2,
+				Relayer:   relayers[1].CoreumAddress,
 				Signature: signerItem2.TxnSignature.String(),
 			},
 		},
@@ -787,14 +702,14 @@ func TestRecoverTickets(t *testing.T) {
 	// try to send with not existing sequence
 	invalidRejectedTxEvidence := rejectedTxEvidence
 	invalidRejectedTxEvidence.SequenceNumber = lo.ToPtr(uint32(999))
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidRejectedTxEvidence)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, invalidRejectedTxEvidence)
 	require.True(t, coreum.IsPendingOperationNotFoundError(err), err)
 
 	// try to send with not existing ticket
 	invalidRejectedTxEvidence = rejectedTxEvidence
 	invalidRejectedTxEvidence.SequenceNumber = nil
 	invalidRejectedTxEvidence.TicketNumber = lo.ToPtr(uint32(999))
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidRejectedTxEvidence)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, invalidRejectedTxEvidence)
 	require.True(t, coreum.IsPendingOperationNotFoundError(err), err)
 
 	// try to send from not relayer
@@ -802,25 +717,25 @@ func TestRecoverTickets(t *testing.T) {
 	require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
 	// send evidence from first relayer
-	txRes, err := contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, rejectedTxEvidence)
+	txRes, err := contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, rejectedTxEvidence)
 	require.NoError(t, err)
 	thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
 	require.Equal(t, "false", thresholdReached)
 
 	// try to send evidence from second relayer one more time
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, rejectedTxEvidence)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, rejectedTxEvidence)
 	require.True(t, coreum.IsEvidenceAlreadyProvidedError(err), err)
 
 	// send evidence from second relayer
-	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer2, rejectedTxEvidence)
+	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[1].CoreumAddress, rejectedTxEvidence)
 	require.NoError(t, err)
 	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
 	require.Equal(t, "true", thresholdReached)
 
 	// try to send the evidence one more time
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, rejectedTxEvidence)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, rejectedTxEvidence)
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
@@ -854,18 +769,18 @@ func TestRecoverTickets(t *testing.T) {
 	// try to send with already used txHash
 	invalidAcceptedTxEvidence := acceptedTxEvidence
 	invalidAcceptedTxEvidence.TxHash = rejectedTxHash
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidAcceptedTxEvidence)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, invalidAcceptedTxEvidence)
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
 
 	// send evidence from first relayer
-	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, acceptedTxEvidence)
+	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, acceptedTxEvidence)
 	require.NoError(t, err)
 	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
 	require.Equal(t, "false", thresholdReached)
 
 	// send evidence from second relayer
-	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer2, acceptedTxEvidence)
+	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[1].CoreumAddress, acceptedTxEvidence)
 	require.NoError(t, err)
 	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
@@ -901,6 +816,24 @@ func findOneIssuedDenomInTxResponse(t *testing.T, txRes *sdk.TxResponse) string 
 	}
 
 	return foundDenom
+}
+
+func genRelayers(ctx context.Context, t *testing.T, chains integrationtests.Chains, relayersCount int) []coreum.Relayer {
+	relayers := make([]coreum.Relayer, 0)
+
+	for i := 0; i < relayersCount; i++ {
+		xrplRelayerSigner := chains.XRPL.GenAccount(ctx, t, 0)
+		relayerCoreumAddress := chains.Coreum.GenAccount()
+		chains.Coreum.FundAccountWithOptions(ctx, t, relayerCoreumAddress, coreumintegration.BalancesOptions{
+			Amount: sdkmath.NewInt(1_000_000),
+		})
+		relayers = append(relayers, coreum.Relayer{
+			CoreumAddress: relayerCoreumAddress,
+			XRPLAddress:   xrplRelayerSigner.String(),
+			XRPLPubKey:    chains.XRPL.GetSignerPubKey(t, xrplRelayerSigner).String(),
+		})
+	}
+	return relayers
 }
 
 func genXRPLTxHash(t *testing.T) string {
