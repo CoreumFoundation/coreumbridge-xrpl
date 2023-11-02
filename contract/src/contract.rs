@@ -671,7 +671,7 @@ fn truncate_amount(
     let amount_to_send = amount.checked_div(Uint128::new(10u128.pow(exponent.unsigned_abs())))?;
 
     if amount_to_send.is_zero() {
-        return Err(ContractError::AmountSentIsZeroAfterTruncating {});
+        return Err(ContractError::AmountSentIsZeroAfterTruncation {});
     }
 
     Ok(amount_to_send.checked_mul(Uint128::new(10u128.pow(exponent.unsigned_abs())))?)

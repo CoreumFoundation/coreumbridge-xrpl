@@ -124,8 +124,8 @@ pub enum ContractError {
     #[error("XRPLTokenNotActive: This token must be active to be bridged")]
     XRPLTokenNotActive {},
 
-    #[error("AmountSentIsZeroAfterTruncating: Amount sent is zero after truncating to sending precision")]
-    AmountSentIsZeroAfterTruncating {},
+    #[error("AmountSentIsZeroAfterTruncation: Amount sent is zero after truncating to sending precision")]
+    AmountSentIsZeroAfterTruncation {},
 
     #[error("MaximumBridgedAmountReached: The maximum amount this contract can have bridged has been reached")]
     MaximumBridgedAmountReached {},

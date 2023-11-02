@@ -7,11 +7,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"math/big"
 	"strings"
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
@@ -33,8 +31,8 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	coreumRecipient := chains.Coreum.GenAccount()
 	t.Logf("Coreum recipient: %s", coreumRecipient.String())
 
-	sendingPrecision := uint32(15)
-	maxHoldingAmount := "1000000000000000000000000000000"
+	sendingPrecision := int32(6)
+	maxHoldingAmount := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
 
 	envCfg := DefaultRunnerEnvConfig()
 	// we need it to manually do the TrustSet
@@ -126,15 +124,15 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 
 	runnerEnv.StartAllRunnerProcesses(ctx, t)
 
-	maxDecimalsValue, err := rippledata.NewValue("1.000000000000001", false)
+	lowValue, err := rippledata.NewValue("1.00000111", false)
 	require.NoError(t, err)
 	maxDecimalsRegisterCurrencyAmount := rippledata.Amount{
-		Value:    maxDecimalsValue,
+		Value:    lowValue,
 		Currency: xrplRegisteredCurrency,
 		Issuer:   xrplCurrencyIssuerAcc,
 	}
 
-	highValue, err := rippledata.NewValue("10000000000.0", false)
+	highValue, err := rippledata.NewValue("100000", false)
 	require.NoError(t, err)
 	highValueRegisteredCurrencyAmount := rippledata.Amount{
 		Value:    highValue,
@@ -157,7 +155,7 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 
 	// currency is not registered
 	xrplNotRegisterCurrencyAmount := rippledata.Amount{
-		Value:    maxDecimalsValue,
+		Value:    lowValue,
 		Currency: xrplNotRegisterCurrency,
 		Issuer:   xrplCurrencyIssuerAcc,
 	}
@@ -177,19 +175,12 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	// send tx with hex currency
 	SendXRPLPaymentTx(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, runnerEnv.XRPLBridgeAccount, registeredHexCurrencyAmount, memo)
 
-	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLToken.CoreumDenom, convertStringToSDKInt(t, "10000000001000000000000001")))
-	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLTokenHexCurrency.CoreumDenom, convertStringToSDKInt(t, "9900000000000000")))
+	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLToken.CoreumDenom, integrationtests.ConvertStringWithDecimalsToSDKInt(t, "100001.000001", XRPLTokenDecimals)))
+	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLTokenHexCurrency.CoreumDenom, integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9.9", XRPLTokenDecimals)))
 }
 
-func convertStringToSDKInt(t *testing.T, invVal string) sdkmath.Int {
-	t.Helper()
-
-	expectedBigIntAmount, ok := big.NewInt(0).SetString(invVal, 0)
-	require.True(t, ok)
-	return sdkmath.NewIntFromBigInt(expectedBigIntAmount)
-}
-
-func activateToken(ctx context.Context, t *testing.T, runnerEnv *RunnerEnv, issuer string, currency string) {
+// TODO(dzmitryhil) remove the manual activation and use automatic VIA relayer.
+func activateToken(ctx context.Context, t *testing.T, runnerEnv *RunnerEnv, issuer, currency string) {
 	t.Helper()
 
 	pendingOperations, err := runnerEnv.ContractClient.GetPendingOperations(ctx)
