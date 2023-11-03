@@ -322,6 +322,14 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 // or the operation should be canceled with the `invalid` state. For now the main purpose of the function is to filter
 // out the `AllocateTickets` operation with the invalid sequence.
 func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation coreum.Operation) (bool, error) {
+	// no need to check if the current relayer has already provided the signature
+	// this check prevents the state when relayer votes and then changes its vote because of different current state
+	for _, signature := range operation.Signatures {
+		if signature.Relayer.String() == s.cfg.RelayerAddress.String() {
+			return true, nil
+		}
+	}
+
 	// currently we validate only the allocate tickets operation with not zero sequence
 	if operation.OperationType.AllocateTickets == nil ||
 		operation.OperationType.AllocateTickets.Number == 0 ||
