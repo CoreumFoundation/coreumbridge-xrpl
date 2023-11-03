@@ -84,7 +84,7 @@ const (
 	pendingOperationNotFoundErrorString        = "PendingOperationNotFound"
 	amountSentIsZeroAfterTruncatingErrorString = "AmountSentIsZeroAfterTruncation"
 	maximumBridgedAmountReachedErrorString     = "MaximumBridgedAmountReached"
-	stillHaveAvailableTicketsErrorString     = "StillHaveAvailableTickets"
+	stillHaveAvailableTicketsErrorString       = "StillHaveAvailableTickets"
 )
 
 // Relayer is the relayer information in the contract config.

@@ -860,9 +860,9 @@ func TestRecoverTickets(t *testing.T) {
 		},
 		Tickets: nil,
 	}
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidTxEvidence)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, invalidTxEvidence)
 	require.NoError(t, err)
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer2, invalidTxEvidence)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[1].CoreumAddress, invalidTxEvidence)
 	require.NoError(t, err)
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
@@ -878,9 +878,9 @@ func TestRecoverTickets(t *testing.T) {
 	require.NoError(t, err)
 
 	// reject one more time
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer1, invalidTxEvidence)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, invalidTxEvidence)
 	require.NoError(t, err)
-	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayer2, invalidTxEvidence)
+	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[1].CoreumAddress, invalidTxEvidence)
 	require.NoError(t, err)
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
