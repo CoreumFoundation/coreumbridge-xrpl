@@ -1,9 +1,13 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, DepsMut};
 
-use crate::{
-    error::ContractError,
-    state::{Signature, PENDING_OPERATIONS},
-};
+use crate::{error::ContractError, state::PENDING_OPERATIONS};
+
+#[cw_serde]
+pub struct Signature {
+    pub relayer: Addr,
+    pub signature: String,
+}
 
 pub fn add_signature(
     deps: DepsMut,
@@ -11,14 +15,14 @@ pub fn add_signature(
     sender: Addr,
     signature: String,
 ) -> Result<(), ContractError> {
-    //We get the current signatures for this specific operation
+    // We get the current signatures for this specific operation
     let mut pending_operation = PENDING_OPERATIONS
         .load(deps.storage, operation_id)
         .map_err(|_| ContractError::PendingOperationNotFound {})?;
 
     let mut signatures = pending_operation.signatures;
 
-    //If this relayer already provided a signature he can't overwrite it
+    // If this relayer already provided a signature he can't overwrite it
     if signatures.clone().into_iter().any(
         |Signature {
              relayer,
@@ -28,7 +32,7 @@ pub fn add_signature(
         return Err(ContractError::SignatureAlreadyProvided {});
     }
 
-    //Add signature and store it
+    // Add signature and store it
     signatures.push(Signature {
         relayer: sender,
         signature,

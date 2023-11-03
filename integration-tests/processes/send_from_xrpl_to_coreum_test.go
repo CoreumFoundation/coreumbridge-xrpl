@@ -4,12 +4,12 @@
 package processes_test
 
 import (
+	"context"
+	"crypto/rand"
 	"encoding/hex"
-	"math/big"
 	"strings"
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
@@ -31,8 +31,8 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	coreumRecipient := chains.Coreum.GenAccount()
 	t.Logf("Coreum recipient: %s", coreumRecipient.String())
 
-	sendingPrecision := uint32(15)
-	maxHoldingAmount := "1000000000000000000000000000000"
+	sendingPrecision := int32(6)
+	maxHoldingAmount := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
 
 	envCfg := DefaultRunnerEnvConfig()
 	// we need it to manually do the TrustSet
@@ -59,12 +59,48 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	chains.Coreum.FundAccountWithOptions(ctx, t, runnerEnv.ContractOwner, coreumintegration.BalancesOptions{
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),
 	})
+
+	// recover tickets so that we can register tokens
+	numberOfTicketsToInit := uint32(200)
+	firstBridgeAccountSeqNumber := uint32(1)
+	_, err = runnerEnv.ContractClient.RecoverTickets(ctx, runnerEnv.ContractOwner, firstBridgeAccountSeqNumber, &numberOfTicketsToInit)
+	require.NoError(t, err)
+
+	// Send evidences from relayers
+	acceptedTxHash := "D5F78F452DFFBE239EFF668E4B34B1AF66CD2F4D5C5D9E54A5AF34121B5862C5"
+	tickets := make([]uint32, 200)
+	for i := range tickets {
+		tickets[i] = uint32(i)
+	}
+
+	acceptedTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            acceptedTxHash,
+			SequenceNumber:    &firstBridgeAccountSeqNumber,
+			TransactionResult: coreum.TransactionResultAccepted,
+		},
+		Tickets: tickets,
+	}
+
+	// send evidences from relayers
+	for i := 0; i < runnerEnv.Cfg.SigningThreshold; i++ {
+		_, err = runnerEnv.ContractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, runnerEnv.RelayerAddresses[i], acceptedTxEvidence)
+		require.NoError(t, err)
+	}
+
 	// register XRPL native token with 3 chars
 	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredCurrency), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
+
+	// activate the token
+	activateToken(ctx, t, runnerEnv, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredCurrency))
+
 	// register XRPL native token with 20 chars
 	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredHexCurrency), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
+
+	// activate the token
+	activateToken(ctx, t, runnerEnv, xrplCurrencyIssuerAcc.String(), xrpl.ConvertCurrencyToString(xrplRegisteredHexCurrency))
 
 	registeredXRPLTokens, err := runnerEnv.ContractClient.GetXRPLTokens(ctx)
 	require.NoError(t, err)
@@ -88,15 +124,15 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 
 	runnerEnv.StartAllRunnerProcesses(ctx, t)
 
-	maxDecimalsValue, err := rippledata.NewValue("1.000000000000001", false)
+	lowValue, err := rippledata.NewValue("1.00000111", false)
 	require.NoError(t, err)
 	maxDecimalsRegisterCurrencyAmount := rippledata.Amount{
-		Value:    maxDecimalsValue,
+		Value:    lowValue,
 		Currency: xrplRegisteredCurrency,
 		Issuer:   xrplCurrencyIssuerAcc,
 	}
 
-	highValue, err := rippledata.NewValue("10000000000.0", false)
+	highValue, err := rippledata.NewValue("100000", false)
 	require.NoError(t, err)
 	highValueRegisteredCurrencyAmount := rippledata.Amount{
 		Value:    highValue,
@@ -119,7 +155,7 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 
 	// currency is not registered
 	xrplNotRegisterCurrencyAmount := rippledata.Amount{
-		Value:    maxDecimalsValue,
+		Value:    lowValue,
 		Currency: xrplNotRegisterCurrency,
 		Issuer:   xrplCurrencyIssuerAcc,
 	}
@@ -139,14 +175,42 @@ func TestSendFromXRPLToCoreumWithManualTrustSet(t *testing.T) {
 	// send tx with hex currency
 	SendXRPLPaymentTx(ctx, t, chains.XRPL, xrplCurrencyIssuerAcc, runnerEnv.XRPLBridgeAccount, registeredHexCurrencyAmount, memo)
 
-	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLToken.CoreumDenom, convertStringToSDKInt(t, "10000000001000000000000001")))
-	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLTokenHexCurrency.CoreumDenom, convertStringToSDKInt(t, "9900000000000000")))
+	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLToken.CoreumDenom, integrationtests.ConvertStringWithDecimalsToSDKInt(t, "100001.000001", XRPLTokenDecimals)))
+	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLTokenHexCurrency.CoreumDenom, integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9.9", XRPLTokenDecimals)))
 }
 
-func convertStringToSDKInt(t *testing.T, invVal string) sdkmath.Int {
+// TODO(dzmitryhil) remove the manual activation and use automatic VIA relayer.
+func activateToken(ctx context.Context, t *testing.T, runnerEnv *RunnerEnv, issuer, currency string) {
 	t.Helper()
 
-	expectedBigIntAmount, ok := big.NewInt(0).SetString(invVal, 0)
-	require.True(t, ok)
-	return sdkmath.NewIntFromBigInt(expectedBigIntAmount)
+	pendingOperations, err := runnerEnv.ContractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+	ticketAllocated := pendingOperations[0].TicketNumber
+
+	acceptedTxHashTrustSet, err := randomTxHash(40)
+	require.NoError(t, err)
+	acceptedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            acceptedTxHashTrustSet,
+			TicketNumber:      &ticketAllocated,
+			TransactionResult: coreum.TransactionResultAccepted,
+		},
+		Issuer:   issuer,
+		Currency: currency,
+	}
+
+	// send evidences from relayers
+	for i := 0; i < runnerEnv.Cfg.SigningThreshold; i++ {
+		_, err = runnerEnv.ContractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, runnerEnv.RelayerAddresses[i], acceptedTxEvidenceTrustSet)
+		require.NoError(t, err)
+	}
+}
+
+func randomTxHash(n int) (string, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }

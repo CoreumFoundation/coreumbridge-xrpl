@@ -29,12 +29,12 @@ registered can't be bridged.
 All tokens issued on XRPL that can be bridged from the XRPL to the coreum and back must have a representation on the
 coreum. Such tokens should be registered by owner on the contract side with the `XRPL issuer`, `XRPL currency`, `fees`,
 `token decimals` (always 15), `sending precision` and `max holding amount`. The `sending precision` and
-`max holding amount`` should be provided taking into account the [Amount rounding handling](#amount-rounding-handling).
-The token's `denom` is built uniquely by the contract using the `XRPL issuer`, `XRPL currency`, `block time` hash and
-`xrpl` prefix.
-Required features for the issuance are `minting`, `burning`, and `IBC`. During the registration, the contract issues a
+` max holding amount`` should be provided taking into account the [Amount rounding handling](#amount-rounding-handling).
+The token's  `denom`is built uniquely by the contract using the`XRPL issuer`, `XRPL currency`, `block time`hash and`xrpl`prefix.
+Required features for the issuance are`minting`, `burning`, and `IBC`. During the registration, the contract issues a
 token and will be responsible for its minting later. After the registration, the contract triggers
-the `submit-trust-set-for-xrpl-token` operation to allow the multi-signing account to receive that token.
+the `submit-trust-set-for-xrpl-token` operation to allow the multi-signing account to receive that token. The value of
+the trustset limit amount will be provided during constract instantiation and saved in the config of the contract.
 Check [register-token workflow](#register-token) for more details.
 
 ##### XRP token registration
@@ -62,11 +62,11 @@ Check [workflow](#register-token) for more details.
 
 ##### Max holding amount and sending precision update
 
-It is possible to update both `max holding amount` and `sending precision` for both XRPL and coreum native tokens. The 
+It is possible to update both `max holding amount` and `sending precision` for both XRPL and coreum native tokens. The
 owner can do it by calling the contract.
-The contract updates the `sending precision` in the token registry and removes all pending evidences with 
-`sending from XRPL to coreum` type data form the evidence queue. We need it to avoid evidence inconsistency, since an 
-evidence could be accepted by the contract with old `sending precision`, and never got fully confirmed with the new. 
+The contract updates the `sending precision` in the token registry and removes all pending evidences with
+`sending from XRPL to coreum` type data form the evidence queue. We need it to avoid evidence inconsistency, since an
+evidence could be accepted by the contract with old `sending precision`, and never got fully confirmed with the new.
 The full rescan will help to check and submit such evidence one more time after the removal.
 The new `maxHoldingAmount` must be greater that the current amount.
 
@@ -126,7 +126,7 @@ The contract receives the `send-to-coreum` request and starts the corresponding 
 ##### Sending of tokens to XRPL
 
 The multi-signing account receives coins for a user, a relayer observes the transaction and initiates
-the  [workflow](#send-from-coreum-to-xrpl).
+the [workflow](#send-from-coreum-to-xrpl).
 
 ##### Fees
 
@@ -209,7 +209,7 @@ implemented as event processing produced by the contract and multi-signing accou
 
 ### XRPL chain number handling:
 
-The number on the XRPL chain is handled by the [string-numbers]( https://xrpl.org/currency-formats.html#string-numbers)
+The number on the XRPL chain is handled by the [string-numbers](https://xrpl.org/currency-formats.html#string-numbers)
 type. As the result some discrepancy might happen, examples:
 
 1. When a recipient balance is high and the recipient receives too low amount the delivery amount contains that amount,
@@ -223,8 +223,7 @@ type. As the result some discrepancy might happen, examples:
 
 1. Send low and high amount to coreum and return high and low back.
    1.1. XRPLUser sends 10 XRPL native token to coreumUser (bridge account balance: 10, coreumUser balance: 10)
-   1.2. XRPLUser sends 1e17 XRPL native token to coreumUser (bridge account balance: 1e17, coreumUser balance: 1e17 +
-    10)
+   1.2. XRPLUser sends 1e17 XRPL native token to coreumUser (bridge account balance: 1e17, coreumUser balance: 1e17 + 10)
    1.3. coreumUser sends 1e17 XRPL native token to XRPLUser (bridge account balance: 0, XRPLUser balance: 1e17)
    1.3. coreumUser sends 10 XRPL native token to XRPLUser (bridge account: fail since we have nothing to send)
 
@@ -252,7 +251,7 @@ produce on XRPL the amount which is greater than rounded amount with the `sendin
 That `sending precision` can be calculated using the formula:
 
 ```text
-ratio = (totalTokenSupply) / 1e16 
+ratio = (totalTokenSupply) / 1e16
 if ratio < 1 {
     sendingPrecision = (count of zeros after `0.`)
 }
@@ -263,7 +262,7 @@ if ratio > 1 {
     sendingPrecision = (count of integer numbers)
 }
 
-sendingPrecision = sendingPrecision - complexityCoefficient. 
+sendingPrecision = sendingPrecision - complexityCoefficient.
 ```
 
 The `1e16` is the minimum amount a holder should have to produce one token on the XRPL submitting one transaction.
@@ -278,7 +277,7 @@ submitting on XRPL transaction just one transaction. But with that coefficient, 
 `1e complexityCoefficient` transactions minimum to do it. The recommended value for the `complexityCoefficient`
 is `4`, so it means `10000` transactions minimum are needed to produce the `significant amount`.
 
-The recommended `max holding amount` should be less or equal `1e(16 - sending precision)`.  
+The recommended `max holding amount` should be less or equal `1e(16 - sending precision)`.
 
 The `round with sending precision` formula is:
 
@@ -288,7 +287,7 @@ The `round with sending precision` formula is:
 func roundWithSendingPrecision (ratValue Rat, sendingPrecision int) Rat{
    nominator := ratValue.Nominator
    denominator := ratValue.Denominator
-   
+
    case: sendingPrecision > 0:
      nominator = (nominator / (denominator / 10^sendingPrecision) * (denominator / 10^sendingPrecision)
    case: sendingPrecision == 0:
@@ -297,7 +296,7 @@ func roundWithSendingPrecision (ratValue Rat, sendingPrecision int) Rat{
      case sendingPrecision < 0:
    nominator = (nominator / denominator / 10^(-1*sendingPrecision) * 10^(-1*sendingPrecision)
      denominator = 1
-   
+
    return Rat{nominator, denominator}
 }
 ```

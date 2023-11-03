@@ -22,6 +22,7 @@ func DeployAndInstantiateContract(
 	relayers []coreum.Relayer,
 	evidenceThreshold int,
 	usedTicketsThreshold int,
+	trustSetLimitAmount string,
 ) (sdk.AccAddress, *coreum.ContractClient) {
 	t.Helper()
 
@@ -41,6 +42,7 @@ func DeployAndInstantiateContract(
 		Relayers:             relayers,
 		EvidenceThreshold:    evidenceThreshold,
 		UsedTicketsThreshold: usedTicketsThreshold,
+		TrustSetLimitAmount:  trustSetLimitAmount,
 	}
 	contractAddress, err := contractClient.DeployAndInstantiate(ctx, owner, readBuiltContract(t), instantiationCfg)
 	require.NoError(t, err)

@@ -27,99 +27,99 @@ func TestReceivedXRPLToCoreumAmount(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name              string
-		sendingValue      *rippledata.Value
-		sendingPrecision  int
-		bridgingFee       *big.Int
-		tokenDecimals     int64
-		wantReceivedValue *big.Int
+		name               string
+		sendingAmount      *rippledata.Value
+		sendingPrecision   int
+		bridgingFee        *big.Int
+		tokenDecimals      int64
+		wantReceivedAmount *big.Int
 	}{
 		{
-			name:              "positive_precision",
-			sendingValue:      convertStringToRippleValue(t, "1111.001111"),
-			sendingPrecision:  3,
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(111100100),
+			name:               "positive_precision",
+			sendingAmount:      convertStringToRippleValue(t, "1111.001111"),
+			sendingPrecision:   3,
+			tokenDecimals:      5,
+			wantReceivedAmount: big.NewInt(111100100),
 		},
 		{
-			name:              "positive_max_precision",
-			sendingValue:      convertStringToRippleValue(t, "1e-17"),
-			sendingPrecision:  MaxSendingPrecision,
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(0),
+			name:               "positive_max_precision",
+			sendingAmount:      convertStringToRippleValue(t, "1e-17"),
+			sendingPrecision:   MaxSendingPrecision,
+			tokenDecimals:      6,
+			wantReceivedAmount: big.NewInt(0),
 		},
 		{
-			name:              "positive_precision_to_zero",
-			sendingValue:      convertStringToRippleValue(t, "0.001111"),
-			sendingPrecision:  2,
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(0),
+			name:               "positive_precision_to_zero",
+			sendingAmount:      convertStringToRippleValue(t, "0.001111"),
+			sendingPrecision:   2,
+			tokenDecimals:      7,
+			wantReceivedAmount: big.NewInt(0),
 		},
 		{
-			name:              "positive_precision_with_zero_denominator",
-			sendingValue:      convertStringToRippleValue(t, "1.0"),
-			sendingPrecision:  2,
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(100000),
+			name:               "positive_precision_with_zero_denominator",
+			sendingAmount:      convertStringToRippleValue(t, "1.0"),
+			sendingPrecision:   2,
+			tokenDecimals:      4,
+			wantReceivedAmount: big.NewInt(10000),
 		},
 		{
-			name:              "positive_precision_with_bridging_fee",
-			sendingValue:      convertStringToRippleValue(t, "1111.001111"),
-			sendingPrecision:  3,
-			bridgingFee:       big.NewInt(1000),
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(111099100),
+			name:               "positive_precision_with_bridging_fee",
+			sendingAmount:      convertStringToRippleValue(t, "1111.001111"),
+			sendingPrecision:   3,
+			bridgingFee:        big.NewInt(1000),
+			tokenDecimals:      5,
+			wantReceivedAmount: big.NewInt(111099100),
 		},
 		{
-			name:              "zero_precision",
-			sendingValue:      convertStringToRippleValue(t, "1111.001111"),
-			sendingPrecision:  0,
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(111100000),
+			name:               "zero_precision",
+			sendingAmount:      convertStringToRippleValue(t, "1111.001111"),
+			sendingPrecision:   0,
+			tokenDecimals:      6,
+			wantReceivedAmount: big.NewInt(1111000000),
 		},
 		{
-			name:              "zero_precision_to_zero",
-			sendingValue:      convertStringToRippleValue(t, "0.001111"),
-			sendingPrecision:  0,
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(0),
+			name:               "zero_precision_to_zero",
+			sendingAmount:      convertStringToRippleValue(t, "0.001111"),
+			sendingPrecision:   0,
+			tokenDecimals:      5,
+			wantReceivedAmount: big.NewInt(0),
 		},
 		{
-			name:              "zero_precision_with_bridging_fee",
-			sendingValue:      convertStringToRippleValue(t, "1111.001111"),
-			sendingPrecision:  0,
-			bridgingFee:       big.NewInt(1000),
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(111099000),
+			name:               "zero_precision_with_bridging_fee",
+			sendingAmount:      convertStringToRippleValue(t, "1111.001111"),
+			sendingPrecision:   0,
+			bridgingFee:        big.NewInt(1000),
+			tokenDecimals:      5,
+			wantReceivedAmount: big.NewInt(111099000),
 		},
 		{
-			name:              "negative_precision",
-			sendingValue:      convertStringToRippleValue(t, "1111.001111"),
-			sendingPrecision:  -2,
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(110000000),
+			name:               "negative_precision",
+			sendingAmount:      convertStringToRippleValue(t, "1111.001111"),
+			sendingPrecision:   -2,
+			tokenDecimals:      5,
+			wantReceivedAmount: big.NewInt(110000000),
 		},
 		{
-			name:              "negative_precision_to_zero",
-			sendingValue:      convertStringToRippleValue(t, "1111.001111"),
-			sendingPrecision:  -5,
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(0),
+			name:               "negative_precision_to_zero",
+			sendingAmount:      convertStringToRippleValue(t, "1111.001111"),
+			sendingPrecision:   -5,
+			tokenDecimals:      5,
+			wantReceivedAmount: big.NewInt(0),
 		},
 		{
-			name:              "negative_precision_with_bridging_fee",
-			sendingValue:      convertStringToRippleValue(t, "1111.001111"),
-			sendingPrecision:  -2,
-			bridgingFee:       big.NewInt(1000),
-			tokenDecimals:     5,
-			wantReceivedValue: big.NewInt(109999000),
+			name:               "negative_precision_with_bridging_fee",
+			sendingAmount:      convertStringToRippleValue(t, "1111.001111"),
+			sendingPrecision:   -2,
+			bridgingFee:        big.NewInt(1000),
+			tokenDecimals:      5,
+			wantReceivedAmount: big.NewInt(109999000),
 		},
 		{
-			name:              "negative_min_precision",
-			sendingValue:      convertStringToRippleValue(t, "1111111121321111.0"),
-			sendingPrecision:  MinSendingPrecision,
-			tokenDecimals:     5,
-			wantReceivedValue: convertStringToBigInt(t, "100000000000000000000"),
+			name:               "negative_min_precision",
+			sendingAmount:      convertStringToRippleValue(t, "1111111121321111.0"),
+			sendingPrecision:   MinSendingPrecision,
+			tokenDecimals:      5,
+			wantReceivedAmount: convertStringToBigInt(t, "100000000000000000000"),
 		},
 	}
 	for _, tt := range tests {
@@ -133,11 +133,11 @@ func TestReceivedXRPLToCoreumAmount(t *testing.T) {
 			}
 
 			receivedValue := computeReceivedTransferAmountFromXRPLToCoreum(
-				tt.sendingValue,
+				tt.sendingAmount,
 				tt.sendingPrecision,
 				bridgingFee, tt.tokenDecimals)
 
-			require.Equal(t, tt.wantReceivedValue.String(), receivedValue.String())
+			require.Equal(t, tt.wantReceivedAmount.String(), receivedValue.String())
 		})
 	}
 }
