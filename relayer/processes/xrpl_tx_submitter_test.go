@@ -182,7 +182,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
 				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
-				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), xrplBridgeAccount).Return(xrplBridgeSignerAccountWithSigners, nil).Times(2)
+				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), xrplBridgeAccount).Return(xrplBridgeSignerAccountWithSigners, nil)
 				expectedTx, err := processes.BuildTicketCreateTxForMultiSigning(xrplBridgeAccount, allocateTicketOperationWithSignatures)
 				require.NoError(t, err)
 				require.NoError(t, rippledata.SetSigners(expectedTx, allocateTicketOperationWithSignaturesSigners...))
