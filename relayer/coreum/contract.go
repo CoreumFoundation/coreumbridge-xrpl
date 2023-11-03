@@ -84,6 +84,7 @@ const (
 	pendingOperationNotFoundErrorString        = "PendingOperationNotFound"
 	amountSentIsZeroAfterTruncatingErrorString = "AmountSentIsZeroAfterTruncation"
 	maximumBridgedAmountReachedErrorString     = "MaximumBridgedAmountReached"
+	stillHaveAvailableTicketsErrorString       = "StillHaveAvailableTickets"
 )
 
 // Relayer is the relayer information in the contract config.
@@ -145,7 +146,7 @@ type XRPLToCoreumTransferEvidence struct {
 
 // XRPLTransactionResultEvidence is type which contains common transaction result data.
 type XRPLTransactionResultEvidence struct {
-	TxHash            string            `json:"tx_hash"`
+	TxHash            string            `json:"tx_hash,omitempty"`
 	SequenceNumber    *uint32           `json:"sequence_number"`
 	TicketNumber      *uint32           `json:"ticket_number"`
 	TransactionResult TransactionResult `json:"transaction_result"`
@@ -867,6 +868,11 @@ func IsAmountSentIsZeroAfterTruncationError(err error) bool {
 // IsMaximumBridgedAmountReachedError returns true if error is `MaximumBridgedAmountReached` error.
 func IsMaximumBridgedAmountReachedError(err error) bool {
 	return isError(err, maximumBridgedAmountReachedErrorString)
+}
+
+// IsStillHaveAvailableTicketsError returns true if error is `StillHaveAvailableTickets` error.
+func IsStillHaveAvailableTicketsError(err error) bool {
+	return isError(err, stillHaveAvailableTicketsErrorString)
 }
 
 func isError(err error, errorString string) bool {

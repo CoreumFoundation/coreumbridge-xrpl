@@ -67,6 +67,9 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 
 	xrplBridgeSignerAccountWithSigners := xrpl.AccountInfoResult{
 		AccountData: xrpl.AccountDataWithSigners{
+			AccountRoot: rippledata.AccountRoot{
+				Sequence: lo.ToPtr(uint32(1)),
+			},
 			SignerList: []rippledata.SignerList{{
 				SignerEntries: signerEntries,
 				SignerQuorum:  &signerQuorum,
@@ -76,6 +79,16 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 
 	allocateTicketOperationWithoutSignatures := coreum.Operation{
 		SequenceNumber: 1,
+		Signatures:     nil,
+		OperationType: coreum.OperationType{
+			AllocateTickets: &coreum.OperationTypeAllocateTickets{
+				Number: 3,
+			},
+		},
+	}
+
+	allocateTicketOperationWithUnexpectedSequencNumber := coreum.Operation{
+		SequenceNumber: 999,
 		Signatures:     nil,
 		OperationType: coreum.OperationType{
 			AllocateTickets: &coreum.OperationTypeAllocateTickets{
@@ -144,7 +157,8 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
 				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
-				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), xrplBridgeAccount).Return(xrplBridgeSignerAccountWithSigners, nil)
+				// 2 times one for the signatures and one more for the seq number
+				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), xrplBridgeAccount).Return(xrplBridgeSignerAccountWithSigners, nil).Times(2)
 				return xrplRPCClientMock
 			},
 			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
@@ -181,6 +195,29 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					return xrpl.SubmitResult{}, nil
 				})
 
+				return xrplRPCClientMock
+			},
+		},
+		{
+			name: "resister_invalid_create_ticket_tx",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{allocateTicketOperationWithUnexpectedSequencNumber}, nil)
+				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
+					Relayers: contractRelayers,
+				}, nil)
+				contractClientMock.EXPECT().SendXRPLTicketsAllocationTransactionResultEvidence(gomock.Any(), coreumRelayer1Address, coreum.XRPLTransactionResultTicketsAllocationEvidence{
+					XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+						SequenceNumber:    &allocateTicketOperationWithUnexpectedSequencNumber.SequenceNumber,
+						TransactionResult: coreum.TransactionResultInvalid,
+					},
+				})
+				return contractClientMock
+			},
+			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
+				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
+				// 2 times one for the signatures and one more for the seq number
+				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), xrplBridgeAccount).Return(xrplBridgeSignerAccountWithSigners, nil).Times(2)
 				return xrplRPCClientMock
 			},
 		},

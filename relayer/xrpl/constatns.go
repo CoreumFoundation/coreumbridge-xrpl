@@ -7,4 +7,6 @@ const (
 	TefPastSeqTxResult = "tefPAST_SEQ"
 	// TerPreSeqTxResult defines the result which indicates the usage of the sequence in the future.
 	TerPreSeqTxResult = "terPRE_SEQ"
+	// TecInsufficientReserveTxResult defines the result which indicates the insufficient reserve to complete requested operation.
+	TecInsufficientReserveTxResult = "tecINSUFFICIENT_RESERVE"
 )

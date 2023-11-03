@@ -109,7 +109,7 @@ idempotent. And let some operations be safely re-processed at any time.
 ##### Ticket allocation process
 
 The XRPL tickets allow us to execute a transaction with non-sequential sequence numbers, hence we can execute multiple
-transactions in parallel. Any workflow can allocate a ticket and the ticket allocation mechanism either returns a tocket
+transactions in parallel. Any workflow can allocate a ticket and the ticket allocation mechanism either returns a ticket
 number or errors out, in case of lack of the free tickets. The ticket re-allocation will be triggered by the tx
 conformation (Submit XRPL transaction last step) once the used tickets count is gather that allowed threshold. The
 contract initiates the `submit-increase-tickets` operation to increase the amount. Once the operation is confirmed, the
