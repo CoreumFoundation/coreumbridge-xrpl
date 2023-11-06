@@ -114,7 +114,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	}
 
 	deliveredXRPLAmount := tx.MetaData.DeliveredAmount
-	coreumAmount, err := ConvertXRPLNativeTokenAmountToCoreum(*deliveredXRPLAmount)
+	coreumAmount, err := ConvertXRPLNativeTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
 	if err != nil {
 		return err
 	}
@@ -157,47 +157,9 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 
 	switch txType {
 	case rippledata.TICKET_CREATE.String():
-		tickets := extractTicketSequencesFromMetaData(tx.MetaData)
-		txResult := coreum.TransactionResultAccepted
-		if !tx.MetaData.TransactionResult.Success() {
-			txResult = coreum.TransactionResultRejected
-			tickets = nil
-		}
-		evidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
-			XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-				TxHash:            tx.GetHash().String(),
-				TransactionResult: txResult,
-			},
-			Tickets: tickets,
-		}
-		ticketCreateTx, ok := tx.Transaction.(*rippledata.TicketCreate)
-		if !ok {
-			return errors.Errorf("failed to cast tx to TicketCreate, data:%+v", tx)
-		}
-		if ticketCreateTx.Sequence != 0 {
-			evidence.SequenceNumber = lo.ToPtr(ticketCreateTx.Sequence)
-		}
-		if ticketCreateTx.TicketSequence != nil && *ticketCreateTx.TicketSequence != 0 {
-			evidence.TicketNumber = lo.ToPtr(*ticketCreateTx.TicketSequence)
-		}
-		_, err := o.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(
-			ctx,
-			o.cfg.RelayerAddress,
-			evidence,
-		)
-		if err == nil {
-			if evidence.TransactionResult != coreum.TransactionResultAccepted {
-				o.log.Warn(ctx, "Transaction was rejected", logger.StringField("txResult", tx.MetaData.TransactionResult.String()))
-			}
-			return nil
-		}
-		if IsExpectedSendEvidenceError(err) {
-			o.log.Debug(ctx, "Received expected send evidence error")
-			return nil
-		}
-
-		return err
-
+		return o.sendXRPLTicketsAllocationTransactionResultEvidence(ctx, tx)
+	case rippledata.TRUST_SET.String():
+		return o.sendXRPLTrustSetTransactionResultEvidence(ctx, tx)
 	default:
 		// TODO(dzmitryhil) replace with the error once we integrate all supported types
 		o.log.Warn(ctx, "Found unsupported transaction type", logger.AnyField("tx", tx))
@@ -210,6 +172,87 @@ func IsExpectedSendEvidenceError(err error) bool {
 	return coreum.IsEvidenceAlreadyProvidedError(err) ||
 		coreum.IsOperationAlreadyExecutedError(err) ||
 		coreum.IsPendingOperationNotFoundError(err)
+}
+
+func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+	tickets := extractTicketSequencesFromMetaData(tx.MetaData)
+	txResult := coreum.TransactionResultAccepted
+	if !tx.MetaData.TransactionResult.Success() {
+		txResult = coreum.TransactionResultRejected
+		tickets = nil
+	}
+	evidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            tx.GetHash().String(),
+			TransactionResult: txResult,
+		},
+		Tickets: tickets,
+	}
+	ticketCreateTx, ok := tx.Transaction.(*rippledata.TicketCreate)
+	if !ok {
+		return errors.Errorf("failed to cast tx to TicketCreate, data:%+v", tx)
+	}
+	if ticketCreateTx.Sequence != 0 {
+		evidence.SequenceNumber = lo.ToPtr(ticketCreateTx.Sequence)
+	}
+	if ticketCreateTx.TicketSequence != nil && *ticketCreateTx.TicketSequence != 0 {
+		evidence.TicketNumber = lo.ToPtr(*ticketCreateTx.TicketSequence)
+	}
+	_, err := o.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(
+		ctx,
+		o.cfg.RelayerAddress,
+		evidence,
+	)
+	if err == nil {
+		if evidence.TransactionResult != coreum.TransactionResultAccepted {
+			o.log.Warn(ctx, "Transaction was rejected", logger.StringField("txResult", tx.MetaData.TransactionResult.String()))
+		}
+		return nil
+	}
+	if IsExpectedSendEvidenceError(err) {
+		o.log.Debug(ctx, "Received expected send evidence error")
+		return nil
+	}
+
+	return err
+}
+
+func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+	txResult := coreum.TransactionResultAccepted
+	if !tx.MetaData.TransactionResult.Success() {
+		txResult = coreum.TransactionResultRejected
+	}
+	trustSetTx, ok := tx.Transaction.(*rippledata.TrustSet)
+	if !ok {
+		return errors.Errorf("failed to cast tx to TrustSet, data:%+v", tx)
+	}
+	evidence := coreum.XRPLTransactionResultTrustSetEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            tx.GetHash().String(),
+			TransactionResult: txResult,
+			TicketNumber:      trustSetTx.TicketSequence,
+		},
+		Issuer:   trustSetTx.LimitAmount.Issuer.String(),
+		Currency: xrpl.ConvertCurrencyToString(trustSetTx.LimitAmount.Currency),
+	}
+
+	_, err := o.contractClient.SendXRPLTrustSetTransactionResultEvidence(
+		ctx,
+		o.cfg.RelayerAddress,
+		evidence,
+	)
+	if err == nil {
+		if evidence.TransactionResult != coreum.TransactionResultAccepted {
+			o.log.Warn(ctx, "Transaction was rejected", logger.StringField("txResult", tx.MetaData.TransactionResult.String()))
+		}
+		return nil
+	}
+	if IsExpectedSendEvidenceError(err) {
+		o.log.Debug(ctx, "Received expected send evidence error")
+		return nil
+	}
+
+	return err
 }
 
 func extractTicketSequencesFromMetaData(metaData rippledata.MetaData) []uint32 {

@@ -128,6 +128,21 @@ func (mr *MockContractClientMockRecorder) SendXRPLToCoreumTransferEvidence(arg0,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendXRPLToCoreumTransferEvidence", reflect.TypeOf((*MockContractClient)(nil).SendXRPLToCoreumTransferEvidence), arg0, arg1, arg2)
 }
 
+// SendXRPLTrustSetTransactionResultEvidence mocks base method.
+func (m *MockContractClient) SendXRPLTrustSetTransactionResultEvidence(arg0 context.Context, arg1 types.AccAddress, arg2 coreum.XRPLTransactionResultTrustSetEvidence) (*types.TxResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendXRPLTrustSetTransactionResultEvidence", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*types.TxResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendXRPLTrustSetTransactionResultEvidence indicates an expected call of SendXRPLTrustSetTransactionResultEvidence.
+func (mr *MockContractClientMockRecorder) SendXRPLTrustSetTransactionResultEvidence(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendXRPLTrustSetTransactionResultEvidence", reflect.TypeOf((*MockContractClient)(nil).SendXRPLTrustSetTransactionResultEvidence), arg0, arg1, arg2)
+}
+
 // MockXRPLAccountTxScanner is a mock of XRPLAccountTxScanner interface.
 type MockXRPLAccountTxScanner struct {
 	ctrl     *gomock.Controller

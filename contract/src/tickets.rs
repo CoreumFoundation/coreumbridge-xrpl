@@ -38,21 +38,28 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractErr
 
     // If we reach the max allowed tickets to be used, we need to create an operation to allocate new ones
     if used_tickets + 1 >= config.used_tickets_threshold && !PENDING_TICKET_UPDATE.load(storage)? {
-        let ticket_to_update = reserve_ticket(storage)?;
-
-        PENDING_OPERATIONS.save(
-            storage,
-            ticket_to_update,
-            &Operation {
-                ticket_number: Some(ticket_to_update),
-                sequence_number: None,
-                signatures: vec![],
-                operation_type: OperationType::AllocateTickets {
-                    number: config.used_tickets_threshold,
-                },
-            },
-        )?;
-        PENDING_TICKET_UPDATE.save(storage, &true)?;
+        match reserve_ticket(storage) {
+            Ok(ticket_to_update) => {
+                PENDING_OPERATIONS.save(
+                    storage,
+                    ticket_to_update,
+                    &Operation {
+                        ticket_number: Some(ticket_to_update),
+                        sequence_number: None,
+                        signatures: vec![],
+                        operation_type: OperationType::AllocateTickets {
+                            number: config.used_tickets_threshold,
+                        },
+                    },
+                )?;
+                PENDING_TICKET_UPDATE.save(storage, &true)?
+            }
+            // TODO(keyne) add specific flag to the resp
+            // TODO(keyne) handle one expected error that way (not tickets to allocate)
+            // in case we don't have free tickets anymore we should still accept the tx
+            // otherwise the contract will stuck
+            Err(_) => {},
+        };
     }
 
     Ok(())
@@ -87,6 +94,10 @@ pub fn handle_ticket_allocation_confirmation(
 // Extract a ticket from the available tickets
 fn reserve_ticket(storage: &mut dyn Storage) -> Result<u64, ContractError> {
     let mut available_tickets = AVAILABLE_TICKETS.load(storage)?;
+    if available_tickets.is_empty() {
+        return Err(ContractError::NoAvailableTickets {});
+    }
+
     let ticket_to_update = available_tickets.pop_front().unwrap();
     AVAILABLE_TICKETS.save(storage, &available_tickets)?;
     Ok(ticket_to_update)

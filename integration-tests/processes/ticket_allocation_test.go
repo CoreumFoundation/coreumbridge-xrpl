@@ -11,7 +11,7 @@ import (
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 )
 
-// TODO(dzmitryhil) add the additional test for the re-allocation of the tickets without provided number once we have more operations
+// TODO(dzmitryhil) add the additional test for each operation which might cause the re-allocation
 
 func TestTicketsAllocationRecoveryWithSequenceNumber(t *testing.T) {
 	t.Parallel()

@@ -124,7 +124,7 @@ pub fn instantiate(
         sending_precision: XRP_DEFAULT_SENDING_PRECISION,
         max_holding_amount: Uint128::new(XRP_DEFAULT_MAX_HOLDING_AMOUNT),
         // The XRP active token will be active from the start because it doesn't need approval to be received by the multisig
-        state: TokenState::Active,
+        state: TokenState::Enabled,
     };
 
     let key = build_xrpl_token_key(XRP_ISSUER.to_string(), XRP_CURRENCY.to_string());
@@ -336,7 +336,7 @@ fn register_xrpl_token(
 }
 
 fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
-    evidence.validate()?;
+    evidence.validate_basic()?;
 
     assert_relayer(deps.as_ref(), sender.clone())?;
 
@@ -359,8 +359,8 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 .load(deps.storage, key)
                 .map_err(|_| ContractError::TokenNotRegistered {})?;
 
-            if token.state.ne(&TokenState::Active) {
-                return Err(ContractError::XRPLTokenNotActive {});
+            if token.state.ne(&TokenState::Enabled) {
+                return Err(ContractError::XRPLTokenNotEnabled {});
             }
 
             let decimals = match is_token_xrp(token.issuer, token.currency) {
@@ -408,6 +408,22 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
         } => {
             let operation_id =
                 check_operation_exists(deps.storage, sequence_number, ticket_number)?;
+
+            // custom state validation of the transaction result
+            match operation_result.clone() {
+                OperationResult::TicketsAllocation { .. } => {}
+                OperationResult::TrustSet { issuer, currency } => {
+                    let key = build_xrpl_token_key(issuer.clone(), currency.clone());
+                    // validate that we have received the trust set for the token we have and with the pending state
+                    let token = XRPL_TOKENS
+                        .load(deps.storage, key.clone())
+                        .map_err(|_| ContractError::TokenNotRegistered {})?;
+                    // it is possible to
+                    if token.state.ne(&TokenState::Processing) {
+                        return Err(ContractError::XRPLTokenNotInProcessing {});
+                    }
+                }
+            }
 
             if threshold_reached {
                 match operation_result.clone() {

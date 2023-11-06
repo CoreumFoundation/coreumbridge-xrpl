@@ -401,6 +401,10 @@ func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (
 	switch {
 	case operation.OperationType.AllocateTickets != nil && operation.OperationType.AllocateTickets.Number > 0:
 		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeAccount, operation)
+	case operation.OperationType.TrustSet != nil &&
+		operation.OperationType.TrustSet.Issuer != "" &&
+		operation.OperationType.TrustSet.Currency != "":
+		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeAccount, operation)
 	default:
 		return nil, errors.Errorf("failed to process operation, unable to determin operation type, operation:%+v", operation)
 	}
