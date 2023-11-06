@@ -413,10 +413,10 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             match operation_result.clone() {
                 OperationResult::TicketsAllocation { .. } => {}
                 OperationResult::TrustSet { issuer, currency } => {
-                    let key = build_xrpl_token_key(issuer.clone(), currency.clone());
+                    let key = build_xrpl_token_key(issuer, currency);
                     // validate that we have received the trust set for the token we have and with the pending state
                     let token = XRPL_TOKENS
-                        .load(deps.storage, key.clone())
+                        .load(deps.storage, key)
                         .map_err(|_| ContractError::TokenNotRegistered {})?;
                     // it is possible to
                     if token.state.ne(&TokenState::Processing) {
