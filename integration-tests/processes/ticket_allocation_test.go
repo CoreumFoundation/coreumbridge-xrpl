@@ -211,11 +211,11 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	}
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 
-	availableTicketsAfterReAllocation, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
+	availableTicketsAfterReallocation, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
-	require.Len(t, availableTicketsAfterReAllocation, envCfg.UsedTicketsThreshold)
+	require.Len(t, availableTicketsAfterReallocation, envCfg.UsedTicketsThreshold)
 	// check that tickets are used
-	require.NotEqualValues(t, initialAvailableTickets, availableTicketsAfterReAllocation)
+	require.NotEqualValues(t, initialAvailableTickets, availableTicketsAfterReallocation)
 
 	// use re-allocated tickets
 	for i := 0; i < numberOfXRPLTokensToRegister; i++ {
@@ -227,5 +227,5 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	availableTicketsAfterSecondReallocation, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
 	require.NotEqualValues(t, initialAvailableTickets, availableTicketsAfterSecondReallocation)
-	require.NotEqualValues(t, availableTicketsAfterReAllocation, availableTicketsAfterSecondReallocation)
+	require.NotEqualValues(t, availableTicketsAfterReallocation, availableTicketsAfterSecondReallocation)
 }
