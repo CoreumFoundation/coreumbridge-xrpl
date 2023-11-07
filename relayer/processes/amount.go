@@ -15,7 +15,8 @@ const (
 	XRPLAmountPrec = 16
 	// XRPLIssuedCurrencyDecimals is XRPL decimals used on the coreum.
 	XRPLIssuedCurrencyDecimals = 15
-	// XRPIssuer is XRP issuer address used on the coreum.
+	// XRPIssuer is XRP issuer address used to generate XRP token representation on coreum side. This is done to unify
+	// representation for all XRPL originated tokens.
 	XRPIssuer = "rrrrrrrrrrrrrrrrrrrrrho"
 	// XRPCurrency is XRP currency name used on the coreum.
 	XRPCurrency = "XRP"
