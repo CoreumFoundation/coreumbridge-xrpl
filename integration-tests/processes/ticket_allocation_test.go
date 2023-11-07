@@ -4,10 +4,13 @@
 package processes_test
 
 import (
+	"fmt"
 	"testing"
 
+	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
+	coreumintegration "github.com/CoreumFoundation/coreum/v3/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 )
 
@@ -172,4 +175,57 @@ func TestTicketsAllocationRecoveryWithMaliciousRelayers(t *testing.T) {
 	availableTickets, err = runnerEnv.ContractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
 	require.Len(t, availableTickets, int(numberOfTicketsToAllocate))
+}
+
+func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.UsedTicketsThreshold = 3
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+
+	runnerEnv.StartAllRunnerProcesses(ctx, t)
+
+	// allocate first five tickets
+	numberOfTicketsToAllocate := uint32(5)
+	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.XRPLBridgeAccount, numberOfTicketsToAllocate)
+	runnerEnv.AllocateTickets(ctx, t, numberOfTicketsToAllocate)
+	initialAvailableTickets, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+
+	xrplCurrencyIssuerAcc := chains.XRPL.GenAccount(ctx, t, 100)
+
+	// register more than threshold to activate tickets re-allocation
+	numberOfXRPLTokensToRegister := int(numberOfTicketsToAllocate) - 1
+	// fund owner to cover registration fees
+	chains.Coreum.FundAccountWithOptions(ctx, t, runnerEnv.ContractOwner, coreumintegration.BalancesOptions{
+		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(int64(numberOfXRPLTokensToRegister)).MulRaw(2),
+	})
+
+	for i := 0; i < numberOfXRPLTokensToRegister; i++ {
+		xrplRegisteredCurrency, err := rippledata.NewCurrency(fmt.Sprintf("CR%d", i))
+		require.NoError(t, err)
+		runnerEnv.RegisterXRPLTokenAndAwaitTrustSet(ctx, t, xrplCurrencyIssuerAcc, xrplRegisteredCurrency, int32(6), integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30))
+	}
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+
+	availableTicketsAfterReAllocation, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.Len(t, availableTicketsAfterReAllocation, envCfg.UsedTicketsThreshold)
+	// check that tickets are used
+	require.NotEqualValues(t, initialAvailableTickets, availableTicketsAfterReAllocation)
+
+	// use re-allocated tickets
+	for i := 0; i < numberOfXRPLTokensToRegister; i++ {
+		xrplRegisteredCurrency, err := rippledata.NewCurrency(fmt.Sprintf("DR%d", i))
+		require.NoError(t, err)
+		runnerEnv.RegisterXRPLTokenAndAwaitTrustSet(ctx, t, xrplCurrencyIssuerAcc, xrplRegisteredCurrency, int32(6), integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30))
+	}
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+	availableTicketsAfterSecondReallocation, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.NotEqualValues(t, initialAvailableTickets, availableTicketsAfterSecondReallocation)
+	require.NotEqualValues(t, availableTicketsAfterReAllocation, availableTicketsAfterSecondReallocation)
 }

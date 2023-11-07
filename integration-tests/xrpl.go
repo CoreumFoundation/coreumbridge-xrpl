@@ -32,6 +32,7 @@ const (
 	xrplTxFee                    = "100"
 	xrplReserveToActivateAccount = float64(10)
 	xrplReservePerTicket         = float64(2)
+	xrplReservePerSigner         = float64(2)
 
 	ecdsaKeyType         = rippledata.ECDSA
 	faucetKeyringKeyName = "faucet"
@@ -144,6 +145,11 @@ func (c XRPLChain) ActivateAccount(ctx context.Context, t *testing.T, acc ripple
 // FundAccountForTicketAllocation funds the provided account with the amount required for the ticket allocation.
 func (c XRPLChain) FundAccountForTicketAllocation(ctx context.Context, t *testing.T, acc rippledata.Account, ticketsNumber uint32) {
 	c.FundAccount(ctx, t, acc, xrplReservePerTicket*float64(ticketsNumber))
+}
+
+// FundAccountForSignerListSet funds the provided account with the amount required for the multi-signing set.
+func (c XRPLChain) FundAccountForSignerListSet(ctx context.Context, t *testing.T, acc rippledata.Account, singersCount int) {
+	c.FundAccount(ctx, t, acc, xrplReservePerTicket*float64(singersCount))
 }
 
 // FundAccount funds the provided account with the provided amount.

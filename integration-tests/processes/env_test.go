@@ -122,7 +122,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	// add malicious relayers
 	// we keep the relayer indexes to make all config valid apart from the XRPL signing
 	for i := cfg.RelayerNumber - cfg.MaliciousRelayerNumber; i < cfg.RelayerNumber; i++ {
-		maliciousSignerAcc := chains.XRPL.GenAccount(ctx, t, 10)
+		maliciousSignerAcc := chains.XRPL.GenAccount(ctx, t, 0)
 		runners = append(
 			runners,
 			createDevRunner(
@@ -357,14 +357,15 @@ func genXRPLBridgeAccountWithRelayers(
 	disableMasterKey bool,
 ) (rippledata.Account, []rippledata.Account, []rippledata.PublicKey) {
 	t.Helper()
+	// some fee to cover simple txs all extras must be allocated in the test
+	bridgeAcc := xrplChain.GenAccount(ctx, t, 0.5)
 
-	bridgeAcc := xrplChain.GenAccount(ctx, t, 10)
 	t.Logf("Bridge account is generated, address:%s", bridgeAcc.String())
 	signerEntries := make([]rippledata.SignerEntry, 0, signersCount)
 	signerAccounts := make([]rippledata.Account, 0, signersCount)
 	signerPubKeys := make([]rippledata.PublicKey, 0, signersCount)
 	for i := 0; i < signersCount; i++ {
-		signerAcc := xrplChain.GenAccount(ctx, t, 10)
+		signerAcc := xrplChain.GenAccount(ctx, t, 0)
 		signerAccounts = append(signerAccounts, signerAcc)
 		t.Logf("Signer %d is generated, address:%s", i+1, signerAcc.String())
 		signerEntries = append(signerEntries, rippledata.SignerEntry{
@@ -375,7 +376,8 @@ func genXRPLBridgeAccountWithRelayers(
 		})
 		signerPubKeys = append(signerPubKeys, xrplChain.GetSignerPubKey(t, signerAcc))
 	}
-
+	// fund for the signers SignerListSet
+	xrplChain.FundAccountForSignerListSet(ctx, t, bridgeAcc, signersCount)
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum:  signerQuorum,
 		SignerEntries: signerEntries,
