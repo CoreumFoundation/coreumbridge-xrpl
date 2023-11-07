@@ -147,7 +147,7 @@ When a user transfers a token from the XRPL to coreum we can compute the expecte
 
 ```text
 roundedRatAmount := roundWithSendingPrecision(sendingRatAmount)
-receivedIntAmount = roundedRatAmount * 10^tokenDecimals - bridgingIntFee
+receivedIntAmount = roundedRatAmount * 1e(tokenDecimals) - bridgingIntFee
 ```
 
 The `roundWithSendingPrecision` is described [here](#amount-rounding-handling) .
@@ -165,9 +165,9 @@ When a user transfers a token from the coreum to XRPL account we can compute the
 formula:
 
 ```text
-sendingRatValue = Rat{sendingIntAmount / 10^tokenDecimals}
+sendingRatValue = Rat{sendingIntAmount / 1e(tokenDecimals)}
 sendingRatValueWithoutTransferFee = sendingRatValue - (transferRatFeeRate * sendingRatValue - sendingRatValue)
-bridgingRatFee = Rat{bridgingIntFee / 10^tokenDecimals}
+bridgingRatFee = Rat{bridgingIntFee / 1e(tokenDecimals)}
 sendingRatValueWithoutAllFees = sendingRatValueWithoutTransferFee - bridgingRatFee
 roundedRatAmount := roundWithSendingPrecision(sendingRatValueWithoutAllFees)
 ```
@@ -289,12 +289,12 @@ func roundWithSendingPrecision (ratValue Rat, sendingPrecision int) Rat{
    denominator := ratValue.Denominator
 
    case: sendingPrecision > 0:
-     nominator = (nominator / (denominator / 10^sendingPrecision) * (denominator / 10^sendingPrecision)
+     nominator = (nominator / (denominator / 1e(sendingPrecision)) * (denominator / 1esendingPrecision)
    case: sendingPrecision == 0:
      nominator = nominator / denominator
    denominator = 1
      case sendingPrecision < 0:
-   nominator = (nominator / denominator / 10^(-1*sendingPrecision) * 10^(-1*sendingPrecision)
+   nominator = (nominator / denominator / 1e(-1*sendingPrecision) * 1e(-1*sendingPrecision)
      denominator = 1
 
    return Rat{nominator, denominator}

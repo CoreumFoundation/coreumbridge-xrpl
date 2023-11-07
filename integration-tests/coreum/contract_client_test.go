@@ -294,7 +294,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 
 	issuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
 	issuer := issuerAcc.String()
-	invactiveCurrency := "INA"
+	inactiveCurrency := "INA"
 	activeCurrency := "ACT"
 	sendingPrecision := int32(15)
 	maxHoldingAmount := sdk.NewIntFromUint64(10000)
@@ -303,15 +303,15 @@ func TestRegisterXRPLToken(t *testing.T) {
 	allocateInitialTickets(ctx, t, contractClient, owner, relayers)
 
 	// try to register from not owner
-	_, err := contractClient.RegisterXRPLToken(ctx, notOwner, issuer, invactiveCurrency, sendingPrecision, maxHoldingAmount)
+	_, err := contractClient.RegisterXRPLToken(ctx, notOwner, issuer, inactiveCurrency, sendingPrecision, maxHoldingAmount)
 	require.True(t, coreum.IsNotOwnerError(err), err)
 
 	// register from the owner
-	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, invactiveCurrency, sendingPrecision, maxHoldingAmount)
+	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, inactiveCurrency, sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
 	// try to register the same denom one more time
-	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, invactiveCurrency, sendingPrecision, maxHoldingAmount)
+	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, inactiveCurrency, sendingPrecision, maxHoldingAmount)
 	require.True(t, coreum.IsXRPLTokenAlreadyRegisteredError(err), err)
 
 	xrplTokens, err := contractClient.GetXRPLTokens(ctx)
@@ -319,13 +319,13 @@ func TestRegisterXRPLToken(t *testing.T) {
 	// one XRP token and registered
 	require.Len(t, xrplTokens, 2)
 
-	registeredInactiveToken, err := contractClient.GetXRPLToken(ctx, issuer, invactiveCurrency)
+	registeredInactiveToken, err := contractClient.GetXRPLToken(ctx, issuer, inactiveCurrency)
 	require.NoError(t, err)
 	require.NotNil(t, registeredInactiveToken)
 
 	require.Equal(t, coreum.XRPLToken{
 		Issuer:      issuer,
-		Currency:    invactiveCurrency,
+		Currency:    inactiveCurrency,
 		CoreumDenom: registeredInactiveToken.CoreumDenom,
 		State:       coreum.TokenStateProcessing,
 	}, *registeredInactiveToken)
@@ -371,7 +371,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 			TransactionResult: coreum.TransactionResultRejected,
 		},
 		Issuer:   issuer,
-		Currency: invactiveCurrency,
+		Currency: inactiveCurrency,
 	}
 
 	// try to register not existing operation
@@ -399,13 +399,13 @@ func TestRegisterXRPLToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, strconv.FormatBool(true), thresholdReachedTrustSet)
 
-	registeredInactiveToken, err = contractClient.GetXRPLToken(ctx, issuer, invactiveCurrency)
+	registeredInactiveToken, err = contractClient.GetXRPLToken(ctx, issuer, inactiveCurrency)
 	require.NoError(t, err)
 	require.NotNil(t, registeredInactiveToken)
 
 	require.Equal(t, coreum.XRPLToken{
 		Issuer:      issuer,
-		Currency:    invactiveCurrency,
+		Currency:    inactiveCurrency,
 		CoreumDenom: registeredInactiveToken.CoreumDenom,
 		State:       coreum.TokenStateInactive,
 	}, *registeredInactiveToken)
@@ -418,7 +418,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	xrplToCoreumInactiveTokenTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
 		TxHash:    genXRPLTxHash(t),
 		Issuer:    issuerAcc.String(),
-		Currency:  invactiveCurrency,
+		Currency:  inactiveCurrency,
 		Amount:    sdkmath.NewInt(10),
 		Recipient: coreumRecipient,
 	}

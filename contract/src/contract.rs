@@ -680,8 +680,8 @@ fn truncate_amount(
     amount: Uint128,
 ) -> Result<Uint128, ContractError> {
     // To get exactly by how much we need to divide the original amount
-    // Example: if sending precision = -1. Exponent will be 15 - ( - 1) = 16 for XRPL tokens so we will divide the original amount by 10^16
-    // Example: if sending precision = 14. Exponent will be 15 - 14 = 1 for XRPL tokens so we will divide the original amount by 10^1
+    // Example: if sending precision = -1. Exponent will be 15 - ( - 1) = 16 for XRPL tokens so we will divide the original amount by 1e16
+    // Example: if sending precision = 14. Exponent will be 15 - 14 = 1 for XRPL tokens so we will divide the original amount by 10
     let exponent = decimals as i32 - sending_precision;
 
     let amount_to_send = amount.checked_div(Uint128::new(10u128.pow(exponent.unsigned_abs())))?;

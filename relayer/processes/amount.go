@@ -32,7 +32,7 @@ func ConvertXRPLNativeTokenXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount
 	if xrplAmount.IsNative() {
 		return sdkmath.NewIntFromBigInt(xrplRatAmount.Num()), nil
 	}
-	// not XRP value is repressed as value multiplied by 10^15
+	// not XRP value is repressed as value multiplied by 1e15
 	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(XRPLIssuedCurrencyDecimals)), nil)
 	binIntAmount := big.NewInt(0).Quo(big.NewInt(0).Mul(tenPowerDec, xrplRatAmount.Num()), xrplRatAmount.Denom())
 	if binIntAmount.BitLen() > sdkmath.MaxBitLen {
