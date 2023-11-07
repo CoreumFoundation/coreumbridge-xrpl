@@ -13,11 +13,11 @@ const (
 	// XRPLAmountPrec is precision we use to covert float to float string for the amount representation.
 	// That value is value which corelates with the min/max sending precision.
 	XRPLAmountPrec = 16
-	// XRPLIssuedCurrencyDecimals is XRPL decimals used the on coreum.
+	// XRPLIssuedCurrencyDecimals is XRPL decimals used on the coreum.
 	XRPLIssuedCurrencyDecimals = 15
-	// XRPIssuer is XRP issuer name used the on coreum.
+	// XRPIssuer is XRP issuer name used on the coreum.
 	XRPIssuer = "rrrrrrrrrrrrrrrrrrrrrho"
-	// XRPCurrency is XRP currency name used the on coreum.
+	// XRPCurrency is XRP currency name used on the coreum.
 	XRPCurrency = "XRP"
 )
 
@@ -51,7 +51,7 @@ func ConvertXRPLNativeTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int, is
 		// we don't use the decimals for the XRP values since the `NewValue` function will do it automatically
 		xrplValue, err := rippledata.NewValue(amountString, true)
 		if err != nil {
-			return rippledata.Amount{}, errors.Wrapf(err, "failed to convert amount stringy to ripple.Value, amount stirng: %s", amountString)
+			return rippledata.Amount{}, errors.Wrapf(err, "failed to convert amount string to ripple.Value, amount stirng: %s", amountString)
 		}
 		return rippledata.Amount{
 			Value: xrplValue,

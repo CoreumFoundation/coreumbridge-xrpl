@@ -141,8 +141,8 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		return nil
 	}
 
-	if IsExpectedSendEvidenceError(err) {
-		o.log.Debug(ctx, "Received expected send evidence error")
+	if IsEvidenceErrorCausedByResubmission(err) {
+		o.log.Debug(ctx, "Received expected send evidence error caused by re-submission")
 		return nil
 	}
 
@@ -167,8 +167,8 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 	}
 }
 
-// IsExpectedSendEvidenceError returns true is error is cause of the re-submitting of the transaction.
-func IsExpectedSendEvidenceError(err error) bool {
+// IsEvidenceErrorCausedByResubmission returns true is error is cause of the re-submitting of the transaction.
+func IsEvidenceErrorCausedByResubmission(err error) bool {
 	return coreum.IsEvidenceAlreadyProvidedError(err) ||
 		coreum.IsOperationAlreadyExecutedError(err) ||
 		coreum.IsPendingOperationNotFoundError(err)
@@ -209,7 +209,7 @@ func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(ctx 
 		}
 		return nil
 	}
-	if IsExpectedSendEvidenceError(err) {
+	if IsEvidenceErrorCausedByResubmission(err) {
 		o.log.Debug(ctx, "Received expected send evidence error")
 		return nil
 	}
@@ -247,7 +247,7 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.C
 		}
 		return nil
 	}
-	if IsExpectedSendEvidenceError(err) {
+	if IsEvidenceErrorCausedByResubmission(err) {
 		o.log.Debug(ctx, "Received expected send evidence error")
 		return nil
 	}

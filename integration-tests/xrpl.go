@@ -149,7 +149,7 @@ func (c XRPLChain) FundAccountForTicketAllocation(ctx context.Context, t *testin
 
 // FundAccountForSignerListSet funds the provided account with the amount required for the multi-signing set.
 func (c XRPLChain) FundAccountForSignerListSet(ctx context.Context, t *testing.T, acc rippledata.Account, singersCount int) {
-	c.FundAccount(ctx, t, acc, xrplReservePerTicket*float64(singersCount))
+	c.FundAccount(ctx, t, acc, xrplReservePerSigner*float64(singersCount))
 }
 
 // FundAccount funds the provided account with the provided amount.

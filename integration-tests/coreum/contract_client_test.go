@@ -287,7 +287,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 		defaultTrustSetLimitAmount,
 	)
 
-	// fund owner to cover registration fees twice
+	// fund owner to cover issuance fees twice
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
 		Amount: issueFee.Amount.Mul(sdkmath.NewIntFromUint64(2)),
 	})
@@ -364,7 +364,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	operation := pendingOperations[0]
 	require.NotNil(t, operation.OperationType.TrustSet)
 
-	rejectTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
+	rejectedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 			TxHash:            genXRPLTxHash(t),
 			TicketNumber:      &operation.TicketNumber,
@@ -375,25 +375,25 @@ func TestRegisterXRPLToken(t *testing.T) {
 	}
 
 	// try to register not existing operation
-	invalidEvidenceTrustSetWithInvalidTicket := rejectTxEvidenceTrustSet
+	invalidEvidenceTrustSetWithInvalidTicket := rejectedTxEvidenceTrustSet
 	invalidEvidenceTrustSetWithInvalidTicket.TicketNumber = lo.ToPtr(uint32(99))
 	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[0].CoreumAddress, invalidEvidenceTrustSetWithInvalidTicket)
 	require.True(t, coreum.IsPendingOperationNotFoundError(err), err)
 
 	// try to register with not existing currency
-	invalidEvidenceNotExistingIssuer := rejectTxEvidenceTrustSet
+	invalidEvidenceNotExistingIssuer := rejectedTxEvidenceTrustSet
 	invalidEvidenceNotExistingIssuer.Issuer = xrpl.GenPrivKeyTxSigner().Account().String()
 	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[0].CoreumAddress, invalidEvidenceNotExistingIssuer)
 	require.True(t, coreum.IsTokenNotRegisteredError(err), err)
 
 	// send valid rejected evidence from first relayer
-	txResTrustSet, err := contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[0].CoreumAddress, rejectTxEvidenceTrustSet)
+	txResTrustSet, err := contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[0].CoreumAddress, rejectedTxEvidenceTrustSet)
 	require.NoError(t, err)
 	thresholdReachedTrustSet, err := event.FindStringEventAttribute(txResTrustSet.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
 	require.Equal(t, strconv.FormatBool(false), thresholdReachedTrustSet)
 	// send valid rejected evidence from second relayer
-	txResTrustSet, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[1].CoreumAddress, rejectTxEvidenceTrustSet)
+	txResTrustSet, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[1].CoreumAddress, rejectedTxEvidenceTrustSet)
 	require.NoError(t, err)
 	thresholdReachedTrustSet, err = event.FindStringEventAttribute(txResTrustSet.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
@@ -411,7 +411,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	}, *registeredInactiveToken)
 
 	// try to send evidence one more time
-	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[1].CoreumAddress, rejectTxEvidenceTrustSet)
+	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[1].CoreumAddress, rejectedTxEvidenceTrustSet)
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
 
 	// try to register the sending from the XRPL to coreum evidence with inactive token
@@ -424,8 +424,6 @@ func TestRegisterXRPLToken(t *testing.T) {
 	}
 	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[1].CoreumAddress, xrplToCoreumInactiveTokenTransferEvidence)
 	require.True(t, coreum.IsXRPLTokenNotEnabledError(err), err)
-
-	_ = activeCurrency
 
 	// register one more token and activate it
 	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, activeCurrency, sendingPrecision, maxHoldingAmount)
@@ -482,7 +480,7 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 		defaultTrustSetLimitAmount,
 	)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
-	// fund owner to cover registration fees twice
+	// fund owner to cover issuance fees twice
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
 		Amount: issueFee.Amount.Mul(sdkmath.NewIntFromUint64(2)),
 	})

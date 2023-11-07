@@ -148,13 +148,13 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 	}
 
 	trustSetOperationWithSignatures := trustSetOperationWithoutSignatures
-	trustSetOperationSigner1 := multiSignTrustSetsOperation(
+	trustSetOperationSigner1 := multiSignTrustSetOperation(
 		t,
 		xrplRelayer1Signer,
 		xrplBridgeAccount,
 		trustSetOperationWithSignatures,
 	)
-	trustSetOperationSigner2 := multiSignTrustSetsOperation(
+	trustSetOperationSigner2 := multiSignTrustSetOperation(
 		t,
 		xrplRelayer2Signer,
 		xrplBridgeAccount,
@@ -380,7 +380,7 @@ func multiSignAllocateTicketsOperation(
 	return signer
 }
 
-func multiSignTrustSetsOperation(
+func multiSignTrustSetOperation(
 	t *testing.T,
 	xrplRelayerSigner *xrpl.PrivKeyTxSigner,
 	xrplBridgeAcc rippledata.Account,
