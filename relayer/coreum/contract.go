@@ -51,10 +51,10 @@ type TokenState string
 
 // TokenState values.
 const (
-	TokenStateActive     TokenState = "active"
-	TokenStateInactive   TokenState = "inactive"
+	TokenStateEnabled    TokenState = "enabled"
 	TokenStateDisabled   TokenState = "disabled"
 	TokenStateProcessing TokenState = "processing"
+	TokenStateInactive   TokenState = "inactive"
 )
 
 // QueryMethod is contract query method.
@@ -85,6 +85,7 @@ const (
 	amountSentIsZeroAfterTruncatingErrorString = "AmountSentIsZeroAfterTruncation"
 	maximumBridgedAmountReachedErrorString     = "MaximumBridgedAmountReached"
 	stillHaveAvailableTicketsErrorString       = "StillHaveAvailableTickets"
+	xrplTokenNotEnabledErrorString             = "XRPLTokenNotEnabled"
 )
 
 // Relayer is the relayer information in the contract config.
@@ -101,15 +102,15 @@ type InstantiationConfig struct {
 	Relayers             []Relayer
 	EvidenceThreshold    int
 	UsedTicketsThreshold int
-	TrustSetLimitAmount  string
+	TrustSetLimitAmount  sdkmath.Int
 }
 
 // ContractConfig is contract config.
 type ContractConfig struct {
-	Relayers             []Relayer `json:"relayers"`
-	EvidenceThreshold    int       `json:"evidence_threshold"`
-	UsedTicketsThreshold int       `json:"used_tickets_threshold"`
-	TrustSetLimitAmount  string    `json:"trust_set_limit_amount"`
+	Relayers             []Relayer   `json:"relayers"`
+	EvidenceThreshold    int         `json:"evidence_threshold"`
+	UsedTicketsThreshold int         `json:"used_tickets_threshold"`
+	TrustSetLimitAmount  sdkmath.Int `json:"trust_set_limit_amount"`
 }
 
 // ContractOwnership is owner contract config.
@@ -178,9 +179,17 @@ type OperationTypeAllocateTickets struct {
 	Number uint32 `json:"number"`
 }
 
+// OperationTypeTrustSet is trust set operation type.
+type OperationTypeTrustSet struct {
+	Issuer              string      `json:"issuer"`
+	Currency            string      `json:"currency"`
+	TrustSetLimitAmount sdkmath.Int `json:"trust_set_limit_amount"`
+}
+
 // OperationType is operation type.
 type OperationType struct {
 	AllocateTickets *OperationTypeAllocateTickets `json:"allocate_tickets,omitempty"`
+	TrustSet        *OperationTypeTrustSet        `json:"trust_set,omitempty"`
 }
 
 // Operation is contract operation which should be signed and executed.
@@ -207,7 +216,7 @@ type instantiateRequest struct {
 	Relayers             []Relayer      `json:"relayers"`
 	EvidenceThreshold    int            `json:"evidence_threshold"`
 	UsedTicketsThreshold int            `json:"used_tickets_threshold"`
-	TrustSetLimitAmount  string         `json:"trust_set_limit_amount"`
+	TrustSetLimitAmount  sdkmath.Int    `json:"trust_set_limit_amount"`
 }
 
 type transferOwnershipRequest struct {
@@ -222,10 +231,10 @@ type registerCoreumTokenRequest struct {
 }
 
 type registerXRPLTokenRequest struct {
-	Issuer           string `json:"issuer"`
-	Currency         string `json:"currency"`
-	SendingPrecision int32  `json:"sending_precision"`
-	MaxHoldingAmount string `json:"max_holding_amount"`
+	Issuer           string      `json:"issuer"`
+	Currency         string      `json:"currency"`
+	SendingPrecision int32       `json:"sending_precision"`
+	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
 }
 
 type saveEvidenceRequest struct {
@@ -488,7 +497,7 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 				Issuer:           issuer,
 				Currency:         currency,
 				SendingPrecision: sendingPrecision,
-				MaxHoldingAmount: maxHoldingAmount.String(),
+				MaxHoldingAmount: maxHoldingAmount,
 			},
 		},
 		Funds: sdk.NewCoins(fee),
@@ -632,6 +641,21 @@ func (c *ContractClient) GetContractOwnership(ctx context.Context) (ContractOwne
 	}
 
 	return response, nil
+}
+
+// GetXRPLToken returns an XRPL registered token or nil.
+func (c *ContractClient) GetXRPLToken(ctx context.Context, issuer, currency string) (*XRPLToken, error) {
+	tokens, err := c.GetXRPLTokens(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, token := range tokens {
+		if token.Issuer == issuer && token.Currency == currency {
+			return &token, nil
+		}
+	}
+
+	return nil, nil //nolint:nilnil // if token not found we return nil instead of an error
 }
 
 // GetXRPLTokens returns a list of all XRPL tokens.
@@ -805,74 +829,79 @@ func (c *ContractClient) getTxFactory() client.Factory {
 
 // ******************** Error func ********************
 
-// IsNotOwnerError returns true if error is `not owner` error.
+// IsNotOwnerError returns true if error is `not owner`.
 func IsNotOwnerError(err error) bool {
 	return isError(err, notOwnerErrorString)
 }
 
-// IsCoreumTokenAlreadyRegisteredError returns true if error is `CoreumTokenAlreadyRegistered` error.
+// IsCoreumTokenAlreadyRegisteredError returns true if error is `CoreumTokenAlreadyRegistered`.
 func IsCoreumTokenAlreadyRegisteredError(err error) bool {
 	return isError(err, coreumTokenAlreadyRegisteredErrorString)
 }
 
-// IsXRPLTokenAlreadyRegisteredError returns true if error is `XRPLTokenAlreadyRegistered` error.
+// IsXRPLTokenAlreadyRegisteredError returns true if error is `XRPLTokenAlreadyRegistered`.
 func IsXRPLTokenAlreadyRegisteredError(err error) bool {
 	return isError(err, xrplTokenAlreadyRegisteredErrorString)
 }
 
-// IsUnauthorizedSenderError returns true if error is `UnauthorizedSender` error.
+// IsUnauthorizedSenderError returns true if error is `UnauthorizedSender`.
 func IsUnauthorizedSenderError(err error) bool {
 	return isError(err, unauthorizedSenderErrorString)
 }
 
-// IsOperationAlreadyExecutedError returns true if error is `OperationAlreadyExecuted` error.
+// IsOperationAlreadyExecutedError returns true if error is `OperationAlreadyExecuted`.
 func IsOperationAlreadyExecutedError(err error) bool {
 	return isError(err, operationAlreadyExecutedErrorString)
 }
 
-// IsTokenNotRegisteredError returns true if error is `TokenNotRegistered` error.
+// IsTokenNotRegisteredError returns true if error is `TokenNotRegistered`.
 func IsTokenNotRegisteredError(err error) bool {
 	return isError(err, tokenNotRegisteredErrorString)
 }
 
-// IsEvidenceAlreadyProvidedError returns true if error is `EvidenceAlreadyProvided` error.
+// IsEvidenceAlreadyProvidedError returns true if error is `EvidenceAlreadyProvided`.
 func IsEvidenceAlreadyProvidedError(err error) bool {
 	return isError(err, evidenceAlreadyProvidedErrorString)
 }
 
-// IsPendingTicketUpdateError returns true if error is `PendingTicketUpdate` error.
+// IsPendingTicketUpdateError returns true if error is `PendingTicketUpdate`.
 func IsPendingTicketUpdateError(err error) bool {
 	return isError(err, pendingTicketUpdateErrorString)
 }
 
-// IsInvalidTicketNumberToAllocateError returns true if error is `InvalidTicketNumberToAllocate` error.
+// IsInvalidTicketNumberToAllocateError returns true if error is `InvalidTicketNumberToAllocate`.
 func IsInvalidTicketNumberToAllocateError(err error) bool {
 	return isError(err, invalidTicketNumberToAllocateErrorString)
 }
 
-// IsSignatureAlreadyProvidedError returns true if error is `SignatureAlreadyProvided` error.
+// IsSignatureAlreadyProvidedError returns true if error is `SignatureAlreadyProvided`.
 func IsSignatureAlreadyProvidedError(err error) bool {
 	return isError(err, signatureAlreadyProvidedErrorString)
 }
 
-// IsPendingOperationNotFoundError returns true if error is `PendingOperationNotFound` error.
+// IsPendingOperationNotFoundError returns true if error is `PendingOperationNotFound`.
 func IsPendingOperationNotFoundError(err error) bool {
 	return isError(err, pendingOperationNotFoundErrorString)
 }
 
-// IsAmountSentIsZeroAfterTruncationError returns true if error is `AmountSentIsZeroAfterTruncation` error.
+// IsAmountSentIsZeroAfterTruncationError returns true if error is `AmountSentIsZeroAfterTruncation`.
 func IsAmountSentIsZeroAfterTruncationError(err error) bool {
 	return isError(err, amountSentIsZeroAfterTruncatingErrorString)
 }
 
-// IsMaximumBridgedAmountReachedError returns true if error is `MaximumBridgedAmountReached` error.
+// IsMaximumBridgedAmountReachedError returns true if error is `MaximumBridgedAmountReached`.
 func IsMaximumBridgedAmountReachedError(err error) bool {
 	return isError(err, maximumBridgedAmountReachedErrorString)
 }
 
-// IsStillHaveAvailableTicketsError returns true if error is `StillHaveAvailableTickets` error.
+// IsStillHaveAvailableTicketsError returns true if error is `StillHaveAvailableTickets`.
 func IsStillHaveAvailableTicketsError(err error) bool {
 	return isError(err, stillHaveAvailableTicketsErrorString)
+}
+
+// IsXRPLTokenNotEnabledError returns true if error is `XRPLTokenNotEnabled`.
+func IsXRPLTokenNotEnabledError(err error) bool {
+	return isError(err, xrplTokenNotEnabledErrorString)
 }
 
 func isError(err error, errorString string) bool {

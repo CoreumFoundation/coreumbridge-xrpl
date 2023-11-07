@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
@@ -22,7 +23,7 @@ func DeployAndInstantiateContract(
 	relayers []coreum.Relayer,
 	evidenceThreshold int,
 	usedTicketsThreshold int,
-	trustSetLimitAmount string,
+	trustSetLimitAmount sdkmath.Int,
 ) (sdk.AccAddress, *coreum.ContractClient) {
 	t.Helper()
 

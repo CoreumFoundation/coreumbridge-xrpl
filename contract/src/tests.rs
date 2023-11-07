@@ -511,7 +511,7 @@ mod tests {
                 coreum_denom: format!("{}-{}", XRP_SUBUNIT, contract_addr).to_lowercase(),
                 sending_precision: XRP_DEFAULT_SENDING_PRECISION,
                 max_holding_amount: Uint128::new(XRP_DEFAULT_MAX_HOLDING_AMOUNT),
-                state: TokenState::Active,
+                state: TokenState::Enabled,
             }
         );
     }
@@ -1079,7 +1079,7 @@ mod tests {
 
         assert!(not_active_error
             .to_string()
-            .contains(ContractError::XRPLTokenNotActive {}.to_string().as_str()));
+            .contains(ContractError::XRPLTokenNotEnabled {}.to_string().as_str()));
 
         // Activate the token
         let query_pending_operations = wasm

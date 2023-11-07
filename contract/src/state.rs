@@ -52,14 +52,14 @@ pub struct XRPLToken {
 
 #[cw_serde]
 pub enum TokenState {
-    // Active tokens are tokens that can be bridged
-    Active,
-    // Inactive tokens are tokens that can't be bridged because the trust set registration failed so it must be triggered again.
-    Inactive,
+    // Enabled tokens are tokens that can be bridged
+    Enabled,
     // Disabled tokens are tokens that can be bridged but have been disabled by the admin and they must be activated again to be bridged
     Disabled,
-    // Processing are tokens that have a TrustSet operation pending to be completed. If this operation succeeds they will be Active, if it fails they will be Inactive
+    // Processing are tokens that have a TrustSet operation pending to be completed. If this operation succeeds they will be Enabled, if it fails they will be Inactive
     Processing,
+    // Inactive tokens are tokens that can't be bridged because the trust set registration failed so it must be triggered again.
+    Inactive,
 }
 
 #[cw_serde]

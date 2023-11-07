@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ConvertStringWithDecimalsToSDKInt accepts the float string and returns the value equal to `value * 10^tokenDecimals` truncate to int.
+// ConvertStringWithDecimalsToSDKInt accepts the float string and returns the value equal to `value * 1e(tokenDecimals)` truncate to int.
 func ConvertStringWithDecimalsToSDKInt(t *testing.T, stringValue string, tokenDecimals int64) sdkmath.Int {
 	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(tokenDecimals), nil)
 	valueRat, ok := big.NewRat(0, 1).SetString(stringValue)

@@ -41,9 +41,9 @@ pub enum ContractError {
     CoreumTokenAlreadyRegistered { denom: String },
 
     #[error(
-        "XRPLTokenAlreadyRegistered: Token with issuer: {} and currency: {} is already registered",
-        issuer,
-        currency
+    "XRPLTokenAlreadyRegistered: Token with issuer: {} and currency: {} is already registered",
+    issuer,
+    currency
     )]
     XRPLTokenAlreadyRegistered { issuer: String, currency: String },
 
@@ -63,7 +63,7 @@ pub enum ContractError {
     OperationAlreadyExecuted {},
 
     #[error(
-        "EvidenceAlreadyProvided: The relayer already provided its evidence for the operation"
+    "EvidenceAlreadyProvided: The relayer already provided its evidence for the operation"
     )]
     EvidenceAlreadyProvided {},
 
@@ -83,7 +83,7 @@ pub enum ContractError {
     StillHaveAvailableTickets {},
 
     #[error(
-        "PendingTicketUpdate: There is a pending ticket update operation already in the queue"
+    "PendingTicketUpdate: There is a pending ticket update operation already in the queue"
     )]
     PendingTicketUpdate {},
 
@@ -100,12 +100,12 @@ pub enum ContractError {
     InvalidTicketAllocationEvidence {},
 
     #[error(
-        "PendingOperationNotFound: There is no pending operation with this ticket/sequence number"
+    "PendingOperationNotFound: There is no pending operation with this ticket/sequence number"
     )]
     PendingOperationNotFound {},
 
     #[error(
-        "PendingOperationAlreadyExists: There is already a pending operation with this operation id"
+    "PendingOperationAlreadyExists: There is already a pending operation with this operation id"
     )]
     PendingOperationAlreadyExists {},
 
@@ -121,8 +121,11 @@ pub enum ContractError {
     #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
     InvalidXRPLCurrency {},
 
-    #[error("XRPLTokenNotActive: This token must be active to be bridged")]
-    XRPLTokenNotActive {},
+    #[error("XRPLTokenNotEnabled: This token must be enabled to be bridged")]
+    XRPLTokenNotEnabled {},
+
+    #[error("XRPLTokenNotInProcessing: This token must be in processing state to be enabled")]
+    XRPLTokenNotInProcessing {},
 
     #[error("AmountSentIsZeroAfterTruncation: Amount sent is zero after truncating to sending precision")]
     AmountSentIsZeroAfterTruncation {},
@@ -131,7 +134,7 @@ pub enum ContractError {
     MaximumBridgedAmountReached {},
 
     #[error(
-        "InvalidSendingPrecision: The sending precision can't be more than the token decimals or less than the negative token decimals"
+    "InvalidSendingPrecision: The sending precision can't be more than the token decimals or less than the negative token decimals"
     )]
     InvalidSendingPrecision {},
 }

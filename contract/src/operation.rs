@@ -71,7 +71,7 @@ pub fn handle_trust_set_confirmation(
 
     // Set token to active if TrustSet operation was successful
     if transaction_result.eq(&TransactionResult::Accepted) {
-        token.state = TokenState::Active;
+        token.state = TokenState::Enabled;
     } else {
         token.state = TokenState::Inactive;
     }

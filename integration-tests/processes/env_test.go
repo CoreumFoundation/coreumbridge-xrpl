@@ -25,6 +25,7 @@ import (
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 const XRPLTokenDecimals = 15
@@ -37,7 +38,7 @@ type RunnerEnvConfig struct {
 	MaliciousRelayerNumber int
 	DisableMasterKey       bool
 	UsedTicketsThreshold   int
-	TrustSetLimitAmount    string
+	TrustSetLimitAmount    sdkmath.Int
 }
 
 // DefaultRunnerEnvConfig returns default runner environment config.
@@ -49,7 +50,7 @@ func DefaultRunnerEnvConfig() RunnerEnvConfig {
 		MaliciousRelayerNumber: 0,
 		DisableMasterKey:       true,
 		UsedTicketsThreshold:   150,
-		TrustSetLimitAmount:    "10000000000000000",
+		TrustSetLimitAmount:    sdkmath.NewIntWithDecimal(1, 30),
 	}
 }
 
@@ -60,6 +61,7 @@ type RunnerEnv struct {
 	// TODO(dzmitryhil) replace with the relayer logic
 	RelayerAddresses []sdk.AccAddress
 	ContractClient   *coreum.ContractClient
+	Chains           integrationtests.Chains
 	ContractOwner    sdk.AccAddress
 	Runners          []*runner.Runner
 	ProcessErrorsMu  sync.RWMutex
@@ -120,7 +122,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	// add malicious relayers
 	// we keep the relayer indexes to make all config valid apart from the XRPL signing
 	for i := cfg.RelayerNumber - cfg.MaliciousRelayerNumber; i < cfg.RelayerNumber; i++ {
-		maliciousSignerAcc := chains.XRPL.GenAccount(ctx, t, 10)
+		maliciousSignerAcc := chains.XRPL.GenAccount(ctx, t, 0)
 		runners = append(
 			runners,
 			createDevRunner(
@@ -139,6 +141,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		XRPLBridgeAccount: xrplBridgeAccount,
 		RelayerAddresses:  coreumRelayerAddresses,
 		ContractClient:    contractClient,
+		Chains:            chains,
 		ContractOwner:     contractOwner,
 		Runners:           runners,
 		ProcessErrorsMu:   sync.RWMutex{},
@@ -232,40 +235,58 @@ func (r *RunnerEnv) AwaitState(ctx context.Context, t *testing.T, stateChecker f
 	require.NoError(t, err)
 }
 
+// AllocateTickets allocate initial tickets amount.
+func (r *RunnerEnv) AllocateTickets(
+	ctx context.Context,
+	t *testing.T,
+	numberOfTicketsToAllocate uint32,
+) {
+	xrplBridgeAccountInfo, err := r.Chains.XRPL.RPCClient().AccountInfo(ctx, r.XRPLBridgeAccount)
+	require.NoError(t, err)
+
+	r.Chains.XRPL.FundAccountForTicketAllocation(ctx, t, r.XRPLBridgeAccount, numberOfTicketsToAllocate)
+	_, err = r.ContractClient.RecoverTickets(ctx, r.ContractOwner, *xrplBridgeAccountInfo.AccountData.Sequence, &numberOfTicketsToAllocate)
+	require.NoError(t, err)
+
+	require.NoError(t, err)
+	r.AwaitNoPendingOperations(ctx, t)
+	availableTickets, err := r.ContractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.Len(t, availableTickets, int(numberOfTicketsToAllocate))
+}
+
+// RegisterXRPLTokenAndAwaitTrustSet registers XRPL currency and awaits for the trust set ot be set.
+func (r *RunnerEnv) RegisterXRPLTokenAndAwaitTrustSet(
+	ctx context.Context,
+	t *testing.T,
+	issuer rippledata.Account,
+	currency rippledata.Currency,
+	sendingPrecision int32,
+	maxHoldingAmount sdkmath.Int,
+) coreum.XRPLToken {
+	_, err := r.ContractClient.RegisterXRPLToken(ctx, r.ContractOwner, issuer.String(), xrpl.ConvertCurrencyToString(currency), sendingPrecision, maxHoldingAmount)
+	require.NoError(t, err)
+	// await for the trust set
+	r.AwaitNoPendingOperations(ctx, t)
+	xrplRegisteredToken, err := r.ContractClient.GetXRPLToken(ctx, issuer.String(), xrpl.ConvertCurrencyToString(currency))
+	require.NoError(t, err)
+	require.NotNil(t, xrplRegisteredToken)
+	require.Equal(t, coreum.TokenStateEnabled, xrplRegisteredToken.State)
+
+	return *xrplRegisteredToken
+}
+
+// RequireNoErrors check whether the runner err received runner errors.
 func (r *RunnerEnv) RequireNoErrors(t *testing.T) {
 	r.ProcessErrorsMu.RLock()
 	defer r.ProcessErrorsMu.RUnlock()
 	require.Empty(t, r.ProcessErrors, "Found unexpected process errors after the execution")
 }
 
-// SendTrustSet sends TrustSet transaction.
-func SendTrustSet(
-	ctx context.Context,
-	t *testing.T,
-	xrplChain integrationtests.XRPLChain,
-	issuer, sender rippledata.Account,
-	currency rippledata.Currency,
-) {
-	trustSetValue, err := rippledata.NewValue("10e20", false)
-	require.NoError(t, err)
-	senderCurrencyTrustSetTx := rippledata.TrustSet{
-		LimitAmount: rippledata.Amount{
-			Value:    trustSetValue,
-			Currency: currency,
-			Issuer:   issuer,
-		},
-		TxBase: rippledata.TxBase{
-			TransactionType: rippledata.TRUST_SET,
-		},
-	}
-	require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &senderCurrencyTrustSetTx, sender))
-}
-
 // SendXRPLPaymentTx sends Payment transaction.
-func SendXRPLPaymentTx(
+func (r *RunnerEnv) SendXRPLPaymentTx(
 	ctx context.Context,
 	t *testing.T,
-	xrplChain integrationtests.XRPLChain,
 	senderAcc, recipientAcc rippledata.Account,
 	amount rippledata.Amount,
 	memo rippledata.Memo,
@@ -280,14 +301,13 @@ func SendXRPLPaymentTx(
 			},
 		},
 	}
-	require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
+	require.NoError(t, r.Chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
 }
 
 // SendXRPLPartialPaymentTx sends Payment transaction with partial payment.
-func SendXRPLPartialPaymentTx(
+func (r *RunnerEnv) SendXRPLPartialPaymentTx(
 	ctx context.Context,
 	t *testing.T,
-	xrplChain integrationtests.XRPLChain,
 	senderAcc, recipientAcc rippledata.Account,
 	amount rippledata.Amount,
 	maxAmount rippledata.Amount,
@@ -305,7 +325,7 @@ func SendXRPLPartialPaymentTx(
 			Flags: lo.ToPtr(rippledata.TxPartialPayment),
 		},
 	}
-	require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
+	require.NoError(t, r.Chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
 }
 
 func genCoreumRelayers(
@@ -337,14 +357,15 @@ func genXRPLBridgeAccountWithRelayers(
 	disableMasterKey bool,
 ) (rippledata.Account, []rippledata.Account, []rippledata.PublicKey) {
 	t.Helper()
+	// some fee to cover simple txs all extras must be allocated in the test
+	bridgeAcc := xrplChain.GenAccount(ctx, t, 0.5)
 
-	bridgeAcc := xrplChain.GenAccount(ctx, t, 10)
 	t.Logf("Bridge account is generated, address:%s", bridgeAcc.String())
 	signerEntries := make([]rippledata.SignerEntry, 0, signersCount)
 	signerAccounts := make([]rippledata.Account, 0, signersCount)
 	signerPubKeys := make([]rippledata.PublicKey, 0, signersCount)
 	for i := 0; i < signersCount; i++ {
-		signerAcc := xrplChain.GenAccount(ctx, t, 10)
+		signerAcc := xrplChain.GenAccount(ctx, t, 0)
 		signerAccounts = append(signerAccounts, signerAcc)
 		t.Logf("Signer %d is generated, address:%s", i+1, signerAcc.String())
 		signerEntries = append(signerEntries, rippledata.SignerEntry{
@@ -355,7 +376,8 @@ func genXRPLBridgeAccountWithRelayers(
 		})
 		signerPubKeys = append(signerPubKeys, xrplChain.GetSignerPubKey(t, signerAcc))
 	}
-
+	// fund for the signers SignerListSet
+	xrplChain.FundAccountForSignerListSet(ctx, t, bridgeAcc, signersCount)
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum:  signerQuorum,
 		SignerEntries: signerEntries,

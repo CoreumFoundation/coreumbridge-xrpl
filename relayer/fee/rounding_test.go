@@ -285,7 +285,7 @@ func truncateRatBySendingPrecision(ratValue *big.Rat, sendingPrecision int) *big
 	switch {
 	case sendingPrecision > 0:
 		tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(sendingPrecision)), nil)
-		// (nominator / (denominator / 10^sendingPrecision) * (denominator / 10^sendingPrecision) with denominator equal original
+		// (nominator / (denominator / 1e(sendingPrecision)) * (denominator / 1e(sendingPrecision)) with denominator equal original
 		subDenominator := big.NewInt(0).Quo(denominator, tenPowerDec)
 		if subDenominator.Cmp(big.NewInt(0)) == 1 {
 			updatedNominator := big.NewInt(0).Mul(
@@ -306,7 +306,7 @@ func truncateRatBySendingPrecision(ratValue *big.Rat, sendingPrecision int) *big
 		// nominator > denominator
 		if nominator.Cmp(denominator) == 1 {
 			tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(-sendingPrecision)), nil)
-			// (nominator / denominator / 10^(-1*sendingPrecision) * 10^(-1*sendingPrecision) with denominator equal 1
+			// (nominator / denominator / 1e(-1*sendingPrecision) * 1e(-1*sendingPrecision) with denominator equal 1
 			updatedNominator := big.NewInt(0).Mul(
 				big.NewInt(0).Quo(
 					big.NewInt(0).Quo(nominator, denominator), tenPowerDec),

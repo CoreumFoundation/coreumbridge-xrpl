@@ -88,7 +88,7 @@ impl Evidence {
         }
     }
     // Function for basic validation of evidences in case relayers send something that is not valid
-    pub fn validate(&self) -> Result<(), ContractError> {
+    pub fn validate_basic(&self) -> Result<(), ContractError> {
         match self {
             Evidence::XRPLToCoreumTransfer { amount, .. } => {
                 if amount.u128() == 0 {

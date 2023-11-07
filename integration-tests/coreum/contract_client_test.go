@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -35,8 +36,9 @@ const (
 	xrpCurrency   = "XRP"
 
 	eventAttributeThresholdReached = "threshold_reached"
-	trustSetLimitAmount            = "10000000000000000"
 )
+
+var defaultTrustSetLimitAmount = sdkmath.NewInt(10000000000000000)
 
 func TestDeployAndInstantiateContract(t *testing.T) {
 	t.Parallel()
@@ -54,7 +56,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		relayers,
 		len(relayers),
 		usedTicketsThreshold,
-		trustSetLimitAmount,
+		defaultTrustSetLimitAmount,
 	)
 
 	contractCfg, err := contractClient.GetContractConfig(ctx)
@@ -64,7 +66,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		Relayers:             relayers,
 		EvidenceThreshold:    len(relayers),
 		UsedTicketsThreshold: usedTicketsThreshold,
-		TrustSetLimitAmount:  trustSetLimitAmount,
+		TrustSetLimitAmount:  defaultTrustSetLimitAmount,
 	}, contractCfg)
 
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
@@ -106,7 +108,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		Issuer:      xrpIssuer,
 		Currency:    xrpCurrency,
 		CoreumDenom: coreumDenom,
-		State:       coreum.TokenStateActive,
+		State:       coreum.TokenStateEnabled,
 	}, xrplTokens[0])
 }
 
@@ -125,7 +127,7 @@ func TestChangeContractOwnership(t *testing.T) {
 		relayers,
 		len(relayers),
 		usedTicketsThreshold,
-		trustSetLimitAmount,
+		defaultTrustSetLimitAmount,
 	)
 
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
@@ -186,7 +188,7 @@ func TestRegisterCoreumToken(t *testing.T) {
 		relayers,
 		len(relayers),
 		usedTicketsThreshold,
-		trustSetLimitAmount,
+		defaultTrustSetLimitAmount,
 	)
 
 	denom1 := "denom1"
@@ -261,9 +263,11 @@ func TestRegisterXRPLToken(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 	assetftClient := assetfttypes.NewQueryClient(chains.Coreum.ClientContext)
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
 
-	relayers := genRelayers(ctx, t, chains, 1)
+	relayers := genRelayers(ctx, t, chains, 2)
 	usedTicketsThreshold := 3
+	coreumRecipient := chains.Coreum.GenAccount()
 
 	notOwner := chains.Coreum.GenAccount()
 
@@ -280,17 +284,18 @@ func TestRegisterXRPLToken(t *testing.T) {
 		relayers,
 		len(relayers),
 		usedTicketsThreshold,
-		trustSetLimitAmount,
+		defaultTrustSetLimitAmount,
 	)
 
-	// fund owner to cover registration fees twice
+	// fund owner to cover issuance fees twice
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
 		Amount: issueFee.Amount.Mul(sdkmath.NewIntFromUint64(2)),
 	})
 
 	issuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
 	issuer := issuerAcc.String()
-	currency := "CRA"
+	inactiveCurrency := "INA"
+	activeCurrency := "ACT"
 	sendingPrecision := int32(15)
 	maxHoldingAmount := sdk.NewIntFromUint64(10000)
 
@@ -298,15 +303,15 @@ func TestRegisterXRPLToken(t *testing.T) {
 	allocateInitialTickets(ctx, t, contractClient, owner, relayers)
 
 	// try to register from not owner
-	_, err := contractClient.RegisterXRPLToken(ctx, notOwner, issuer, currency, sendingPrecision, maxHoldingAmount)
+	_, err := contractClient.RegisterXRPLToken(ctx, notOwner, issuer, inactiveCurrency, sendingPrecision, maxHoldingAmount)
 	require.True(t, coreum.IsNotOwnerError(err), err)
 
 	// register from the owner
-	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
+	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, inactiveCurrency, sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
 	// try to register the same denom one more time
-	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
+	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, inactiveCurrency, sendingPrecision, maxHoldingAmount)
 	require.True(t, coreum.IsXRPLTokenAlreadyRegisteredError(err), err)
 
 	xrplTokens, err := contractClient.GetXRPLTokens(ctx)
@@ -314,32 +319,31 @@ func TestRegisterXRPLToken(t *testing.T) {
 	// one XRP token and registered
 	require.Len(t, xrplTokens, 2)
 
-	var registeredToken coreum.XRPLToken
-	for _, token := range xrplTokens {
-		if token.Issuer == issuer && token.Currency == currency {
-			registeredToken = token
-			break
-		}
-	}
-	require.Equal(t, issuer, registeredToken.Issuer)
-	require.Equal(t, currency, registeredToken.Currency)
-	require.Equal(t, registeredToken.State, coreum.TokenStateProcessing)
-	require.NotEmpty(t, registeredToken.CoreumDenom)
+	registeredInactiveToken, err := contractClient.GetXRPLToken(ctx, issuer, inactiveCurrency)
+	require.NoError(t, err)
+	require.NotNil(t, registeredInactiveToken)
+
+	require.Equal(t, coreum.XRPLToken{
+		Issuer:      issuer,
+		Currency:    inactiveCurrency,
+		CoreumDenom: registeredInactiveToken.CoreumDenom,
+		State:       coreum.TokenStateProcessing,
+	}, *registeredInactiveToken)
 
 	// check that corresponding token is issued
 	contractAddress := contractClient.GetContractAddress()
 
 	tokenRes, err := assetftClient.Token(ctx, &assetfttypes.QueryTokenRequest{
-		Denom: registeredToken.CoreumDenom,
+		Denom: registeredInactiveToken.CoreumDenom,
 	})
 	require.NoError(t, err)
 
 	// deconstruct the denom to get prefix used for the symbol and subunit
-	prefix, _, err := assetfttypes.DeconstructDenom(registeredToken.CoreumDenom)
+	prefix, _, err := assetfttypes.DeconstructDenom(registeredInactiveToken.CoreumDenom)
 	require.NoError(t, err)
 
 	require.Equal(t, assetfttypes.Token{
-		Denom:              registeredToken.CoreumDenom,
+		Denom:              registeredInactiveToken.CoreumDenom,
 		Issuer:             contractAddress.String(),
 		Symbol:             strings.ToUpper(prefix),
 		Subunit:            prefix,
@@ -351,6 +355,102 @@ func TestRegisterXRPLToken(t *testing.T) {
 		SendCommissionRate: sdk.ZeroDec(),
 		Version:            assetfttypes.CurrentTokenVersion,
 	}, tokenRes.Token)
+
+	// go through the trust set evidence use cases
+
+	pendingOperations, err := contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+	operation := pendingOperations[0]
+	require.NotNil(t, operation.OperationType.TrustSet)
+
+	rejectedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            genXRPLTxHash(t),
+			TicketNumber:      &operation.TicketNumber,
+			TransactionResult: coreum.TransactionResultRejected,
+		},
+		Issuer:   issuer,
+		Currency: inactiveCurrency,
+	}
+
+	// try to register not existing operation
+	invalidEvidenceTrustSetWithInvalidTicket := rejectedTxEvidenceTrustSet
+	invalidEvidenceTrustSetWithInvalidTicket.TicketNumber = lo.ToPtr(uint32(99))
+	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[0].CoreumAddress, invalidEvidenceTrustSetWithInvalidTicket)
+	require.True(t, coreum.IsPendingOperationNotFoundError(err), err)
+
+	// try to register with not existing currency
+	invalidEvidenceNotExistingIssuer := rejectedTxEvidenceTrustSet
+	invalidEvidenceNotExistingIssuer.Issuer = xrpl.GenPrivKeyTxSigner().Account().String()
+	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[0].CoreumAddress, invalidEvidenceNotExistingIssuer)
+	require.True(t, coreum.IsTokenNotRegisteredError(err), err)
+
+	// send valid rejected evidence from first relayer
+	txResTrustSet, err := contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[0].CoreumAddress, rejectedTxEvidenceTrustSet)
+	require.NoError(t, err)
+	thresholdReachedTrustSet, err := event.FindStringEventAttribute(txResTrustSet.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
+	require.NoError(t, err)
+	require.Equal(t, strconv.FormatBool(false), thresholdReachedTrustSet)
+	// send valid rejected evidence from second relayer
+	txResTrustSet, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[1].CoreumAddress, rejectedTxEvidenceTrustSet)
+	require.NoError(t, err)
+	thresholdReachedTrustSet, err = event.FindStringEventAttribute(txResTrustSet.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
+	require.NoError(t, err)
+	require.Equal(t, strconv.FormatBool(true), thresholdReachedTrustSet)
+
+	registeredInactiveToken, err = contractClient.GetXRPLToken(ctx, issuer, inactiveCurrency)
+	require.NoError(t, err)
+	require.NotNil(t, registeredInactiveToken)
+
+	require.Equal(t, coreum.XRPLToken{
+		Issuer:      issuer,
+		Currency:    inactiveCurrency,
+		CoreumDenom: registeredInactiveToken.CoreumDenom,
+		State:       coreum.TokenStateInactive,
+	}, *registeredInactiveToken)
+
+	// try to send evidence one more time
+	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[1].CoreumAddress, rejectedTxEvidenceTrustSet)
+	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
+
+	// try to register the sending from the XRPL to coreum evidence with inactive token
+	xrplToCoreumInactiveTokenTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+		TxHash:    genXRPLTxHash(t),
+		Issuer:    issuerAcc.String(),
+		Currency:  inactiveCurrency,
+		Amount:    sdkmath.NewInt(10),
+		Recipient: coreumRecipient,
+	}
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[1].CoreumAddress, xrplToCoreumInactiveTokenTransferEvidence)
+	require.True(t, coreum.IsXRPLTokenNotEnabledError(err), err)
+
+	// register one more token and activate it
+	_, err = contractClient.RegisterXRPLToken(ctx, owner, issuer, activeCurrency, sendingPrecision, maxHoldingAmount)
+	require.NoError(t, err)
+
+	registeredActiveToken, err := contractClient.GetXRPLToken(ctx, issuer, activeCurrency)
+	require.NoError(t, err)
+	require.NotNil(t, registeredInactiveToken)
+
+	require.Equal(t, coreum.XRPLToken{
+		Issuer:      issuer,
+		Currency:    activeCurrency,
+		CoreumDenom: registeredActiveToken.CoreumDenom,
+		State:       coreum.TokenStateProcessing,
+	}, *registeredActiveToken)
+
+	activateXRPLToken(ctx, t, contractClient, relayers, issuer, activeCurrency)
+
+	amountToSend := sdkmath.NewInt(99)
+	sendFromXRPLToCoreum(ctx, t, contractClient, relayers, issuer, activeCurrency, amountToSend, coreumRecipient)
+
+	balanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumRecipient.String(),
+		Denom:   registeredActiveToken.CoreumDenom,
+	})
+	require.NoError(t, err)
+	require.Equal(t, amountToSend.String(), balanceRes.Balance.Amount.String())
 }
 
 func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
@@ -377,10 +477,10 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 		relayers,
 		len(relayers),
 		usedTicketsThreshold,
-		trustSetLimitAmount,
+		defaultTrustSetLimitAmount,
 	)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
-	// fund owner to cover registration fees twice
+	// fund owner to cover issuance fees twice
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
 		Amount: issueFee.Amount.Mul(sdkmath.NewIntFromUint64(2)),
 	})
@@ -412,36 +512,8 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	require.Equal(t, currency, registeredToken.Currency)
 	require.NotEmpty(t, registeredToken.CoreumDenom)
 
-	pendingOperations, err := contractClient.GetPendingOperations(ctx)
-	require.NoError(t, err)
-	require.Len(t, pendingOperations, 1)
-	ticketAllocated := pendingOperations[0].TicketNumber
-
 	// activate token
-	acceptedTxHashTrustSet := genXRPLTxHash(t)
-	acceptedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
-		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            acceptedTxHashTrustSet,
-			TicketNumber:      &ticketAllocated,
-			TransactionResult: coreum.TransactionResultAccepted,
-		},
-		Issuer:   issuer,
-		Currency: currency,
-	}
-
-	// send evidence from first relayer
-	txResTrustSet, err := contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[0].CoreumAddress, acceptedTxEvidenceTrustSet)
-	require.NoError(t, err)
-	thresholdReachedTrustSet, err := event.FindStringEventAttribute(txResTrustSet.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
-	require.NoError(t, err)
-	require.Equal(t, "false", thresholdReachedTrustSet)
-
-	// send evidence from second relayer
-	txResTrustSet, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[1].CoreumAddress, acceptedTxEvidenceTrustSet)
-	require.NoError(t, err)
-	thresholdReachedTrustSet, err = event.FindStringEventAttribute(txResTrustSet.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
-	require.NoError(t, err)
-	require.Equal(t, "true", thresholdReachedTrustSet)
+	activateXRPLToken(ctx, t, contractClient, relayers, issuer, currency)
 
 	// create an evidence to transfer tokens from XRPL to Coreum
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
@@ -473,7 +545,7 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	require.True(t, recipientBalanceRes.Balance.IsZero())
 	thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
-	require.Equal(t, "false", thresholdReached)
+	require.Equal(t, strconv.FormatBool(false), thresholdReached)
 
 	// call from first relayer one more time
 	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidence)
@@ -489,7 +561,7 @@ func TestSendFromXRPLToCoreumXRPLNativeToken(t *testing.T) {
 	require.NoError(t, err)
 	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
-	require.Equal(t, "true", thresholdReached)
+	require.Equal(t, strconv.FormatBool(true), thresholdReached)
 
 	require.NoError(t, err)
 	// expect new token on the recipient balance
@@ -521,7 +593,7 @@ func TestSendFromXRPLToCoreumXRPLNativeTokenWithDifferentSendingPrecision(t *tes
 		relayers,
 		len(relayers),
 		usedTicketsThreshold,
-		trustSetLimitAmount,
+		defaultTrustSetLimitAmount,
 	)
 	// register tickets
 	allocateInitialTickets(ctx, t, contractClient, owner, relayers)
@@ -635,7 +707,7 @@ func TestSendFromXRPLToCoreumXRPLNativeTokenWithDifferentSendingPrecision(t *tes
 			}
 
 			// activate token
-			activateToken(ctx, t, contractClient, relayers, issuerAcc.String(), currency)
+			activateXRPLToken(ctx, t, contractClient, relayers, issuerAcc.String(), currency)
 
 			// call from all relayers
 			for _, relayer := range relayers {
@@ -678,7 +750,7 @@ func TestRecoverTickets(t *testing.T) {
 		relayers,
 		2,
 		usedTicketsThreshold,
-		trustSetLimitAmount,
+		defaultTrustSetLimitAmount,
 	)
 
 	// ********** Ticket allocation / Recovery **********
@@ -821,7 +893,7 @@ func TestRecoverTickets(t *testing.T) {
 	require.NoError(t, err)
 	thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
-	require.Equal(t, "false", thresholdReached)
+	require.Equal(t, strconv.FormatBool(false), thresholdReached)
 
 	// try to send evidence from second relayer one more time
 	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, rejectedTxEvidence)
@@ -832,7 +904,7 @@ func TestRecoverTickets(t *testing.T) {
 	require.NoError(t, err)
 	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
-	require.Equal(t, "true", thresholdReached)
+	require.Equal(t, strconv.FormatBool(true), thresholdReached)
 
 	// try to send the evidence one more time
 	_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[0].CoreumAddress, rejectedTxEvidence)
@@ -897,10 +969,9 @@ func TestRecoverTickets(t *testing.T) {
 	// ********** TransactionResultEvidence / Transaction accepted **********
 
 	// we can omit the signing here since it is required only for the tx submission.
-	acceptedTxHash := genXRPLTxHash(t)
 	acceptedTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            acceptedTxHash,
+			TxHash:            genXRPLTxHash(t),
 			SequenceNumber:    &secondBridgeAccountSeqNumber,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -918,14 +989,14 @@ func TestRecoverTickets(t *testing.T) {
 	require.NoError(t, err)
 	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
-	require.Equal(t, "false", thresholdReached)
+	require.Equal(t, strconv.FormatBool(false), thresholdReached)
 
 	// send evidence from second relayer
 	txRes, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, relayers[1].CoreumAddress, acceptedTxEvidence)
 	require.NoError(t, err)
 	thresholdReached, err = event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 	require.NoError(t, err)
-	require.Equal(t, "true", thresholdReached)
+	require.Equal(t, strconv.FormatBool(true), thresholdReached)
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
@@ -975,10 +1046,9 @@ func allocateInitialTickets(
 	_, err := contractClient.RecoverTickets(ctx, owner, firstBridgeAccountSeqNumber, &numberOfTicketsToInit)
 	require.NoError(t, err)
 
-	acceptedTxHash := genXRPLTxHash(t)
 	acceptedTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            acceptedTxHash,
+			TxHash:            genXRPLTxHash(t),
 			SequenceNumber:    &firstBridgeAccountSeqNumber,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -992,13 +1062,13 @@ func allocateInitialTickets(
 		require.NoError(t, err)
 		thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 		require.NoError(t, err)
-		if thresholdReached == "true" {
+		if thresholdReached == strconv.FormatBool(true) {
 			break
 		}
 	}
 }
 
-func activateToken(
+func activateXRPLToken(
 	ctx context.Context,
 	t *testing.T,
 	contractClient *coreum.ContractClient,
@@ -1010,12 +1080,13 @@ func activateToken(
 	pendingOperations, err := contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
 	require.Len(t, pendingOperations, 1)
-	ticketAllocated := pendingOperations[0].TicketNumber
+	operation := pendingOperations[0]
+	require.NotNil(t, operation.OperationType.TrustSet)
 
 	acceptedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 			TxHash:            genXRPLTxHash(t),
-			TicketNumber:      &ticketAllocated,
+			TicketNumber:      &operation.TicketNumber,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
 		Issuer:   issuer,
@@ -1028,7 +1099,50 @@ func activateToken(
 		require.NoError(t, err)
 		thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 		require.NoError(t, err)
-		if thresholdReached == "true" {
+		if thresholdReached == strconv.FormatBool(true) {
+			break
+		}
+	}
+
+	// asset token state
+	registeredToken, err := contractClient.GetXRPLToken(ctx, issuer, currency)
+	require.NoError(t, err)
+	require.NotNil(t, registeredToken)
+
+	require.Equal(t, coreum.XRPLToken{
+		Issuer:      issuer,
+		Currency:    currency,
+		CoreumDenom: registeredToken.CoreumDenom,
+		State:       coreum.TokenStateEnabled,
+	}, *registeredToken)
+}
+
+func sendFromXRPLToCoreum(
+	ctx context.Context,
+	t *testing.T,
+	contractClient *coreum.ContractClient,
+	relayers []coreum.Relayer,
+	issuer, currency string,
+	amount sdkmath.Int,
+	coreumRecipient sdk.AccAddress,
+) {
+	t.Helper()
+
+	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+		TxHash:    genXRPLTxHash(t),
+		Issuer:    issuer,
+		Currency:  currency,
+		Amount:    amount,
+		Recipient: coreumRecipient,
+	}
+
+	// send evidences from relayers
+	for _, relayer := range relayers {
+		txRes, err := contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer.CoreumAddress, xrplToCoreumTransferEvidence)
+		require.NoError(t, err)
+		thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
+		require.NoError(t, err)
+		if thresholdReached == strconv.FormatBool(true) {
 			break
 		}
 	}
