@@ -26,7 +26,7 @@ use coreum_wasm_sdk::{
     core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
-    coin, coins, entry_point, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env,
+    coin, entry_point, to_json_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env,
     MessageInfo, Order, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
@@ -109,8 +109,10 @@ pub fn instantiate(
         initial_amount: Uint128::zero(),
         description: None,
         features: Some(vec![MINTING, BURNING, IBC]),
-        burn_rate: Some("0.0".to_string()),
-        send_commission_rate: Some("0.0".to_string()),
+        burn_rate: "0.0".to_string(),
+        send_commission_rate: "0.0".to_string(),
+        uri: None,
+        uri_hash: None,
     }));
 
     let xrp_in_coreum = format!("{}-{}", XRP_SUBUNIT, env.contract.address).to_lowercase();
@@ -285,8 +287,10 @@ fn register_xrpl_token(
         initial_amount: Uint128::zero(),
         description: None,
         features: Some(vec![MINTING, BURNING, IBC]),
-        burn_rate: Some("0.0".to_string()),
-        send_commission_rate: Some("0.0".to_string()),
+        burn_rate: "0.0".to_string(),
+        send_commission_rate: "0.0".to_string(),
+        uri: None,
+        uri_hash: None,
     }));
 
     // Denom that token will have in Coreum
@@ -382,12 +386,12 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             }
 
             if threshold_reached {
-                response = add_mint_and_send(
-                    response,
-                    amount_to_send,
-                    token.coreum_denom,
-                    recipient.clone(),
-                );
+                let mint_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
+                    coin: coin(amount_to_send.u128(), token.coreum_denom),
+                    recipient: Some(recipient.to_string()),
+                }));
+                
+                response = response.add_message(mint_msg)
             }
 
             response = response
@@ -539,17 +543,17 @@ fn register_signature(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
         QueryMsg::XRPLTokens { offset, limit } => {
-            to_binary(&query_xrpl_tokens(deps, offset, limit)?)
+            to_json_binary(&query_xrpl_tokens(deps, offset, limit)?)
         }
         QueryMsg::CoreumTokens { offset, limit } => {
-            to_binary(&query_coreum_tokens(deps, offset, limit)?)
+            to_json_binary(&query_coreum_tokens(deps, offset, limit)?)
         }
-        QueryMsg::CoreumToken { denom } => to_binary(&query_coreum_token(deps, denom)?),
-        QueryMsg::Ownership {} => to_binary(&get_ownership(deps.storage)?),
-        QueryMsg::PendingOperations {} => to_binary(&query_pending_operations(deps)?),
-        QueryMsg::AvailableTickets {} => to_binary(&query_available_tickets(deps)?),
+        QueryMsg::CoreumToken { denom } => to_json_binary(&query_coreum_token(deps, denom)?),
+        QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
+        QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
+        QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
     }
 }
 
@@ -630,25 +634,6 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
     }
 
     Ok(())
-}
-
-// TODO(keyleu): In the future we might have a way to do this in one instruction.
-fn add_mint_and_send(
-    response: Response<CoreumMsg>,
-    amount: Uint128,
-    denom: String,
-    recipient: Addr,
-) -> Response<CoreumMsg> {
-    let mint_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
-        coin: coin(amount.u128(), denom.clone()),
-    }));
-
-    let send_msg = CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
-        to_address: recipient.to_string(),
-        amount: coins(amount.u128(), denom),
-    });
-
-    response.add_messages([mint_msg, send_msg])
 }
 
 pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
