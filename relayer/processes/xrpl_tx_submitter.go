@@ -38,9 +38,9 @@ type XRPLTxSubmitterConfig struct {
 }
 
 // DefaultXRPLTxSubmitterConfig returns the default XRPLTxSubmitter.
-func DefaultXRPLTxSubmitterConfig(bridgeAccount rippledata.Account, relayerAddress sdk.AccAddress) XRPLTxSubmitterConfig {
+func DefaultXRPLTxSubmitterConfig(bridgeXRPLAddress rippledata.Account, relayerAddress sdk.AccAddress) XRPLTxSubmitterConfig {
 	return XRPLTxSubmitterConfig{
-		BridgeAccount:    bridgeAccount,
+		BridgeAccount:    bridgeXRPLAddress,
 		RelayerAddress:   relayerAddress,
 		RepeatRecentScan: true,
 		RepeatDelay:      10 * time.Second,
@@ -138,7 +138,7 @@ func (s *XRPLTxSubmitter) processPendingOperations(ctx context.Context) error {
 }
 
 func (s *XRPLTxSubmitter) getBridgeSigners(ctx context.Context) (BridgeSigners, error) {
-	xrplWeights, xrplWeightsQuorum, err := s.getXRPLBridgeSignerAccountsWithWeights(ctx)
+	xrplWeights, xrplWeightsQuorum, err := s.getBridgeXRPLSignerAccountsWithWeights(ctx)
 	if err != nil {
 		return BridgeSigners{}, err
 	}
@@ -171,7 +171,7 @@ func (s *XRPLTxSubmitter) getBridgeSigners(ctx context.Context) (BridgeSigners, 
 	}, nil
 }
 
-func (s *XRPLTxSubmitter) getXRPLBridgeSignerAccountsWithWeights(ctx context.Context) (map[rippledata.Account]uint16, uint32, error) {
+func (s *XRPLTxSubmitter) getBridgeXRPLSignerAccountsWithWeights(ctx context.Context) (map[rippledata.Account]uint16, uint32, error) {
 	accountInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeAccount)
 	if err != nil {
 		return nil, 0, err
@@ -240,9 +240,9 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 	signedWeight := uint32(0)
 	signingThresholdIsReached := false
 	for _, signature := range operation.Signatures {
-		xrplAcc, ok := bridgeSigners.CoreumToXRPLAccount[signature.Relayer.String()]
+		xrplAcc, ok := bridgeSigners.CoreumToXRPLAccount[signature.RelayerCoreumAddress.String()]
 		if !ok {
-			s.log.Warn(ctx, "Found unknown signer", logger.StringField("coreumAddress", signature.Relayer.String()))
+			s.log.Warn(ctx, "Found unknown signer", logger.StringField("coreumAddress", signature.RelayerCoreumAddress.String()))
 			continue
 		}
 		xrplPubKey, ok := bridgeSigners.XRPLPubKeys[xrplAcc]
@@ -325,7 +325,7 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 	// no need to check if the current relayer has already provided the signature
 	// this check prevents the state when relayer votes and then changes its vote because of different current state
 	for _, signature := range operation.Signatures {
-		if signature.Relayer.String() == s.cfg.RelayerAddress.String() {
+		if signature.RelayerCoreumAddress.String() == s.cfg.RelayerAddress.String() {
 			return true, nil
 		}
 	}
@@ -333,28 +333,28 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 	// currently we validate only the allocate tickets operation with not zero sequence
 	if operation.OperationType.AllocateTickets == nil ||
 		operation.OperationType.AllocateTickets.Number == 0 ||
-		operation.SequenceNumber == 0 {
+		operation.AccountSequence == 0 {
 		return true, nil
 	}
 
-	bridgeAccInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeAccount)
+	bridgeXRPLAccInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeAccount)
 	if err != nil {
 		return false, err
 	}
 	// sequence is valid
-	if *bridgeAccInfo.AccountData.Sequence == operation.SequenceNumber {
+	if *bridgeXRPLAccInfo.AccountData.Sequence == operation.AccountSequence {
 		return true, nil
 	}
 	s.log.Info(
 		ctx,
 		"Invalid bridge account sequence",
-		logger.Uint32Field("expected", *bridgeAccInfo.AccountData.Sequence),
-		logger.Uint32Field("inOperation", operation.SequenceNumber),
+		logger.Uint32Field("expected", *bridgeXRPLAccInfo.AccountData.Sequence),
+		logger.Uint32Field("inOperation", operation.AccountSequence),
 	)
 	evidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 			TransactionResult: coreum.TransactionResultInvalid,
-			SequenceNumber:    lo.ToPtr(operation.SequenceNumber),
+			AccountSequence:   lo.ToPtr(operation.AccountSequence),
 			// we intentionally don't set the ticket number since it is unexpected to have invalid
 			// tx with the ticket number
 		},
@@ -381,7 +381,7 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 	if err != nil {
 		return errors.Wrapf(err, "failed to sign transaction, keyName:%s", s.cfg.XRPLTxSignerKeyName)
 	}
-	_, err = s.contractClient.RegisterSignature(
+	_, err = s.contractClient.SaveSignature(
 		ctx,
 		s.cfg.RelayerAddress,
 		operation.GetOperationID(),

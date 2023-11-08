@@ -11,8 +11,8 @@ use crate::{
 
 #[cw_serde]
 pub struct Operation {
-    pub ticket_number: Option<u64>,
-    pub sequence_number: Option<u64>,
+    pub ticket_sequence: Option<u64>,
+    pub account_sequence: Option<u64>,
     pub signatures: Vec<Signature>,
     pub operation_type: OperationType,
 }
@@ -31,11 +31,11 @@ pub enum OperationType {
 
 pub fn check_operation_exists(
     storage: &mut dyn Storage,
-    sequence_number: Option<u64>,
-    ticket_number: Option<u64>,
+    account_sequence: Option<u64>,
+    ticket_sequence: Option<u64>,
 ) -> Result<u64, ContractError> {
     // Get the sequence or ticket number (priority for sequence number)
-    let operation_id = sequence_number.unwrap_or(ticket_number.unwrap_or_default());
+    let operation_id = account_sequence.unwrap_or(ticket_sequence.unwrap_or_default());
 
     if !PENDING_OPERATIONS.has(storage, operation_id) {
         return Err(ContractError::PendingOperationNotFound {});

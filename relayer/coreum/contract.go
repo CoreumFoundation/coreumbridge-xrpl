@@ -33,7 +33,7 @@ const (
 	ExecMethodRegisterXRPLToken   ExecMethod = "register_xrpl_token"
 	ExecMethodSaveEvidence        ExecMethod = "save_evidence"
 	ExecMethodRecoverTickets      ExecMethod = "recover_tickets"
-	ExecMethodRegisterSignature   ExecMethod = "register_signature"
+	ExecMethodSaveSignature       ExecMethod = "save_signature"
 )
 
 // TransactionResult is transaction result.
@@ -79,7 +79,7 @@ const (
 	tokenNotRegisteredErrorString              = "TokenNotRegistered"
 	evidenceAlreadyProvidedErrorString         = "EvidenceAlreadyProvided"
 	pendingTicketUpdateErrorString             = "PendingTicketUpdate"
-	invalidTicketNumberToAllocateErrorString   = "InvalidTicketNumberToAllocate"
+	invalidTicketSequenceToAllocateErrorString = "InvalidTicketSequenceToAllocate"
 	signatureAlreadyProvidedErrorString        = "SignatureAlreadyProvided"
 	pendingOperationNotFoundErrorString        = "PendingOperationNotFound"
 	amountSentIsZeroAfterTruncatingErrorString = "AmountSentIsZeroAfterTruncation"
@@ -97,20 +97,20 @@ type Relayer struct {
 
 // InstantiationConfig holds attributes used for the contract instantiation.
 type InstantiationConfig struct {
-	Owner                sdk.AccAddress
-	Admin                sdk.AccAddress
-	Relayers             []Relayer
-	EvidenceThreshold    int
-	UsedTicketsThreshold int
-	TrustSetLimitAmount  sdkmath.Int
+	Owner                       sdk.AccAddress
+	Admin                       sdk.AccAddress
+	Relayers                    []Relayer
+	EvidenceThreshold           int
+	UsedTicketSequenceThreshold int
+	TrustSetLimitAmount         sdkmath.Int
 }
 
 // ContractConfig is contract config.
 type ContractConfig struct {
-	Relayers             []Relayer   `json:"relayers"`
-	EvidenceThreshold    int         `json:"evidence_threshold"`
-	UsedTicketsThreshold int         `json:"used_tickets_threshold"`
-	TrustSetLimitAmount  sdkmath.Int `json:"trust_set_limit_amount"`
+	Relayers                    []Relayer   `json:"relayers"`
+	EvidenceThreshold           int         `json:"evidence_threshold"`
+	UsedTicketSequenceThreshold int         `json:"used_ticket_sequence_threshold"`
+	TrustSetLimitAmount         sdkmath.Int `json:"trust_set_limit_amount"`
 }
 
 // ContractOwnership is owner contract config.
@@ -148,8 +148,8 @@ type XRPLToCoreumTransferEvidence struct {
 // XRPLTransactionResultEvidence is type which contains common transaction result data.
 type XRPLTransactionResultEvidence struct {
 	TxHash            string            `json:"tx_hash,omitempty"`
-	SequenceNumber    *uint32           `json:"sequence_number"`
-	TicketNumber      *uint32           `json:"ticket_number"`
+	AccountSequence   *uint32           `json:"account_sequence"`
+	TicketSequence    *uint32           `json:"ticket_sequence"`
 	TransactionResult TransactionResult `json:"transaction_result"`
 }
 
@@ -170,8 +170,8 @@ type XRPLTransactionResultTrustSetEvidence struct {
 
 // Signature is a pair of the relayer provided the signature and signature string.
 type Signature struct {
-	Relayer   sdk.AccAddress `json:"relayer"`
-	Signature string         `json:"signature"`
+	RelayerCoreumAddress sdk.AccAddress `json:"relayer_coreum_address"`
+	Signature            string         `json:"signature"`
 }
 
 // OperationTypeAllocateTickets is allocated tickets operation type.
@@ -194,29 +194,29 @@ type OperationType struct {
 
 // Operation is contract operation which should be signed and executed.
 type Operation struct {
-	TicketNumber   uint32        `json:"ticket_number"`
-	SequenceNumber uint32        `json:"sequence_number"`
-	Signatures     []Signature   `json:"signatures"`
-	OperationType  OperationType `json:"operation_type"`
+	TicketSequence  uint32        `json:"ticket_sequence"`
+	AccountSequence uint32        `json:"account_sequence"`
+	Signatures      []Signature   `json:"signatures"`
+	OperationType   OperationType `json:"operation_type"`
 }
 
 // GetOperationID returns operation ID.
 func (o Operation) GetOperationID() uint32 {
-	if o.TicketNumber != 0 {
-		return o.TicketNumber
+	if o.TicketSequence != 0 {
+		return o.TicketSequence
 	}
 
-	return o.SequenceNumber
+	return o.AccountSequence
 }
 
 // ******************** Internal transport object  ********************
 
 type instantiateRequest struct {
-	Owner                sdk.AccAddress `json:"owner"`
-	Relayers             []Relayer      `json:"relayers"`
-	EvidenceThreshold    int            `json:"evidence_threshold"`
-	UsedTicketsThreshold int            `json:"used_tickets_threshold"`
-	TrustSetLimitAmount  sdkmath.Int    `json:"trust_set_limit_amount"`
+	Owner                       sdk.AccAddress `json:"owner"`
+	Relayers                    []Relayer      `json:"relayers"`
+	EvidenceThreshold           int            `json:"evidence_threshold"`
+	UsedTicketSequenceThreshold int            `json:"used_ticket_sequence_threshold"`
+	TrustSetLimitAmount         sdkmath.Int    `json:"trust_set_limit_amount"`
 }
 
 type transferOwnershipRequest struct {
@@ -242,11 +242,11 @@ type saveEvidenceRequest struct {
 }
 
 type recoverTicketsRequest struct {
-	SequenceNumber  uint32  `json:"sequence_number"`
+	AccountSequence uint32  `json:"account_sequence"`
 	NumberOfTickets *uint32 `json:"number_of_tickets,omitempty"`
 }
 
-type registerSequenceRequest struct {
+type saveSignatureRequest struct {
 	OperationID uint32 `json:"operation_id"`
 	Signature   string `json:"signature"`
 }
@@ -368,11 +368,11 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 	c.log.Info(ctx, "The contract bytecode is deployed.", logger.Uint64Field("codeID", codeID))
 
 	reqPayload, err := json.Marshal(instantiateRequest{
-		Owner:                config.Owner,
-		Relayers:             config.Relayers,
-		EvidenceThreshold:    config.EvidenceThreshold,
-		UsedTicketsThreshold: config.UsedTicketsThreshold,
-		TrustSetLimitAmount:  config.TrustSetLimitAmount,
+		Owner:                       config.Owner,
+		Relayers:                    config.Relayers,
+		EvidenceThreshold:           config.EvidenceThreshold,
+		UsedTicketSequenceThreshold: config.UsedTicketSequenceThreshold,
+		TrustSetLimitAmount:         config.TrustSetLimitAmount,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal instantiate payload")
@@ -582,11 +582,11 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(ctx context.C
 }
 
 // RecoverTickets executes `recover_tickets` method.
-func (c *ContractClient) RecoverTickets(ctx context.Context, sender sdk.AccAddress, sequenceNumber uint32, numberOfTickets *uint32) (*sdk.TxResponse, error) {
+func (c *ContractClient) RecoverTickets(ctx context.Context, sender sdk.AccAddress, accountSequence uint32, numberOfTickets *uint32) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]recoverTicketsRequest{
 			ExecMethodRecoverTickets: {
-				SequenceNumber:  sequenceNumber,
+				AccountSequence: accountSequence,
 				NumberOfTickets: numberOfTickets,
 			},
 		},
@@ -598,11 +598,11 @@ func (c *ContractClient) RecoverTickets(ctx context.Context, sender sdk.AccAddre
 	return txRes, nil
 }
 
-// RegisterSignature executes `register_signature` method.
-func (c *ContractClient) RegisterSignature(ctx context.Context, sender sdk.AccAddress, operationID uint32, signature string) (*sdk.TxResponse, error) {
+// SaveSignature executes `save_signature` method.
+func (c *ContractClient) SaveSignature(ctx context.Context, sender sdk.AccAddress, operationID uint32, signature string) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]registerSequenceRequest{
-			ExecMethodRegisterSignature: {
+		Body: map[ExecMethod]saveSignatureRequest{
+			ExecMethodSaveSignature: {
 				OperationID: operationID,
 				Signature:   signature,
 			},
@@ -869,9 +869,9 @@ func IsPendingTicketUpdateError(err error) bool {
 	return isError(err, pendingTicketUpdateErrorString)
 }
 
-// IsInvalidTicketNumberToAllocateError returns true if error is `InvalidTicketNumberToAllocate`.
-func IsInvalidTicketNumberToAllocateError(err error) bool {
-	return isError(err, invalidTicketNumberToAllocateErrorString)
+// IsInvalidTicketSequenceToAllocateError returns true if error is `InvalidTicketSequenceToAllocate`.
+func IsInvalidTicketSequenceToAllocateError(err error) bool {
+	return isError(err, invalidTicketSequenceToAllocateErrorString)
 }
 
 // IsSignatureAlreadyProvidedError returns true if error is `SignatureAlreadyProvided`.

@@ -37,7 +37,7 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractErr
     USED_TICKETS_COUNTER.save(storage, &(used_tickets + 1))?;
 
     // If we reach the max allowed tickets to be used, we need to create an operation to allocate new ones
-    if used_tickets + 1 >= config.used_tickets_threshold && !PENDING_TICKET_UPDATE.load(storage)? {
+    if used_tickets + 1 >= config.used_ticket_sequence_threshold && !PENDING_TICKET_UPDATE.load(storage)? {
         // TODO(keyne) add specific flag to the resp
         // TODO(keyne) handle one expected error that way (not tickets to allocate)
         // in case we don't have free tickets anymore we should still accept the tx
@@ -47,11 +47,11 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractErr
                 storage,
                 ticket_to_update,
                 &Operation {
-                    ticket_number: Some(ticket_to_update),
-                    sequence_number: None,
+                    ticket_sequence: Some(ticket_to_update),
+                    account_sequence: None,
                     signatures: vec![],
                     operation_type: OperationType::AllocateTickets {
-                        number: config.used_tickets_threshold,
+                        number: config.used_ticket_sequence_threshold,
                     },
                 },
             )?;

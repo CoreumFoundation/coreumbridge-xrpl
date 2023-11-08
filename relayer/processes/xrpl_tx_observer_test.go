@@ -19,7 +19,7 @@ import (
 func TestXRPLTxObserver_Start(t *testing.T) {
 	t.Parallel()
 
-	bridgeAccount := xrpl.GenPrivKeyTxSigner().Account()
+	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
 	issuerAccount := xrpl.GenPrivKeyTxSigner().Account()
 
 	failTxResult := rippledata.TransactionResult(111)
@@ -51,7 +51,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 
 	paymentWithMetadataTx := rippledata.TransactionWithMetaData{
 		Transaction: &rippledata.Payment{
-			Destination: bridgeAccount,
+			Destination: bridgeXRPLAddress,
 			// amount is increased to check that we use the delivered amount
 			Amount: xrplCurrencyIncreasedAmount,
 			TxBase: rippledata.TxBase{
@@ -147,7 +147,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 		},
 		{
-			name: "outgoing_ticket_create_tx_with_sequence_number",
+			name: "outgoing_ticket_create_tx_with_account_sequence",
 			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -156,7 +156,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 							ch <- rippledata.TransactionWithMetaData{
 								Transaction: &rippledata.TicketCreate{
 									TxBase: rippledata.TxBase{
-										Account:         bridgeAccount,
+										Account:         bridgeXRPLAddress,
 										Sequence:        5,
 										TransactionType: rippledata.TICKET_CREATE,
 									},
@@ -178,7 +178,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					coreum.XRPLTransactionResultTicketsAllocationEvidence{
 						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 							TxHash:            rippledata.Hash256{}.String(),
-							SequenceNumber:    lo.ToPtr(uint32(5)),
+							AccountSequence:   lo.ToPtr(uint32(5)),
 							TransactionResult: coreum.TransactionResultAccepted,
 						},
 						Tickets: []uint32{3, 5, 7},
@@ -198,7 +198,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 							ch <- rippledata.TransactionWithMetaData{
 								Transaction: &rippledata.TicketCreate{
 									TxBase: rippledata.TxBase{
-										Account:         bridgeAccount,
+										Account:         bridgeXRPLAddress,
 										TransactionType: rippledata.TICKET_CREATE,
 									},
 									TicketSequence: lo.ToPtr(uint32(11)),
@@ -220,7 +220,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					coreum.XRPLTransactionResultTicketsAllocationEvidence{
 						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 							TxHash:            rippledata.Hash256{}.String(),
-							TicketNumber:      lo.ToPtr(uint32(11)),
+							TicketSequence:    lo.ToPtr(uint32(11)),
 							TransactionResult: coreum.TransactionResultAccepted,
 						},
 						Tickets: []uint32{3, 5, 7},
@@ -240,7 +240,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 							ch <- rippledata.TransactionWithMetaData{
 								Transaction: &rippledata.TicketCreate{
 									TxBase: rippledata.TxBase{
-										Account:         bridgeAccount,
+										Account:         bridgeXRPLAddress,
 										Sequence:        5,
 										TransactionType: rippledata.TICKET_CREATE,
 									},
@@ -264,7 +264,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					coreum.XRPLTransactionResultTicketsAllocationEvidence{
 						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 							TxHash:            rippledata.Hash256{}.String(),
-							SequenceNumber:    lo.ToPtr(uint32(5)),
+							AccountSequence:   lo.ToPtr(uint32(5)),
 							TransactionResult: coreum.TransactionResultRejected,
 						},
 						Tickets: nil,
@@ -284,7 +284,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 							ch <- rippledata.TransactionWithMetaData{
 								Transaction: &rippledata.TrustSet{
 									TxBase: rippledata.TxBase{
-										Account:         bridgeAccount,
+										Account:         bridgeXRPLAddress,
 										TransactionType: rippledata.TRUST_SET,
 									},
 									LimitAmount:    xrplCurrencyAmount,
@@ -306,7 +306,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					coreum.XRPLTransactionResultTrustSetEvidence{
 						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 							TxHash:            rippledata.Hash256{}.String(),
-							TicketNumber:      lo.ToPtr(uint32(11)),
+							TicketSequence:    lo.ToPtr(uint32(11)),
 							TransactionResult: coreum.TransactionResultAccepted,
 						},
 						Issuer:   xrplCurrencyAmount.Issuer.String(),
@@ -327,7 +327,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 							ch <- rippledata.TransactionWithMetaData{
 								Transaction: &rippledata.TrustSet{
 									TxBase: rippledata.TxBase{
-										Account:         bridgeAccount,
+										Account:         bridgeXRPLAddress,
 										TransactionType: rippledata.TRUST_SET,
 									},
 									LimitAmount:    xrplCurrencyAmount,
@@ -352,7 +352,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					coreum.XRPLTransactionResultTrustSetEvidence{
 						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 							TxHash:            rippledata.Hash256{}.String(),
-							TicketNumber:      lo.ToPtr(uint32(11)),
+							TicketSequence:    lo.ToPtr(uint32(11)),
 							TransactionResult: coreum.TransactionResultRejected,
 						},
 						Issuer:   xrplCurrencyAmount.Issuer.String(),
@@ -374,7 +374,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 							ch <- rippledata.TransactionWithMetaData{
 								Transaction: &rippledata.TrustSet{
 									TxBase: rippledata.TxBase{
-										Account:         bridgeAccount,
+										Account:         bridgeXRPLAddress,
 										TransactionType: rippledata.NFTOKEN_CREATE_OFFER,
 									},
 								},
@@ -404,7 +404,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			}
 			o := processes.NewXRPLTxObserver(
 				processes.XRPLTxObserverConfig{
-					BridgeAccount:  bridgeAccount,
+					BridgeAccount:  bridgeXRPLAddress,
 					RelayerAddress: relayerAddress,
 				},
 				logMock,
@@ -416,9 +416,9 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 	}
 }
 
-func createAllocatedTicketsMetaData(ticketNumbers []uint32) rippledata.MetaData {
+func createAllocatedTicketsMetaData(ticketSequences []uint32) rippledata.MetaData {
 	nodeEffects := make(rippledata.NodeEffects, 0)
-	for _, ticket := range ticketNumbers {
+	for _, ticket := range ticketSequences {
 		ticketNodeField := &rippledata.Ticket{
 			TicketSequence: lo.ToPtr(ticket),
 		}

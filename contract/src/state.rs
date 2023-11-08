@@ -36,7 +36,7 @@ impl TopKey {
 pub struct Config {
     pub relayers: Vec<Relayer>,
     pub evidence_threshold: u32,
-    pub used_tickets_threshold: u32,
+    pub used_ticket_sequence_threshold: u32,
     pub trust_set_limit_amount: Uint128,
 }
 
@@ -70,9 +70,9 @@ pub struct CoreumToken {
 }
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
-//Tokens registered from Coreum side. These tokens are native Coreum tokens that are registered to be bridged - key is denom on Coreum chain
+// Tokens registered from Coreum side. These tokens are coreum origin tokens that are registered to be bridged - key is denom on Coreum chain
 pub const COREUM_TOKENS: Map<String, CoreumToken> = Map::new(TopKey::CoreumTokens.as_str());
-//Tokens registered from XRPL side. These tokens are native XRPL tokens - key is issuer+currency on XRPL
+// Tokens registered from XRPL side. These tokens are XRPL origin tokens - key is issuer+currency on XRPL
 pub const XRPL_TOKENS: Map<String, XRPLToken> = Map::new(TopKey::XRPLTokens.as_str());
 // XRPL-Currencies used
 pub const USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS: Map<String, Empty> =
@@ -100,7 +100,7 @@ pub enum ContractActions {
     SendFromXRPLToCoreum,
     RecoverTickets,
     XRPLTransactionResult,
-    RegisterSignature,
+    SaveSignature,
 }
 
 impl ContractActions {
@@ -112,7 +112,7 @@ impl ContractActions {
             ContractActions::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
             ContractActions::RecoverTickets => "recover_tickets",
             ContractActions::XRPLTransactionResult => "submit_xrpl_transaction_result",
-            ContractActions::RegisterSignature => "register_signature",
+            ContractActions::SaveSignature => "save_signature",
         }
     }
 }

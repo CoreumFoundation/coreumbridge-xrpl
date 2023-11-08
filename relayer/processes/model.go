@@ -18,7 +18,7 @@ type ContractClient interface {
 	SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence coreum.XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error)
 	SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evidence coreum.XRPLTransactionResultTicketsAllocationEvidence) (*sdk.TxResponse, error)
 	SendXRPLTrustSetTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd coreum.XRPLTransactionResultTrustSetEvidence) (*sdk.TxResponse, error)
-	RegisterSignature(ctx context.Context, sender sdk.AccAddress, operationID uint32, signature string) (*sdk.TxResponse, error)
+	SaveSignature(ctx context.Context, sender sdk.AccAddress, operationID uint32, signature string) (*sdk.TxResponse, error)
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
 	GetContractConfig(ctx context.Context) (coreum.ContractConfig, error)
 }
