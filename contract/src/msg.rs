@@ -14,7 +14,7 @@ pub struct InstantiateMsg {
     // How many relayers need to provide evidence for a message
     pub evidence_threshold: u32,
     // Amount of tickets that  we can use before triggering a ticket allocation action
-    pub used_tickets_threshold: u32,
+    pub used_ticket_sequence_threshold: u32,
     // Trust set limit amount that will be used when registering XRPL tokens
     pub trust_set_limit_amount: Uint128,
 }
@@ -34,10 +34,10 @@ pub enum ExecuteMsg {
         max_holding_amount: Uint128,
     },
     RecoverTickets {
-        sequence_number: u64,
+        account_sequence: u64,
         number_of_tickets: Option<u32>,
     },
-    RegisterSignature {
+    SaveSignature {
         operation_id: u64,
         signature: String,
     },

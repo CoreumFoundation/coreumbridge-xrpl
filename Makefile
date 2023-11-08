@@ -59,6 +59,7 @@ fmt-go:
 mockgen-go:
 	which mockgen || go install github.com/golang/mock/mockgen@v1.6.0
 	cd $(RELAYER_DIR) && go generate ./...
+	make fmt-go
 
 .PHONY: lint-go
 lint-go:
@@ -90,3 +91,16 @@ restart-dev-env:
 .PHONY: rebuild-dev-env
 rebuild-dev-env:
 	crust build/crust images/cored
+
+.PHONY: smoke
+smoke:
+	make lint-contract
+	make build-dev-contract
+	make test-contract
+	make mockgen-go
+	make fmt-go
+	make test-relayer
+	make restart-dev-env
+	make test-integration
+	# last since checks the committed files
+	make lint-go

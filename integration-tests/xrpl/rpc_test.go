@@ -531,10 +531,10 @@ func TestCreateAndUseUsedTicketAndSequencesWithMultisigning(t *testing.T) {
 	require.Len(t, createdTickets, int(ticketsToCreate))
 
 	// use ticket number as sequence number
-	ticketNumber := createdTickets[0].TicketSequence
-	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, *ticketNumber, nil, multisigAcc)
+	ticketSequence := createdTickets[0].TicketSequence
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, *ticketSequence, nil, multisigAcc)
 	signer1 = chains.XRPL.Multisign(t, &createTicketsTx, signer1Acc)
-	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, *ticketNumber, nil, multisigAcc)
+	createTicketsTx = buildCreateTicketsTxForMultiSigning(ctx, t, chains.XRPL, ticketsToCreate, *ticketSequence, nil, multisigAcc)
 	require.NoError(t, rippledata.SetSigners(&createTicketsTx, signer1))
 	res, err = chains.XRPL.RPCClient().Submit(ctx, &createTicketsTx)
 	require.NoError(t, err)

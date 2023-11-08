@@ -84,8 +84,8 @@ pub fn instantiate(
     }
 
     // We need to allow at least 2 tickets and less than 250 (XRPL limit) to be used
-    if msg.used_tickets_threshold <= 1 || msg.used_tickets_threshold > MAX_TICKETS {
-        return Err(ContractError::InvalidUsedTicketsThreshold {});
+    if msg.used_ticket_sequence_threshold <= 1 || msg.used_ticket_sequence_threshold > MAX_TICKETS {
+        return Err(ContractError::InvalidUsedTicketSequenceThreshold {});
     }
 
     // We initialize these values here so that we can immediately start working with them
@@ -96,7 +96,7 @@ pub fn instantiate(
     let config = Config {
         relayers: msg.relayers,
         evidence_threshold: msg.evidence_threshold,
-        used_tickets_threshold: msg.used_tickets_threshold,
+        used_ticket_sequence_threshold: msg.used_ticket_sequence_threshold,
         trust_set_limit_amount: msg.trust_set_limit_amount,
     };
 
@@ -113,17 +113,17 @@ pub fn instantiate(
         send_commission_rate: Some("0.0".to_string()),
     }));
 
-    let xrp_in_coreum = format!("{}-{}", XRP_SUBUNIT, env.contract.address).to_lowercase();
+    let xrp_coreum_denom = format!("{}-{}", XRP_SUBUNIT, env.contract.address).to_lowercase();
 
-    // We save the link between the denom in the Coreum chain and the denom in XRPL, so that when we receive
+    // We save the link between the denom in the coreum chain and the denom in XRPL, so that when we receive
     // a token we can inform the relayers of what is being sent back.
     let token = XRPLToken {
         issuer: XRP_ISSUER.to_string(),
         currency: XRP_CURRENCY.to_string(),
-        coreum_denom: xrp_in_coreum,
+        coreum_denom: xrp_coreum_denom,
         sending_precision: XRP_DEFAULT_SENDING_PRECISION,
         max_holding_amount: Uint128::new(XRP_DEFAULT_MAX_HOLDING_AMOUNT),
-        // The XRP active token will be active from the start because it doesn't need approval to be received by the multisig
+        // The XRP token is enabled from the start because it doesn't need approval to be received on the XRPL side.
         state: TokenState::Enabled,
     };
 
@@ -170,18 +170,18 @@ pub fn execute(
             save_evidence(deps.into_empty(), info.sender, evidence)
         }
         ExecuteMsg::RecoverTickets {
-            sequence_number,
+            account_sequence,
             number_of_tickets,
         } => recover_tickets(
             deps.into_empty(),
             info.sender,
-            sequence_number,
+            account_sequence,
             number_of_tickets,
         ),
-        ExecuteMsg::RegisterSignature {
+        ExecuteMsg::SaveSignature {
             operation_id,
             signature,
-        } => register_signature(deps.into_empty(), info.sender, operation_id, signature),
+        } => save_signature(deps.into_empty(), info.sender, operation_id, signature),
     }
 }
 
@@ -316,8 +316,8 @@ fn register_xrpl_token(
         deps.storage,
         ticket,
         &Operation {
-            ticket_number: Some(ticket),
-            sequence_number: None,
+            ticket_sequence: Some(ticket),
+            account_sequence: None,
             signatures: vec![],
             operation_type: OperationType::TrustSet {
                 issuer: issuer.clone(),
@@ -401,13 +401,13 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
         }
         Evidence::XRPLTransactionResult {
             tx_hash,
-            sequence_number,
-            ticket_number,
+            account_sequence,
+            ticket_sequence,
             transaction_result,
             operation_result,
         } => {
             let operation_id =
-                check_operation_exists(deps.storage, sequence_number, ticket_number)?;
+                check_operation_exists(deps.storage, account_sequence, ticket_sequence)?;
 
             // custom state validation of the transaction result
             match operation_result.clone() {
@@ -445,7 +445,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 }
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
 
-                if transaction_result.ne(&TransactionResult::Invalid) && ticket_number.is_some() {
+                if transaction_result.ne(&TransactionResult::Invalid) && ticket_sequence.is_some() {
                     register_used_ticket(deps.storage)?
                 };
             }
@@ -469,7 +469,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
 fn recover_tickets(
     deps: DepsMut,
     sender: Addr,
-    sequence_number: u64,
+    account_sequence: u64,
     number_of_tickets: Option<u32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
@@ -493,19 +493,19 @@ fn recover_tickets(
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
     let config = CONFIG.load(deps.storage)?;
-    // We check that number_to_allocate > config.used_tickets_threshold in order to cover the
+    // We check that number_to_allocate > config.used_ticket_sequence_threshold in order to cover the
     // reallocation with just one XRPL transaction, otherwise the relocation might cause the
     // additional reallocation.
-    if number_to_allocate <= config.used_tickets_threshold || number_to_allocate > MAX_TICKETS {
-        return Err(ContractError::InvalidTicketNumberToAllocate {});
+    if number_to_allocate <= config.used_ticket_sequence_threshold || number_to_allocate > MAX_TICKETS {
+        return Err(ContractError::InvalidTicketSequenceToAllocate {});
     }
 
     check_and_save_pending_operation(
         deps.storage,
-        sequence_number,
+        account_sequence,
         &Operation {
-            ticket_number: None,
-            sequence_number: Some(sequence_number),
+            ticket_sequence: None,
+            account_sequence: Some(account_sequence),
             signatures: vec![],
             operation_type: OperationType::AllocateTickets {
                 number: number_to_allocate,
@@ -515,10 +515,10 @@ fn recover_tickets(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RecoverTickets.as_str())
-        .add_attribute("sequence_number", sequence_number.to_string()))
+        .add_attribute("account_sequence", account_sequence.to_string()))
 }
 
-fn register_signature(
+fn save_signature(
     deps: DepsMut,
     sender: Addr,
     operation_id: u64,
@@ -529,7 +529,7 @@ fn register_signature(
     add_signature(deps, operation_id, sender.clone(), signature.clone())?;
 
     Ok(Response::new()
-        .add_attribute("action", ContractActions::RegisterSignature.as_str())
+        .add_attribute("action", ContractActions::SaveSignature.as_str())
         .add_attribute("operation_id", operation_id.to_string())
         .add_attribute("relayer_address", sender.to_string())
         .add_attribute("signature", signature.as_str()))

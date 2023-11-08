@@ -70,8 +70,8 @@ pub enum ContractError {
     #[error("InvalidAmount: Amount must be more than 0")]
     InvalidAmount {},
 
-    #[error("InvalidUsedTicketsThreshold: Used tickets threshold must be more than 1 and less or equal than {}", MAX_TICKETS)]
-    InvalidUsedTicketsThreshold {},
+    #[error("InvalidUsedTicketSequenceThreshold: Used ticket sequences threshold must be more than 1 and less or equal than {}", MAX_TICKETS)]
+    InvalidUsedTicketSequenceThreshold {},
 
     #[error("NoAvailableTickets: There are no available tickets")]
     NoAvailableTickets {},
@@ -112,8 +112,8 @@ pub enum ContractError {
     #[error("SignatureAlreadyProvided: There is already a signature provided for this relayer and this operation")]
     SignatureAlreadyProvided {},
 
-    #[error("InvalidTicketNumberToAllocate: The number of tickets to recover must be greater than used ticket threshold and less than or equal to max allowed")]
-    InvalidTicketNumberToAllocate {},
+    #[error("InvalidTicketSequenceToAllocate: The number of tickets to recover must be greater than used ticket threshold and less than or equal to max allowed")]
+    InvalidTicketSequenceToAllocate {},
 
     #[error("InvalidXRPLIssuer: The issuer must be a valid XRPL address")]
     InvalidXRPLIssuer {},

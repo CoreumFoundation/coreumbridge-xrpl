@@ -7,18 +7,18 @@ import (
 )
 
 // BuildTicketCreateTxForMultiSigning builds TicketCreate transaction operation from the contract operation.
-func BuildTicketCreateTxForMultiSigning(bridgeAccount rippledata.Account, operation coreum.Operation) (*rippledata.TicketCreate, error) {
+func BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.TicketCreate, error) {
 	tx := rippledata.TicketCreate{
 		TxBase: rippledata.TxBase{
-			Account:         bridgeAccount,
+			Account:         bridgeXRPLAddress,
 			TransactionType: rippledata.TICKET_CREATE,
 		},
 		TicketCount: &operation.OperationType.AllocateTickets.Number,
 	}
-	if operation.TicketNumber != 0 {
-		tx.TicketSequence = &operation.TicketNumber
+	if operation.TicketSequence != 0 {
+		tx.TicketSequence = &operation.TicketSequence
 	} else {
-		tx.TxBase.Sequence = operation.SequenceNumber
+		tx.TxBase.Sequence = operation.AccountSequence
 	}
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
@@ -33,9 +33,9 @@ func BuildTicketCreateTxForMultiSigning(bridgeAccount rippledata.Account, operat
 }
 
 // BuildTrustSetTxForMultiSigning builds TrustSet transaction operation from the contract operation.
-func BuildTrustSetTxForMultiSigning(bridgeAccount rippledata.Account, operation coreum.Operation) (*rippledata.TrustSet, error) {
+func BuildTrustSetTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.TrustSet, error) {
 	trustSetType := operation.OperationType.TrustSet
-	value, err := ConvertXRPLNativeTokenCoreumAmountToXRPLAmount(
+	value, err := ConvertXRPLOriginTokenCoreumAmountToXRPLAmount(
 		trustSetType.TrustSetLimitAmount,
 		trustSetType.Issuer,
 		trustSetType.Currency,
@@ -45,12 +45,12 @@ func BuildTrustSetTxForMultiSigning(bridgeAccount rippledata.Account, operation 
 	}
 	tx := rippledata.TrustSet{
 		TxBase: rippledata.TxBase{
-			Account:         bridgeAccount,
+			Account:         bridgeXRPLAddress,
 			TransactionType: rippledata.TRUST_SET,
 		},
 		LimitAmount: value,
 	}
-	tx.TicketSequence = &operation.TicketNumber
+	tx.TicketSequence = &operation.TicketSequence
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 

@@ -21,8 +21,8 @@ pub enum Evidence {
     #[serde(rename = "xrpl_transaction_result")]
     XRPLTransactionResult {
         tx_hash: Option<String>,
-        sequence_number: Option<u64>,
-        ticket_number: Option<u64>,
+        account_sequence: Option<u64>,
+        ticket_sequence: Option<u64>,
         transaction_result: TransactionResult,
         operation_result: OperationResult,
     },
@@ -77,7 +77,7 @@ impl Evidence {
             Evidence::XRPLToCoreumTransfer { tx_hash, .. } => tx_hash.clone(),
             Evidence::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone().unwrap(),
         }
-        .to_lowercase()
+            .to_lowercase()
     }
     pub fn is_operation_valid(&self) -> bool {
         match self {
@@ -98,13 +98,13 @@ impl Evidence {
             }
             Evidence::XRPLTransactionResult {
                 tx_hash,
-                sequence_number,
-                ticket_number,
+                account_sequence,
+                ticket_sequence,
                 transaction_result,
                 operation_result,
             } => {
-                if (sequence_number.is_none() && ticket_number.is_none())
-                    || (sequence_number.is_some() && ticket_number.is_some())
+                if (account_sequence.is_none() && ticket_sequence.is_none())
+                    || (account_sequence.is_some() && ticket_sequence.is_some())
                 {
                     return Err(ContractError::InvalidTransactionResultEvidence {});
                 }
@@ -147,7 +147,7 @@ impl Evidence {
 
 #[cw_serde]
 pub struct Evidences {
-    pub relayers: Vec<Addr>,
+    pub relayer_coreum_addresses: Vec<Addr>,
 }
 
 pub fn hash_bytes(bytes: Vec<u8>) -> String {
@@ -171,27 +171,27 @@ pub fn handle_evidence(
     let mut evidences: Evidences;
     match TX_EVIDENCES.may_load(storage, evidence.get_hash())? {
         Some(stored_evidences) => {
-            if stored_evidences.relayers.contains(&sender) {
+            if stored_evidences.relayer_coreum_addresses.contains(&sender) {
                 return Err(ContractError::EvidenceAlreadyProvided {});
             }
             evidences = stored_evidences;
-            evidences.relayers.push(sender)
+            evidences.relayer_coreum_addresses.push(sender)
         }
         None => {
             evidences = Evidences {
-                relayers: vec![sender],
+                relayer_coreum_addresses: vec![sender],
             };
         }
     }
 
     let config = CONFIG.load(storage)?;
-    if evidences.relayers.len() >= config.evidence_threshold.try_into().unwrap() {
+    if evidences.relayer_coreum_addresses.len() >= config.evidence_threshold.try_into().unwrap() {
         // We only registered the transaction as processed if its execution didn't fail
         if operation_valid {
             PROCESSED_TXS.save(storage, evidence.get_tx_hash(), &Empty {})?;
         }
         // If there is just one relayer there is nothing to delete
-        if evidences.relayers.len() != 1 {
+        if evidences.relayer_coreum_addresses.len() != 1 {
             TX_EVIDENCES.remove(storage, evidence.get_hash());
         }
         return Ok(true);

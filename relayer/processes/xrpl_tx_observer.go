@@ -114,7 +114,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	}
 
 	deliveredXRPLAmount := tx.MetaData.DeliveredAmount
-	coreumAmount, err := ConvertXRPLNativeTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
+	coreumAmount, err := ConvertXRPLOriginTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
 	if err != nil {
 		return err
 	}
@@ -193,10 +193,10 @@ func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(ctx 
 		return errors.Errorf("failed to cast tx to TicketCreate, data:%+v", tx)
 	}
 	if ticketCreateTx.Sequence != 0 {
-		evidence.SequenceNumber = lo.ToPtr(ticketCreateTx.Sequence)
+		evidence.AccountSequence = lo.ToPtr(ticketCreateTx.Sequence)
 	}
 	if ticketCreateTx.TicketSequence != nil && *ticketCreateTx.TicketSequence != 0 {
-		evidence.TicketNumber = lo.ToPtr(*ticketCreateTx.TicketSequence)
+		evidence.TicketSequence = lo.ToPtr(*ticketCreateTx.TicketSequence)
 	}
 	_, err := o.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(
 		ctx,
@@ -230,7 +230,7 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.C
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 			TxHash:            tx.GetHash().String(),
 			TransactionResult: txResult,
-			TicketNumber:      trustSetTx.TicketSequence,
+			TicketSequence:    trustSetTx.TicketSequence,
 		},
 		Issuer:   trustSetTx.LimitAmount.Issuer.String(),
 		Currency: xrpl.ConvertCurrencyToString(trustSetTx.LimitAmount.Currency),

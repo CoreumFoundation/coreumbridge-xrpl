@@ -227,12 +227,12 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 	// XRPL
 	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
 	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, zapLogger, retryableXRPLRPCHTTPClient)
-	xrplBridgeAccount, err := rippledata.NewAccountFromAddress(cfg.XRPL.BridgeAccount)
+	bridgeXRPLAddress, err := rippledata.NewAccountFromAddress(cfg.XRPL.BridgeAccount)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get xrpl account from string, string:%s", cfg.XRPL.BridgeAccount)
 	}
 	xrplScanner := xrpl.NewAccountScanner(xrpl.AccountScannerConfig{
-		Account:           *xrplBridgeAccount,
+		Account:           *bridgeXRPLAddress,
 		RecentScanEnabled: cfg.XRPL.Scanner.RecentScanEnabled,
 		RecentScanWindow:  cfg.XRPL.Scanner.RecentScanWindow,
 		RepeatRecentScan:  cfg.XRPL.Scanner.RepeatRecentScan,
@@ -304,7 +304,7 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 		XRPLTxObserver: processes.ProcessWithOptions{
 			Process: processes.NewXRPLTxObserver(
 				processes.XRPLTxObserverConfig{
-					BridgeAccount:  *xrplBridgeAccount,
+					BridgeAccount:  *bridgeXRPLAddress,
 					RelayerAddress: relayerAddress,
 				},
 				zapLogger,
@@ -317,7 +317,7 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 		XRPLTxSubmitter: processes.ProcessWithOptions{
 			Process: processes.NewXRPLTxSubmitter(
 				processes.XRPLTxSubmitterConfig{
-					BridgeAccount:       *xrplBridgeAccount,
+					BridgeAccount:       *bridgeXRPLAddress,
 					RelayerAddress:      relayerAddress,
 					XRPLTxSignerKeyName: cfg.XRPL.MultiSignerKeyName,
 					RepeatRecentScan:    true,

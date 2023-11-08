@@ -32,51 +32,49 @@ const XRPLTokenDecimals = 15
 
 // RunnerEnvConfig is runner environment config.
 type RunnerEnvConfig struct {
-	AwaitTimeout           time.Duration
-	SigningThreshold       int
-	RelayerNumber          int
-	MaliciousRelayerNumber int
-	DisableMasterKey       bool
-	UsedTicketsThreshold   int
-	TrustSetLimitAmount    sdkmath.Int
+	AwaitTimeout                time.Duration
+	SigningThreshold            int
+	RelayerNumber               int
+	MaliciousRelayerNumber      int
+	DisableMasterKey            bool
+	UsedTicketSequenceThreshold int
+	TrustSetLimitAmount         sdkmath.Int
 }
 
 // DefaultRunnerEnvConfig returns default runner environment config.
 func DefaultRunnerEnvConfig() RunnerEnvConfig {
 	return RunnerEnvConfig{
-		AwaitTimeout:           15 * time.Second,
-		SigningThreshold:       2,
-		RelayerNumber:          3,
-		MaliciousRelayerNumber: 0,
-		DisableMasterKey:       true,
-		UsedTicketsThreshold:   150,
-		TrustSetLimitAmount:    sdkmath.NewIntWithDecimal(1, 30),
+		AwaitTimeout:                15 * time.Second,
+		SigningThreshold:            2,
+		RelayerNumber:               3,
+		MaliciousRelayerNumber:      0,
+		DisableMasterKey:            true,
+		UsedTicketSequenceThreshold: 150,
+		TrustSetLimitAmount:         sdkmath.NewIntWithDecimal(1, 30),
 	}
 }
 
 // RunnerEnv is runner environment used for the integration tests.
 type RunnerEnv struct {
 	Cfg               RunnerEnvConfig
-	XRPLBridgeAccount rippledata.Account
-	// TODO(dzmitryhil) replace with the relayer logic
-	RelayerAddresses []sdk.AccAddress
-	ContractClient   *coreum.ContractClient
-	Chains           integrationtests.Chains
-	ContractOwner    sdk.AccAddress
-	Runners          []*runner.Runner
-	ProcessErrorsMu  sync.RWMutex
-	ProcessErrors    []error
+	bridgeXRPLAddress rippledata.Account
+	ContractClient    *coreum.ContractClient
+	Chains            integrationtests.Chains
+	ContractOwner     sdk.AccAddress
+	Runners           []*runner.Runner
+	ProcessErrorsMu   sync.RWMutex
+	ProcessErrors     []error
 }
 
 // NewRunnerEnv returns new instance of the RunnerEnv.
 func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains integrationtests.Chains) *RunnerEnv {
-	coreumRelayerAddresses := genCoreumRelayers(
+	relayerCoreumAddresses := genCoreumRelayers(
 		ctx,
 		t,
 		chains.Coreum,
 		cfg.RelayerNumber,
 	)
-	xrplBridgeAccount, xrplRelayerAccounts, xrplRelayersPubKeys := genXRPLBridgeAccountWithRelayers(
+	bridgeXRPLAddress, relayerXRPLAddresses, relayerXRPLPubKeys := genBridgeXRPLAccountWithRelayers(
 		ctx,
 		t,
 		chains.XRPL,
@@ -88,9 +86,9 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	contractRelayer := make([]coreum.Relayer, 0, cfg.RelayerNumber)
 	for i := 0; i < cfg.RelayerNumber; i++ {
 		contractRelayer = append(contractRelayer, coreum.Relayer{
-			CoreumAddress: coreumRelayerAddresses[i],
-			XRPLAddress:   xrplRelayerAccounts[i].String(),
-			XRPLPubKey:    xrplRelayersPubKeys[i].String(),
+			CoreumAddress: relayerCoreumAddresses[i],
+			XRPLAddress:   relayerXRPLAddresses[i].String(),
+			XRPLPubKey:    relayerXRPLPubKeys[i].String(),
 		})
 	}
 
@@ -100,7 +98,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		chains,
 		contractRelayer,
 		cfg.SigningThreshold,
-		cfg.UsedTicketsThreshold,
+		cfg.UsedTicketSequenceThreshold,
 		cfg.TrustSetLimitAmount,
 	)
 
@@ -112,34 +110,33 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 			createDevRunner(
 				t,
 				chains,
-				xrplBridgeAccount,
-				xrplRelayerAccounts[i],
+				bridgeXRPLAddress,
+				relayerXRPLAddresses[i],
 				contractClient.GetContractAddress(),
-				coreumRelayerAddresses[i],
+				relayerCoreumAddresses[i],
 			),
 		)
 	}
 	// add malicious relayers
 	// we keep the relayer indexes to make all config valid apart from the XRPL signing
 	for i := cfg.RelayerNumber - cfg.MaliciousRelayerNumber; i < cfg.RelayerNumber; i++ {
-		maliciousSignerAcc := chains.XRPL.GenAccount(ctx, t, 0)
+		maliciousXRPLAddress := chains.XRPL.GenAccount(ctx, t, 0)
 		runners = append(
 			runners,
 			createDevRunner(
 				t,
 				chains,
-				xrplBridgeAccount,
-				maliciousSignerAcc,
+				bridgeXRPLAddress,
+				maliciousXRPLAddress,
 				contractClient.GetContractAddress(),
-				coreumRelayerAddresses[i],
+				relayerCoreumAddresses[i],
 			),
 		)
 	}
 
 	runnerEnv := &RunnerEnv{
 		Cfg:               cfg,
-		XRPLBridgeAccount: xrplBridgeAccount,
-		RelayerAddresses:  coreumRelayerAddresses,
+		bridgeXRPLAddress: bridgeXRPLAddress,
 		ContractClient:    contractClient,
 		Chains:            chains,
 		ContractOwner:     contractOwner,
@@ -241,11 +238,11 @@ func (r *RunnerEnv) AllocateTickets(
 	t *testing.T,
 	numberOfTicketsToAllocate uint32,
 ) {
-	xrplBridgeAccountInfo, err := r.Chains.XRPL.RPCClient().AccountInfo(ctx, r.XRPLBridgeAccount)
+	bridgeXRPLAccountInfo, err := r.Chains.XRPL.RPCClient().AccountInfo(ctx, r.bridgeXRPLAddress)
 	require.NoError(t, err)
 
-	r.Chains.XRPL.FundAccountForTicketAllocation(ctx, t, r.XRPLBridgeAccount, numberOfTicketsToAllocate)
-	_, err = r.ContractClient.RecoverTickets(ctx, r.ContractOwner, *xrplBridgeAccountInfo.AccountData.Sequence, &numberOfTicketsToAllocate)
+	r.Chains.XRPL.FundAccountForTicketAllocation(ctx, t, r.bridgeXRPLAddress, numberOfTicketsToAllocate)
+	_, err = r.ContractClient.RecoverTickets(ctx, r.ContractOwner, *bridgeXRPLAccountInfo.AccountData.Sequence, &numberOfTicketsToAllocate)
 	require.NoError(t, err)
 
 	require.NoError(t, err)
@@ -268,12 +265,12 @@ func (r *RunnerEnv) RegisterXRPLTokenAndAwaitTrustSet(
 	require.NoError(t, err)
 	// await for the trust set
 	r.AwaitNoPendingOperations(ctx, t)
-	xrplRegisteredToken, err := r.ContractClient.GetXRPLToken(ctx, issuer.String(), xrpl.ConvertCurrencyToString(currency))
+	registeredXRPLToken, err := r.ContractClient.GetXRPLToken(ctx, issuer.String(), xrpl.ConvertCurrencyToString(currency))
 	require.NoError(t, err)
-	require.NotNil(t, xrplRegisteredToken)
-	require.Equal(t, coreum.TokenStateEnabled, xrplRegisteredToken.State)
+	require.NotNil(t, registeredXRPLToken)
+	require.Equal(t, coreum.TokenStateEnabled, registeredXRPLToken.State)
 
-	return *xrplRegisteredToken
+	return *registeredXRPLToken
 }
 
 // RequireNoErrors check whether the runner err received runner errors.
@@ -348,7 +345,7 @@ func genCoreumRelayers(
 	return addresses
 }
 
-func genXRPLBridgeAccountWithRelayers(
+func genBridgeXRPLAccountWithRelayers(
 	ctx context.Context,
 	t *testing.T,
 	xrplChain integrationtests.XRPLChain,
@@ -358,9 +355,9 @@ func genXRPLBridgeAccountWithRelayers(
 ) (rippledata.Account, []rippledata.Account, []rippledata.PublicKey) {
 	t.Helper()
 	// some fee to cover simple txs all extras must be allocated in the test
-	bridgeAcc := xrplChain.GenAccount(ctx, t, 0.5)
+	bridgeXRPLAddress := xrplChain.GenAccount(ctx, t, 0.5)
 
-	t.Logf("Bridge account is generated, address:%s", bridgeAcc.String())
+	t.Logf("Bridge account is generated, address:%s", bridgeXRPLAddress.String())
 	signerEntries := make([]rippledata.SignerEntry, 0, signersCount)
 	signerAccounts := make([]rippledata.Account, 0, signersCount)
 	signerPubKeys := make([]rippledata.PublicKey, 0, signersCount)
@@ -377,7 +374,7 @@ func genXRPLBridgeAccountWithRelayers(
 		signerPubKeys = append(signerPubKeys, xrplChain.GetSignerPubKey(t, signerAcc))
 	}
 	// fund for the signers SignerListSet
-	xrplChain.FundAccountForSignerListSet(ctx, t, bridgeAcc, signersCount)
+	xrplChain.FundAccountForSignerListSet(ctx, t, bridgeXRPLAddress, signersCount)
 	signerListSetTx := rippledata.SignerListSet{
 		SignerQuorum:  signerQuorum,
 		SignerEntries: signerEntries,
@@ -385,29 +382,29 @@ func genXRPLBridgeAccountWithRelayers(
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, bridgeAcc))
+	require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, bridgeXRPLAddress))
 	t.Logf("The bridge signers set is updated")
 
 	if disableMasterKey {
 		// disable master key
 		disableMasterKeyTx := rippledata.AccountSet{
 			TxBase: rippledata.TxBase{
-				Account:         bridgeAcc,
+				Account:         bridgeXRPLAddress,
 				TransactionType: rippledata.ACCOUNT_SET,
 			},
 			SetFlag: lo.ToPtr(uint32(rippledata.TxSetDisableMaster)),
 		}
-		require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &disableMasterKeyTx, bridgeAcc))
+		require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &disableMasterKeyTx, bridgeXRPLAddress))
 		t.Logf("Bridge account master key is disabled")
 	}
 
-	return bridgeAcc, signerAccounts, signerPubKeys
+	return bridgeXRPLAddress, signerAccounts, signerPubKeys
 }
 
 func createDevRunner(
 	t *testing.T,
 	chains integrationtests.Chains,
-	xrplBridgeAccount rippledata.Account,
+	bridgeXRPLAddress rippledata.Account,
 	xrplRelayerAcc rippledata.Account,
 	contractAddress sdk.AccAddress,
 	coreumRelayerAddress sdk.AccAddress,
@@ -415,8 +412,8 @@ func createDevRunner(
 	t.Helper()
 
 	const (
-		coreumRelayerKeyName = "coreum"
-		xrplRelayerKeyName   = "xrpl"
+		relayerCoreumKeyName = "coreum"
+		relayerXRPLKeyName   = "xrpl"
 	)
 
 	encodingConfig := coreumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
@@ -429,7 +426,7 @@ func createDevRunner(
 	pass := uuid.NewString()
 	armor, err := coreumKr.ExportPrivKeyArmor(keyInfo.Name, pass)
 	require.NoError(t, err)
-	require.NoError(t, kr.ImportPrivKey(coreumRelayerKeyName, armor, pass))
+	require.NoError(t, kr.ImportPrivKey(relayerCoreumKeyName, armor, pass))
 
 	// reimport XRPL key
 	xrplKr := chains.XRPL.GetSignerKeyring()
@@ -437,19 +434,19 @@ func createDevRunner(
 	require.NoError(t, err)
 	armor, err = xrplKr.ExportPrivKeyArmor(keyInfo.Name, pass)
 	require.NoError(t, err)
-	require.NoError(t, kr.ImportPrivKey(xrplRelayerKeyName, armor, pass))
+	require.NoError(t, kr.ImportPrivKey(relayerXRPLKeyName, armor, pass))
 
 	relayerRunnerCfg := runner.DefaultConfig()
 	relayerRunnerCfg.LoggingConfig.Level = "debug"
 
-	relayerRunnerCfg.XRPL.BridgeAccount = xrplBridgeAccount.String()
-	relayerRunnerCfg.XRPL.MultiSignerKeyName = xrplRelayerKeyName
+	relayerRunnerCfg.XRPL.BridgeAccount = bridgeXRPLAddress.String()
+	relayerRunnerCfg.XRPL.MultiSignerKeyName = relayerXRPLKeyName
 	relayerRunnerCfg.XRPL.RPC.URL = chains.XRPL.Config().RPCAddress
 	// make the scanner fast
 	relayerRunnerCfg.XRPL.Scanner.RetryDelay = 500 * time.Millisecond
 
 	relayerRunnerCfg.Coreum.GRPC.URL = chains.Coreum.Config().GRPCAddress
-	relayerRunnerCfg.Coreum.RelayerKeyName = coreumRelayerKeyName
+	relayerRunnerCfg.Coreum.RelayerKeyName = relayerCoreumKeyName
 	relayerRunnerCfg.Coreum.Contract.ContractAddress = contractAddress.String()
 	// We use high gas adjustment since our relayers might send transactions in one block.
 	// They estimate gas based on the same state, but since transactions are executed one by one the next transaction uses

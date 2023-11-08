@@ -24,7 +24,7 @@ settings of the bridge and execute the workflows' recovery.
 Before the bridging, a token (XRPL or coreum) should be manually registered for the bridging. The tokes that are not
 registered can't be bridged.
 
-##### XRPL native tokens registration
+##### XRPL origin tokens registration
 
 All tokens issued on XRPL that can be bridged from the XRPL to the coreum and back must have a representation on the
 coreum. Such tokens should be registered by owner on the contract side with the `XRPL issuer`, `XRPL currency`, `fees`,
@@ -41,7 +41,7 @@ Check [register-token workflow](#register-token) for more details.
 
 The XRP token is registered in the token registry on the contract instantiation. That token use the constant issuer
 `rrrrrrrrrrrrrrrrrrrrrho` and currency `XRP` token. That token can be enabled or disabled by the owner similar to other
-tokens. Similar to XRPL native tokens the XRP token has the `sending precision` and `max holding amount` which we set
+tokens. Similar to XRPL origin tokens the XRP token has the `sending precision` and `max holding amount` which we set
 to default values on the contact instantiation.
 The XRP token has a bit of a different nature than other tokens. That token doesn't need approval (TrustSet) to be
 received and is used by the multi-signing account to pay fees. Since the balance for fees and received balance are not
@@ -50,7 +50,7 @@ contract minus some tokens on top (to cover pending transactions) to cover the f
 That doesn't guarantee that relayers don't spend locked coins, but minimises that risk. The additional monitoring of
 that fee-balance might also minimise that risk.
 
-##### Coreum native tokens registration
+##### Coreum origin tokens registration
 
 All tokens issued on the coreum that can be bridged from the coreum to XRPL and back must have a representation on the
 XRPL, managed by the multi-signing account. Such tokens should be registered by owner on the contract side with the
@@ -62,7 +62,7 @@ Check [workflow](#register-token) for more details.
 
 ##### Max holding amount and sending precision update
 
-It is possible to update both `max holding amount` and `sending precision` for both XRPL and coreum native tokens. The
+It is possible to update both `max holding amount` and `sending precision` for both XRPL and coreum origin tokens. The
 owner can do it by calling the contract.
 The contract updates the `sending precision` in the token registry and removes all pending evidences with
 `sending from XRPL to coreum` type data form the evidence queue. We need it to avoid evidence inconsistency, since an
@@ -222,16 +222,16 @@ type. As the result some discrepancy might happen, examples:
 ### Issues:
 
 1. Send low and high amount to coreum and return high and low back.
-   1.1. XRPLUser sends 10 XRPL native token to coreumUser (bridge account balance: 10, coreumUser balance: 10)
-   1.2. XRPLUser sends 1e17 XRPL native token to coreumUser (bridge account balance: 1e17, coreumUser balance: 1e17 + 10)
-   1.3. coreumUser sends 1e17 XRPL native token to XRPLUser (bridge account balance: 0, XRPLUser balance: 1e17)
-   1.3. coreumUser sends 10 XRPL native token to XRPLUser (bridge account: fail since we have nothing to send)
+   1.1. XRPLUser sends 10 XRPL origin token to coreumUser (bridge account balance: 10, coreumUser balance: 10)
+   1.2. XRPLUser sends 1e17 XRPL origin token to coreumUser (bridge account balance: 1e17, coreumUser balance: 1e17 + 10)
+   1.3. coreumUser sends 1e17 XRPL origin token to XRPLUser (bridge account balance: 0, XRPLUser balance: 1e17)
+   1.3. coreumUser sends 10 XRPL origin token to XRPLUser (bridge account: fail since we have nothing to send)
 
-The same issue might be in case the bridge account holds 1e20 and receive 1 XRPL native token. The delivered amount will
-contain the 1 XRPL native token, but the bridge balance will remain the same.
+The same issue might be in case the bridge account holds 1e20 and receive 1 XRPL origin token. The delivered amount will
+contain the 1 XRPL origin token, but the bridge balance will remain the same.
 
-2. Send coreum native token to XRPL, mint it there, and send back.
-   1.1. CoreumUser sends 1e17 Coreum native token to XRPLUser (bridge account balance: 0, bridge contract: 1e17,
+2. Send coreum origin token to XRPL, mint it there, and send back.
+   1.1. CoreumUser sends 1e17 Coreum origin token to XRPLUser (bridge account balance: 0, bridge contract: 1e17,
    XRPLUser balance: 1e17)
    1.2. XRPLUser mints 100 tokens on the XRPL by sending 49, 49, 2 amounts to a recipient with low balance and back.
    1.3. XRPLUser sends 100 tokens back to coreumUser (bridge account balance: 0, bridge contract: 1e17 - 100, CoreumUser

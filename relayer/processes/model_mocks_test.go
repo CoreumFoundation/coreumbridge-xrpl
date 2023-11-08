@@ -83,19 +83,19 @@ func (mr *MockContractClientMockRecorder) IsInitialized() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsInitialized", reflect.TypeOf((*MockContractClient)(nil).IsInitialized))
 }
 
-// RegisterSignature mocks base method.
-func (m *MockContractClient) RegisterSignature(arg0 context.Context, arg1 types.AccAddress, arg2 uint32, arg3 string) (*types.TxResponse, error) {
+// SaveSignature mocks base method.
+func (m *MockContractClient) SaveSignature(arg0 context.Context, arg1 types.AccAddress, arg2 uint32, arg3 string) (*types.TxResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterSignature", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SaveSignature", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*types.TxResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// RegisterSignature indicates an expected call of RegisterSignature.
-func (mr *MockContractClientMockRecorder) RegisterSignature(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+// SaveSignature indicates an expected call of SaveSignature.
+func (mr *MockContractClientMockRecorder) SaveSignature(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterSignature", reflect.TypeOf((*MockContractClient)(nil).RegisterSignature), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSignature", reflect.TypeOf((*MockContractClient)(nil).SaveSignature), arg0, arg1, arg2, arg3)
 }
 
 // SendXRPLTicketsAllocationTransactionResultEvidence mocks base method.
