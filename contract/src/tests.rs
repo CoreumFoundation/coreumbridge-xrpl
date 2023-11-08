@@ -333,6 +333,8 @@ mod tests {
                 ],
                 burn_rate: "0".to_string(),
                 send_commission_rate: "0".to_string(),
+                uri: "".to_string(),
+                uri_hash: "".to_string(),
                 version: 1
             }
         );
