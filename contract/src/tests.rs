@@ -1594,7 +1594,7 @@ mod tests {
         )
         .unwrap();
 
-        // Check that tokens have been burnt (not in contract or sender's account) and operation is in the queue
+        // Check that tokens have been burnt (neither in contract nor in sender's account) and operation is in the queue
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: sender.address(),
@@ -1776,6 +1776,29 @@ mod tests {
             ContractError::Payment(cw_utils::PaymentError::MultipleDenoms {})
                 .to_string()
                 .as_str()
+        ));
+
+        // If we send to an invalid XRPL address we should get an error
+        let invalid_address_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: "invalid_address".to_owned(),
+                },
+                &coins(
+                    amount_to_send_and_back.u128(),
+                    denom_xrpl_origin_token.to_owned(),
+                ),
+                relayer_account,
+            )
+            .unwrap_err();
+
+        assert!(invalid_address_error.to_string().contains(
+            ContractError::InvalidXRPLAddress {
+                address: "invalid_address".to_owned()
+            }
+            .to_string()
+            .as_str()
         ));
 
         wasm.execute::<ExecuteMsg>(

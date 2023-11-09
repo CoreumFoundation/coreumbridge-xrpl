@@ -88,7 +88,10 @@ impl<'a> IndexList<XRPLToken> for XRPLTokensIndexes<'a> {
 pub const XRPL_TOKENS: IndexedMap<String, XRPLToken, XRPLTokensIndexes> = IndexedMap::new(
     TopKey::XRPLTokens.as_str(),
     XRPLTokensIndexes {
-        coreum_denom: UniqueIndex::new(|token| token.coreum_denom.clone(), "token__coreum_denom"),
+        coreum_denom: UniqueIndex::new(
+            |xrpl_token| xrpl_token.coreum_denom.clone(),
+            "xrpl_token__coreum_denom",
+        ),
     },
 );
 // XRPL-Currencies used

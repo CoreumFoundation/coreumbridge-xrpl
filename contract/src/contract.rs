@@ -560,6 +560,9 @@ fn send_to_xrpl(
     // Check that we are only sending 1 type of coin
     one_coin(&info)?;
 
+    // Check that the recipient is a valid XRPL address.
+    validate_xrpl_address(recipient.to_owned())?;
+
     let mut response = Response::new();
     // We check if the token we are sending is an XRPL origin token or not
     match XRPL_TOKENS
