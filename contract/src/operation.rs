@@ -27,6 +27,13 @@ pub enum OperationType {
         currency: String,
         trust_set_limit_amount: Uint128,
     },
+    #[serde(rename = "coreum_to_xrpl_transfer")]
+    CoreumToXRPLTransfer {
+        issuer: String,
+        currency: String,
+        amount: Uint128,
+        recipient: String,
+    },
 }
 
 pub fn check_operation_exists(

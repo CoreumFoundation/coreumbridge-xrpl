@@ -44,6 +44,9 @@ pub enum ExecuteMsg {
     SaveEvidence {
         evidence: Evidence,
     },
+    SendToXRPL {
+        recipient: String,
+    },
 }
 
 #[cw_ownable_query]

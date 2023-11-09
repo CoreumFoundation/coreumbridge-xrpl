@@ -29,7 +29,7 @@ build-contract:
 	docker run --user $(id -u):$(id -g) --rm -v $(CONTRACT_DIR):/code \
       --mount type=volume,source="coreumbridge_xrpl_cache",target=/code/target \
       --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-       cosmwasm/rust-optimizer:0.14.0
+       cosmwasm/optimizer:0.15.0-beta.1
 	mkdir -p $(BUILD_DIR)
 	cp $(CONTRACT_DIR)/artifacts/coreumbridge_xrpl.wasm $(BUILD_DIR)/coreumbridge_xrpl.wasm
 
@@ -37,7 +37,7 @@ build-contract:
 build-dev-contract:
 	rustup target add wasm32-unknown-unknown
 	cargo install wasm-opt --locked
-	# Those RUSTFLAGS reduce binary size from 2MB to 400 KB
+	# Those RUSTFLAGS reduce binary size considerably
 	cd $(CONTRACT_DIR) && RUSTFLAGS='-C link-arg=-s' cargo wasm
 	mkdir -p $(BUILD_DIR)
 	cp $(CONTRACT_DIR)/target/wasm32-unknown-unknown/release/coreumbridge_xrpl.wasm $(BUILD_DIR)/coreumbridge_xrpl_not_opt.wasm

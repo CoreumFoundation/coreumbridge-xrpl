@@ -20,28 +20,30 @@ pub fn validate_relayers(
     let mut map_xrpl_addresses = HashMap::new();
     let mut map_xrpl_pubkeys = HashMap::new();
     let mut map_coreum_addresses = HashMap::new();
-    let number_of_relayers = relayers.len();
 
     for relayer in relayers {
         deps.api.addr_validate(relayer.coreum_address.as_ref())?;
         validate_xrpl_address(relayer.xrpl_address.clone())?;
 
-        // Store all values in maps so we can easily verify if there are duplicates.
-        map_xrpl_addresses.insert(relayer.xrpl_address, Empty {});
-        map_xrpl_pubkeys.insert(relayer.xrpl_pub_key, Empty {});
-        map_coreum_addresses.insert(relayer.coreum_address, Empty {});
-    }
-
-    if map_xrpl_addresses.len() != number_of_relayers {
-        return Err(ContractError::DuplicatedRelayerXRPLAddress {});
-    }
-
-    if map_xrpl_pubkeys.len() != number_of_relayers {
-        return Err(ContractError::DuplicatedRelayerXRPLPubKey {});
-    }
-
-    if map_coreum_addresses.len() != number_of_relayers {
-        return Err(ContractError::DuplicatedRelayerCoreumAddress {});
+        // If the map returns a value during insertion, it means that the key already exists and therefore is duplicated
+        if map_xrpl_addresses
+            .insert(relayer.xrpl_address, Empty {})
+            .is_some()
+        {
+            return Err(ContractError::DuplicatedRelayerXRPLAddress {});
+        };
+        if map_xrpl_pubkeys
+            .insert(relayer.xrpl_pub_key, Empty {})
+            .is_some()
+        {
+            return Err(ContractError::DuplicatedRelayerXRPLPubKey {});
+        };
+        if map_coreum_addresses
+            .insert(relayer.coreum_address, Empty {})
+            .is_some()
+        {
+            return Err(ContractError::DuplicatedRelayerCoreumAddress {});
+        };
     }
 
     Ok(())

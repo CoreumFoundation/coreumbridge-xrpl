@@ -184,6 +184,7 @@ pub fn execute(
             operation_id,
             signature,
         } => save_signature(deps.into_empty(), info.sender, operation_id, signature),
+        ExecuteMsg::SendToXRPL { recipient } => send_to_xrpl(deps.into_empty(), info, recipient),
     }
 }
 
@@ -296,7 +297,7 @@ fn register_xrpl_token(
     // Denom that token will have in Coreum
     let denom = format!("{}-{}", symbol_and_subunit, env.contract.address).to_lowercase();
 
-    // This in theory is not necessary because issue_msg would fail if the denom already exists but it's a double check and a wait to return a more readable error.
+    // This in theory is not necessary because issue_msg would fail if the denom already exists but it's a double check and a way to return a more readable error.
     if COREUM_TOKENS.has(deps.storage, denom.clone()) {
         return Err(ContractError::RegistrationFailure {});
     };
@@ -390,7 +391,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     coin: coin(amount_to_send.u128(), token.coreum_denom),
                     recipient: Some(recipient.to_string()),
                 }));
-                
+
                 response = response.add_message(mint_msg)
             }
 
@@ -413,44 +414,47 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             let operation_id =
                 check_operation_exists(deps.storage, account_sequence, ticket_sequence)?;
 
-            // custom state validation of the transaction result
-            match operation_result.clone() {
-                OperationResult::TicketsAllocation { .. } => {}
-                OperationResult::TrustSet { issuer, currency } => {
-                    let key = build_xrpl_token_key(issuer, currency);
-                    // validate that we have received the trust set for the token we have and with the pending state
-                    let token = XRPL_TOKENS
-                        .load(deps.storage, key)
-                        .map_err(|_| ContractError::TokenNotRegistered {})?;
-                    // it is possible to
-                    if token.state.ne(&TokenState::Processing) {
-                        return Err(ContractError::XRPLTokenNotInProcessing {});
-                    }
+            // custom state validation of the transaction result for TrustSet operations
+            if let OperationResult::TrustSet { issuer, currency } = &operation_result {
+                let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
+
+                // We validate that the token is indeed registered and is in in the processing state
+                let token = XRPL_TOKENS
+                    .load(deps.storage, key)
+                    .map_err(|_| ContractError::TokenNotRegistered {})?;
+
+                if token.state.ne(&TokenState::Processing) {
+                    return Err(ContractError::XRPLTokenNotInProcessing {});
                 }
             }
 
+            // If our ticket registration must trigger a new ticket allocation, we must know if it failed or not (we ran out of tickets).
+            // This might happen during registration of tokens by admin.
+            let mut add_ticket_allocation_operation_failed = false;
+
             if threshold_reached {
-                match operation_result.clone() {
+                match &operation_result {
                     OperationResult::TicketsAllocation { tickets } => {
                         handle_ticket_allocation_confirmation(
                             deps.storage,
-                            tickets,
+                            tickets.clone(),
                             transaction_result.clone(),
                         )?;
                     }
                     OperationResult::TrustSet { issuer, currency } => {
                         handle_trust_set_confirmation(
                             deps.storage,
-                            issuer,
-                            currency,
+                            issuer.to_owned(),
+                            currency.to_owned(),
                             transaction_result.clone(),
                         )?;
                     }
+                    OperationResult::CoreumToXRPLTransfer {} => (),
                 }
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
 
                 if transaction_result.ne(&TransactionResult::Invalid) && ticket_sequence.is_some() {
-                    register_used_ticket(deps.storage)?
+                    add_ticket_allocation_operation_failed = register_used_ticket(deps.storage)?
                 };
             }
 
@@ -463,6 +467,13 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
 
             if let Some(tx_hash) = tx_hash {
                 response = response.add_attribute("tx_hash", tx_hash)
+            }
+
+            if add_ticket_allocation_operation_failed {
+                response = response.add_attribute(
+                    "adding_ticket_allocation_operation_failure",
+                    add_ticket_allocation_operation_failed.to_string(),
+                )
             }
         }
     }
@@ -500,7 +511,9 @@ fn recover_tickets(
     // We check that number_to_allocate > config.used_ticket_sequence_threshold in order to cover the
     // reallocation with just one XRPL transaction, otherwise the relocation might cause the
     // additional reallocation.
-    if number_to_allocate <= config.used_ticket_sequence_threshold || number_to_allocate > MAX_TICKETS {
+    if number_to_allocate <= config.used_ticket_sequence_threshold
+        || number_to_allocate > MAX_TICKETS
+    {
         return Err(ContractError::InvalidTicketSequenceToAllocate {});
     }
 
@@ -537,6 +550,74 @@ fn save_signature(
         .add_attribute("operation_id", operation_id.to_string())
         .add_attribute("relayer_address", sender.to_string())
         .add_attribute("signature", signature.as_str()))
+}
+
+fn send_to_xrpl(
+    deps: DepsMut,
+    info: MessageInfo,
+    recipient: String,
+) -> CoreumResult<ContractError> {
+    // Check that we are only sending 1 type of coin
+    one_coin(&info)?;
+
+    let mut response = Response::new();
+    // We check if the token we are sending is an XRPL origin token or not
+    match XRPL_TOKENS
+        .idx
+        .coreum_denom
+        .item(deps.storage, info.funds[0].denom.to_owned())
+        .map(|res| res.map(|pk_token| pk_token.1))?
+    {
+        // If it's an XRPL origin token we need to check that it's enabled and if it is apply the sending precision
+        Some(xrpl_token) => {
+            if xrpl_token.state.ne(&TokenState::Enabled) {
+                return Err(ContractError::XRPLTokenNotEnabled {});
+            }
+
+            let decimals =
+                match is_token_xrp(xrpl_token.issuer.to_owned(), xrpl_token.currency.to_owned()) {
+                    true => XRP_DECIMALS,
+                    false => XRPL_TOKENS_DECIMALS,
+                };
+
+            let amount_to_send =
+                truncate_amount(xrpl_token.sending_precision, decimals, info.funds[0].amount)?;
+
+            // Since tokens are being sent back we need to burn them in the contract
+            let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
+                coin: coin(info.funds[0].amount.u128(), xrpl_token.coreum_denom),
+            }));
+            response = response.add_message(burn_msg);
+
+            // Get a ticket and store the pending operation
+            let ticket = allocate_ticket(deps.storage)?;
+            check_and_save_pending_operation(
+                deps.storage,
+                ticket,
+                &Operation {
+                    ticket_sequence: Some(ticket),
+                    account_sequence: None,
+                    signatures: vec![],
+                    operation_type: OperationType::CoreumToXRPLTransfer {
+                        issuer: xrpl_token.issuer,
+                        currency: xrpl_token.currency,
+                        amount: amount_to_send,
+                        recipient: recipient.to_owned(),
+                    },
+                },
+            )?;
+        }
+
+        // TODO(keyleu): Once we have the trustset operation for coreum tokens we can implement the sending of coreum origin tokens here
+        // For now we will just return an error.
+        None => return Err(ContractError::TokenNotRegistered {}),
+    }
+
+    Ok(response
+        .add_attribute("action", ContractActions::SendToXRPL.as_str())
+        .add_attribute("sender", info.sender)
+        .add_attribute("recipient", recipient)
+        .add_attribute("coin", info.funds[0].to_string()))
 }
 
 // ********** Queries **********

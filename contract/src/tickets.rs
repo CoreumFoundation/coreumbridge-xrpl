@@ -30,36 +30,37 @@ pub fn allocate_ticket(storage: &mut dyn Storage) -> Result<u64, ContractError> 
 }
 
 // Once we confirm/reject a transaction, we need to register a ticket as used
-pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<(), ContractError> {
+pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<bool, ContractError> {
     let used_tickets = USED_TICKETS_COUNTER.load(storage)?;
     let config = CONFIG.load(storage)?;
 
     USED_TICKETS_COUNTER.save(storage, &(used_tickets + 1))?;
 
     // If we reach the max allowed tickets to be used, we need to create an operation to allocate new ones
-    if used_tickets + 1 >= config.used_ticket_sequence_threshold && !PENDING_TICKET_UPDATE.load(storage)? {
-        // TODO(keyne) add specific flag to the resp
-        // TODO(keyne) handle one expected error that way (not tickets to allocate)
-        // in case we don't have free tickets anymore we should still accept the tx
-        // otherwise the contract will stuck
-        if let Ok(ticket_to_update) = reserve_ticket(storage) {
-            PENDING_OPERATIONS.save(
-                storage,
-                ticket_to_update,
-                &Operation {
-                    ticket_sequence: Some(ticket_to_update),
-                    account_sequence: None,
-                    signatures: vec![],
-                    operation_type: OperationType::AllocateTickets {
-                        number: config.used_ticket_sequence_threshold,
+    if used_tickets + 1 >= config.used_ticket_sequence_threshold
+        && !PENDING_TICKET_UPDATE.load(storage)?
+    {
+        match reserve_ticket(storage) {
+            Ok(ticket_to_update) => {
+                PENDING_OPERATIONS.save(
+                    storage,
+                    ticket_to_update,
+                    &Operation {
+                        ticket_sequence: Some(ticket_to_update),
+                        account_sequence: None,
+                        signatures: vec![],
+                        operation_type: OperationType::AllocateTickets {
+                            number: config.used_ticket_sequence_threshold,
+                        },
                     },
-                },
-            )?;
-            PENDING_TICKET_UPDATE.save(storage, &true)?
-        };
+                )?;
+                PENDING_TICKET_UPDATE.save(storage, &true)?
+            }
+            Err(ContractError::NoAvailableTickets {}) => return Ok(true),
+            Err(e) => return Err(e),
+        }
     }
-
-    Ok(())
+    Ok(false)
 }
 
 pub fn handle_ticket_allocation_confirmation(

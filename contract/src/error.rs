@@ -41,9 +41,9 @@ pub enum ContractError {
     CoreumTokenAlreadyRegistered { denom: String },
 
     #[error(
-    "XRPLTokenAlreadyRegistered: Token with issuer: {} and currency: {} is already registered",
-    issuer,
-    currency
+        "XRPLTokenAlreadyRegistered: Token with issuer: {} and currency: {} is already registered",
+        issuer,
+        currency
     )]
     XRPLTokenAlreadyRegistered { issuer: String, currency: String },
 
@@ -63,7 +63,7 @@ pub enum ContractError {
     OperationAlreadyExecuted {},
 
     #[error(
-    "EvidenceAlreadyProvided: The relayer already provided its evidence for the operation"
+        "EvidenceAlreadyProvided: The relayer already provided its evidence for the operation"
     )]
     EvidenceAlreadyProvided {},
 
@@ -83,7 +83,7 @@ pub enum ContractError {
     StillHaveAvailableTickets {},
 
     #[error(
-    "PendingTicketUpdate: There is a pending ticket update operation already in the queue"
+        "PendingTicketUpdate: There is a pending ticket update operation already in the queue"
     )]
     PendingTicketUpdate {},
 
@@ -100,7 +100,7 @@ pub enum ContractError {
     InvalidTicketAllocationEvidence {},
 
     #[error(
-    "PendingOperationNotFound: There is no pending operation with this ticket/sequence number"
+        "PendingOperationNotFound: There is no pending operation with this ticket/sequence number"
     )]
     PendingOperationNotFound {},
 
