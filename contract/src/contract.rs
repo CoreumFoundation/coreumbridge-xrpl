@@ -428,8 +428,9 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 }
             }
 
-            // If our ticket registration must trigger a new ticket allocation, we must know if it failed or not (we ran out of tickets).
-            // This might happen during registration of tokens by admin.
+            // If our ticket allocation must trigger a new ticket allocation because it was rejected, 
+            // we must know if we can trigger it or not (we have tickets available).
+            // This will only fail for the particular case of a rejected ticket operation with no more tickets available.
             let mut add_ticket_allocation_operation_failed = false;
 
             if threshold_reached {
