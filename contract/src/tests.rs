@@ -1814,7 +1814,7 @@ mod tests {
         )
         .unwrap();
 
-        // Check that tokens have been burnt (not in contract or sender's account) and operation is in the queue
+        // Check that tokens have been burnt (neither in contract nor in sender's account) and operation is in the queue
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: sender.address(),
