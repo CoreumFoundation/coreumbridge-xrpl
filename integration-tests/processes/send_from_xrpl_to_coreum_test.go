@@ -66,11 +66,11 @@ func TestRegisterXRPLTokensAndSendFromXRPLToCoreum(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, availableTickets, int(numberOfTicketsToAllocate))
 
-	// register XRPL origin token with 3 chars
+	// register XRPL originated token with 3 chars
 	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplIssuerAcc.String(), xrpl.ConvertCurrencyToString(registeredXRPLCurrency), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
-	// register XRPL origin token with 20 chars
+	// register XRPL originated token with 20 chars
 	_, err = runnerEnv.ContractClient.RegisterXRPLToken(ctx, runnerEnv.ContractOwner, xrplIssuerAcc.String(), xrpl.ConvertCurrencyToString(registeredXRPLHexCurrency), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 

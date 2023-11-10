@@ -70,9 +70,9 @@ pub struct CoreumToken {
 }
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
-// Tokens registered from Coreum side. These tokens are coreum origin tokens that are registered to be bridged - key is denom on Coreum chain
+// Tokens registered from Coreum side. These tokens are coreum originated tokens that are registered to be bridged - key is denom on Coreum chain
 pub const COREUM_TOKENS: Map<String, CoreumToken> = Map::new(TopKey::CoreumTokens.as_str());
-// Tokens registered from XRPL side. These tokens are XRPL origin tokens - key is issuer+currency on XRPL
+// Tokens registered from XRPL side. These tokens are XRPL originated tokens - key is issuer+currency on XRPL
 pub const XRPL_TOKENS: Map<String, XRPLToken> = Map::new(TopKey::XRPLTokens.as_str());
 // XRPL-Currencies used
 pub const USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS: Map<String, Empty> =
