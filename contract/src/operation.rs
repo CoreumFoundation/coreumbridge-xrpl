@@ -51,7 +51,7 @@ pub fn check_operation_exists(
     Ok(operation_id)
 }
 
-pub fn create_operation(
+pub fn create_pending_operation(
     storage: &mut dyn Storage,
     ticket_sequence: Option<u64>,
     account_sequence: Option<u64>,

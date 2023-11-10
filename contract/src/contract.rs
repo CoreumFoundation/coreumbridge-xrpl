@@ -8,7 +8,7 @@ use crate::{
         InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
     },
     operation::{
-        check_operation_exists, create_operation, handle_trust_set_confirmation, Operation,
+        check_operation_exists, create_pending_operation, handle_trust_set_confirmation, Operation,
         OperationType,
     },
     relayer::{assert_relayer, validate_relayers, validate_xrpl_address},
@@ -318,7 +318,7 @@ fn register_xrpl_token(
     let config = CONFIG.load(deps.storage)?;
     let ticket = allocate_ticket(deps.storage)?;
 
-    create_operation(
+    create_pending_operation(
         deps.storage,
         Some(ticket),
         None,
@@ -518,7 +518,7 @@ fn recover_tickets(
         return Err(ContractError::InvalidTicketSequenceToAllocate {});
     }
 
-    create_operation(
+    create_pending_operation(
         deps.storage,
         None,
         Some(account_sequence),
@@ -591,7 +591,7 @@ fn send_to_xrpl(
 
             // Get a ticket and store the pending operation
             let ticket = allocate_ticket(deps.storage)?;
-            create_operation(
+            create_pending_operation(
                 deps.storage,
                 Some(ticket),
                 None,
