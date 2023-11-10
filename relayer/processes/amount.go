@@ -43,7 +43,7 @@ func ConvertXRPLOriginTokenXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount
 	return sdkmath.NewIntFromBigInt(binIntAmount), nil
 }
 
-// ConvertXRPLOriginTokenCoreumAmountToXRPLAmount converts the XRPL origin token amount from coreum to XRPL amount
+// ConvertXRPLOriginTokenCoreumAmountToXRPLAmount converts the XRPL originated token amount from coreum to XRPL amount
 // based on the currency type.
 func ConvertXRPLOriginTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int, issuerString, currencyString string) (rippledata.Amount, error) {
 	if isXRPToken(issuerString, currencyString) {
