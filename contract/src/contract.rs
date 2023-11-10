@@ -578,11 +578,11 @@ fn send_to_xrpl(
                 };
 
             let amount_to_send =
-                truncate_amount(xrpl_token.sending_precision, decimals, info.funds[0].amount)?;
+                truncate_amount(xrpl_token.sending_precision, decimals, funds.amount)?;
 
             // Since tokens are being sent back we need to burn them in the contract
             let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
-                coin: coin(info.funds[0].amount.u128(), xrpl_token.coreum_denom),
+                coin: coin(funds.amount.u128(), xrpl_token.coreum_denom),
             }));
             response = response.add_message(burn_msg);
 
@@ -610,7 +610,7 @@ fn send_to_xrpl(
         .add_attribute("action", ContractActions::SendToXRPL.as_str())
         .add_attribute("sender", info.sender)
         .add_attribute("recipient", recipient)
-        .add_attribute("coin", info.funds[0].to_string()))
+        .add_attribute("coin", funds.to_string()))
 }
 
 // ********** Queries **********
