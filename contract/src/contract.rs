@@ -8,8 +8,8 @@ use crate::{
         InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
     },
     operation::{
-        check_and_save_pending_operation, check_operation_exists, create_operation,
-        handle_trust_set_confirmation, Operation, OperationType,
+        check_operation_exists, create_operation, handle_trust_set_confirmation, Operation,
+        OperationType,
     },
     relayer::{assert_relayer, validate_relayers, validate_xrpl_address},
     signatures::add_signature,
@@ -317,7 +317,9 @@ fn register_xrpl_token(
     // Create the pending operation to approve the token
     let config = CONFIG.load(deps.storage)?;
     let ticket = allocate_ticket(deps.storage)?;
-    let operation = create_operation(
+
+    create_operation(
+        deps.storage,
         Some(ticket),
         None,
         OperationType::TrustSet {
@@ -325,8 +327,7 @@ fn register_xrpl_token(
             currency: currency.clone(),
             trust_set_limit_amount: config.trust_set_limit_amount,
         },
-    );
-    check_and_save_pending_operation(deps.storage, ticket, &operation)?;
+    )?;
 
     Ok(Response::new()
         .add_message(issue_msg)
@@ -416,7 +417,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 OperationResult::TrustSet { issuer, currency } => {
                     let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
 
-                    // We validate that the token is indeed registered and is in in the processing state
+                    // We validate that the token is indeed registered and is in the processing state
                     let token = XRPL_TOKENS
                         .load(deps.storage, key)
                         .map_err(|_| ContractError::TokenNotRegistered {})?;
@@ -451,9 +452,11 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
 
                 if transaction_result.ne(&TransactionResult::Invalid) && ticket_sequence.is_some() {
-                    // If our ticket allocation must trigger a new ticket allocation because it was rejected,
-                    // we must know if we can trigger it or not (we have tickets available).
-                    // This will only fail for the particular case of a rejected ticket operation with no more tickets available.
+                    // If the operation must trigger a new ticket allocation we must know if we can trigger it
+                    // or not (if we have tickets available). Therefore we will return a false flag if
+                    // we don't have available tickets left and we will notify with an attribute.
+                    // NOTE: This will only happen in the particular case of a rejected ticket allocation
+                    // operation.
                     if !register_used_ticket(deps.storage)? {
                         response = response.add_attribute(
                             "adding_ticket_allocation_operation_success",
@@ -515,14 +518,14 @@ fn recover_tickets(
         return Err(ContractError::InvalidTicketSequenceToAllocate {});
     }
 
-    let operation = create_operation(
+    create_operation(
+        deps.storage,
         None,
         Some(account_sequence),
         OperationType::AllocateTickets {
             number: number_to_allocate,
         },
-    );
-    check_and_save_pending_operation(deps.storage, account_sequence, &operation)?;
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RecoverTickets.as_str())
@@ -588,7 +591,8 @@ fn send_to_xrpl(
 
             // Get a ticket and store the pending operation
             let ticket = allocate_ticket(deps.storage)?;
-            let operation = create_operation(
+            create_operation(
+                deps.storage,
                 Some(ticket),
                 None,
                 OperationType::CoreumToXRPLTransfer {
@@ -597,8 +601,7 @@ fn send_to_xrpl(
                     amount: amount_to_send,
                     recipient: recipient.to_owned(),
                 },
-            );
-            check_and_save_pending_operation(deps.storage, ticket, &operation)?;
+            )?;
         }
 
         // TODO(keyleu): Once we have the sending operation for coreum tokens we can implement the sending of coreum origin tokens here
