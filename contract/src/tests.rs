@@ -3295,8 +3295,8 @@ mod tests {
         assert!(result.events.iter().any(|e| e.ty == "wasm"
             && e.attributes
                 .iter()
-                .any(|a| a.key == "adding_ticket_allocation_operation_failure"
-                    && a.value == true.to_string())));
+                .any(|a| a.key == "adding_ticket_allocation_operation_success"
+                    && a.value == false.to_string())));
     }
 
     #[test]

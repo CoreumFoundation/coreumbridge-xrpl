@@ -127,19 +127,24 @@ impl Evidence {
                     return Err(ContractError::InvalidFailedTransactionResultEvidence {});
                 }
 
-                if let OperationResult::TicketsAllocation { tickets } = operation_result {
-                    if (transaction_result.eq(&TransactionResult::Invalid)
-                        || transaction_result.eq(&TransactionResult::Rejected))
-                        && tickets.is_some()
-                    {
-                        return Err(ContractError::InvalidTicketAllocationEvidence {});
+                // TODO(keyleu) clean up at end of development unifying operations that we don't need to check
+                match operation_result {
+                    OperationResult::TicketsAllocation { tickets } => {
+                        if (transaction_result.eq(&TransactionResult::Invalid)
+                            || transaction_result.eq(&TransactionResult::Rejected))
+                            && tickets.is_some()
+                        {
+                            return Err(ContractError::InvalidTicketAllocationEvidence {});
+                        }
+                        // We can't accept an operation that allocates no tickets
+                        if transaction_result.eq(&TransactionResult::Accepted)
+                            && (tickets.is_none() || tickets.as_ref().unwrap().is_empty())
+                        {
+                            return Err(ContractError::InvalidTicketAllocationEvidence {});
+                        }
                     }
-                    // We can't accept an operation that allocates no tickets
-                    if transaction_result.eq(&TransactionResult::Accepted)
-                        && (tickets.is_none() || tickets.as_ref().unwrap().is_empty())
-                    {
-                        return Err(ContractError::InvalidTicketAllocationEvidence {});
-                    }
+                    OperationResult::TrustSet { .. } => (),
+                    OperationResult::CoreumToXRPLTransfer { .. } =>(),
                 }
 
                 Ok(())

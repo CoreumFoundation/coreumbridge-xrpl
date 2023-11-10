@@ -86,3 +86,16 @@ pub fn handle_trust_set_confirmation(
     XRPL_TOKENS.save(storage, key, &token)?;
     Ok(())
 }
+
+pub fn create_operation(
+    ticket_sequence: Option<u64>,
+    account_sequence: Option<u64>,
+    operation_type: OperationType,
+) -> Operation {
+    Operation {
+        ticket_sequence,
+        account_sequence,
+        signatures: vec![],
+        operation_type,
+    }
+}

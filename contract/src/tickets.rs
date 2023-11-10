@@ -40,6 +40,8 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<bool, ContractE
     if used_tickets + 1 >= config.used_ticket_sequence_threshold
         && !PENDING_TICKET_UPDATE.load(storage)?
     {
+        // If our creation of a ticket allocation operation failed because we have no tickets left, we need to propagate 
+        // this so that we are aware that we need to allocate new tickets because we've run out of them
         match reserve_ticket(storage) {
             Ok(ticket_to_update) => {
                 PENDING_OPERATIONS.save(
@@ -56,11 +58,11 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<bool, ContractE
                 )?;
                 PENDING_TICKET_UPDATE.save(storage, &true)?
             }
-            Err(ContractError::NoAvailableTickets {}) => return Ok(true),
+            Err(ContractError::NoAvailableTickets {}) => return Ok(false),
             Err(e) => return Err(e),
         }
     }
-    Ok(false)
+    Ok(true)
 }
 
 pub fn handle_ticket_allocation_confirmation(
