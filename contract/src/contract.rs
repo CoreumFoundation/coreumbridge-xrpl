@@ -561,14 +561,14 @@ fn send_to_xrpl(
     validate_xrpl_address(recipient.to_owned())?;
 
     let mut response = Response::new();
-    // We check if the token we are sending is an XRPL origin token or not
+    // We check if the token we are sending is an XRPL originated token or not
     match XRPL_TOKENS
         .idx
         .coreum_denom
         .item(deps.storage, funds.denom.to_owned())
         .map(|res| res.map(|pk_token| pk_token.1))?
     {
-        // If it's an XRPL origin token we need to check that it's enabled and if it is apply the sending precision
+        // If it's an XRPL originated token we need to check that it's enabled and if it is apply the sending precision
         Some(xrpl_token) => {
             if xrpl_token.state.ne(&TokenState::Enabled) {
                 return Err(ContractError::XRPLTokenNotEnabled {});
@@ -604,7 +604,7 @@ fn send_to_xrpl(
             )?;
         }
 
-        // TODO(keyleu): Once we have the sending operation for coreum tokens we can implement the sending of coreum origin tokens here
+        // TODO(keyleu): Once we have the sending operation for coreum tokens we can implement the sending of coreum originated tokens here
         // For now we will just return an error.
         None => return Err(ContractError::TokenNotRegistered {}),
     }

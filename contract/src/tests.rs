@@ -1660,7 +1660,7 @@ mod tests {
 
         assert_eq!(query_pending_operations.operations.len(), 0);
 
-        // *** Test sending an XRPL origin token back to XRPL ***
+        // *** Test sending an XRPL originated token back to XRPL ***
 
         let test_token = XRPLToken {
             issuer: generate_xrpl_address(),
@@ -1738,12 +1738,12 @@ mod tests {
             )
             .unwrap();
 
-        let xrpl_origin_token = query_xrpl_tokens
+        let xrpl_originated_token = query_xrpl_tokens
             .tokens
             .iter()
             .find(|t| t.issuer == test_token.issuer && t.currency == test_token.currency)
             .unwrap();
-        let denom_xrpl_origin_token = xrpl_origin_token.coreum_denom.clone();
+        let denom_xrpl_origin_token = xrpl_originated_token.coreum_denom.clone();
 
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
@@ -1846,8 +1846,8 @@ mod tests {
                 account_sequence: None,
                 signatures: vec![],
                 operation_type: OperationType::CoreumToXRPLTransfer {
-                    issuer: xrpl_origin_token.issuer.to_owned(),
-                    currency: xrpl_origin_token.currency.to_owned(),
+                    issuer: xrpl_originated_token.issuer.to_owned(),
+                    currency: xrpl_originated_token.currency.to_owned(),
                     amount: amount_to_send_and_back,
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -1880,7 +1880,7 @@ mod tests {
 
         assert_eq!(query_pending_operations.operations.len(), 0);
 
-        // TODO(keyleu): Once we have the TrustSet implemented for Coreum origin tokens we can test that here
+        // TODO(keyleu): Once we have the implementation for Coreum originated tokens we can test that here
     }
 
     #[test]
