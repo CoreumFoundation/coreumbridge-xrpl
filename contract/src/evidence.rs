@@ -51,8 +51,15 @@ impl TransactionResult {
 
 #[cw_serde]
 pub enum OperationResult {
-    TicketsAllocation { tickets: Option<Vec<u64>> },
-    TrustSet { issuer: String, currency: String },
+    TicketsAllocation {
+        tickets: Option<Vec<u64>>,
+    },
+    TrustSet {
+        issuer: String,
+        currency: String,
+    },
+    #[serde(rename = "coreum_to_xrpl_transfer")]
+    CoreumToXRPLTransfer {},
 }
 
 // For convenience in the responses.
@@ -61,6 +68,7 @@ impl OperationResult {
         match self {
             OperationResult::TicketsAllocation { .. } => "tickets_allocation",
             OperationResult::TrustSet { .. } => "trust_set",
+            OperationResult::CoreumToXRPLTransfer {} => "coreum_to_xrpl_transfer",
         }
     }
 }
@@ -77,7 +85,7 @@ impl Evidence {
             Evidence::XRPLToCoreumTransfer { tx_hash, .. } => tx_hash.clone(),
             Evidence::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone().unwrap(),
         }
-            .to_lowercase()
+        .to_lowercase()
     }
     pub fn is_operation_valid(&self) -> bool {
         match self {
@@ -91,7 +99,7 @@ impl Evidence {
     pub fn validate_basic(&self) -> Result<(), ContractError> {
         match self {
             Evidence::XRPLToCoreumTransfer { amount, .. } => {
-                if amount.u128() == 0 {
+                if amount.is_zero() {
                     return Err(ContractError::InvalidAmount {});
                 }
                 Ok(())
@@ -119,9 +127,9 @@ impl Evidence {
                     return Err(ContractError::InvalidFailedTransactionResultEvidence {});
                 }
 
+                // TODO(keyleu) clean up at end of development unifying operations that we don't need to check
                 match operation_result {
                     OperationResult::TicketsAllocation { tickets } => {
-                        // Invalid or rejected transactions should not contain tickets
                         if (transaction_result.eq(&TransactionResult::Invalid)
                             || transaction_result.eq(&TransactionResult::Rejected))
                             && tickets.is_some()
@@ -135,8 +143,8 @@ impl Evidence {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
                     }
-                    // TrustSet operation results are always valid because sending the issuer and currency is mandatory because we need to update the token state
                     OperationResult::TrustSet { .. } => (),
+                    OperationResult::CoreumToXRPLTransfer { .. } =>(),
                 }
 
                 Ok(())

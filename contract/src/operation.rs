@@ -27,6 +27,13 @@ pub enum OperationType {
         currency: String,
         trust_set_limit_amount: Uint128,
     },
+    #[serde(rename = "coreum_to_xrpl_transfer")]
+    CoreumToXRPLTransfer {
+        issuer: String,
+        currency: String,
+        amount: Uint128,
+        recipient: String,
+    },
 }
 
 pub fn check_operation_exists(
@@ -44,15 +51,24 @@ pub fn check_operation_exists(
     Ok(operation_id)
 }
 
-pub fn check_and_save_pending_operation(
+pub fn create_pending_operation(
     storage: &mut dyn Storage,
-    operation_id: u64,
-    operation: &Operation,
+    ticket_sequence: Option<u64>,
+    account_sequence: Option<u64>,
+    operation_type: OperationType,
 ) -> Result<(), ContractError> {
+    let operation = Operation {
+        ticket_sequence,
+        account_sequence,
+        signatures: vec![],
+        operation_type,
+    };
+
+    let operation_id = ticket_sequence.unwrap_or(account_sequence.unwrap_or_default());
     if PENDING_OPERATIONS.has(storage, operation_id) {
         return Err(ContractError::PendingOperationAlreadyExists {});
     }
-    PENDING_OPERATIONS.save(storage, operation_id, operation)?;
+    PENDING_OPERATIONS.save(storage, operation_id, &operation)?;
 
     Ok(())
 }

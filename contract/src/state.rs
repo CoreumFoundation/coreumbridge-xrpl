@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Empty, Uint128};
-use cw_storage_plus::{Item, Map};
+use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 
 use crate::{evidence::Evidences, operation::Operation, relayer::Relayer};
 
@@ -72,8 +72,28 @@ pub struct CoreumToken {
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
 // Tokens registered from Coreum side. These tokens are coreum originated tokens that are registered to be bridged - key is denom on Coreum chain
 pub const COREUM_TOKENS: Map<String, CoreumToken> = Map::new(TopKey::CoreumTokens.as_str());
-// Tokens registered from XRPL side. These tokens are XRPL originated tokens - key is issuer+currency on XRPL
-pub const XRPL_TOKENS: Map<String, XRPLToken> = Map::new(TopKey::XRPLTokens.as_str());
+// Tokens registered from XRPL side. These tokens are XRPL originated tokens - primary key is issuer+currency on XRPL
+// XRPLTokens will have coreum_denom as a secondary index so that we can get the XRPLToken corresponding to a coreum_denom
+pub struct XRPLTokensIndexes<'a> {
+    pub coreum_denom: UniqueIndex<'a, String, XRPLToken, String>,
+}
+
+impl<'a> IndexList<XRPLToken> for XRPLTokensIndexes<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<XRPLToken>> + '_> {
+        let v: Vec<&dyn Index<XRPLToken>> = vec![&self.coreum_denom];
+        Box::new(v.into_iter())
+    }
+}
+
+pub const XRPL_TOKENS: IndexedMap<String, XRPLToken, XRPLTokensIndexes> = IndexedMap::new(
+    TopKey::XRPLTokens.as_str(),
+    XRPLTokensIndexes {
+        coreum_denom: UniqueIndex::new(
+            |xrpl_token| xrpl_token.coreum_denom.clone(),
+            "xrpl_token__coreum_denom",
+        ),
+    },
+);
 // XRPL-Currencies used
 pub const USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS: Map<String, Empty> =
     Map::new(TopKey::UsedXRPLCurrenciesForCoreumTokens.as_str());
@@ -101,6 +121,7 @@ pub enum ContractActions {
     RecoverTickets,
     XRPLTransactionResult,
     SaveSignature,
+    SendToXRPL,
 }
 
 impl ContractActions {
@@ -113,6 +134,7 @@ impl ContractActions {
             ContractActions::RecoverTickets => "recover_tickets",
             ContractActions::XRPLTransactionResult => "submit_xrpl_transaction_result",
             ContractActions::SaveSignature => "save_signature",
+            ContractActions::SendToXRPL => "send_to_xrpl",
         }
     }
 }
