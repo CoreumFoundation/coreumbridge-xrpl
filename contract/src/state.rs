@@ -38,6 +38,7 @@ pub struct Config {
     pub evidence_threshold: u32,
     pub used_ticket_sequence_threshold: u32,
     pub trust_set_limit_amount: Uint128,
+    pub xrpl_bridge_address: String,
 }
 
 #[cw_serde]
@@ -67,6 +68,9 @@ pub struct CoreumToken {
     pub denom: String,
     pub decimals: u32,
     pub xrpl_currency: String,
+    pub sending_precision: i32,
+    pub max_holding_amount: Uint128,
+    pub state: TokenState,
 }
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());

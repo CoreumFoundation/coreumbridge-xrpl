@@ -4,8 +4,8 @@ use crate::{
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
     msg::{
-        AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
-        InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
+        AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg,
+        PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
     },
     operation::{
         check_operation_exists, create_pending_operation, handle_trust_set_confirmation, Operation,
@@ -75,6 +75,8 @@ pub fn instantiate(
 
     validate_relayers(&deps, msg.relayers.clone())?;
 
+    validate_xrpl_address(msg.xrpl_bridge_address.to_owned())?;
+
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
 
@@ -98,6 +100,7 @@ pub fn instantiate(
         evidence_threshold: msg.evidence_threshold,
         used_ticket_sequence_threshold: msg.used_ticket_sequence_threshold,
         trust_set_limit_amount: msg.trust_set_limit_amount,
+        xrpl_bridge_address: msg.xrpl_bridge_address,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -151,9 +154,20 @@ pub fn execute(
         ExecuteMsg::UpdateOwnership(action) => {
             update_ownership(deps.into_empty(), env, info, action)
         }
-        ExecuteMsg::RegisterCoreumToken { denom, decimals } => {
-            register_coreum_token(deps.into_empty(), env, denom, decimals, info.sender)
-        }
+        ExecuteMsg::RegisterCoreumToken {
+            denom,
+            decimals,
+            sending_precision,
+            max_holding_amount,
+        } => register_coreum_token(
+            deps.into_empty(),
+            env,
+            info.sender,
+            denom,
+            decimals,
+            sending_precision,
+            max_holding_amount,
+        ),
         ExecuteMsg::RegisterXRPLToken {
             issuer,
             currency,
@@ -162,11 +176,11 @@ pub fn execute(
         } => register_xrpl_token(
             deps,
             env,
+            info,
             issuer,
             currency,
             sending_precision,
             max_holding_amount,
-            info,
         ),
         ExecuteMsg::SaveEvidence { evidence } => {
             save_evidence(deps.into_empty(), info.sender, evidence)
@@ -184,7 +198,9 @@ pub fn execute(
             operation_id,
             signature,
         } => save_signature(deps.into_empty(), info.sender, operation_id, signature),
-        ExecuteMsg::SendToXRPL { recipient } => send_to_xrpl(deps.into_empty(), info, recipient),
+        ExecuteMsg::SendToXRPL { recipient } => {
+            send_to_xrpl(deps.into_empty(), env, info, recipient)
+        }
     }
 }
 
@@ -201,9 +217,11 @@ fn update_ownership(
 fn register_coreum_token(
     deps: DepsMut,
     env: Env,
+    sender: Addr,
     denom: String,
     decimals: u32,
-    sender: Addr,
+    sending_precision: i32,
+    max_holding_amount: Uint128,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -232,6 +250,10 @@ fn register_coreum_token(
         denom: denom.clone(),
         decimals,
         xrpl_currency: xrpl_currency.clone(),
+        sending_precision,
+        max_holding_amount,
+        // All registered Coreum originated tokens will start as enabled because they don't need a TrustSet operation to be bridged
+        state: TokenState::Enabled,
     };
     COREUM_TOKENS.save(deps.storage, denom.clone(), &token)?;
 
@@ -245,11 +267,11 @@ fn register_coreum_token(
 fn register_xrpl_token(
     deps: DepsMut<CoreumQueries>,
     env: Env,
+    info: MessageInfo,
     issuer: String,
     currency: String,
     sending_precision: i32,
     max_holding_amount: Uint128,
-    info: MessageInfo,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
 
@@ -551,6 +573,7 @@ fn save_signature(
 
 fn send_to_xrpl(
     deps: DepsMut,
+    env: Env,
     info: MessageInfo,
     recipient: String,
 ) -> CoreumResult<ContractError> {
@@ -561,6 +584,10 @@ fn send_to_xrpl(
     validate_xrpl_address(recipient.to_owned())?;
 
     let mut response = Response::new();
+    let decimals;
+    let amount_to_send;
+    let issuer;
+    let currency;
     // We check if the token we are sending is an XRPL originated token or not
     match XRPL_TOKENS
         .idx
@@ -574,40 +601,65 @@ fn send_to_xrpl(
                 return Err(ContractError::XRPLTokenNotEnabled {});
             }
 
-            let decimals =
-                match is_token_xrp(xrpl_token.issuer.to_owned(), xrpl_token.currency.to_owned()) {
-                    true => XRP_DECIMALS,
-                    false => XRPL_TOKENS_DECIMALS,
-                };
+            issuer = xrpl_token.issuer;
+            currency = xrpl_token.currency;
+            decimals = match is_token_xrp(issuer.to_owned(), currency.to_owned()) {
+                true => XRP_DECIMALS,
+                false => XRPL_TOKENS_DECIMALS,
+            };
 
-            let amount_to_send =
-                truncate_amount(xrpl_token.sending_precision, decimals, funds.amount)?;
-
+            amount_to_send = truncate_amount(xrpl_token.sending_precision, decimals, funds.amount)?;
             // Since tokens are being sent back we need to burn them in the contract
+            // TODO(keyleu): for now we are BURNING the entire amount but when fees are implemented this will not happen and part of the amount will be burned and fees will be collected
             let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
                 coin: coin(funds.amount.u128(), xrpl_token.coreum_denom),
             }));
             response = response.add_message(burn_msg);
-
-            // Get a ticket and store the pending operation
-            let ticket = allocate_ticket(deps.storage)?;
-            create_pending_operation(
-                deps.storage,
-                Some(ticket),
-                None,
-                OperationType::CoreumToXRPLTransfer {
-                    issuer: xrpl_token.issuer,
-                    currency: xrpl_token.currency,
-                    amount: amount_to_send,
-                    recipient: recipient.to_owned(),
-                },
-            )?;
         }
 
-        // TODO(keyleu): Once we have the sending operation for coreum tokens we can implement the sending of coreum originated tokens here
-        // For now we will just return an error.
-        None => return Err(ContractError::TokenNotRegistered {}),
+        None => {
+            // If it's not an XRPL originated token we need to check that it's registered as a Coreum originated token
+            let coreum_token = COREUM_TOKENS
+                .load(deps.storage, funds.denom.to_owned())
+                .map_err(|_| ContractError::TokenNotRegistered {})?;
+
+            if coreum_token.state.ne(&TokenState::Enabled) {
+                return Err(ContractError::CoreumTokenDisabled {});
+            }
+
+            let config = CONFIG.load(deps.storage)?;
+
+            decimals = coreum_token.decimals;
+            issuer = config.xrpl_bridge_address;
+            currency = coreum_token.xrpl_currency;
+            amount_to_send =
+                truncate_amount(coreum_token.sending_precision, decimals, funds.amount)?;
+
+            // For Coreum originated tokens we need to check that we are not going over max bridge amount.
+            if deps
+                .querier
+                .query_balance(env.contract.address, coreum_token.denom)?
+                .amount
+                .gt(&coreum_token.max_holding_amount)
+            {
+                return Err(ContractError::MaximumBridgedAmountReached {});
+            }
+        }
     }
+
+    // Get a ticket and store the pending operation
+    let ticket = allocate_ticket(deps.storage)?;
+    create_pending_operation(
+        deps.storage,
+        Some(ticket),
+        None,
+        OperationType::CoreumToXRPLTransfer {
+            issuer,
+            currency,
+            amount: amount_to_send,
+            recipient: recipient.to_owned(),
+        },
+    )?;
 
     Ok(response
         .add_attribute("action", ContractActions::SendToXRPL.as_str())
@@ -627,7 +679,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::CoreumTokens { offset, limit } => {
             to_json_binary(&query_coreum_tokens(deps, offset, limit)?)
         }
-        QueryMsg::CoreumToken { denom } => to_json_binary(&query_coreum_token(deps, denom)?),
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
         QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
@@ -673,12 +724,6 @@ fn query_coreum_tokens(
         .collect();
 
     Ok(CoreumTokensResponse { tokens })
-}
-
-fn query_coreum_token(deps: Deps, denom: String) -> StdResult<CoreumTokenResponse> {
-    let token = COREUM_TOKENS.load(deps.storage, denom)?;
-
-    Ok(CoreumTokenResponse { token })
 }
 
 fn query_pending_operations(deps: Deps) -> StdResult<PendingOperationsResponse> {

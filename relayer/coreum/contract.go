@@ -103,6 +103,7 @@ type InstantiationConfig struct {
 	EvidenceThreshold           int
 	UsedTicketSequenceThreshold int
 	TrustSetLimitAmount         sdkmath.Int
+	XRPLBridgeAddress           string
 }
 
 // ContractConfig is contract config.
@@ -111,6 +112,7 @@ type ContractConfig struct {
 	EvidenceThreshold           int         `json:"evidence_threshold"`
 	UsedTicketSequenceThreshold int         `json:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         sdkmath.Int `json:"trust_set_limit_amount"`
+	XRPLBridgeAddress           string      `json:"xrpl_bridge_address"`
 }
 
 // ContractOwnership is owner contract config.
@@ -217,6 +219,7 @@ type instantiateRequest struct {
 	EvidenceThreshold           int            `json:"evidence_threshold"`
 	UsedTicketSequenceThreshold int            `json:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         sdkmath.Int    `json:"trust_set_limit_amount"`
+	XRPLBridgeAddress           string         `json:"xrpl_bridge_address"`
 }
 
 type transferOwnershipRequest struct {
@@ -226,8 +229,10 @@ type transferOwnershipRequest struct {
 }
 
 type registerCoreumTokenRequest struct {
-	Denom    string `json:"denom"`
-	Decimals uint32 `json:"decimals"`
+	Denom            string      `json:"denom"`
+	Decimals         uint32      `json:"decimals"`
+	SendingPrecision int32       `json:"sending_precision"`
+	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
 }
 
 type registerXRPLTokenRequest struct {
@@ -373,6 +378,7 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 		EvidenceThreshold:           config.EvidenceThreshold,
 		UsedTicketSequenceThreshold: config.UsedTicketSequenceThreshold,
 		TrustSetLimitAmount:         config.TrustSetLimitAmount,
+		XRPLBridgeAddress:           config.XRPLBridgeAddress,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal instantiate payload")
@@ -468,12 +474,14 @@ func (c *ContractClient) AcceptOwnership(ctx context.Context, sender sdk.AccAddr
 }
 
 // RegisterCoreumToken executes `register_coreum_token` method.
-func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.AccAddress, denom string, decimals uint32) (*sdk.TxResponse, error) {
+func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.AccAddress, denom string, decimals uint32, sendingPrecision int32, maxHoldingAmount sdkmath.Int) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]registerCoreumTokenRequest{
 			ExecMethodRegisterCoreumToken: {
-				Denom:    denom,
-				Decimals: decimals,
+				Denom:            denom,
+				Decimals:         decimals,
+				SendingPrecision: sendingPrecision,
+				MaxHoldingAmount: maxHoldingAmount,
 			},
 		},
 	})

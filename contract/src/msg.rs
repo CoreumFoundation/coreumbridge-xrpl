@@ -17,6 +17,8 @@ pub struct InstantiateMsg {
     pub used_ticket_sequence_threshold: u32,
     // Trust set limit amount that will be used when registering XRPL tokens
     pub trust_set_limit_amount: Uint128,
+    // Address of multisig account on the XRPL
+    pub xrpl_bridge_address: String,
 }
 
 #[cw_ownable_execute]
@@ -25,6 +27,8 @@ pub enum ExecuteMsg {
     RegisterCoreumToken {
         denom: String,
         decimals: u32,
+        sending_precision: i32,
+        max_holding_amount: Uint128,
     },
     #[serde(rename = "register_xrpl_token")]
     RegisterXRPLToken {
@@ -66,8 +70,6 @@ pub enum QueryMsg {
         offset: Option<u64>,
         limit: Option<u32>,
     },
-    #[returns(CoreumTokenResponse)]
-    CoreumToken { denom: String },
     #[returns(PendingOperationsResponse)]
     PendingOperations {},
     #[returns(AvailableTicketsResponse)]
@@ -82,11 +84,6 @@ pub struct XRPLTokensResponse {
 #[cw_serde]
 pub struct CoreumTokensResponse {
     pub tokens: Vec<CoreumToken>,
-}
-
-#[cw_serde]
-pub struct CoreumTokenResponse {
-    pub token: CoreumToken,
 }
 
 #[cw_serde]

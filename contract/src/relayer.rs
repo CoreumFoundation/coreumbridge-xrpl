@@ -51,7 +51,13 @@ pub fn validate_relayers(
 
 pub fn validate_xrpl_address(address: String) -> Result<(), ContractError> {
     // We validate that the length of the issuer is between 24 and 34 characters and starts with 'r'
-    if address.len() >= 24 && address.len() <= 34 && address.starts_with('r') {
+    if address.len() >= 25
+        && address.len() <= 35
+        && address.starts_with('r')
+        && address
+            .chars()
+            .all(|c| c.is_alphanumeric() && c != '0' && c != 'O' && c != 'I' && c != 'l')
+    {
         return Ok(());
     }
     Err(ContractError::InvalidXRPLAddress { address })
