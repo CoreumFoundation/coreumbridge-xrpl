@@ -12,7 +12,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-func TestConvertXRPLOriginTokenXRPLAmountToCoreumAmount(t *testing.T) {
+func TestConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -81,7 +81,7 @@ func TestConvertXRPLOriginTokenXRPLAmountToCoreumAmount(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := processes.ConvertXRPLOriginTokenXRPLAmountToCoreumAmount(tt.xrplAmount)
+			got, err := processes.ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(tt.xrplAmount)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -92,7 +92,7 @@ func TestConvertXRPLOriginTokenXRPLAmountToCoreumAmount(t *testing.T) {
 	}
 }
 
-func TestConvertXRPLOriginTokenCoreumAmountToXRPLAmount(t *testing.T) {
+func TestConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -176,7 +176,7 @@ func TestConvertXRPLOriginTokenCoreumAmountToXRPLAmount(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := processes.ConvertXRPLOriginTokenCoreumAmountToXRPLAmount(tt.coreumAmount, tt.issuer, tt.currency)
+			got, err := processes.ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(tt.coreumAmount, tt.issuer, tt.currency)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {

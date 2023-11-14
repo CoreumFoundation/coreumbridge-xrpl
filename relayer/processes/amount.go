@@ -22,9 +22,9 @@ const (
 	XRPCurrency = "XRP"
 )
 
-// ConvertXRPLOriginTokenXRPLAmountToCoreumAmount converts the XRPL native token amount from XRPL to coreum amount
+// ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount converts the XRPL native token amount from XRPL to coreum amount
 // based on the currency type.
-func ConvertXRPLOriginTokenXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount) (sdkmath.Int, error) {
+func ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount) (sdkmath.Int, error) {
 	if xrplAmount.Value == nil {
 		return sdkmath.ZeroInt(), nil
 	}
@@ -43,9 +43,9 @@ func ConvertXRPLOriginTokenXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount
 	return sdkmath.NewIntFromBigInt(binIntAmount), nil
 }
 
-// ConvertXRPLOriginTokenCoreumAmountToXRPLAmount converts the XRPL originated token amount from coreum to XRPL amount
+// ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount converts the XRPL originated token amount from coreum to XRPL amount
 // based on the currency type.
-func ConvertXRPLOriginTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int, issuerString, currencyString string) (rippledata.Amount, error) {
+func ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int, issuerString, currencyString string) (rippledata.Amount, error) {
 	if isXRPToken(issuerString, currencyString) {
 		// format with exponent
 		amountString := big.NewFloat(0).SetInt(coreumAmount.BigInt()).Text('g', XRPLAmountPrec)

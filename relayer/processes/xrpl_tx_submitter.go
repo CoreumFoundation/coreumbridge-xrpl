@@ -221,6 +221,12 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation c
 	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult, xrpl.TerPreSeqTxResult:
 		s.log.Debug(ctx, "Transaction has been already submitted", logger.StringField("txHash", tx.GetHash().String()))
 		return nil
+	case xrpl.TecPathDryTxResult:
+		s.log.Info(
+			ctx,
+			"The transaction has been sent, but will be reverted since the provided path does not have enough liquidity or the receipt doesn't link by trust lines.",
+			logger.StringField("txHash", tx.GetHash().String()))
+		return nil
 	case xrpl.TecInsufficientReserveTxResult:
 		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
 		s.log.Error(ctx, "Insufficient reserve to complete the operation", logger.StringField("txHash", tx.GetHash().String()))
@@ -405,6 +411,12 @@ func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (
 		operation.OperationType.TrustSet.Issuer != "" &&
 		operation.OperationType.TrustSet.Currency != "":
 		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeAccount, operation)
+	case operation.OperationType.CoreumToXRPLTransfer != nil &&
+		operation.OperationType.CoreumToXRPLTransfer.Issuer != "" &&
+		operation.OperationType.CoreumToXRPLTransfer.Currency != "" &&
+		!operation.OperationType.CoreumToXRPLTransfer.Amount.IsZero() &&
+		operation.OperationType.CoreumToXRPLTransfer.Recipient != "":
+		return BuildCoreumToXRPLTransferPaymentTxForMultiSigning(s.cfg.BridgeAccount, operation)
 	default:
 		return nil, errors.Errorf("failed to process operation, unable to determin operation type, operation:%+v", operation)
 	}

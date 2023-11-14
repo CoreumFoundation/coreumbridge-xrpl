@@ -1,6 +1,9 @@
 package processes
 
 import (
+	"fmt"
+
+	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -35,7 +38,7 @@ func BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress rippledata.Account, op
 // BuildTrustSetTxForMultiSigning builds TrustSet transaction operation from the contract operation.
 func BuildTrustSetTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.TrustSet, error) {
 	trustSetType := operation.OperationType.TrustSet
-	value, err := ConvertXRPLOriginTokenCoreumAmountToXRPLAmount(
+	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
 		trustSetType.TrustSetLimitAmount,
 		trustSetType.Issuer,
 		trustSetType.Currency,
@@ -49,6 +52,42 @@ func BuildTrustSetTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operat
 			TransactionType: rippledata.TRUST_SET,
 		},
 		LimitAmount: value,
+	}
+	tx.TicketSequence = &operation.TicketSequence
+	// important for the multi-signing
+	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+
+	fee, err := GetTxFee(&tx)
+	if err != nil {
+		return nil, err
+	}
+	tx.TxBase.Fee = fee
+
+	return &tx, nil
+}
+
+// BuildCoreumToXRPLTransferPaymentTxForMultiSigning builds Payment transaction operation from the contract operation.
+func BuildCoreumToXRPLTransferPaymentTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.Payment, error) {
+	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
+	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+		coreumToXRPLTransferOperationType.Amount,
+		coreumToXRPLTransferOperationType.Issuer,
+		coreumToXRPLTransferOperationType.Currency,
+	)
+	if err != nil {
+		return nil, err
+	}
+	recipient, err := rippledata.NewAccountFromAddress(coreumToXRPLTransferOperationType.Recipient)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to convert XRPL recipient to rippledata.Account, recipient:%s", coreumToXRPLTransferOperationType.Recipient))
+	}
+	tx := rippledata.Payment{
+		Destination: *recipient,
+		TxBase: rippledata.TxBase{
+			Account:         bridgeXRPLAddress,
+			TransactionType: rippledata.PAYMENT,
+		},
+		Amount: value,
 	}
 	tx.TicketSequence = &operation.TicketSequence
 	// important for the multi-signing
