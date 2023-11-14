@@ -25,7 +25,7 @@ pub enum ContractError {
     #[error("InvalidThreshold: Threshold can not be higher than amount of relayers")]
     InvalidThreshold {},
 
-    #[error("InvalidXRPLAddress: XRPL address {} is not valid, must start with r, be alphanumeric, have a length between 25 and 35 and exclude '0', 'O', 'I' and 'L'", address)]
+    #[error("InvalidXRPLAddress: XRPL address {} is not valid, must start with r, be alphanumeric, have a length between 25 and 35 and exclude '0', 'O', 'I' and 'l'", address)]
     InvalidXRPLAddress { address: String },
 
     #[error("DuplicatedRelayerXRPLAddress: All relayers must have different XRPL addresses")]
