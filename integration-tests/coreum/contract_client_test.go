@@ -689,9 +689,9 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 			// register from the owner
 			_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, tt.sendingPrecision, tt.maxHoldingAmount)
 			require.NoError(t, err)
-			registerXRPLToken, err := contractClient.GetXRPLToken(ctx, issuer, currency)
+			registeredXRPLToken, err := contractClient.GetXRPLToken(ctx, issuer, currency)
 			require.NoError(t, err)
-			require.NotNil(t, registerXRPLToken)
+			require.NotNil(t, registeredXRPLToken)
 
 			// activate token
 			activateXRPLToken(ctx, t, contractClient, relayers, issuerAcc.String(), currency)
@@ -721,7 +721,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 
 			balanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 				Address: coreumRecipient.String(),
-				Denom:   registerXRPLToken.CoreumDenom,
+				Denom:   registeredXRPLToken.CoreumDenom,
 			})
 			require.NoError(t, err)
 			require.Equal(t, tt.wantReceivedAmount.String(), balanceRes.Balance.Amount.String())
@@ -1251,9 +1251,9 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 			// register from the owner
 			_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, tt.sendingPrecision, tt.maxHoldingAmount)
 			require.NoError(t, err)
-			registerXRPLToken, err := contractClient.GetXRPLToken(ctx, issuer, currency)
+			registeredXRPLToken, err := contractClient.GetXRPLToken(ctx, issuer, currency)
 			require.NoError(t, err)
-			require.NotNil(t, registerXRPLToken)
+			require.NotNil(t, registeredXRPLToken)
 
 			// activate token
 			activateXRPLToken(ctx, t, contractClient, relayers, issuerAcc.String(), currency)
@@ -1266,12 +1266,12 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 			sendFromXRPLToCoreum(ctx, t, contractClient, relayers, issuer, currency, tt.maxHoldingAmount, coreumSenderAddress)
 			coreumSenderBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 				Address: coreumSenderAddress.String(),
-				Denom:   registerXRPLToken.CoreumDenom,
+				Denom:   registeredXRPLToken.CoreumDenom,
 			})
 			require.NoError(t, err)
 			require.Equal(t, tt.maxHoldingAmount.String(), coreumSenderBalanceRes.Balance.Amount.String())
 
-			_, err = contractClient.SendToXRPL(ctx, coreumSenderAddress, xrplRecipient.String(), sdk.NewCoin(registerXRPLToken.CoreumDenom, tt.sendingAmount))
+			_, err = contractClient.SendToXRPL(ctx, coreumSenderAddress, xrplRecipient.String(), sdk.NewCoin(registeredXRPLToken.CoreumDenom, tt.sendingAmount))
 			if tt.wantIsAmountSentIsZeroAfterTruncationError {
 				require.True(t, coreum.IsAmountSentIsZeroAfterTruncationError(err), err)
 				return
