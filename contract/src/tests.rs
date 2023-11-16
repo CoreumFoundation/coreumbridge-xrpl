@@ -19,7 +19,7 @@ mod tests {
             PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
         },
         operation::{Operation, OperationType},
-        relayer::Relayer,
+        relayer::{Relayer, validate_xrpl_address},
         signatures::Signature,
         state::{Config, TokenState, XRPLToken as QueriedXRPLToken},
     };
@@ -61,7 +61,7 @@ mod tests {
         used_ticket_sequence_threshold: u32,
         trust_set_limit_amount: Uint128,
         issue_fee: Vec<Coin>,
-        xrpl_bridge_address: String,
+        bridge_xrpl_address: String,
     ) -> String {
         let wasm_byte_code = std::fs::read("../build/coreumbridge_xrpl.wasm").unwrap();
         let code_id = wasm
@@ -77,7 +77,7 @@ mod tests {
                 evidence_threshold,
                 used_ticket_sequence_threshold,
                 trust_set_limit_amount,
-                xrpl_bridge_address,
+                bridge_xrpl_address,
             },
             None,
             "coreumbridge-xrpl".into(),
@@ -216,7 +216,7 @@ mod tests {
                     evidence_threshold: 1,
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-                    xrpl_bridge_address: generate_xrpl_address(),
+                    bridge_xrpl_address: generate_xrpl_address(),
                 },
                 None,
                 "label".into(),
@@ -241,7 +241,7 @@ mod tests {
                     evidence_threshold: 1,
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-                    xrpl_bridge_address: generate_xrpl_address(),
+                    bridge_xrpl_address: generate_xrpl_address(),
                 },
                 None,
                 "label".into(),
@@ -266,7 +266,7 @@ mod tests {
                     evidence_threshold: 1,
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-                    xrpl_bridge_address: generate_xrpl_address(),
+                    bridge_xrpl_address: generate_xrpl_address(),
                 },
                 None,
                 "label".into(),
@@ -281,7 +281,7 @@ mod tests {
                 .as_str()
         ));
 
-        // We check that trying to instantiate with xrpl_bridge_address fails
+        // We check that trying to instantiate with invalid bridge_xrpl_address fails
         let invalid_address = "rf0BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(); //invalid because contains a 0
         let error = wasm
             .instantiate(
@@ -292,7 +292,7 @@ mod tests {
                     evidence_threshold: 1,
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-                    xrpl_bridge_address: invalid_address.to_owned(),
+                    bridge_xrpl_address: invalid_address.to_owned(),
                 },
                 None,
                 "label".into(),
@@ -319,7 +319,7 @@ mod tests {
                     evidence_threshold: 1,
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-                    xrpl_bridge_address: generate_xrpl_address(),
+                    bridge_xrpl_address: generate_xrpl_address(),
                 },
                 None,
                 "label".into(),
@@ -342,7 +342,7 @@ mod tests {
                     evidence_threshold: 1,
                     used_ticket_sequence_threshold: 1,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-                    xrpl_bridge_address: generate_xrpl_address(),
+                    bridge_xrpl_address: generate_xrpl_address(),
                 },
                 None,
                 "label".into(),
@@ -518,7 +518,7 @@ mod tests {
                 evidence_threshold: 1,
                 used_ticket_sequence_threshold: 50,
                 trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-                xrpl_bridge_address: multi_sig_address,
+                bridge_xrpl_address: multi_sig_address,
             }
         );
     }
@@ -1995,7 +1995,7 @@ mod tests {
         let multisig_address = wasm
             .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
             .unwrap()
-            .xrpl_bridge_address;
+            .bridge_xrpl_address;
 
         let query_coreum_tokens = wasm
             .query::<QueryMsg, CoreumTokensResponse>(
@@ -4033,5 +4033,36 @@ mod tests {
             hash_bytes(serde_json::to_string(&evidence3).unwrap().into_bytes()),
             hash_bytes(serde_json::to_string(&evidence4).unwrap().into_bytes()),
         );
+    }
+
+    #[test]
+    fn validate_xrpl_addresses() {
+        let valid_addresses = vec![
+            "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1".to_string(),
+            "rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD".to_string(),
+            "rBTwLga3i2gz3doX6Gva3MgEV8ZCD8jjah".to_string(),
+            "rDxMt25DoKeNv7te7WmLvWwsmMyPVBctUW".to_string(),
+            "rPbPkTSrAqANkoTFpwheTxRyT8EQ38U5ok".to_string(),
+            "rQ3fNyLjbvcDaPNS4EAJY8aT9zR3uGk17c".to_string(),
+            "rnATJKpFCsFGfEvMC3uVWHvCEJrh5QMuYE".to_string(),
+        ];
+
+        for address in valid_addresses {
+            validate_xrpl_address(address).unwrap();
+        }
+
+        let invalid_addresses = vec![
+            "zDTXLQ7ZKZVKz33zJbHjgVShjsBnqMBhmN".to_string(), // Invalid prefix
+            "rf1BiGeXwwQoi8Z2u".to_string(), // Too short
+            "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1hBBaU29".to_string(), // Too long
+            "rU6K7V3Po4snVhBBa029sesqs2qTQJWDw1".to_string(), // Contains invalid character 0
+            "rU6K7V3Po4snVhBBaU29sesql2qTQJWDw1".to_string(), // Contains invalid character l
+            "rLUEXYuLiQptky37OqLcm9USQpPiz5rkpD".to_string(), // Contains invalid character O
+            "rLUEXYuLiQpIky37CqLcm9USQpPiz5rkpD".to_string(), // Contains invalid character I
+        ];
+
+        for address in invalid_addresses {
+            validate_xrpl_address(address).unwrap_err();
+        }
     }
 }

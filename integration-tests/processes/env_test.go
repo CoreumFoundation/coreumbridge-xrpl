@@ -100,8 +100,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		cfg.SigningThreshold,
 		cfg.UsedTicketSequenceThreshold,
 		cfg.TrustSetLimitAmount,
-		// TODO(dzmitryhil): use the real bridge account address
-		chains.XRPL.GenAccount(ctx, t, 0).String(),
+		bridgeXRPLAddress.String(),
 	)
 
 	runners := make([]*runner.Runner, 0, cfg.RelayerNumber)

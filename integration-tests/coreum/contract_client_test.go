@@ -48,8 +48,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 1)
 
-	// TODO(dzmitryhil): use the real bridge account address
-	xrplBridgeAddress := chains.XRPL.GenAccount(ctx, t, 0).String()
+	bridgeXRPLAddress := chains.XRPL.GenAccount(ctx, t, 0).String()
 
 	usedTicketSequenceThreshold := 10
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
@@ -60,7 +59,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		len(relayers),
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
-		xrplBridgeAddress,
+		bridgeXRPLAddress,
 	)
 
 	contractCfg, err := contractClient.GetContractConfig(ctx)
@@ -71,7 +70,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		EvidenceThreshold:           len(relayers),
 		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
 		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
-		XRPLBridgeAddress:           xrplBridgeAddress,
+		BridgeXRPLAddress:           bridgeXRPLAddress,
 	}, contractCfg)
 
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
@@ -125,9 +124,6 @@ func TestChangeContractOwnership(t *testing.T) {
 	relayers := genRelayers(ctx, t, chains, 1)
 	usedTicketSequenceThreshold := 10
 
-	// TODO(dzmitryhil): use the real bridge account address
-	xrplBridgeAddress := chains.XRPL.GenAccount(ctx, t, 0).String()
-
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
 		t,
@@ -136,7 +132,7 @@ func TestChangeContractOwnership(t *testing.T) {
 		len(relayers),
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
-		xrplBridgeAddress,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
@@ -190,9 +186,6 @@ func TestRegisterCoreumToken(t *testing.T) {
 		Amount: sdkmath.NewInt(1_000_000),
 	})
 
-	// TODO(dzmitryhil): use the real bridge account address
-	xrplBridgeAddress := chains.XRPL.GenAccount(ctx, t, 0).String()
-
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
 		t,
@@ -201,7 +194,7 @@ func TestRegisterCoreumToken(t *testing.T) {
 		len(relayers),
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
-		xrplBridgeAddress,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 
 	denom1 := "denom1"
@@ -292,9 +285,6 @@ func TestRegisterXRPLToken(t *testing.T) {
 		Amount: issueFee.Amount.AddRaw(1_000_000),
 	})
 
-	// TODO(dzmitryhil): use the real bridge account address
-	xrplBridgeAddress := chains.XRPL.GenAccount(ctx, t, 0).String()
-
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
 		t,
@@ -303,7 +293,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 		len(relayers),
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
-		xrplBridgeAddress,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 
 	// fund owner to cover issuance fees twice
@@ -488,8 +478,6 @@ func TestSendFromXRPLToCoreumXRPLOriginToken(t *testing.T) {
 	})
 
 	usedTicketSequenceThreshold := 3
-	// TODO(dzmitryhil): use the real bridge account address
-	xrplBridgeAddress := chains.XRPL.GenAccount(ctx, t, 0).String()
 
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
@@ -499,7 +487,7 @@ func TestSendFromXRPLToCoreumXRPLOriginToken(t *testing.T) {
 		len(relayers),
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
-		xrplBridgeAddress,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 	// fund owner to cover issuance fees twice
@@ -608,8 +596,6 @@ func TestSendFromXRPLToCoreumXRPLOriginTokenWithDifferentSendingPrecision(t *tes
 	coreumRecipient := chains.Coreum.GenAccount()
 
 	usedTicketSequenceThreshold := 10
-	// TODO(dzmitryhil): use the real bridge account address
-	xrplBridgeAddress := chains.XRPL.GenAccount(ctx, t, 0).String()
 
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
@@ -619,7 +605,7 @@ func TestSendFromXRPLToCoreumXRPLOriginTokenWithDifferentSendingPrecision(t *tes
 		len(relayers),
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
-		xrplBridgeAddress,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 	// register tickets
 	allocateInitialTickets(ctx, t, contractClient, owner, relayers)
@@ -769,8 +755,6 @@ func TestRecoverTickets(t *testing.T) {
 	ctx, chains := integrationtests.NewTestingContext(t)
 
 	relayers := genRelayers(ctx, t, chains, 3)
-	// TODO(dzmitryhil): use the real bridge account address
-	xrplBridgeAddress := chains.XRPL.GenAccount(ctx, t, 0).String()
 
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
@@ -780,7 +764,7 @@ func TestRecoverTickets(t *testing.T) {
 		2,
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
-		xrplBridgeAddress,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 
 	// ********** Ticket allocation / Recovery **********

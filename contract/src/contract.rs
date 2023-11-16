@@ -75,7 +75,7 @@ pub fn instantiate(
 
     validate_relayers(&deps, msg.relayers.clone())?;
 
-    validate_xrpl_address(msg.xrpl_bridge_address.to_owned())?;
+    validate_xrpl_address(msg.bridge_xrpl_address.to_owned())?;
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
@@ -100,7 +100,7 @@ pub fn instantiate(
         evidence_threshold: msg.evidence_threshold,
         used_ticket_sequence_threshold: msg.used_ticket_sequence_threshold,
         trust_set_limit_amount: msg.trust_set_limit_amount,
-        xrpl_bridge_address: msg.xrpl_bridge_address,
+        bridge_xrpl_address: msg.bridge_xrpl_address,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -630,7 +630,7 @@ fn send_to_xrpl(
             let config = CONFIG.load(deps.storage)?;
 
             decimals = coreum_token.decimals;
-            issuer = config.xrpl_bridge_address;
+            issuer = config.bridge_xrpl_address;
             currency = coreum_token.xrpl_currency;
             amount_to_send =
                 truncate_amount(coreum_token.sending_precision, decimals, funds.amount)?;

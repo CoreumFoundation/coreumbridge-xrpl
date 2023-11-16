@@ -103,7 +103,7 @@ type InstantiationConfig struct {
 	EvidenceThreshold           int
 	UsedTicketSequenceThreshold int
 	TrustSetLimitAmount         sdkmath.Int
-	XRPLBridgeAddress           string
+	BridgeXRPLAddress           string
 }
 
 // ContractConfig is contract config.
@@ -112,7 +112,7 @@ type ContractConfig struct {
 	EvidenceThreshold           int         `json:"evidence_threshold"`
 	UsedTicketSequenceThreshold int         `json:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         sdkmath.Int `json:"trust_set_limit_amount"`
-	XRPLBridgeAddress           string      `json:"xrpl_bridge_address"`
+	BridgeXRPLAddress           string      `json:"bridge_xrpl_address"`
 }
 
 // ContractOwnership is owner contract config.
@@ -219,7 +219,7 @@ type instantiateRequest struct {
 	EvidenceThreshold           int            `json:"evidence_threshold"`
 	UsedTicketSequenceThreshold int            `json:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         sdkmath.Int    `json:"trust_set_limit_amount"`
-	XRPLBridgeAddress           string         `json:"xrpl_bridge_address"`
+	BridgeXRPLAddress           string         `json:"bridge_xrpl_address"`
 }
 
 type transferOwnershipRequest struct {
@@ -378,7 +378,7 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 		EvidenceThreshold:           config.EvidenceThreshold,
 		UsedTicketSequenceThreshold: config.UsedTicketSequenceThreshold,
 		TrustSetLimitAmount:         config.TrustSetLimitAmount,
-		XRPLBridgeAddress:           config.XRPLBridgeAddress,
+		BridgeXRPLAddress:           config.BridgeXRPLAddress,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal instantiate payload")

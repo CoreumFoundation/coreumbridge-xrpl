@@ -18,7 +18,7 @@ pub struct InstantiateMsg {
     // Trust set limit amount that will be used when registering XRPL tokens
     pub trust_set_limit_amount: Uint128,
     // Address of multisig account on the XRPL
-    pub xrpl_bridge_address: String,
+    pub bridge_xrpl_address: String,
 }
 
 #[cw_ownable_execute]

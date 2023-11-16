@@ -38,7 +38,7 @@ pub struct Config {
     pub evidence_threshold: u32,
     pub used_ticket_sequence_threshold: u32,
     pub trust_set_limit_amount: Uint128,
-    pub xrpl_bridge_address: String,
+    pub bridge_xrpl_address: String,
 }
 
 #[cw_serde]
