@@ -252,7 +252,7 @@ fn register_coreum_token(
         xrpl_currency: xrpl_currency.clone(),
         sending_precision,
         max_holding_amount,
-        // All registered Coreum originated tokens will start as enabled because they don't need a TrustSet operation to be bridged
+        // All registered Coreum originated tokens will start as enabled because they don't need a TrustSet operation to be bridged because issuer for such tokens is bridge address
         state: TokenState::Enabled,
     };
     COREUM_TOKENS.save(deps.storage, denom.clone(), &token)?;
@@ -624,7 +624,7 @@ fn send_to_xrpl(
                 .map_err(|_| ContractError::TokenNotRegistered {})?;
 
             if coreum_token.state.ne(&TokenState::Enabled) {
-                return Err(ContractError::CoreumTokenDisabled {});
+                return Err(ContractError::CoreumOriginatedTokenDisabled {});
             }
 
             let config = CONFIG.load(deps.storage)?;

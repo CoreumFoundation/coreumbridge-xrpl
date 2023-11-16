@@ -494,7 +494,7 @@ mod tests {
             xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
-        let multi_sig_address = generate_xrpl_address();
+        let multisig_address = generate_xrpl_address();
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
@@ -504,7 +504,7 @@ mod tests {
             50,
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
-            multi_sig_address.to_owned(),
+            multisig_address.to_owned(),
         );
 
         let query_config = wasm
@@ -518,7 +518,7 @@ mod tests {
                 evidence_threshold: 1,
                 used_ticket_sequence_threshold: 50,
                 trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-                bridge_xrpl_address: multi_sig_address,
+                bridge_xrpl_address: multisig_address,
             }
         );
     }
@@ -1981,7 +1981,7 @@ mod tests {
         .unwrap();
 
         let amount_to_send = Uint128::new(1000000);
-        // Bridge the token to the sender address and check pending operatinos
+        // Bridge the token to the sender address and check pending operations
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
