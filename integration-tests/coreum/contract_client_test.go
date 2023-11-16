@@ -926,7 +926,7 @@ func TestRecoverTickets(t *testing.T) {
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
-	require.Len(t, pendingOperations, 0)
+	require.Empty(t, pendingOperations)
 
 	availableTickets, err = contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
@@ -953,7 +953,7 @@ func TestRecoverTickets(t *testing.T) {
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
-	require.Len(t, pendingOperations, 0)
+	require.Empty(t, pendingOperations)
 
 	availableTickets, err = contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
@@ -971,7 +971,7 @@ func TestRecoverTickets(t *testing.T) {
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
-	require.Len(t, pendingOperations, 0)
+	require.Empty(t, pendingOperations)
 
 	// ********** Ticket allocation after previous failure / Recovery **********
 
@@ -1014,7 +1014,7 @@ func TestRecoverTickets(t *testing.T) {
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
-	require.Len(t, pendingOperations, 0)
+	require.Empty(t, pendingOperations)
 
 	availableTickets, err = contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
