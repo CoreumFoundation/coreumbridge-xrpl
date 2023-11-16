@@ -130,7 +130,7 @@ func TestRegisterXRPLOriginatedTokensAndSendFromXRPLToCoreum(t *testing.T) {
 	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLHexCurrencyToken.CoreumDenom, integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9.9", XRPLTokenDecimals)))
 }
 
-func TestSendFromXRPLToCoreumXRPLOriginatedWithMaliciousRelayer(t *testing.T) {
+func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithMaliciousRelayer(t *testing.T) {
 	t.Parallel()
 
 	ctx, chains := integrationtests.NewTestingContext(t)

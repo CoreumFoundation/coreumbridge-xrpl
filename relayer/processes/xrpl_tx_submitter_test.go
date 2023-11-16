@@ -243,7 +243,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 		},
 		{
-			name: "resister_signature_for_create_ticket_tx",
+			name: "register_signature_for_create_ticket_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
 				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{allocateTicketOperationWithoutSignatures}, nil)
@@ -297,7 +297,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 		},
 		{
-			name: "resister_invalid_create_ticket_tx",
+			name: "register_invalid_create_ticket_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
 				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{allocateTicketOperationWithUnexpectedSequencNumber}, nil)
@@ -320,7 +320,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 		},
 		{
-			name: "resister_signature_for_trust_set_tx",
+			name: "register_signature_for_trust_set_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
 				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{trustSetOperationWithoutSignatures}, nil)
@@ -373,7 +373,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 		},
 		{
-			name: "resister_signature_for_coreum_to_XRPL_transfer_payment_tx",
+			name: "register_signature_for_coreum_to_XRPL_transfer_payment_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
 				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{coreumToXRPLTransferOperationWithoutSignatures}, nil)

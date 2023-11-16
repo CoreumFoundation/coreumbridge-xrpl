@@ -405,19 +405,32 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 
 func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (MultiSignableTransaction, error) {
 	switch {
-	case operation.OperationType.AllocateTickets != nil && operation.OperationType.AllocateTickets.Number > 0:
+	case isAllocateTicketsOperation(operation):
 		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeAccount, operation)
-	case operation.OperationType.TrustSet != nil &&
-		operation.OperationType.TrustSet.Issuer != "" &&
-		operation.OperationType.TrustSet.Currency != "":
+	case isTrustSetOperation(operation):
 		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeAccount, operation)
-	case operation.OperationType.CoreumToXRPLTransfer != nil &&
-		operation.OperationType.CoreumToXRPLTransfer.Issuer != "" &&
-		operation.OperationType.CoreumToXRPLTransfer.Currency != "" &&
-		!operation.OperationType.CoreumToXRPLTransfer.Amount.IsZero() &&
-		operation.OperationType.CoreumToXRPLTransfer.Recipient != "":
+	case isCoreumToXRPLTransfer(operation):
 		return BuildCoreumToXRPLTransferPaymentTxForMultiSigning(s.cfg.BridgeAccount, operation)
 	default:
 		return nil, errors.Errorf("failed to process operation, unable to determin operation type, operation:%+v", operation)
 	}
+}
+
+func isAllocateTicketsOperation(operation coreum.Operation) bool {
+	return operation.OperationType.AllocateTickets != nil &&
+		operation.OperationType.AllocateTickets.Number > 0
+}
+
+func isTrustSetOperation(operation coreum.Operation) bool {
+	return operation.OperationType.TrustSet != nil &&
+		operation.OperationType.TrustSet.Issuer != "" &&
+		operation.OperationType.TrustSet.Currency != ""
+}
+
+func isCoreumToXRPLTransfer(operation coreum.Operation) bool {
+	return operation.OperationType.CoreumToXRPLTransfer != nil &&
+		operation.OperationType.CoreumToXRPLTransfer.Issuer != "" &&
+		operation.OperationType.CoreumToXRPLTransfer.Currency != "" &&
+		!operation.OperationType.CoreumToXRPLTransfer.Amount.IsZero() &&
+		operation.OperationType.CoreumToXRPLTransfer.Recipient != ""
 }

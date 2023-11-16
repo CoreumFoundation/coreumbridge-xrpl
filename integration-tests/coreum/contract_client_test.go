@@ -297,7 +297,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	maxHoldingAmount := sdk.NewIntFromUint64(10000)
 
 	// recover tickets so that we can create a pending operation to activate the token
-	allocateInitialTickets(ctx, t, contractClient, owner, relayers, 100)
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 
 	// try to register from not owner
 	_, err := contractClient.RegisterXRPLToken(ctx, notOwner, issuer, inactiveCurrency, sendingPrecision, maxHoldingAmount)
@@ -487,7 +487,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 	maxHoldingAmount := sdk.NewIntFromUint64(10000)
 
 	// recover tickets so that we can create a pending operation to activate the token
-	allocateInitialTickets(ctx, t, contractClient, owner, relayers, 100)
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 
 	// register from the owner
 	_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
@@ -590,7 +590,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		defaultTrustSetLimitAmount,
 	)
 	// register tickets
-	allocateInitialTickets(ctx, t, contractClient, owner, relayers, 100)
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 
@@ -1042,7 +1042,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	maxHoldingAmount := sdk.NewIntFromUint64(1_000_000_000)
 
 	// recover tickets so that we can create a pending operation to activate the token
-	allocateInitialTickets(ctx, t, contractClient, owner, relayers, 5)
+	recoverTickets(ctx, t, contractClient, owner, relayers, 5)
 
 	// register new token
 	_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
@@ -1161,7 +1161,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		defaultTrustSetLimitAmount,
 	)
 	// register tickets
-	allocateInitialTickets(ctx, t, contractClient, owner, relayers, 100)
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 
 	tests := []struct {
@@ -1294,16 +1294,16 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 	}
 }
 
-func allocateInitialTickets(
+func recoverTickets(
 	ctx context.Context,
 	t *testing.T,
 	contractClient *coreum.ContractClient,
 	owner sdk.AccAddress,
 	relayers []coreum.Relayer,
-	numberOfTicketsToInit uint32,
+	numberOfTickets uint32,
 ) {
 	bridgeXRPLAccountFirstSeqNumber := uint32(1)
-	_, err := contractClient.RecoverTickets(ctx, owner, bridgeXRPLAccountFirstSeqNumber, &numberOfTicketsToInit)
+	_, err := contractClient.RecoverTickets(ctx, owner, bridgeXRPLAccountFirstSeqNumber, &numberOfTickets)
 	require.NoError(t, err)
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
@@ -1312,7 +1312,7 @@ func allocateInitialTickets(
 			AccountSequence:   &bridgeXRPLAccountFirstSeqNumber,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
-		Tickets: lo.RepeatBy(int(numberOfTicketsToInit), func(index int) uint32 {
+		Tickets: lo.RepeatBy(int(numberOfTickets), func(index int) uint32 {
 			return uint32(index + 1)
 		}),
 	}
