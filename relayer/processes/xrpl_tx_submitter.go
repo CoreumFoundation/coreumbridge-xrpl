@@ -218,7 +218,7 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation c
 	}
 
 	switch txRes.EngineResult.String() {
-	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult, xrpl.TerPreSeqTxResult:
+	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult:
 		s.log.Debug(ctx, "Transaction has been already submitted", logger.StringField("txHash", tx.GetHash().String()))
 		return nil
 	case xrpl.TecInsufficientReserveTxResult:
