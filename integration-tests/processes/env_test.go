@@ -100,6 +100,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		cfg.SigningThreshold,
 		cfg.UsedTicketSequenceThreshold,
 		cfg.TrustSetLimitAmount,
+		bridgeXRPLAddress.String(),
 	)
 
 	runners := make([]*runner.Runner, 0, cfg.RelayerNumber)
