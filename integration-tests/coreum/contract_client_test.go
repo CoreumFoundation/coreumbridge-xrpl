@@ -721,6 +721,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 				_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer.CoreumAddress, xrplToCoreumTransferEvidence)
 				if tt.wantIsAmountSentIsZeroAfterTruncationError {
 					require.True(t, coreum.IsAmountSentIsZeroAfterTruncationError(err), err)
+					return
 				}
 				if tt.wantIsMaximumBridgedAmountReachedError {
 					require.True(t, coreum.IsMaximumBridgedAmountReachedError(err), err)
@@ -1288,6 +1289,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 			_, err = contractClient.SendToXRPL(ctx, coreumSenderAddress, xrplRecipient.String(), sdk.NewCoin(registeredXRPLToken.CoreumDenom, tt.sendingAmount))
 			if tt.wantIsAmountSentIsZeroAfterTruncationError {
 				require.True(t, coreum.IsAmountSentIsZeroAfterTruncationError(err), err)
+				return
 			}
 			require.NoError(t, err)
 
