@@ -24,6 +24,7 @@ func DeployAndInstantiateContract(
 	evidenceThreshold int,
 	usedTicketSequenceThreshold int,
 	trustSetLimitAmount sdkmath.Int,
+	bridgeXRPLAddress string,
 ) (sdk.AccAddress, *coreum.ContractClient) {
 	t.Helper()
 
@@ -44,6 +45,7 @@ func DeployAndInstantiateContract(
 		EvidenceThreshold:           evidenceThreshold,
 		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
 		TrustSetLimitAmount:         trustSetLimitAmount,
+		BridgeXRPLAddress:           bridgeXRPLAddress,
 	}
 	contractAddress, err := contractClient.DeployAndInstantiate(ctx, owner, readBuiltContract(t), instantiationCfg)
 	require.NoError(t, err)

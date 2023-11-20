@@ -48,6 +48,8 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 1)
 
+	bridgeXRPLAddress := chains.XRPL.GenAccount(ctx, t, 0).String()
+
 	usedTicketSequenceThreshold := 10
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
@@ -57,6 +59,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		len(relayers),
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
+		bridgeXRPLAddress,
 	)
 
 	contractCfg, err := contractClient.GetContractConfig(ctx)
@@ -67,6 +70,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		EvidenceThreshold:           len(relayers),
 		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
 		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
+		BridgeXRPLAddress:           bridgeXRPLAddress,
 	}, contractCfg)
 
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
@@ -127,6 +131,7 @@ func TestChangeContractOwnership(t *testing.T) {
 		len(relayers),
 		10,
 		defaultTrustSetLimitAmount,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
@@ -187,21 +192,24 @@ func TestRegisterCoreumToken(t *testing.T) {
 		len(relayers),
 		10,
 		defaultTrustSetLimitAmount,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 
 	denom1 := "denom1"
 	denom1Decimals := uint32(17)
+	sendingPrecision := int32(15)
+	maxHoldingAmount := sdk.NewIntFromUint64(10000)
 
 	// try to register from not owner
-	_, err := contractClient.RegisterCoreumToken(ctx, notOwner, denom1, denom1Decimals)
+	_, err := contractClient.RegisterCoreumToken(ctx, notOwner, denom1, denom1Decimals, sendingPrecision, maxHoldingAmount)
 	require.True(t, coreum.IsNotOwnerError(err), err)
 
 	// register from the owner
-	_, err = contractClient.RegisterCoreumToken(ctx, owner, denom1, denom1Decimals)
+	_, err = contractClient.RegisterCoreumToken(ctx, owner, denom1, denom1Decimals, sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 
 	// try to register the same denom one more time
-	_, err = contractClient.RegisterCoreumToken(ctx, owner, denom1, denom1Decimals)
+	_, err = contractClient.RegisterCoreumToken(ctx, owner, denom1, denom1Decimals, sendingPrecision, maxHoldingAmount)
 	require.True(t, coreum.IsCoreumTokenAlreadyRegisteredError(err), err)
 
 	coreumTokens, err := contractClient.GetCoreumTokens(ctx)
@@ -282,6 +290,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 		len(relayers),
 		3,
 		defaultTrustSetLimitAmount,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 
 	// fund owner to cover issuance fees twice
@@ -473,6 +482,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		len(relayers),
 		3,
 		defaultTrustSetLimitAmount,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 	// fund owner to cover issuance fees
@@ -588,6 +598,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		len(relayers),
 		10,
 		defaultTrustSetLimitAmount,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 	// register tickets
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
@@ -738,6 +749,7 @@ func TestRecoverTickets(t *testing.T) {
 	ctx, chains := integrationtests.NewTestingContext(t)
 
 	relayers := genRelayers(ctx, t, chains, 3)
+
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
 		t,
@@ -746,6 +758,7 @@ func TestRecoverTickets(t *testing.T) {
 		2,
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
+		chains.XRPL.GenAccount(ctx, t, 0).String(),
 	)
 
 	// ********** Ticket allocation / Recovery **********
@@ -907,7 +920,7 @@ func TestRecoverTickets(t *testing.T) {
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
-	require.Len(t, pendingOperations, 0)
+	require.Empty(t, pendingOperations)
 
 	availableTickets, err = contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
@@ -934,7 +947,7 @@ func TestRecoverTickets(t *testing.T) {
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
-	require.Len(t, pendingOperations, 0)
+	require.Empty(t, pendingOperations)
 
 	availableTickets, err = contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
@@ -952,7 +965,7 @@ func TestRecoverTickets(t *testing.T) {
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
-	require.Len(t, pendingOperations, 0)
+	require.Empty(t, pendingOperations)
 
 	// ********** Ticket allocation after previous failure / Recovery **********
 
@@ -995,7 +1008,7 @@ func TestRecoverTickets(t *testing.T) {
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
-	require.Len(t, pendingOperations, 0)
+	require.Empty(t, pendingOperations)
 
 	availableTickets, err = contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)

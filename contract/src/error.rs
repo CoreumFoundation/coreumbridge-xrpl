@@ -25,7 +25,7 @@ pub enum ContractError {
     #[error("InvalidThreshold: Threshold can not be higher than amount of relayers")]
     InvalidThreshold {},
 
-    #[error("InvalidXRPLAddress: XRPL address {} is not valid, must start with r and have a length between 24 and 34", address)]
+    #[error("InvalidXRPLAddress: XRPL address {} is not valid", address)]
     InvalidXRPLAddress { address: String },
 
     #[error("DuplicatedRelayerXRPLAddress: All relayers must have different XRPL addresses")]
@@ -123,6 +123,9 @@ pub enum ContractError {
 
     #[error("XRPLTokenNotEnabled: This token must be enabled to be bridged")]
     XRPLTokenNotEnabled {},
+
+    #[error("CoreumOriginatedTokenDisabled: This token is currently disabled and can't be bridged")]
+    CoreumOriginatedTokenDisabled {},
 
     #[error("XRPLTokenNotInProcessing: This token must be in processing state to be enabled")]
     XRPLTokenNotInProcessing {},

@@ -143,8 +143,16 @@ impl Evidence {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
                     }
-                    OperationResult::TrustSet { .. } => (),
-                    OperationResult::CoreumToXRPLTransfer { .. } =>(),
+                    OperationResult::TrustSet { .. } => {
+                        if account_sequence.is_some() {
+                            return Err(ContractError::InvalidTransactionResultEvidence {});
+                        }
+                    }
+                    OperationResult::CoreumToXRPLTransfer { .. } => {
+                        if account_sequence.is_some() {
+                            return Err(ContractError::InvalidTransactionResultEvidence {});
+                        }
+                    }
                 }
 
                 Ok(())
