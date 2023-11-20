@@ -252,7 +252,7 @@ func (c XRPLChain) SubmitTx(ctx context.Context, t *testing.T, tx rippledata.Tra
 	})
 }
 
-// GetAccountBalance returns account balance for the provides issuer and currency.
+// GetAccountBalance returns account balance for the provided issuer and currency.
 func (c XRPLChain) GetAccountBalance(ctx context.Context, t *testing.T, account, issuer rippledata.Account, currency rippledata.Currency) rippledata.Amount {
 	return c.GetAccountBalances(ctx, t, account)[fmt.Sprintf("%s/%s", currency.String(), issuer.String())]
 }

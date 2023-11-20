@@ -412,7 +412,7 @@ func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (
 	case isCoreumToXRPLTransfer(operation):
 		return BuildCoreumToXRPLTransferPaymentTxForMultiSigning(s.cfg.BridgeAccount, operation)
 	default:
-		return nil, errors.Errorf("failed to process operation, unable to determin operation type, operation:%+v", operation)
+		return nil, errors.Errorf("failed to process operation, unable to determine operation type, operation:%+v", operation)
 	}
 }
 
