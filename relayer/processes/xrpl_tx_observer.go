@@ -269,15 +269,11 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.C
 // tefMAX_LEDGER Final when a validated ledger has a ledger index higher than the transaction's LastLedgerSequence field, and no validated ledger includes the transaction.
 func txIsFinal(tx rippledata.TransactionWithMetaData) bool {
 	txResult := tx.MetaData.TransactionResult
-	if tx.MetaData.TransactionResult.Success() ||
+	return tx.MetaData.TransactionResult.Success() ||
 		strings.HasPrefix(txResult.String(), xrpl.TecTxResultPrefix) ||
 		strings.HasPrefix(txResult.String(), xrpl.TemTxResultPrefix) ||
 		txResult.String() == xrpl.TefPastSeqTxResult ||
-		txResult.String() == xrpl.TefMaxLedgerTxResult {
-		return true
-	}
-
-	return false
+		txResult.String() == xrpl.TefMaxLedgerTxResult
 }
 
 func extractTicketSequencesFromMetaData(metaData rippledata.MetaData) []uint32 {
