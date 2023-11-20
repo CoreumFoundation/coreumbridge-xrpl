@@ -136,8 +136,8 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 	// ********** TrustSet **********
 
 	trustSetOperationWithoutSignatures := coreum.Operation{
-		AccountSequence: 1,
-		Signatures:      nil,
+		TicketSequence: 1,
+		Signatures:     nil,
 		OperationType: coreum.OperationType{
 			TrustSet: &coreum.OperationTypeTrustSet{
 				Issuer:              xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -180,6 +180,54 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 		trustSetOperationSigner2,
 	}
 
+	// ********** coreumToXRPLTransfer **********
+
+	coreumToXRPLTransferOperationWithoutSignatures := coreum.Operation{
+		TicketSequence: 1,
+		Signatures:     nil,
+		OperationType: coreum.OperationType{
+			CoreumToXRPLTransfer: &coreum.OperationTypeCoreumToXRPLTransfer{
+				Issuer:    xrpl.GenPrivKeyTxSigner().Account().String(),
+				Currency:  "TRC",
+				Amount:    sdkmath.NewIntFromUint64(123),
+				Recipient: xrpl.GenPrivKeyTxSigner().Account().String(),
+			},
+		},
+	}
+
+	coreumToXRPLTransferOperationWithSignatures := coreumToXRPLTransferOperationWithoutSignatures
+	coreumToXRPLTransferOperationSigner1 := multiSignCoreumToXRPLTransferOperation(
+		t,
+		xrplRelayer1Signer,
+		bridgeXRPLAddress,
+		coreumToXRPLTransferOperationWithSignatures,
+	)
+	coreumToXRPLTransferOperationSigner2 := multiSignCoreumToXRPLTransferOperation(
+		t,
+		xrplRelayer2Signer,
+		bridgeXRPLAddress,
+		coreumToXRPLTransferOperationWithSignatures,
+	)
+	coreumToXRPLTransferOperationWithSignatures.Signatures = []coreum.Signature{
+		{
+			RelayerCoreumAddress: coreumRelayer1Address,
+			Signature:            coreumToXRPLTransferOperationSigner1.Signer.TxnSignature.String(),
+		},
+		{
+			RelayerCoreumAddress: coreumRelayer2Address,
+			Signature:            coreumToXRPLTransferOperationSigner2.Signer.TxnSignature.String(),
+		},
+		{
+			RelayerCoreumAddress: coreumRelayer3Address,
+			// the signature is taken from the first signer, so it is invalid
+			Signature: coreumToXRPLTransferOperationSigner1.Signer.TxnSignature.String(),
+		},
+	}
+	coreumToXRPLTransferOperationWithSignaturesSigners := []rippledata.Signer{
+		coreumToXRPLTransferOperationSigner1,
+		coreumToXRPLTransferOperationSigner2,
+	}
+
 	tests := []struct {
 		name                  string
 		contractClientBuilder func(ctrl *gomock.Controller) processes.ContractClient
@@ -195,7 +243,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 		},
 		{
-			name: "resister_signature_for_create_ticket_tx",
+			name: "register_signature_for_create_ticket_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
 				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{allocateTicketOperationWithoutSignatures}, nil)
@@ -249,7 +297,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 		},
 		{
-			name: "resister_invalid_create_ticket_tx",
+			name: "register_invalid_create_ticket_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
 				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{allocateTicketOperationWithUnexpectedSequencNumber}, nil)
@@ -272,14 +320,14 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 		},
 		{
-			name: "resister_signature_for_trust_set_tx",
+			name: "register_signature_for_trust_set_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
 				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{trustSetOperationWithoutSignatures}, nil)
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
-				contractClientMock.EXPECT().SaveSignature(gomock.Any(), coreumRelayer1Address, trustSetOperationWithoutSignatures.AccountSequence, trustSetOperationSigner1.Signer.TxnSignature.String())
+				contractClientMock.EXPECT().SaveSignature(gomock.Any(), coreumRelayer1Address, trustSetOperationWithoutSignatures.TicketSequence, trustSetOperationSigner1.Signer.TxnSignature.String())
 				return contractClientMock
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
@@ -312,6 +360,59 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 				expectedTx, err := processes.BuildTrustSetTxForMultiSigning(bridgeXRPLAddress, trustSetOperationWithSignatures)
 				require.NoError(t, err)
 				require.NoError(t, rippledata.SetSigners(expectedTx, trustSetOperationWithSignaturesSigners...))
+				xrplRPCClientMock.EXPECT().Submit(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error) {
+					_, expectedTxRaw, err := rippledata.Raw(expectedTx)
+					require.NoError(t, err)
+					_, txRaw, err := rippledata.Raw(tx)
+					require.NoError(t, err)
+					require.Equal(t, expectedTxRaw, txRaw)
+					return xrpl.SubmitResult{}, nil
+				})
+
+				return xrplRPCClientMock
+			},
+		},
+		{
+			name: "register_signature_for_coreum_to_XRPL_transfer_payment_tx",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{coreumToXRPLTransferOperationWithoutSignatures}, nil)
+				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
+					Relayers: contractRelayers,
+				}, nil)
+				contractClientMock.EXPECT().SaveSignature(gomock.Any(), coreumRelayer1Address, coreumToXRPLTransferOperationWithoutSignatures.TicketSequence, coreumToXRPLTransferOperationSigner1.Signer.TxnSignature.String())
+				return contractClientMock
+			},
+			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
+				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
+				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), bridgeXRPLAddress).Return(bridgeXRPLSignerAccountWithSigners, nil)
+				return xrplRPCClientMock
+			},
+			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
+				xrplTxSignerMock := NewMockXRPLTxSigner(ctrl)
+				tx, err := processes.BuildCoreumToXRPLTransferPaymentTxForMultiSigning(bridgeXRPLAddress, coreumToXRPLTransferOperationWithoutSignatures)
+				require.NoError(t, err)
+				xrplTxSignerMock.EXPECT().MultiSign(tx, xrplTxSignerKeyName).Return(coreumToXRPLTransferOperationSigner1, nil)
+
+				return xrplTxSignerMock
+			},
+		},
+		{
+			name: "submit_coreum_to_XRPL_transfer_payment_tx_with_filtered_signature",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{coreumToXRPLTransferOperationWithSignatures}, nil)
+				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
+					Relayers: contractRelayers,
+				}, nil)
+				return contractClientMock
+			},
+			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
+				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
+				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), bridgeXRPLAddress).Return(bridgeXRPLSignerAccountWithSigners, nil)
+				expectedTx, err := processes.BuildCoreumToXRPLTransferPaymentTxForMultiSigning(bridgeXRPLAddress, coreumToXRPLTransferOperationWithSignatures)
+				require.NoError(t, err)
+				require.NoError(t, rippledata.SetSigners(expectedTx, coreumToXRPLTransferOperationWithSignaturesSigners...))
 				xrplRPCClientMock.EXPECT().Submit(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error) {
 					_, expectedTxRaw, err := rippledata.Raw(expectedTx)
 					require.NoError(t, err)
@@ -387,6 +488,20 @@ func multiSignTrustSetOperation(
 	operation coreum.Operation,
 ) rippledata.Signer {
 	tx, err := processes.BuildTrustSetTxForMultiSigning(bridgeXRPLAcc, operation)
+	require.NoError(t, err)
+	signer, err := relayerXRPLSigner.MultiSign(tx)
+	require.NoError(t, err)
+
+	return signer
+}
+
+func multiSignCoreumToXRPLTransferOperation(
+	t *testing.T,
+	relayerXRPLSigner *xrpl.PrivKeyTxSigner,
+	bridgeXRPLAcc rippledata.Account,
+	operation coreum.Operation,
+) rippledata.Signer {
+	tx, err := processes.BuildCoreumToXRPLTransferPaymentTxForMultiSigning(bridgeXRPLAcc, operation)
 	require.NoError(t, err)
 	signer, err := relayerXRPLSigner.MultiSign(tx)
 	require.NoError(t, err)

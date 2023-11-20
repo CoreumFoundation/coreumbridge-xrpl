@@ -221,6 +221,12 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation c
 	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult, xrpl.TerPreSeqTxResult:
 		s.log.Debug(ctx, "Transaction has been already submitted", logger.StringField("txHash", tx.GetHash().String()))
 		return nil
+	case xrpl.TecPathDryTxResult:
+		s.log.Info(
+			ctx,
+			"The transaction has been sent, but will be reverted since the provided path does not have enough liquidity or the receipt doesn't link by trust lines.",
+			logger.StringField("txHash", tx.GetHash().String()))
+		return nil
 	case xrpl.TecInsufficientReserveTxResult:
 		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
 		s.log.Error(ctx, "Insufficient reserve to complete the operation", logger.StringField("txHash", tx.GetHash().String()))
@@ -399,13 +405,32 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 
 func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (MultiSignableTransaction, error) {
 	switch {
-	case operation.OperationType.AllocateTickets != nil && operation.OperationType.AllocateTickets.Number > 0:
+	case isAllocateTicketsOperation(operation):
 		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeAccount, operation)
-	case operation.OperationType.TrustSet != nil &&
-		operation.OperationType.TrustSet.Issuer != "" &&
-		operation.OperationType.TrustSet.Currency != "":
+	case isTrustSetOperation(operation):
 		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeAccount, operation)
+	case isCoreumToXRPLTransfer(operation):
+		return BuildCoreumToXRPLTransferPaymentTxForMultiSigning(s.cfg.BridgeAccount, operation)
 	default:
-		return nil, errors.Errorf("failed to process operation, unable to determin operation type, operation:%+v", operation)
+		return nil, errors.Errorf("failed to process operation, unable to determine operation type, operation:%+v", operation)
 	}
+}
+
+func isAllocateTicketsOperation(operation coreum.Operation) bool {
+	return operation.OperationType.AllocateTickets != nil &&
+		operation.OperationType.AllocateTickets.Number > 0
+}
+
+func isTrustSetOperation(operation coreum.Operation) bool {
+	return operation.OperationType.TrustSet != nil &&
+		operation.OperationType.TrustSet.Issuer != "" &&
+		operation.OperationType.TrustSet.Currency != ""
+}
+
+func isCoreumToXRPLTransfer(operation coreum.Operation) bool {
+	return operation.OperationType.CoreumToXRPLTransfer != nil &&
+		operation.OperationType.CoreumToXRPLTransfer.Issuer != "" &&
+		operation.OperationType.CoreumToXRPLTransfer.Currency != "" &&
+		!operation.OperationType.CoreumToXRPLTransfer.Amount.IsZero() &&
+		operation.OperationType.CoreumToXRPLTransfer.Recipient != ""
 }

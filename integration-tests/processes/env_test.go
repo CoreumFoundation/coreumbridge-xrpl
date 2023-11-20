@@ -253,8 +253,8 @@ func (r *RunnerEnv) AllocateTickets(
 	require.Len(t, availableTickets, int(numberOfTicketsToAllocate))
 }
 
-// RegisterXRPLTokenAndAwaitTrustSet registers XRPL currency and awaits for the trust set ot be set.
-func (r *RunnerEnv) RegisterXRPLTokenAndAwaitTrustSet(
+// RegisterXRPLOriginatedToken registers XRPL currency and awaits for the trust set ot be set.
+func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 	ctx context.Context,
 	t *testing.T,
 	issuer rippledata.Account,
@@ -262,6 +262,9 @@ func (r *RunnerEnv) RegisterXRPLTokenAndAwaitTrustSet(
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
 ) coreum.XRPLToken {
+	r.Chains.Coreum.FundAccountWithOptions(ctx, t, r.ContractOwner, coreumintegration.BalancesOptions{
+		Amount: r.Chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount,
+	})
 	_, err := r.ContractClient.RegisterXRPLToken(ctx, r.ContractOwner, issuer.String(), xrpl.ConvertCurrencyToString(currency), sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 	// await for the trust set
@@ -324,6 +327,39 @@ func (r *RunnerEnv) SendXRPLPartialPaymentTx(
 		},
 	}
 	require.NoError(t, r.Chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
+}
+
+func (r *RunnerEnv) EnableXRPLAccountRippling(ctx context.Context, t *testing.T, account rippledata.Account) {
+	// enable rippling on this account's trust lines.
+	accountSetTx := rippledata.AccountSet{
+		SetFlag: lo.ToPtr(uint32(rippledata.TxDefaultRipple)),
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.ACCOUNT_SET,
+		},
+	}
+	require.NoError(t, r.Chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &accountSetTx, account))
+}
+
+func (r *RunnerEnv) SendXRPLMaxTrustSetTx(
+	ctx context.Context,
+	t *testing.T,
+	account rippledata.Account,
+	issuer rippledata.Account,
+	currency rippledata.Currency,
+) {
+	value, err := rippledata.NewValue("1000000000000", false)
+	require.NoError(t, err)
+	trustSetTx := rippledata.TrustSet{
+		LimitAmount: rippledata.Amount{
+			Value:    value,
+			Currency: currency,
+			Issuer:   issuer,
+		},
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.TRUST_SET,
+		},
+	}
+	require.NoError(t, r.Chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &trustSetTx, account))
 }
 
 func genCoreumRelayers(

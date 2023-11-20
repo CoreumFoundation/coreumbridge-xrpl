@@ -20,6 +20,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 	t.Parallel()
 
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
+	recipientXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
 	issuerAccount := xrpl.GenPrivKeyTxSigner().Account()
 
 	failTxResult := rippledata.TransactionResult(111)
@@ -363,7 +364,93 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				return contractClientMock
 			},
 		},
+		{
+			name: "outgoing_payment_tx",
+			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
+				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
+				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+						go func() {
+							ch <- rippledata.TransactionWithMetaData{
+								Transaction: &rippledata.Payment{
+									TxBase: rippledata.TxBase{
+										Account:         bridgeXRPLAddress,
+										TransactionType: rippledata.PAYMENT,
+									},
+									Destination:    recipientXRPLAddress,
+									Amount:         xrplCurrencyAmount,
+									TicketSequence: lo.ToPtr(uint32(11)),
+								},
+							}
+							cancel()
+						}()
+						return nil
+					})
 
+				return xrplAccountTxScannerMock
+			},
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().SendCoreumToXRPLTransferTransactionResultEvidence(
+					gomock.Any(),
+					relayerAddress,
+					coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
+						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+							TxHash:            rippledata.Hash256{}.String(),
+							TicketSequence:    lo.ToPtr(uint32(11)),
+							TransactionResult: coreum.TransactionResultAccepted,
+						},
+					},
+				).Return(nil, nil)
+
+				return contractClientMock
+			},
+		},
+		{
+			name: "outgoing_payment_tx_with_failure",
+			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
+				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
+				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+						go func() {
+							ch <- rippledata.TransactionWithMetaData{
+								Transaction: &rippledata.Payment{
+									TxBase: rippledata.TxBase{
+										Account:         bridgeXRPLAddress,
+										TransactionType: rippledata.PAYMENT,
+									},
+									Destination:    recipientXRPLAddress,
+									Amount:         xrplCurrencyAmount,
+									TicketSequence: lo.ToPtr(uint32(11)),
+								},
+								MetaData: rippledata.MetaData{
+									TransactionResult: failTxResult,
+								},
+							}
+							cancel()
+						}()
+						return nil
+					})
+
+				return xrplAccountTxScannerMock
+			},
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().SendCoreumToXRPLTransferTransactionResultEvidence(
+					gomock.Any(),
+					relayerAddress,
+					coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
+						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+							TxHash:            rippledata.Hash256{}.String(),
+							TicketSequence:    lo.ToPtr(uint32(11)),
+							TransactionResult: coreum.TransactionResultRejected,
+						},
+					},
+				).Return(nil, nil)
+
+				return contractClientMock
+			},
+		},
 		{
 			name: "outgoing_not_expected_tx",
 			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {

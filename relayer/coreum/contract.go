@@ -34,6 +34,7 @@ const (
 	ExecMethodSaveEvidence        ExecMethod = "save_evidence"
 	ExecMethodRecoverTickets      ExecMethod = "recover_tickets"
 	ExecMethodSaveSignature       ExecMethod = "save_signature"
+	ExecSendToXRPL                ExecMethod = "send_to_xrpl"
 )
 
 // TransactionResult is transaction result.
@@ -86,6 +87,9 @@ const (
 	maximumBridgedAmountReachedErrorString     = "MaximumBridgedAmountReached"
 	stillHaveAvailableTicketsErrorString       = "StillHaveAvailableTickets"
 	xrplTokenNotEnabledErrorString             = "XRPLTokenNotEnabled"
+	invalidXRPLAddressErrorString              = "InvalidXRPLAddress"
+	lastTicketReservedErrorString              = "LastTicketReserved"
+	noAvailableTicketsErrorString              = "NoAvailableTickets"
 )
 
 // Relayer is the relayer information in the contract config.
@@ -170,6 +174,11 @@ type XRPLTransactionResultTrustSetEvidence struct {
 	Currency string
 }
 
+// XRPLTransactionResultCoreumToXRPLTransferEvidence is evidence of the sending from XRPL to coreum.
+type XRPLTransactionResultCoreumToXRPLTransferEvidence struct {
+	XRPLTransactionResultEvidence
+}
+
 // Signature is a pair of the relayer provided the signature and signature string.
 type Signature struct {
 	RelayerCoreumAddress sdk.AccAddress `json:"relayer_coreum_address"`
@@ -188,10 +197,19 @@ type OperationTypeTrustSet struct {
 	TrustSetLimitAmount sdkmath.Int `json:"trust_set_limit_amount"`
 }
 
+// OperationTypeCoreumToXRPLTransfer is coreum to XRPL transfer operation type.
+type OperationTypeCoreumToXRPLTransfer struct {
+	Issuer    string      `json:"issuer"`
+	Currency  string      `json:"currency"`
+	Amount    sdkmath.Int `json:"amount"`
+	Recipient string      `json:"recipient"`
+}
+
 // OperationType is operation type.
 type OperationType struct {
-	AllocateTickets *OperationTypeAllocateTickets `json:"allocate_tickets,omitempty"`
-	TrustSet        *OperationTypeTrustSet        `json:"trust_set,omitempty"`
+	AllocateTickets      *OperationTypeAllocateTickets      `json:"allocate_tickets,omitempty"`
+	TrustSet             *OperationTypeTrustSet             `json:"trust_set,omitempty"`
+	CoreumToXRPLTransfer *OperationTypeCoreumToXRPLTransfer `json:"coreum_to_xrpl_transfer,omitempty"`
 }
 
 // Operation is contract operation which should be signed and executed.
@@ -256,6 +274,10 @@ type saveSignatureRequest struct {
 	Signature   string `json:"signature"`
 }
 
+type sendToXRPLRequest struct {
+	Recipient string `json:"recipient"`
+}
+
 type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
 	Tickets []uint32 `json:"tickets"`
 }
@@ -265,9 +287,12 @@ type xrplTransactionEvidenceTrustSetOperationResult struct {
 	Currency string `json:"currency"`
 }
 
+type xrplTransactionEvidenceCoreumToXRPLTransferOperationResult struct{}
+
 type xrplTransactionEvidenceOperationResult struct {
-	TicketsAllocation *xrplTransactionEvidenceTicketsAllocationOperationResult `json:"tickets_allocation,omitempty"`
-	TrustSet          *xrplTransactionEvidenceTrustSetOperationResult          `json:"trust_set,omitempty"`
+	TicketsAllocation    *xrplTransactionEvidenceTicketsAllocationOperationResult    `json:"tickets_allocation,omitempty"`
+	TrustSet             *xrplTransactionEvidenceTrustSetOperationResult             `json:"trust_set,omitempty"`
+	CoreumToXRPLTransfer *xrplTransactionEvidenceCoreumToXRPLTransferOperationResult `json:"coreum_to_xrpl_transfer,omitempty"`
 }
 
 type xrplTransactionResultEvidence struct {
@@ -589,6 +614,30 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(ctx context.C
 	return txRes, nil
 }
 
+// SendCoreumToXRPLTransferTransactionResultEvidence sends an Evidence of an accepted or rejected coreum to XRPL transfer transaction.
+func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultCoreumToXRPLTransferEvidence) (*sdk.TxResponse, error) {
+	req := saveEvidenceRequest{
+		Evidence: evidence{
+			XRPLTransactionResult: &xrplTransactionResultEvidence{
+				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
+				OperationResult: xrplTransactionEvidenceOperationResult{
+					CoreumToXRPLTransfer: &xrplTransactionEvidenceCoreumToXRPLTransferOperationResult{},
+				},
+			},
+		},
+	}
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]saveEvidenceRequest{
+			ExecMethodSaveEvidence: req,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
 // RecoverTickets executes `recover_tickets` method.
 func (c *ContractClient) RecoverTickets(ctx context.Context, sender sdk.AccAddress, accountSequence uint32, numberOfTickets *uint32) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
@@ -615,6 +664,23 @@ func (c *ContractClient) SaveSignature(ctx context.Context, sender sdk.AccAddres
 				Signature:   signature,
 			},
 		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// SendToXRPL executes `send_to_xrpl` method.
+func (c *ContractClient) SendToXRPL(ctx context.Context, sender sdk.AccAddress, recipient string, amount sdk.Coin) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]sendToXRPLRequest{
+			ExecSendToXRPL: {
+				Recipient: recipient,
+			},
+		},
+		Funds: sdk.NewCoins(amount),
 	})
 	if err != nil {
 		return nil, err
@@ -910,6 +976,21 @@ func IsStillHaveAvailableTicketsError(err error) bool {
 // IsXRPLTokenNotEnabledError returns true if error is `XRPLTokenNotEnabled`.
 func IsXRPLTokenNotEnabledError(err error) bool {
 	return isError(err, xrplTokenNotEnabledErrorString)
+}
+
+// IsInvalidXRPLAddressError returns true if error is `InvalidXRPLAddress`.
+func IsInvalidXRPLAddressError(err error) bool {
+	return isError(err, invalidXRPLAddressErrorString)
+}
+
+// IsLastTicketReservedError returns true if error is `LastTicketReserved`.
+func IsLastTicketReservedError(err error) bool {
+	return isError(err, lastTicketReservedErrorString)
+}
+
+// IsNoAvailableTicketsError returns true if error is `NoAvailableTickets`.
+func IsNoAvailableTicketsError(err error) bool {
+	return isError(err, noAvailableTicketsErrorString)
 }
 
 func isError(err error, errorString string) bool {

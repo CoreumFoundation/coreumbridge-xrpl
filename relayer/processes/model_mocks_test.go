@@ -98,6 +98,21 @@ func (mr *MockContractClientMockRecorder) SaveSignature(arg0, arg1, arg2, arg3 i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSignature", reflect.TypeOf((*MockContractClient)(nil).SaveSignature), arg0, arg1, arg2, arg3)
 }
 
+// SendCoreumToXRPLTransferTransactionResultEvidence mocks base method.
+func (m *MockContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(arg0 context.Context, arg1 types.AccAddress, arg2 coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence) (*types.TxResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendCoreumToXRPLTransferTransactionResultEvidence", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*types.TxResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendCoreumToXRPLTransferTransactionResultEvidence indicates an expected call of SendCoreumToXRPLTransferTransactionResultEvidence.
+func (mr *MockContractClientMockRecorder) SendCoreumToXRPLTransferTransactionResultEvidence(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoreumToXRPLTransferTransactionResultEvidence", reflect.TypeOf((*MockContractClient)(nil).SendCoreumToXRPLTransferTransactionResultEvidence), arg0, arg1, arg2)
+}
+
 // SendXRPLTicketsAllocationTransactionResultEvidence mocks base method.
 func (m *MockContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(arg0 context.Context, arg1 types.AccAddress, arg2 coreum.XRPLTransactionResultTicketsAllocationEvidence) (*types.TxResponse, error) {
 	m.ctrl.T.Helper()

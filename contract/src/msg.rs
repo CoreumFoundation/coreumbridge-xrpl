@@ -48,6 +48,7 @@ pub enum ExecuteMsg {
     SaveEvidence {
         evidence: Evidence,
     },
+    #[serde(rename = "send_to_xrpl")]
     SendToXRPL {
         recipient: String,
     },
