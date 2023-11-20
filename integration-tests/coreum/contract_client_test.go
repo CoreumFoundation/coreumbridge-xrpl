@@ -48,7 +48,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 1)
 
-	bridgeXRPLAddress := chains.XRPL.GenAccount(ctx, t, 0).String()
+	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
 
 	usedTicketSequenceThreshold := 10
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
@@ -131,7 +131,7 @@ func TestChangeContractOwnership(t *testing.T) {
 		len(relayers),
 		10,
 		defaultTrustSetLimitAmount,
-		chains.XRPL.GenAccount(ctx, t, 0).String(),
+		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
 
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
@@ -192,7 +192,7 @@ func TestRegisterCoreumToken(t *testing.T) {
 		len(relayers),
 		10,
 		defaultTrustSetLimitAmount,
-		chains.XRPL.GenAccount(ctx, t, 0).String(),
+		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
 
 	denom1 := "denom1"
@@ -290,7 +290,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 		len(relayers),
 		3,
 		defaultTrustSetLimitAmount,
-		chains.XRPL.GenAccount(ctx, t, 0).String(),
+		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
 
 	// fund owner to cover issuance fees twice
@@ -482,7 +482,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		len(relayers),
 		3,
 		defaultTrustSetLimitAmount,
-		chains.XRPL.GenAccount(ctx, t, 0).String(),
+		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 	// fund owner to cover issuance fees
@@ -598,7 +598,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		len(relayers),
 		10,
 		defaultTrustSetLimitAmount,
-		chains.XRPL.GenAccount(ctx, t, 0).String(),
+		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
 	// register tickets
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
@@ -758,7 +758,7 @@ func TestRecoverTickets(t *testing.T) {
 		2,
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
-		chains.XRPL.GenAccount(ctx, t, 0).String(),
+		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
 
 	// ********** Ticket allocation / Recovery **********
@@ -1041,6 +1041,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 		len(relayers),
 		3,
 		defaultTrustSetLimitAmount,
+		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
@@ -1171,6 +1172,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		len(relayers),
 		50,
 		defaultTrustSetLimitAmount,
+		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
 	// register tickets
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
