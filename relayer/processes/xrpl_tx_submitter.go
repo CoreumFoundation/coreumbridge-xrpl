@@ -30,20 +30,20 @@ type BridgeSigners struct {
 
 // XRPLTxSubmitterConfig is the XRPLTxSubmitter config.
 type XRPLTxSubmitterConfig struct {
-	BridgeAccount       rippledata.Account
-	RelayerAddress      sdk.AccAddress
-	XRPLTxSignerKeyName string
-	RepeatRecentScan    bool
-	RepeatDelay         time.Duration
+	BridgeXRPLAddress    rippledata.Account
+	RelayerCoreumAddress sdk.AccAddress
+	XRPLTxSignerKeyName  string
+	RepeatRecentScan     bool
+	RepeatDelay          time.Duration
 }
 
 // DefaultXRPLTxSubmitterConfig returns the default XRPLTxSubmitter.
 func DefaultXRPLTxSubmitterConfig(bridgeXRPLAddress rippledata.Account, relayerAddress sdk.AccAddress) XRPLTxSubmitterConfig {
 	return XRPLTxSubmitterConfig{
-		BridgeAccount:    bridgeXRPLAddress,
-		RelayerAddress:   relayerAddress,
-		RepeatRecentScan: true,
-		RepeatDelay:      10 * time.Second,
+		BridgeXRPLAddress:    bridgeXRPLAddress,
+		RelayerCoreumAddress: relayerAddress,
+		RepeatRecentScan:     true,
+		RepeatDelay:          10 * time.Second,
 	}
 }
 
@@ -77,7 +77,7 @@ func NewXRPLTxSubmitter(
 func (s *XRPLTxSubmitter) Init(ctx context.Context) error {
 	s.log.Debug(ctx, "Initializing process")
 
-	if s.cfg.RelayerAddress.Empty() {
+	if s.cfg.RelayerCoreumAddress.Empty() {
 		return errors.Errorf("failed to init process, relayer address is nil or empty")
 	}
 	if !s.contractClient.IsInitialized() {
@@ -85,6 +85,17 @@ func (s *XRPLTxSubmitter) Init(ctx context.Context) error {
 	}
 	if s.xrplSigner == nil {
 		return errors.Errorf("nil xrplSigner")
+	}
+	cfg, err := s.contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return err
+	}
+	if cfg.BridgeXRPLAddress != s.cfg.BridgeXRPLAddress.String() {
+		return errors.Errorf(
+			"submitter bridge XRPL address in config is different form the contract %s!=%s",
+			cfg.BridgeXRPLAddress,
+			s.cfg.BridgeXRPLAddress.String(),
+		)
 	}
 
 	return nil
@@ -172,7 +183,7 @@ func (s *XRPLTxSubmitter) getBridgeSigners(ctx context.Context) (BridgeSigners, 
 }
 
 func (s *XRPLTxSubmitter) getBridgeXRPLSignerAccountsWithWeights(ctx context.Context) (map[rippledata.Account]uint16, uint32, error) {
-	accountInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeAccount)
+	accountInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeXRPLAddress)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -279,7 +290,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 				SigningPubKey: &xrplPubKey,
 			},
 		}
-		tx, err := s.buildXRPLTxFromOperation(operation)
+		tx, err := s.buildXRPLTxFromOperation(ctx, operation)
 		if err != nil {
 			return nil, false, err
 		}
@@ -313,7 +324,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		return nil, false, nil
 	}
 	// build tx one more time to be sure that it is not affected
-	tx, err := s.buildXRPLTxFromOperation(operation)
+	tx, err := s.buildXRPLTxFromOperation(ctx, operation)
 	if err != nil {
 		return nil, false, err
 	}
@@ -331,7 +342,7 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 	// no need to check if the current relayer has already provided the signature
 	// this check prevents the state when relayer votes and then changes its vote because of different current state
 	for _, signature := range operation.Signatures {
-		if signature.RelayerCoreumAddress.String() == s.cfg.RelayerAddress.String() {
+		if signature.RelayerCoreumAddress.String() == s.cfg.RelayerCoreumAddress.String() {
 			return true, nil
 		}
 	}
@@ -343,7 +354,7 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 		return true, nil
 	}
 
-	bridgeXRPLAccInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeAccount)
+	bridgeXRPLAccInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeXRPLAddress)
 	if err != nil {
 		return false, err
 	}
@@ -366,7 +377,7 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 		},
 	}
 	s.log.Info(ctx, "Sending invalid tx evidence")
-	_, err = s.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, s.cfg.RelayerAddress, evidence)
+	_, err = s.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(ctx, s.cfg.RelayerCoreumAddress, evidence)
 	if err == nil {
 		return false, nil
 	}
@@ -379,7 +390,7 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 }
 
 func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation coreum.Operation) error {
-	tx, err := s.buildXRPLTxFromOperation(operation)
+	tx, err := s.buildXRPLTxFromOperation(ctx, operation)
 	if err != nil {
 		return err
 	}
@@ -389,7 +400,7 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 	}
 	_, err = s.contractClient.SaveSignature(
 		ctx,
-		s.cfg.RelayerAddress,
+		s.cfg.RelayerCoreumAddress,
 		operation.GetOperationID(),
 		signer.Signer.TxnSignature.String(),
 	)
@@ -403,14 +414,24 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 	return errors.Wrap(err, "failed to register transaction signature")
 }
 
-func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (MultiSignableTransaction, error) {
+func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(ctx context.Context, operation coreum.Operation) (MultiSignableTransaction, error) {
 	switch {
 	case isAllocateTicketsOperation(operation):
-		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeAccount, operation)
+		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	case isTrustSetOperation(operation):
-		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeAccount, operation)
+		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	case isCoreumToXRPLTransfer(operation):
-		return BuildCoreumToXRPLTransferPaymentTxForMultiSigning(s.cfg.BridgeAccount, operation)
+		// for the coreum originated tokens we need to fetch token decimals, but for the XRPL they are static
+		operationType := operation.OperationType.CoreumToXRPLTransfer
+		if s.cfg.BridgeXRPLAddress.String() == operationType.Issuer {
+			coreumToken, err := s.contractClient.GetCoreumTokenByXRPLCurrency(ctx, operationType.Currency)
+			if err != nil {
+				return nil, errors.Wrapf(err, "faild to get XRPL token for the coreum to XRPL transfer")
+			}
+			return BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation, coreumToken.Decimals)
+		} else {
+			return BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
+		}
 	default:
 		return nil, errors.Errorf("failed to process operation, unable to determine operation type, operation:%+v", operation)
 	}

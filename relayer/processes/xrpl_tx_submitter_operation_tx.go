@@ -66,8 +66,8 @@ func BuildTrustSetTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operat
 	return &tx, nil
 }
 
-// BuildCoreumToXRPLTransferPaymentTxForMultiSigning builds Payment transaction operation from the contract operation.
-func BuildCoreumToXRPLTransferPaymentTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.Payment, error) {
+// BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning builds Payment transaction for XRPL originated token from the contract operation.
+func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.Payment, error) {
 	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
 	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
 		coreumToXRPLTransferOperationType.Amount,
@@ -77,9 +77,48 @@ func BuildCoreumToXRPLTransferPaymentTxForMultiSigning(bridgeXRPLAddress rippled
 	if err != nil {
 		return nil, err
 	}
-	recipient, err := rippledata.NewAccountFromAddress(coreumToXRPLTransferOperationType.Recipient)
+
+	tx, err := buildPaymentTx(bridgeXRPLAddress, operation, value)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to convert XRPL recipient to rippledata.Account, recipient:%s", coreumToXRPLTransferOperationType.Recipient))
+		return nil, err
+	}
+
+	return &tx, nil
+}
+
+// BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning builds Payment transaction for coreum originated token from the contract operation.
+func BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(
+	bridgeXRPLAddress rippledata.Account,
+	operation coreum.Operation,
+	decimals uint32,
+) (*rippledata.Payment, error) {
+	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
+	value, err := ConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount(
+		coreumToXRPLTransferOperationType.Amount,
+		decimals,
+		coreumToXRPLTransferOperationType.Issuer,
+		coreumToXRPLTransferOperationType.Currency,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := buildPaymentTx(bridgeXRPLAddress, operation, value)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tx, nil
+}
+
+func buildPaymentTx(
+	bridgeXRPLAddress rippledata.Account,
+	operation coreum.Operation,
+	value rippledata.Amount,
+) (rippledata.Payment, error) {
+	recipient, err := rippledata.NewAccountFromAddress(operation.OperationType.CoreumToXRPLTransfer.Recipient)
+	if err != nil {
+		return rippledata.Payment{}, errors.Wrap(err, fmt.Sprintf("failed to convert XRPL recipient to rippledata.Account, recipient:%s", operation.OperationType.CoreumToXRPLTransfer.Recipient))
 	}
 	tx := rippledata.Payment{
 		Destination: *recipient,
@@ -95,9 +134,8 @@ func BuildCoreumToXRPLTransferPaymentTxForMultiSigning(bridgeXRPLAddress rippled
 
 	fee, err := GetTxFee(&tx)
 	if err != nil {
-		return nil, err
+		return rippledata.Payment{}, err
 	}
 	tx.TxBase.Fee = fee
-
-	return &tx, nil
+	return tx, nil
 }

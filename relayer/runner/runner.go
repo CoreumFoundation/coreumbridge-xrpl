@@ -304,8 +304,8 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 		XRPLTxObserver: processes.ProcessWithOptions{
 			Process: processes.NewXRPLTxObserver(
 				processes.XRPLTxObserverConfig{
-					BridgeAccount:  *bridgeXRPLAddress,
-					RelayerAddress: relayerAddress,
+					BridgeXRPLAddress:    *bridgeXRPLAddress,
+					RelayerCoreumAddress: relayerAddress,
 				},
 				zapLogger,
 				xrplScanner,
@@ -317,11 +317,11 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 		XRPLTxSubmitter: processes.ProcessWithOptions{
 			Process: processes.NewXRPLTxSubmitter(
 				processes.XRPLTxSubmitterConfig{
-					BridgeAccount:       *bridgeXRPLAddress,
-					RelayerAddress:      relayerAddress,
-					XRPLTxSignerKeyName: cfg.XRPL.MultiSignerKeyName,
-					RepeatRecentScan:    true,
-					RepeatDelay:         cfg.Processes.XRPLTxSubmitter.RepeatDelay,
+					BridgeXRPLAddress:    *bridgeXRPLAddress,
+					RelayerCoreumAddress: relayerAddress,
+					XRPLTxSignerKeyName:  cfg.XRPL.MultiSignerKeyName,
+					RepeatRecentScan:     true,
+					RepeatDelay:          cfg.Processes.XRPLTxSubmitter.RepeatDelay,
 				},
 				zapLogger,
 				contractClient,

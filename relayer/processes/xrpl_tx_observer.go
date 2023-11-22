@@ -16,8 +16,8 @@ import (
 
 // XRPLTxObserverConfig is XRPLTxObserver config.
 type XRPLTxObserverConfig struct {
-	BridgeAccount  rippledata.Account
-	RelayerAddress sdk.AccAddress
+	BridgeXRPLAddress    rippledata.Account
+	RelayerCoreumAddress sdk.AccAddress
 }
 
 // XRPLTxObserver is process which observes the XRPL txs and register the evidences in the contract.
@@ -47,11 +47,23 @@ func NewXRPLTxObserver(
 func (o *XRPLTxObserver) Init(ctx context.Context) error {
 	o.log.Debug(ctx, "Initializing process")
 
-	if o.cfg.RelayerAddress.Empty() {
+	if o.cfg.RelayerCoreumAddress.Empty() {
 		return errors.Errorf("failed to init process, relayer address is nil or empty")
 	}
 	if !o.contractClient.IsInitialized() {
 		return errors.Errorf("failed to init process, contract client is not initialized")
+	}
+
+	cfg, err := o.contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return err
+	}
+	if cfg.BridgeXRPLAddress != o.cfg.BridgeXRPLAddress.String() {
+		return errors.Errorf(
+			"observer bridge XRPL address in config is different form the contract %s!=%s",
+			cfg.BridgeXRPLAddress,
+			o.cfg.BridgeXRPLAddress.String(),
+		)
 	}
 
 	return nil
@@ -70,7 +82,11 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 			return errors.WithStack(ctx.Err())
 		case tx := <-txCh:
 			if err := o.processTx(ctx, tx); err != nil {
-				o.log.Error(ctx, "Failed to process XRPL tx", logger.Error(err))
+				if errors.Is(err, context.Canceled) {
+					o.log.Warn(ctx, "Context canceled during the XRPL tx processing", logger.StringField("error", err.Error()))
+				} else {
+					o.log.Error(ctx, "Failed to process XRPL tx", logger.Error(err))
+				}
 			}
 		}
 	}
@@ -78,7 +94,7 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 
 func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	ctx = tracing.WithTracingXRPLTxHash(tracing.WithTracingID(ctx), tx.GetHash().String())
-	if o.cfg.BridgeAccount == tx.GetBase().Account {
+	if o.cfg.BridgeXRPLAddress == tx.GetBase().Account {
 		return o.processOutgoingTx(ctx, tx)
 	}
 
@@ -131,7 +147,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		Recipient: coreumRecipient,
 	}
 
-	_, err = o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerAddress, evidence)
+	_, err = o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerCoreumAddress, evidence)
 	if err == nil {
 		return nil
 	}
@@ -194,7 +210,7 @@ func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(ctx 
 	}
 	_, err := o.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(
 		ctx,
-		o.cfg.RelayerAddress,
+		o.cfg.RelayerCoreumAddress,
 		evidence,
 	)
 
@@ -218,7 +234,7 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.C
 
 	_, err := o.contractClient.SendXRPLTrustSetTransactionResultEvidence(
 		ctx,
-		o.cfg.RelayerAddress,
+		o.cfg.RelayerCoreumAddress,
 		evidence,
 	)
 
@@ -240,7 +256,7 @@ func (o *XRPLTxObserver) sendCoreumToXRPLTransferTransactionResultEvidence(ctx c
 
 	_, err := o.contractClient.SendCoreumToXRPLTransferTransactionResultEvidence(
 		ctx,
-		o.cfg.RelayerAddress,
+		o.cfg.RelayerCoreumAddress,
 		evidence,
 	)
 

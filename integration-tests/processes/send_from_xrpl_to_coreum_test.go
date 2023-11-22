@@ -75,14 +75,12 @@ func TestRegisterXRPLOriginatedTokensAndSendFromXRPLToCoreum(t *testing.T) {
 	// await for the trust set
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 
-	registeredXRPLToken, err := runnerEnv.ContractClient.GetXRPLToken(ctx, xrplIssuerAddress.String(), xrpl.ConvertCurrencyToString(registeredXRPLCurrency))
+	registeredXRPLToken, err := runnerEnv.ContractClient.GetXRPLTokenByIssuerAndCurrency(ctx, xrplIssuerAddress.String(), xrpl.ConvertCurrencyToString(registeredXRPLCurrency))
 	require.NoError(t, err)
-	require.NotNil(t, registeredXRPLToken)
 	require.Equal(t, coreum.TokenStateEnabled, registeredXRPLToken.State)
 
-	registeredXRPLHexCurrencyToken, err := runnerEnv.ContractClient.GetXRPLToken(ctx, xrplIssuerAddress.String(), xrpl.ConvertCurrencyToString(registeredXRPLHexCurrency))
+	registeredXRPLHexCurrencyToken, err := runnerEnv.ContractClient.GetXRPLTokenByIssuerAndCurrency(ctx, xrplIssuerAddress.String(), xrpl.ConvertCurrencyToString(registeredXRPLHexCurrency))
 	require.NoError(t, err)
-	require.NotNil(t, registeredXRPLHexCurrencyToken)
 	require.Equal(t, coreum.TokenStateEnabled, registeredXRPLHexCurrencyToken.State)
 
 	lowValue, err := rippledata.NewValue("1.00000111", false)
