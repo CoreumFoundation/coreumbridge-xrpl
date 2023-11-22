@@ -67,7 +67,7 @@ func NewZapLogger(cfg ZapLoggerConfig) (*ZapLogger, error) {
 
 	zapLogger, err := zapCfg.Build(zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zapcore.ErrorLevel))
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build zap logger form the config, config:%+v", zapCfg)
+		return nil, errors.Wrapf(err, "failed to build zap logger from the config, config:%+v", zapCfg)
 	}
 
 	return &ZapLogger{

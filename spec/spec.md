@@ -65,7 +65,7 @@ Check [workflow](#register-token) for more details.
 It is possible to update both `max holding amount` and `sending precision` for both XRPL and coreum originated tokens. The
 owner can do it by calling the contract.
 The contract updates the `sending precision` in the token registry and removes all pending evidences with
-`sending from XRPL to coreum` type data form the evidence queue. We need it to avoid evidence inconsistency, since an
+`sending from XRPL to coreum` type data from the evidence queue. We need it to avoid evidence inconsistency, since an
 evidence could be accepted by the contract with old `sending precision`, and never got fully confirmed with the new.
 The full rescan will help to check and submit such evidence one more time after the removal.
 The new `maxHoldingAmount` must be greater that the current amount.

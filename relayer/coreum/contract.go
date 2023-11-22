@@ -773,7 +773,7 @@ func (c *ContractClient) GetCoreumTokenByDenom(ctx context.Context, denom string
 
 // GetCoreumTokenByXRPLCurrency returns a coreum registered token or nil by the provided xrpl currency.
 func (c *ContractClient) GetCoreumTokenByXRPLCurrency(ctx context.Context, xrplCurrency string) (CoreumToken, error) {
-	// TODO(dzmitryhil) use new query function form the contract once we create it
+	// TODO(dzmitryhil) use new query function from the contract once we create it
 	tokens, err := c.GetCoreumTokens(ctx)
 	if err != nil {
 		return CoreumToken{}, err

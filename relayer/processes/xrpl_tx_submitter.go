@@ -92,7 +92,7 @@ func (s *XRPLTxSubmitter) Init(ctx context.Context) error {
 	}
 	if cfg.BridgeXRPLAddress != s.cfg.BridgeXRPLAddress.String() {
 		return errors.Errorf(
-			"submitter bridge XRPL address in config is different form the contract %s!=%s",
+			"submitter bridge XRPL address in config is different from the contract %s!=%s",
 			cfg.BridgeXRPLAddress,
 			s.cfg.BridgeXRPLAddress.String(),
 		)

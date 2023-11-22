@@ -60,7 +60,7 @@ func (o *XRPLTxObserver) Init(ctx context.Context) error {
 	}
 	if cfg.BridgeXRPLAddress != o.cfg.BridgeXRPLAddress.String() {
 		return errors.Errorf(
-			"observer bridge XRPL address in config is different form the contract %s!=%s",
+			"observer bridge XRPL address in config is different from the contract %s!=%s",
 			cfg.BridgeXRPLAddress,
 			o.cfg.BridgeXRPLAddress.String(),
 		)

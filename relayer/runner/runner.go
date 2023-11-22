@@ -285,11 +285,11 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 	if kr != nil && cfg.Coreum.RelayerKeyName != "" {
 		keyRecord, err := kr.Key(cfg.Coreum.RelayerKeyName)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to key relayer key form the keyring, key name:%s", cfg.Coreum.RelayerKeyName)
+			return nil, errors.Wrapf(err, "failed to get relayer key from the keyring, key name:%s", cfg.Coreum.RelayerKeyName)
 		}
 		relayerAddress, err = keyRecord.GetAddress()
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to address from keyring key recodr, key name:%s", cfg.Coreum.RelayerKeyName)
+			return nil, errors.Wrapf(err, "failed to get address from keyring key recodr, key name:%s", cfg.Coreum.RelayerKeyName)
 		}
 	}
 	contractClient := coreum.NewContractClient(contractClientCfg, zapLogger, clientContext)
