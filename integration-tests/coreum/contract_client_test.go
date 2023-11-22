@@ -317,7 +317,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	sendingPrecision := int32(15)
 	maxHoldingAmount := sdk.NewIntFromUint64(10000)
 
-	// recover tickets to be able to create operations form coreum to XRPL
+	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 
 	// try to register from not owner
@@ -511,7 +511,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 	sendingPrecision := int32(15)
 	maxHoldingAmount := sdk.NewIntFromUint64(10000)
 
-	// recover tickets to be able to create operations form coreum to XRPL
+	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 
 	// register from the owner
@@ -615,7 +615,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
-	// recover tickets to be able to create operations form coreum to XRPL
+	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
@@ -1070,7 +1070,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	sendingPrecision := int32(15)
 	maxHoldingAmount := sdk.NewIntFromUint64(1_000_000_000)
 
-	// recover tickets to be able to create operations form coreum to XRPL
+	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 5)
 
 	// register new token
@@ -1190,7 +1190,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
-	// recover tickets to be able to create operations form coreum to XRPL
+	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 
@@ -1349,7 +1349,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
 	)
-	// recover tickets to be able to create operations form coreum to XRPL
+	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 10)
 
 	// issue asset ft and register it
@@ -1539,7 +1539,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
 	)
-	// recover tickets to be able to create operations form coreum to XRPL
+	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 

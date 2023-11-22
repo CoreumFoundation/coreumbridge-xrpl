@@ -21,7 +21,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
 	xrplTxSignerKeyName := "xrpl-tx-signer"
 
-	contractRelayers, xrplTxSigners, bridgeXRPLSignerAccountWithSigners := getContractRelayers(3)
+	contractRelayers, xrplTxSigners, bridgeXRPLSignerAccountWithSigners := genContractRelayers(3)
 
 	// ********** AllocateTickets **********
 
@@ -348,7 +348,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 	}
 }
 
-func getContractRelayers(relayersCount int) ([]coreum.Relayer, []*xrpl.PrivKeyTxSigner, xrpl.AccountInfoResult) {
+func genContractRelayers(relayersCount int) ([]coreum.Relayer, []*xrpl.PrivKeyTxSigner, xrpl.AccountInfoResult) {
 	contractRelayers := make([]coreum.Relayer, 0)
 	xrplTxSigners := make([]*xrpl.PrivKeyTxSigner, 0)
 	for i := 0; i < relayersCount; i++ {

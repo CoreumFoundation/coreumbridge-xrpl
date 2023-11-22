@@ -216,7 +216,7 @@ type. As the result some discrepancy might happen, examples:
    but recipient balance remains the same.
 2. When a sender sends too low amount to a recipient with high balance the sender's balance is changed but recipient's
    balance remains the same.
-3. It is possible to mint tokens on the XRPL by sending too low amounts to a recipient with low balance form an account
+3. It is possible to mint tokens on the XRPL by sending too low amounts to a recipient with low balance from an account
    with high balance.
 
 ### Issues:
