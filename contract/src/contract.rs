@@ -4,8 +4,8 @@ use crate::{
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
     msg::{
-        AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg,
-        PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
+        AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
+        InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
     },
     operation::{
         check_operation_exists, create_pending_operation, handle_trust_set_confirmation, Operation,
@@ -16,7 +16,7 @@ use crate::{
     state::{
         Config, ContractActions, CoreumToken, TokenState, XRPLToken, AVAILABLE_TICKETS, CONFIG,
         COREUM_TOKENS, PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
-        USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS, XRPL_TOKENS,
+        XRPL_TOKENS,
     },
     tickets::{allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket},
 };
@@ -26,7 +26,7 @@ use coreum_wasm_sdk::{
     core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
-    coin, entry_point, to_json_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env,
+    coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env,
     MessageInfo, Order, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
@@ -241,15 +241,20 @@ fn register_coreum_token(
     let xrpl_currency =
         convert_currency_to_xrpl_hexadecimal(format!("{}{}", COREUM_CURRENCY_PREFIX, hex_string));
 
-    if USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS.has(deps.storage, xrpl_currency.clone()) {
+    // We check that the this currency is not used already (we got the same hash)
+    if COREUM_TOKENS
+        .idx
+        .xrpl_currency
+        .item(deps.storage, xrpl_currency.to_owned())?
+        .is_some()
+    {
         return Err(ContractError::RegistrationFailure {});
     }
-    USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS.save(deps.storage, xrpl_currency.clone(), &Empty {})?;
 
     let token = CoreumToken {
         denom: denom.clone(),
         decimals,
-        xrpl_currency: xrpl_currency.clone(),
+        xrpl_currency: xrpl_currency.to_owned(),
         sending_precision,
         max_holding_amount,
         // All registered Coreum originated tokens will start as enabled because they don't need a TrustSet operation to be bridged because issuer for such tokens is bridge address
@@ -376,42 +381,78 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
             amount,
             recipient,
         } => {
-            // Create issuer+currency key to find denom on coreum.
-            let key = build_xrpl_token_key(issuer.clone(), currency.clone());
+            deps.api.addr_validate(recipient.as_ref())?;
+            let config = CONFIG.load(deps.storage)?;
 
-            let token = XRPL_TOKENS
-                .load(deps.storage, key)
-                .map_err(|_| ContractError::TokenNotRegistered {})?;
+            // This means the token is not a Coreum originated token (the issuer is not the XRPL multisig address)
+            if issuer.ne(&config.bridge_xrpl_address) {
+                // Create issuer+currency key to find denom on coreum.
+                let key = build_xrpl_token_key(issuer.clone(), currency.clone());
 
-            if token.state.ne(&TokenState::Enabled) {
-                return Err(ContractError::XRPLTokenNotEnabled {});
-            }
+                let token = XRPL_TOKENS
+                    .load(deps.storage, key)
+                    .map_err(|_| ContractError::TokenNotRegistered {})?;
 
-            let decimals = match is_token_xrp(token.issuer, token.currency) {
-                true => XRP_DECIMALS,
-                false => XRPL_TOKENS_DECIMALS,
-            };
+                if token.state.ne(&TokenState::Enabled) {
+                    return Err(ContractError::XRPLTokenNotEnabled {});
+                }
 
-            let amount_to_send = truncate_amount(token.sending_precision, decimals, amount)?;
+                let decimals = match is_token_xrp(token.issuer, token.currency) {
+                    true => XRP_DECIMALS,
+                    false => XRPL_TOKENS_DECIMALS,
+                };
 
-            if amount_to_send
-                .checked_add(
-                    deps.querier
-                        .query_supply(token.coreum_denom.clone())?
-                        .amount,
-                )?
-                .gt(&token.max_holding_amount)
-            {
-                return Err(ContractError::MaximumBridgedAmountReached {});
-            }
+                let amount_to_send = truncate_amount(token.sending_precision, decimals, amount)?;
 
-            if threshold_reached {
-                let mint_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
-                    coin: coin(amount_to_send.u128(), token.coreum_denom),
-                    recipient: Some(recipient.to_string()),
-                }));
+                if amount_to_send
+                    .checked_add(
+                        deps.querier
+                            .query_supply(token.coreum_denom.clone())?
+                            .amount,
+                    )?
+                    .gt(&token.max_holding_amount)
+                {
+                    return Err(ContractError::MaximumBridgedAmountReached {});
+                }
 
-                response = response.add_message(mint_msg)
+                if threshold_reached {
+                    let mint_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
+                        coin: coin(amount_to_send.u128(), token.coreum_denom),
+                        recipient: Some(recipient.to_string()),
+                    }));
+
+                    response = response.add_message(mint_msg)
+                }
+            } else {
+                // We check that the token is registered and enabled
+                let token = match COREUM_TOKENS
+                    .idx
+                    .xrpl_currency
+                    .item(deps.storage, currency.to_owned())?
+                    .map(|(_, ct)| ct)
+                {
+                    Some(token) => {
+                        if token.state.ne(&TokenState::Enabled) {
+                            return Err(ContractError::CoreumOriginatedTokenDisabled {});
+                        }
+                        token
+                    }
+                    // In theory this will never happen because any token issued from the multisig address is a token that was bridged from Coreum so it will be registered.
+                    // This could theoretically happen if the multisig address on XRPL issued a token on its own and then tried to bridge it
+                    None => return Err(ContractError::TokenNotRegistered {}),
+                };
+
+                if threshold_reached {
+                    let amount_to_send =
+                        truncate_amount(token.sending_precision, token.decimals, amount)?;
+
+                    // TODO(keyleu): for now we are SENDING back the entire amount but when fees are implemented this will not happen and part of the amount will be sent and funds will be collected
+                    let send_msg = BankMsg::Send {
+                        to_address: recipient.to_string(),
+                        amount: coins(amount_to_send.u128(), token.denom),
+                    };
+                    response = response.add_message(send_msg);
+                }
             }
 
             response = response
@@ -679,6 +720,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::CoreumTokens { offset, limit } => {
             to_json_binary(&query_coreum_tokens(deps, offset, limit)?)
         }
+        QueryMsg::CoreumTokenByXRPLCurrency { xrpl_currency } => {
+            to_json_binary(&query_coreum_token_by_xrpl_currency(deps, xrpl_currency)?)
+        }
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
         QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
@@ -719,11 +763,24 @@ fn query_coreum_tokens(
         .range(deps.storage, None, None, Order::Ascending)
         .skip(offset as usize)
         .take(limit as usize)
-        .filter_map(|v| v.ok())
-        .map(|(_, v)| v)
+        .filter_map(|r| r.ok())
+        .map(|(_, ct)| ct)
         .collect();
 
     Ok(CoreumTokensResponse { tokens })
+}
+
+fn query_coreum_token_by_xrpl_currency(
+    deps: Deps,
+    xrpl_currency: String,
+) -> StdResult<CoreumTokenResponse> {
+    let token = COREUM_TOKENS
+        .idx
+        .xrpl_currency
+        .item(deps.storage, xrpl_currency)?
+        .map(|(_, ct)| ct);
+
+    Ok(CoreumTokenResponse { token })
 }
 
 fn query_pending_operations(deps: Deps) -> StdResult<PendingOperationsResponse> {
