@@ -29,7 +29,7 @@ build-contract:
 	docker run --user $(id -u):$(id -g) --rm -v $(CONTRACT_DIR):/code \
       --mount type=volume,source="coreumbridge_xrpl_cache",target=/code/target \
       --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-       cosmwasm/optimizer:0.15.0-beta.1
+       cosmwasm/optimizer:0.15.0
 	mkdir -p $(BUILD_DIR)
 	cp $(CONTRACT_DIR)/artifacts/coreumbridge_xrpl.wasm $(BUILD_DIR)/coreumbridge_xrpl.wasm
 
