@@ -109,9 +109,9 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		runners = append(
 			runners,
 			createDevRunner(
+				ctx,
 				t,
 				chains,
-				bridgeXRPLAddress,
 				relayerXRPLAddresses[i],
 				contractClient.GetContractAddress(),
 				relayerCoreumAddresses[i],
@@ -125,9 +125,9 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		runners = append(
 			runners,
 			createDevRunner(
+				ctx,
 				t,
 				chains,
-				bridgeXRPLAddress,
 				maliciousXRPLAddress,
 				contractClient.GetContractAddress(),
 				relayerCoreumAddresses[i],
@@ -438,9 +438,9 @@ func genBridgeXRPLAccountWithRelayers(
 }
 
 func createDevRunner(
+	ctx context.Context,
 	t *testing.T,
 	chains integrationtests.Chains,
-	bridgeXRPLAddress rippledata.Account,
 	xrplRelayerAcc rippledata.Account,
 	contractAddress sdk.AccAddress,
 	relayerCoreumAddress sdk.AccAddress,
@@ -475,7 +475,6 @@ func createDevRunner(
 	relayerRunnerCfg := runner.DefaultConfig()
 	relayerRunnerCfg.LoggingConfig.Level = "info"
 
-	relayerRunnerCfg.XRPL.BridgeAccount = bridgeXRPLAddress.String()
 	relayerRunnerCfg.XRPL.MultiSignerKeyName = relayerXRPLKeyName
 	relayerRunnerCfg.XRPL.RPC.URL = chains.XRPL.Config().RPCAddress
 	// make the scanner fast
@@ -492,7 +491,7 @@ func createDevRunner(
 	// make operation fetcher fast
 	relayerRunnerCfg.Processes.XRPLTxSubmitter.RepeatDelay = 500 * time.Millisecond
 
-	relayerRunner, err := runner.NewRunner(relayerRunnerCfg, kr)
+	relayerRunner, err := runner.NewRunner(ctx, relayerRunnerCfg, kr)
 	require.NoError(t, err)
 	return relayerRunner
 }

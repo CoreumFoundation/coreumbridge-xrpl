@@ -1433,10 +1433,10 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	operation := pendingOperations[0]
 	operationType := operation.OperationType.CoreumToXRPLTransfer
 	require.NotNil(t, operationType)
-	require.NotNil(t, operationType.Issuer, bridgeXRPLAddress)
-	require.NotNil(t, operationType.Currency, registeredCoreumOriginatedToken1.XRPLCurrency)
-	require.NotNil(t, operationType.Amount, amountToSendOfToken1)
-	require.NotNil(t, operationType.Recipient, xrplRecipientAddress.String())
+	require.Equal(t, operationType.Issuer, bridgeXRPLAddress)
+	require.Equal(t, operationType.Currency, registeredCoreumOriginatedToken1.XRPLCurrency)
+	require.Equal(t, operationType.Amount, amountToSendOfToken1)
+	require.Equal(t, operationType.Recipient, xrplRecipientAddress.String())
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
@@ -1482,10 +1482,10 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	operation = pendingOperations[0]
 	operationType = operation.OperationType.CoreumToXRPLTransfer
 	require.NotNil(t, operationType)
-	require.NotNil(t, operationType.Issuer, bridgeXRPLAddress)
-	require.NotNil(t, operationType.Currency, registeredCoreumOriginatedToken2.XRPLCurrency)
-	require.NotNil(t, operationType.Amount, amountToSendOfToken2)
-	require.NotNil(t, operationType.Recipient, xrplRecipientAddress.String())
+	require.Equal(t, operationType.Issuer, bridgeXRPLAddress)
+	require.Equal(t, operationType.Currency, registeredCoreumOriginatedToken2.XRPLCurrency)
+	require.Equal(t, operationType.Amount, amountToSendOfToken2)
+	require.Equal(t, operationType.Recipient, xrplRecipientAddress.String())
 
 	acceptedTxEvidence = coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{

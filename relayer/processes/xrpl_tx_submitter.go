@@ -86,17 +86,6 @@ func (s *XRPLTxSubmitter) Init(ctx context.Context) error {
 	if s.xrplSigner == nil {
 		return errors.Errorf("nil xrplSigner")
 	}
-	cfg, err := s.contractClient.GetContractConfig(ctx)
-	if err != nil {
-		return err
-	}
-	if cfg.BridgeXRPLAddress != s.cfg.BridgeXRPLAddress.String() {
-		return errors.Errorf(
-			"submitter bridge XRPL address in config is different from the contract %s!=%s",
-			cfg.BridgeXRPLAddress,
-			s.cfg.BridgeXRPLAddress.String(),
-		)
-	}
 
 	return nil
 }

@@ -54,18 +54,6 @@ func (o *XRPLTxObserver) Init(ctx context.Context) error {
 		return errors.Errorf("failed to init process, contract client is not initialized")
 	}
 
-	cfg, err := o.contractClient.GetContractConfig(ctx)
-	if err != nil {
-		return err
-	}
-	if cfg.BridgeXRPLAddress != o.cfg.BridgeXRPLAddress.String() {
-		return errors.Errorf(
-			"observer bridge XRPL address in config is different from the contract %s!=%s",
-			cfg.BridgeXRPLAddress,
-			o.cfg.BridgeXRPLAddress.String(),
-		)
-	}
-
 	return nil
 }
 

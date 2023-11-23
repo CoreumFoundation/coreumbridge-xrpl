@@ -2,6 +2,7 @@
 package runner
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -73,7 +74,6 @@ type XRPLScannerConfig struct {
 
 // XRPLConfig is XRPL config.
 type XRPLConfig struct {
-	BridgeAccount      string            `yaml:"bridge_account"`
 	MultiSignerKeyName string            `yaml:"multi_signer_key_name"`
 	HTTPClient         HTTPClientConfig  `yaml:"http_client"`
 	RPC                XRPLRPCConfig     `yaml:"rpc"`
@@ -142,8 +142,6 @@ func DefaultConfig() Config {
 		Version:       configVersion,
 		LoggingConfig: LoggingConfig(logger.DefaultZapLoggerConfig()),
 		XRPL: XRPLConfig{
-			// empty be default
-			BridgeAccount: "",
 			// empty be default
 			MultiSignerKeyName: "",
 			HTTPClient:         HTTPClientConfig(toolshttp.DefaultClientConfig()),
@@ -217,29 +215,12 @@ type Runner struct {
 // NewRunner return new runner from the config.
 //
 //nolint:funlen // the func contains sequential object initialisation
-func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
+func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring) (*Runner, error) {
 	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig(cfg.LoggingConfig))
 	if err != nil {
 		return nil, err
 	}
 	retryableXRPLRPCHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.XRPL.HTTPClient))
-
-	// XRPL
-	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
-	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, zapLogger, retryableXRPLRPCHTTPClient)
-	bridgeXRPLAddress, err := rippledata.NewAccountFromAddress(cfg.XRPL.BridgeAccount)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get xrpl account from string, string:%s", cfg.XRPL.BridgeAccount)
-	}
-	xrplScanner := xrpl.NewAccountScanner(xrpl.AccountScannerConfig{
-		Account:           *bridgeXRPLAddress,
-		RecentScanEnabled: cfg.XRPL.Scanner.RecentScanEnabled,
-		RecentScanWindow:  cfg.XRPL.Scanner.RecentScanWindow,
-		RepeatRecentScan:  cfg.XRPL.Scanner.RepeatRecentScan,
-		FullScanEnabled:   cfg.XRPL.Scanner.FullScanEnabled,
-		RepeatFullScan:    cfg.XRPL.Scanner.RepeatFullScan,
-		RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
-	}, zapLogger, xrplRPCClient)
 
 	var contractAddress sdk.AccAddress
 	if cfg.Coreum.Contract.ContractAddress != "" {
@@ -293,6 +274,27 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 		}
 	}
 	contractClient := coreum.NewContractClient(contractClientCfg, zapLogger, clientContext)
+
+	contractConfig, err := contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get contract config for the runner intialization")
+	}
+
+	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
+	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, zapLogger, retryableXRPLRPCHTTPClient)
+	bridgeXRPLAddress, err := rippledata.NewAccountFromAddress(contractConfig.BridgeXRPLAddress)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get xrpl account from string, string:%s", contractConfig.BridgeXRPLAddress)
+	}
+	xrplScanner := xrpl.NewAccountScanner(xrpl.AccountScannerConfig{
+		Account:           *bridgeXRPLAddress,
+		RecentScanEnabled: cfg.XRPL.Scanner.RecentScanEnabled,
+		RecentScanWindow:  cfg.XRPL.Scanner.RecentScanWindow,
+		RepeatRecentScan:  cfg.XRPL.Scanner.RepeatRecentScan,
+		FullScanEnabled:   cfg.XRPL.Scanner.FullScanEnabled,
+		RepeatFullScan:    cfg.XRPL.Scanner.RepeatFullScan,
+		RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
+	}, zapLogger, xrplRPCClient)
 
 	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
 	if kr != nil {
