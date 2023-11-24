@@ -124,11 +124,16 @@ pub enum ContractError {
     #[error("XRPLTokenNotEnabled: This token must be enabled to be bridged")]
     XRPLTokenNotEnabled {},
 
-    #[error("CoreumOriginatedTokenDisabled: This token is currently disabled and can't be bridged")]
+    #[error(
+        "CoreumOriginatedTokenDisabled: This token is currently disabled and can't be bridged"
+    )]
     CoreumOriginatedTokenDisabled {},
 
     #[error("XRPLTokenNotInProcessing: This token must be in processing state to be enabled")]
     XRPLTokenNotInProcessing {},
+
+    #[error("XRPLTokenNotInactive: To recover this token it must be inactive")]
+    XRPLTokenNotInactive {},
 
     #[error("AmountSentIsZeroAfterTruncation: Amount sent is zero after truncating to sending precision")]
     AmountSentIsZeroAfterTruncation {},

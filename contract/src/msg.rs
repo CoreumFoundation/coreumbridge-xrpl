@@ -41,6 +41,10 @@ pub enum ExecuteMsg {
         account_sequence: u64,
         number_of_tickets: Option<u32>,
     },
+    RecoverXRPLTokenRegistration {
+        issuer: String,
+        currency: String,
+    },
     SaveSignature {
         operation_id: u64,
         signature: String,
