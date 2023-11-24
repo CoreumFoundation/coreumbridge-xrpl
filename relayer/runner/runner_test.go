@@ -43,7 +43,6 @@ logging:
     level: info
     format: console
 xrpl:
-    bridge_account: ""
     multi_signer_key_name: ""
     http_client:
         request_timeout: 5s

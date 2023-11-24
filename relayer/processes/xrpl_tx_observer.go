@@ -17,8 +17,8 @@ import (
 
 // XRPLTxObserverConfig is XRPLTxObserver config.
 type XRPLTxObserverConfig struct {
-	BridgeAccount  rippledata.Account
-	RelayerAddress sdk.AccAddress
+	BridgeXRPLAddress    rippledata.Account
+	RelayerCoreumAddress sdk.AccAddress
 }
 
 // XRPLTxObserver is process which observes the XRPL txs and register the evidences in the contract.
@@ -48,7 +48,7 @@ func NewXRPLTxObserver(
 func (o *XRPLTxObserver) Init(ctx context.Context) error {
 	o.log.Debug(ctx, "Initializing process")
 
-	if o.cfg.RelayerAddress.Empty() {
+	if o.cfg.RelayerCoreumAddress.Empty() {
 		return errors.Errorf("failed to init process, relayer address is nil or empty")
 	}
 	if !o.contractClient.IsInitialized() {
@@ -71,7 +71,11 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 			return errors.WithStack(ctx.Err())
 		case tx := <-txCh:
 			if err := o.processTx(ctx, tx); err != nil {
-				o.log.Error(ctx, "Failed to process XRPL tx", logger.Error(err))
+				if errors.Is(err, context.Canceled) {
+					o.log.Warn(ctx, "Context canceled during the XRPL tx processing", logger.StringField("error", err.Error()))
+				} else {
+					o.log.Error(ctx, "Failed to process XRPL tx", logger.Error(err))
+				}
 			}
 		}
 	}
@@ -83,7 +87,7 @@ func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.Transactio
 		o.log.Debug(ctx, "Transaction is not final", logger.StringField("txStatus", tx.MetaData.TransactionResult.String()))
 		return nil
 	}
-	if o.cfg.BridgeAccount == tx.GetBase().Account {
+	if o.cfg.BridgeXRPLAddress == tx.GetBase().Account {
 		return o.processOutgoingTx(ctx, tx)
 	}
 
@@ -119,7 +123,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	}
 
 	deliveredXRPLAmount := tx.MetaData.DeliveredAmount
-	coreumAmount, err := ConvertXRPLOriginTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
+	coreumAmount, err := ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
 	if err != nil {
 		return err
 	}
@@ -136,7 +140,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		Recipient: coreumRecipient,
 	}
 
-	_, err = o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerAddress, evidence)
+	_, err = o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerCoreumAddress, evidence)
 	if err == nil {
 		return nil
 	}
@@ -165,6 +169,8 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 		return o.sendXRPLTicketsAllocationTransactionResultEvidence(ctx, tx)
 	case rippledata.TRUST_SET.String():
 		return o.sendXRPLTrustSetTransactionResultEvidence(ctx, tx)
+	case rippledata.PAYMENT.String():
+		return o.sendCoreumToXRPLTransferTransactionResultEvidence(ctx, tx)
 	default:
 		// TODO(dzmitryhil) replace with the error once we integrate all supported types
 		o.log.Warn(ctx, "Found unsupported transaction type", logger.AnyField("tx", tx))
@@ -172,18 +178,10 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 	}
 }
 
-// IsEvidenceErrorCausedByResubmission returns true is error is cause of the re-submitting of the transaction.
-func IsEvidenceErrorCausedByResubmission(err error) bool {
-	return coreum.IsEvidenceAlreadyProvidedError(err) ||
-		coreum.IsOperationAlreadyExecutedError(err) ||
-		coreum.IsPendingOperationNotFoundError(err)
-}
-
 func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	tickets := extractTicketSequencesFromMetaData(tx.MetaData)
-	txResult := coreum.TransactionResultAccepted
-	if !tx.MetaData.TransactionResult.Success() {
-		txResult = coreum.TransactionResultRejected
+	txResult := getTransactionResult(tx)
+	if txResult == coreum.TransactionResultRejected {
 		tickets = nil
 	}
 	evidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
@@ -205,28 +203,14 @@ func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(ctx 
 	}
 	_, err := o.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(
 		ctx,
-		o.cfg.RelayerAddress,
+		o.cfg.RelayerCoreumAddress,
 		evidence,
 	)
-	if err == nil {
-		if evidence.TransactionResult != coreum.TransactionResultAccepted {
-			o.log.Warn(ctx, "Transaction was rejected", logger.StringField("txResult", tx.MetaData.TransactionResult.String()))
-		}
-		return nil
-	}
-	if IsEvidenceErrorCausedByResubmission(err) {
-		o.log.Debug(ctx, "Received expected send evidence error")
-		return nil
-	}
 
-	return err
+	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
 func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
-	txResult := coreum.TransactionResultAccepted
-	if !tx.MetaData.TransactionResult.Success() {
-		txResult = coreum.TransactionResultRejected
-	}
 	trustSetTx, ok := tx.Transaction.(*rippledata.TrustSet)
 	if !ok {
 		return errors.Errorf("failed to cast tx to TrustSet, data:%+v", tx)
@@ -234,7 +218,7 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.C
 	evidence := coreum.XRPLTransactionResultTrustSetEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 			TxHash:            tx.GetHash().String(),
-			TransactionResult: txResult,
+			TransactionResult: getTransactionResult(tx),
 			TicketSequence:    trustSetTx.TicketSequence,
 		},
 		Issuer:   trustSetTx.LimitAmount.Issuer.String(),
@@ -243,9 +227,41 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.C
 
 	_, err := o.contractClient.SendXRPLTrustSetTransactionResultEvidence(
 		ctx,
-		o.cfg.RelayerAddress,
+		o.cfg.RelayerCoreumAddress,
 		evidence,
 	)
+
+	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+}
+
+func (o *XRPLTxObserver) sendCoreumToXRPLTransferTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+	paymentTx, ok := tx.Transaction.(*rippledata.Payment)
+	if !ok {
+		return errors.Errorf("failed to cast tx to Payment, data:%+v", tx)
+	}
+	evidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            tx.GetHash().String(),
+			TransactionResult: getTransactionResult(tx),
+			TicketSequence:    paymentTx.TicketSequence,
+		},
+	}
+
+	_, err := o.contractClient.SendCoreumToXRPLTransferTransactionResultEvidence(
+		ctx,
+		o.cfg.RelayerCoreumAddress,
+		evidence,
+	)
+
+	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+}
+
+func (o *XRPLTxObserver) handleEvidenceSubmissionError(
+	ctx context.Context,
+	err error,
+	tx rippledata.TransactionWithMetaData,
+	evidence coreum.XRPLTransactionResultEvidence,
+) error {
 	if err == nil {
 		if evidence.TransactionResult != coreum.TransactionResultAccepted {
 			o.log.Warn(ctx, "Transaction was rejected", logger.StringField("txResult", tx.MetaData.TransactionResult.String()))
@@ -256,7 +272,6 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.C
 		o.log.Debug(ctx, "Received expected send evidence error")
 		return nil
 	}
-
 	return err
 }
 
@@ -274,6 +289,13 @@ func txIsFinal(tx rippledata.TransactionWithMetaData) bool {
 		strings.HasPrefix(txResult.String(), xrpl.TemTxResultPrefix) ||
 		txResult.String() == xrpl.TefPastSeqTxResult ||
 		txResult.String() == xrpl.TefMaxLedgerTxResult
+}
+
+func getTransactionResult(tx rippledata.TransactionWithMetaData) coreum.TransactionResult {
+	if tx.MetaData.TransactionResult.Success() {
+		return coreum.TransactionResultAccepted
+	}
+	return coreum.TransactionResultRejected
 }
 
 func extractTicketSequencesFromMetaData(metaData rippledata.MetaData) []uint32 {

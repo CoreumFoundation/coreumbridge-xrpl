@@ -14,8 +14,6 @@ import (
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 )
 
-// TODO(dzmitryhil) add the additional test for each operation which might cause the re-allocation
-
 func TestTicketsAllocationRecoveryWithAccountSequence(t *testing.T) {
 	t.Parallel()
 
@@ -207,7 +205,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	for i := 0; i < numberOfXRPLTokensToRegister; i++ {
 		registeredXRPLCurrency, err := rippledata.NewCurrency(fmt.Sprintf("CR%d", i))
 		require.NoError(t, err)
-		runnerEnv.RegisterXRPLTokenAndAwaitTrustSet(ctx, t, xrplCurrencyIssuerAcc, registeredXRPLCurrency, int32(6), integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30))
+		runnerEnv.RegisterXRPLOriginatedToken(ctx, t, xrplCurrencyIssuerAcc, registeredXRPLCurrency, int32(6), integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30))
 	}
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 
@@ -221,7 +219,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	for i := 0; i < numberOfXRPLTokensToRegister; i++ {
 		registeredXRPLCurrency, err := rippledata.NewCurrency(fmt.Sprintf("DR%d", i))
 		require.NoError(t, err)
-		runnerEnv.RegisterXRPLTokenAndAwaitTrustSet(ctx, t, xrplCurrencyIssuerAcc, registeredXRPLCurrency, int32(6), integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30))
+		runnerEnv.RegisterXRPLOriginatedToken(ctx, t, xrplCurrencyIssuerAcc, registeredXRPLCurrency, int32(6), integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30))
 	}
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 	availableTicketsAfterSecondReallocation, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)

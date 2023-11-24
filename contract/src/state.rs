@@ -38,6 +38,7 @@ pub struct Config {
     pub evidence_threshold: u32,
     pub used_ticket_sequence_threshold: u32,
     pub trust_set_limit_amount: Uint128,
+    pub bridge_xrpl_address: String,
 }
 
 #[cw_serde]
@@ -67,11 +68,12 @@ pub struct CoreumToken {
     pub denom: String,
     pub decimals: u32,
     pub xrpl_currency: String,
+    pub sending_precision: i32,
+    pub max_holding_amount: Uint128,
+    pub state: TokenState,
 }
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
-// Tokens registered from Coreum side. These tokens are coreum originated tokens that are registered to be bridged - key is denom on Coreum chain
-pub const COREUM_TOKENS: Map<String, CoreumToken> = Map::new(TopKey::CoreumTokens.as_str());
 // Tokens registered from XRPL side. These tokens are XRPL originated tokens - primary key is issuer+currency on XRPL
 // XRPLTokens will have coreum_denom as a secondary index so that we can get the XRPLToken corresponding to a coreum_denom
 pub struct XRPLTokensIndexes<'a> {
@@ -94,9 +96,29 @@ pub const XRPL_TOKENS: IndexedMap<String, XRPLToken, XRPLTokensIndexes> = Indexe
         ),
     },
 );
-// XRPL-Currencies used
-pub const USED_XRPL_CURRENCIES_FOR_COREUM_TOKENS: Map<String, Empty> =
-    Map::new(TopKey::UsedXRPLCurrenciesForCoreumTokens.as_str());
+// Tokens registered from Coreum side. These tokens are coreum originated tokens that are registered to be bridged - key is denom on Coreum chain
+// CoreumTokens will have xrpl_currency as a secondary index so that we can get the CoreumToken corresponding to a xrpl_currency
+pub struct CoreumTokensIndexes<'a> {
+    pub xrpl_currency: UniqueIndex<'a, String, CoreumToken, String>,
+}
+
+impl<'a> IndexList<CoreumToken> for CoreumTokensIndexes<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<CoreumToken>> + '_> {
+        let v: Vec<&dyn Index<CoreumToken>> = vec![&self.xrpl_currency];
+        Box::new(v.into_iter())
+    }
+}
+
+pub const COREUM_TOKENS: IndexedMap<String, CoreumToken, CoreumTokensIndexes> = IndexedMap::new(
+    TopKey::CoreumTokens.as_str(),
+    CoreumTokensIndexes {
+        xrpl_currency: UniqueIndex::new(
+            |coreum_token| coreum_token.xrpl_currency.clone(),
+            "coreum_token__xrpl_currency",
+        ),
+    },
+);
+
 // Evidences, when enough evidences are collected, the transaction hashes are stored in EXECUTED_EVIDENCE_OPERATIONS.
 pub const TX_EVIDENCES: Map<String, Evidences> = Map::new(TopKey::TxEvidences.as_str());
 // This will contain the transaction hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again

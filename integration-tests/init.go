@@ -42,7 +42,9 @@ func init() {
 	// parse additional flags
 	flag.Parse()
 
-	zapDevLogger, err := zap.NewDevelopment()
+	zapDevConfig := zap.NewDevelopmentConfig()
+	zapDevConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	zapDevLogger, err := zapDevConfig.Build()
 	if err != nil {
 		panic(errors.WithStack(err))
 	}

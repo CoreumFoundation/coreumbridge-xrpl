@@ -2,6 +2,7 @@
 package runner
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -73,7 +74,6 @@ type XRPLScannerConfig struct {
 
 // XRPLConfig is XRPL config.
 type XRPLConfig struct {
-	BridgeAccount      string            `yaml:"bridge_account"`
 	MultiSignerKeyName string            `yaml:"multi_signer_key_name"`
 	HTTPClient         HTTPClientConfig  `yaml:"http_client"`
 	RPC                XRPLRPCConfig     `yaml:"rpc"`
@@ -142,8 +142,6 @@ func DefaultConfig() Config {
 		Version:       configVersion,
 		LoggingConfig: LoggingConfig(logger.DefaultZapLoggerConfig()),
 		XRPL: XRPLConfig{
-			// empty be default
-			BridgeAccount: "",
 			// empty be default
 			MultiSignerKeyName: "",
 			HTTPClient:         HTTPClientConfig(toolshttp.DefaultClientConfig()),
@@ -217,29 +215,12 @@ type Runner struct {
 // NewRunner return new runner from the config.
 //
 //nolint:funlen // the func contains sequential object initialisation
-func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
+func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring) (*Runner, error) {
 	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig(cfg.LoggingConfig))
 	if err != nil {
 		return nil, err
 	}
 	retryableXRPLRPCHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.XRPL.HTTPClient))
-
-	// XRPL
-	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
-	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, zapLogger, retryableXRPLRPCHTTPClient)
-	bridgeXRPLAddress, err := rippledata.NewAccountFromAddress(cfg.XRPL.BridgeAccount)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get xrpl account from string, string:%s", cfg.XRPL.BridgeAccount)
-	}
-	xrplScanner := xrpl.NewAccountScanner(xrpl.AccountScannerConfig{
-		Account:           *bridgeXRPLAddress,
-		RecentScanEnabled: cfg.XRPL.Scanner.RecentScanEnabled,
-		RecentScanWindow:  cfg.XRPL.Scanner.RecentScanWindow,
-		RepeatRecentScan:  cfg.XRPL.Scanner.RepeatRecentScan,
-		FullScanEnabled:   cfg.XRPL.Scanner.FullScanEnabled,
-		RepeatFullScan:    cfg.XRPL.Scanner.RepeatFullScan,
-		RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
-	}, zapLogger, xrplRPCClient)
 
 	var contractAddress sdk.AccAddress
 	if cfg.Coreum.Contract.ContractAddress != "" {
@@ -285,14 +266,35 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 	if kr != nil && cfg.Coreum.RelayerKeyName != "" {
 		keyRecord, err := kr.Key(cfg.Coreum.RelayerKeyName)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to key relayer key form the keyring, key name:%s", cfg.Coreum.RelayerKeyName)
+			return nil, errors.Wrapf(err, "failed to get relayer key from the keyring, key name:%s", cfg.Coreum.RelayerKeyName)
 		}
 		relayerAddress, err = keyRecord.GetAddress()
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to address from keyring key recodr, key name:%s", cfg.Coreum.RelayerKeyName)
+			return nil, errors.Wrapf(err, "failed to get address from keyring key recodr, key name:%s", cfg.Coreum.RelayerKeyName)
 		}
 	}
 	contractClient := coreum.NewContractClient(contractClientCfg, zapLogger, clientContext)
+
+	contractConfig, err := contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get contract config for the runner intialization")
+	}
+
+	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
+	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, zapLogger, retryableXRPLRPCHTTPClient)
+	bridgeXRPLAddress, err := rippledata.NewAccountFromAddress(contractConfig.BridgeXRPLAddress)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get xrpl account from string, string:%s", contractConfig.BridgeXRPLAddress)
+	}
+	xrplScanner := xrpl.NewAccountScanner(xrpl.AccountScannerConfig{
+		Account:           *bridgeXRPLAddress,
+		RecentScanEnabled: cfg.XRPL.Scanner.RecentScanEnabled,
+		RecentScanWindow:  cfg.XRPL.Scanner.RecentScanWindow,
+		RepeatRecentScan:  cfg.XRPL.Scanner.RepeatRecentScan,
+		FullScanEnabled:   cfg.XRPL.Scanner.FullScanEnabled,
+		RepeatFullScan:    cfg.XRPL.Scanner.RepeatFullScan,
+		RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
+	}, zapLogger, xrplRPCClient)
 
 	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
 	if kr != nil {
@@ -304,8 +306,8 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 		XRPLTxObserver: processes.ProcessWithOptions{
 			Process: processes.NewXRPLTxObserver(
 				processes.XRPLTxObserverConfig{
-					BridgeAccount:  *bridgeXRPLAddress,
-					RelayerAddress: relayerAddress,
+					BridgeXRPLAddress:    *bridgeXRPLAddress,
+					RelayerCoreumAddress: relayerAddress,
 				},
 				zapLogger,
 				xrplScanner,
@@ -317,11 +319,11 @@ func NewRunner(cfg Config, kr keyring.Keyring) (*Runner, error) {
 		XRPLTxSubmitter: processes.ProcessWithOptions{
 			Process: processes.NewXRPLTxSubmitter(
 				processes.XRPLTxSubmitterConfig{
-					BridgeAccount:       *bridgeXRPLAddress,
-					RelayerAddress:      relayerAddress,
-					XRPLTxSignerKeyName: cfg.XRPL.MultiSignerKeyName,
-					RepeatRecentScan:    true,
-					RepeatDelay:         cfg.Processes.XRPLTxSubmitter.RepeatDelay,
+					BridgeXRPLAddress:    *bridgeXRPLAddress,
+					RelayerCoreumAddress: relayerAddress,
+					XRPLTxSignerKeyName:  cfg.XRPL.MultiSignerKeyName,
+					RepeatRecentScan:     true,
+					RepeatDelay:          cfg.Processes.XRPLTxSubmitter.RepeatDelay,
 				},
 				zapLogger,
 				contractClient,

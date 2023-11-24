@@ -18,9 +18,11 @@ type ContractClient interface {
 	SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence coreum.XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error)
 	SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evidence coreum.XRPLTransactionResultTicketsAllocationEvidence) (*sdk.TxResponse, error)
 	SendXRPLTrustSetTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd coreum.XRPLTransactionResultTrustSetEvidence) (*sdk.TxResponse, error)
+	SendCoreumToXRPLTransferTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence) (*sdk.TxResponse, error)
 	SaveSignature(ctx context.Context, sender sdk.AccAddress, operationID uint32, signature string) (*sdk.TxResponse, error)
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
 	GetContractConfig(ctx context.Context) (coreum.ContractConfig, error)
+	GetCoreumTokenByXRPLCurrency(ctx context.Context, xrplCurrency string) (coreum.CoreumToken, error)
 }
 
 // XRPLAccountTxScanner is XRPL account tx scanner.
@@ -37,4 +39,11 @@ type XRPLRPCClient interface {
 // XRPLTxSigner is XRPL transaction signer.
 type XRPLTxSigner interface {
 	MultiSign(tx rippledata.MultiSignable, keyName string) (rippledata.Signer, error)
+}
+
+// IsEvidenceErrorCausedByResubmission returns true is error is cause of the re-submitting of the transaction.
+func IsEvidenceErrorCausedByResubmission(err error) bool {
+	return coreum.IsEvidenceAlreadyProvidedError(err) ||
+		coreum.IsOperationAlreadyExecutedError(err) ||
+		coreum.IsPendingOperationNotFoundError(err)
 }

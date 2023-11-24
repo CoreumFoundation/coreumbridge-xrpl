@@ -65,7 +65,7 @@ Check [workflow](#register-token) for more details.
 It is possible to update both `max holding amount` and `sending precision` for both XRPL and coreum originated tokens. The
 owner can do it by calling the contract.
 The contract updates the `sending precision` in the token registry and removes all pending evidences with
-`sending from XRPL to coreum` type data form the evidence queue. We need it to avoid evidence inconsistency, since an
+`sending from XRPL to coreum` type data from the evidence queue. We need it to avoid evidence inconsistency, since an
 evidence could be accepted by the contract with old `sending precision`, and never got fully confirmed with the new.
 The full rescan will help to check and submit such evidence one more time after the removal.
 The new `maxHoldingAmount` must be greater that the current amount.
@@ -216,7 +216,7 @@ type. As the result some discrepancy might happen, examples:
    but recipient balance remains the same.
 2. When a sender sends too low amount to a recipient with high balance the sender's balance is changed but recipient's
    balance remains the same.
-3. It is possible to mint tokens on the XRPL by sending too low amounts to a recipient with low balance form an account
+3. It is possible to mint tokens on the XRPL by sending too low amounts to a recipient with low balance from an account
    with high balance.
 
 ### Issues:
