@@ -32,7 +32,7 @@ jobs:
             linter-cache: false
             docker-cache: false
           - ci_step: "integration tests"
-            command: "make build-contract && make rebuild-dev-env && make restart-dev-env && make test-integration"
+            command: "make build-contract && make build-dev-env && make restart-dev-env && make test-integration"
             go-cache: true
             wasm-cache: true
             linter-cache: false

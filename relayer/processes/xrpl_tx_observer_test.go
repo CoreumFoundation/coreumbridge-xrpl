@@ -491,8 +491,8 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			}
 			o := processes.NewXRPLTxObserver(
 				processes.XRPLTxObserverConfig{
-					BridgeAccount:  bridgeXRPLAddress,
-					RelayerAddress: relayerAddress,
+					BridgeXRPLAddress:    bridgeXRPLAddress,
+					RelayerCoreumAddress: relayerAddress,
 				},
 				logMock,
 				tt.txScannerBuilder(ctrl, cancel),

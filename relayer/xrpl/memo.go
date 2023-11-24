@@ -21,7 +21,7 @@ type BridgeMemo struct {
 	CoreumRecipient string `json:"coreum_recipient"`
 }
 
-// DecodeCoreumRecipientFromMemo decodes the coreum recipient form memo or returns nil in case the memo is not as expected.
+// DecodeCoreumRecipientFromMemo decodes the coreum recipient from memo or returns nil in case the memo is not as expected.
 func DecodeCoreumRecipientFromMemo(memos rippledata.Memos) sdk.AccAddress {
 	var bridgeMemo BridgeMemo
 	for _, memo := range memos {

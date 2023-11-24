@@ -109,9 +109,9 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		runners = append(
 			runners,
 			createDevRunner(
+				ctx,
 				t,
 				chains,
-				bridgeXRPLAddress,
 				relayerXRPLAddresses[i],
 				contractClient.GetContractAddress(),
 				relayerCoreumAddresses[i],
@@ -125,9 +125,9 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		runners = append(
 			runners,
 			createDevRunner(
+				ctx,
 				t,
 				chains,
-				bridgeXRPLAddress,
 				maliciousXRPLAddress,
 				contractClient.GetContractAddress(),
 				relayerCoreumAddresses[i],
@@ -269,12 +269,11 @@ func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 	require.NoError(t, err)
 	// await for the trust set
 	r.AwaitNoPendingOperations(ctx, t)
-	registeredXRPLToken, err := r.ContractClient.GetXRPLToken(ctx, issuer.String(), xrpl.ConvertCurrencyToString(currency))
+	registeredXRPLToken, err := r.ContractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer.String(), xrpl.ConvertCurrencyToString(currency))
 	require.NoError(t, err)
-	require.NotNil(t, registeredXRPLToken)
 	require.Equal(t, coreum.TokenStateEnabled, registeredXRPLToken.State)
 
-	return *registeredXRPLToken
+	return registeredXRPLToken
 }
 
 // RequireNoErrors check whether the runner err received runner errors.
@@ -347,7 +346,7 @@ func (r *RunnerEnv) SendXRPLMaxTrustSetTx(
 	issuer rippledata.Account,
 	currency rippledata.Currency,
 ) {
-	value, err := rippledata.NewValue("1000000000000", false)
+	value, err := rippledata.NewValue("1e80", false)
 	require.NoError(t, err)
 	trustSetTx := rippledata.TrustSet{
 		LimitAmount: rippledata.Amount{
@@ -439,12 +438,12 @@ func genBridgeXRPLAccountWithRelayers(
 }
 
 func createDevRunner(
+	ctx context.Context,
 	t *testing.T,
 	chains integrationtests.Chains,
-	bridgeXRPLAddress rippledata.Account,
 	xrplRelayerAcc rippledata.Account,
 	contractAddress sdk.AccAddress,
-	coreumRelayerAddress sdk.AccAddress,
+	relayerCoreumAddress sdk.AccAddress,
 ) *runner.Runner {
 	t.Helper()
 
@@ -458,7 +457,7 @@ func createDevRunner(
 
 	// reimport coreum key
 	coreumKr := chains.Coreum.ClientContext.Keyring()
-	keyInfo, err := coreumKr.KeyByAddress(coreumRelayerAddress)
+	keyInfo, err := coreumKr.KeyByAddress(relayerCoreumAddress)
 	require.NoError(t, err)
 	pass := uuid.NewString()
 	armor, err := coreumKr.ExportPrivKeyArmor(keyInfo.Name, pass)
@@ -474,9 +473,8 @@ func createDevRunner(
 	require.NoError(t, kr.ImportPrivKey(relayerXRPLKeyName, armor, pass))
 
 	relayerRunnerCfg := runner.DefaultConfig()
-	relayerRunnerCfg.LoggingConfig.Level = "debug"
+	relayerRunnerCfg.LoggingConfig.Level = "info"
 
-	relayerRunnerCfg.XRPL.BridgeAccount = bridgeXRPLAddress.String()
 	relayerRunnerCfg.XRPL.MultiSignerKeyName = relayerXRPLKeyName
 	relayerRunnerCfg.XRPL.RPC.URL = chains.XRPL.Config().RPCAddress
 	// make the scanner fast
@@ -493,7 +491,7 @@ func createDevRunner(
 	// make operation fetcher fast
 	relayerRunnerCfg.Processes.XRPLTxSubmitter.RepeatDelay = 500 * time.Millisecond
 
-	relayerRunner, err := runner.NewRunner(relayerRunnerCfg, kr)
+	relayerRunner, err := runner.NewRunner(ctx, relayerRunnerCfg, kr)
 	require.NoError(t, err)
 	return relayerRunner
 }

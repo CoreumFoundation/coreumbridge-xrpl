@@ -127,19 +127,24 @@ type ContractOwnership struct {
 
 // XRPLToken is XRPL token representation on coreum.
 type XRPLToken struct {
-	Issuer      string     `json:"issuer"`
-	Currency    string     `json:"currency"`
-	CoreumDenom string     `json:"coreum_denom"`
-	State       TokenState `json:"state"`
+	Issuer           string      `json:"issuer"`
+	Currency         string      `json:"currency"`
+	CoreumDenom      string      `json:"coreum_denom"`
+	SendingPrecision int32       `json:"sending_precision"`
+	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
+	State            TokenState  `json:"state"`
 }
 
 // CoreumToken is coreum token registered on the contract.
 //
 //nolint:revive //kept for the better naming convention.
 type CoreumToken struct {
-	Denom        string `json:"denom"`
-	Decimals     uint32 `json:"decimals"`
-	XRPLCurrency string `json:"xrpl_currency"`
+	Denom            string      `json:"denom"`
+	Decimals         uint32      `json:"decimals"`
+	XRPLCurrency     string      `json:"xrpl_currency"`
+	SendingPrecision int32       `json:"sending_precision"`
+	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
+	State            TokenState  `json:"state"`
 }
 
 // XRPLToCoreumTransferEvidence is evidence with values represented sending from XRPL to coreum.
@@ -717,19 +722,19 @@ func (c *ContractClient) GetContractOwnership(ctx context.Context) (ContractOwne
 	return response, nil
 }
 
-// GetXRPLToken returns an XRPL registered token or nil.
-func (c *ContractClient) GetXRPLToken(ctx context.Context, issuer, currency string) (*XRPLToken, error) {
+// GetXRPLTokenByIssuerAndCurrency returns a XRPL registered token by issuer and currency or error.
+func (c *ContractClient) GetXRPLTokenByIssuerAndCurrency(ctx context.Context, issuer, currency string) (XRPLToken, error) {
 	tokens, err := c.GetXRPLTokens(ctx)
 	if err != nil {
-		return nil, err
+		return XRPLToken{}, err
 	}
 	for _, token := range tokens {
 		if token.Issuer == issuer && token.Currency == currency {
-			return &token, nil
+			return token, nil
 		}
 	}
 
-	return nil, nil //nolint:nilnil // if token not found we return nil instead of an error
+	return XRPLToken{}, errors.Errorf("token not found in the registered tokens list, issuer:%s, currency:%s", issuer, currency)
 }
 
 // GetXRPLTokens returns a list of all XRPL tokens.
@@ -749,6 +754,37 @@ func (c *ContractClient) GetXRPLTokens(ctx context.Context) ([]XRPLToken, error)
 	}
 
 	return tokens, nil
+}
+
+// GetCoreumTokenByDenom returns a coreum registered token or nil by the provided denom.
+func (c *ContractClient) GetCoreumTokenByDenom(ctx context.Context, denom string) (CoreumToken, error) {
+	tokens, err := c.GetCoreumTokens(ctx)
+	if err != nil {
+		return CoreumToken{}, err
+	}
+	for _, token := range tokens {
+		if token.Denom == denom {
+			return token, nil
+		}
+	}
+
+	return CoreumToken{}, errors.Errorf("token not found in the registered tokens list, denom:%s", denom)
+}
+
+// GetCoreumTokenByXRPLCurrency returns a coreum registered token or nil by the provided xrpl currency.
+func (c *ContractClient) GetCoreumTokenByXRPLCurrency(ctx context.Context, xrplCurrency string) (CoreumToken, error) {
+	// TODO(dzmitryhil) use new query function from the contract once we create it
+	tokens, err := c.GetCoreumTokens(ctx)
+	if err != nil {
+		return CoreumToken{}, err
+	}
+	for _, token := range tokens {
+		if token.XRPLCurrency == xrplCurrency {
+			return token, nil
+		}
+	}
+
+	return CoreumToken{}, errors.Errorf("token not found in the registered tokens list, xrplCurrency:%s", xrplCurrency)
 }
 
 // GetCoreumTokens returns a list of all coreum tokens.

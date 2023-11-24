@@ -101,7 +101,7 @@ func (s *KeyringTxSigner) MultiSign(tx rippledata.MultiSignable, keyName string)
 	}, nil
 }
 
-// Account returns account form the keyring for the provided key name.
+// Account returns account from the keyring for the provided key name.
 func (s *KeyringTxSigner) Account(keyName string) (rippledata.Account, error) {
 	key, err := s.extractXRPLPrivKey(keyName)
 	if err != nil {
@@ -111,7 +111,7 @@ func (s *KeyringTxSigner) Account(keyName string) (rippledata.Account, error) {
 	return key.ExtractAccountFromXRPLKey(), nil
 }
 
-// PubKey returns PubKey form the keyring for the provided key name.
+// PubKey returns PubKey from the keyring for the provided key name.
 func (s *KeyringTxSigner) PubKey(keyName string) (rippledata.PublicKey, error) {
 	key, err := s.extractXRPLPrivKey(keyName)
 	if err != nil {
@@ -129,7 +129,7 @@ func (s *KeyringTxSigner) GetKeyring() keyring.Keyring {
 func (s *KeyringTxSigner) extractXRPLPrivKey(keyName string) (xrplPrivKey, error) {
 	key, err := s.kr.Key(keyName)
 	if err != nil {
-		return xrplPrivKey{}, errors.Wrapf(err, "failed to get key xrpl form the keyring, key name:%s", keyName)
+		return xrplPrivKey{}, errors.Wrapf(err, "failed to get key xrpl from the keyring, key name:%s", keyName)
 	}
 	rl := key.GetLocal()
 	if rl.PrivKey == nil {
@@ -187,7 +187,7 @@ func (s *PrivKeyTxSigner) MultiSign(tx rippledata.MultiSignable) (rippledata.Sig
 	}, nil
 }
 
-// Account returns account form the key.
+// Account returns account from the key.
 func (s *PrivKeyTxSigner) Account() rippledata.Account {
 	return s.key.ExtractAccountFromXRPLKey()
 }

@@ -59,7 +59,16 @@ func ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int
 		}, nil
 	}
 
-	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(XRPLIssuedCurrencyDecimals)), nil)
+	return convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount, XRPLIssuedCurrencyDecimals, issuerString, currencyString)
+}
+
+// ConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount converts the coreum originated token amount to XRPL amount based on decimals.
+func ConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int, decimals uint32, issuerString, currencyString string) (rippledata.Amount, error) {
+	return convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount, decimals, issuerString, currencyString)
+}
+
+func convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount sdkmath.Int, decimals uint32, issuerString, currencyString string) (rippledata.Amount, error) {
+	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
 	floatAmount := big.NewFloat(0).SetRat(big.NewRat(0, 1).SetFrac(coreumAmount.BigInt(), tenPowerDec))
 	// format with exponent
 	amountString := fmt.Sprintf("%s/%s/%s", floatAmount.Text('g', XRPLAmountPrec), currencyString, issuerString)

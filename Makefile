@@ -88,8 +88,8 @@ test-contract:
 restart-dev-env:
 	crust znet remove && crust znet start --profiles=1cored,xrpl --timeout-commit 0.5s
 
-.PHONY: rebuild-dev-env
-rebuild-dev-env:
+.PHONY: build-dev-env
+build-dev-env:
 	crust build/crust images/cored
 
 .PHONY: smoke

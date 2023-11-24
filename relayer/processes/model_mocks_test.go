@@ -54,6 +54,21 @@ func (mr *MockContractClientMockRecorder) GetContractConfig(arg0 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractConfig", reflect.TypeOf((*MockContractClient)(nil).GetContractConfig), arg0)
 }
 
+// GetCoreumTokenByXRPLCurrency mocks base method.
+func (m *MockContractClient) GetCoreumTokenByXRPLCurrency(arg0 context.Context, arg1 string) (coreum.CoreumToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCoreumTokenByXRPLCurrency", arg0, arg1)
+	ret0, _ := ret[0].(coreum.CoreumToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCoreumTokenByXRPLCurrency indicates an expected call of GetCoreumTokenByXRPLCurrency.
+func (mr *MockContractClientMockRecorder) GetCoreumTokenByXRPLCurrency(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCoreumTokenByXRPLCurrency", reflect.TypeOf((*MockContractClient)(nil).GetCoreumTokenByXRPLCurrency), arg0, arg1)
+}
+
 // GetPendingOperations mocks base method.
 func (m *MockContractClient) GetPendingOperations(arg0 context.Context) ([]coreum.Operation, error) {
 	m.ctrl.T.Helper()
