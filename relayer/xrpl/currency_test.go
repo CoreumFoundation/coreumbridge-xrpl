@@ -20,14 +20,19 @@ func TestConvertCurrencyToString(t *testing.T) {
 		want     string
 	}{
 		{
-			name:     "positive_short_currency",
+			name:     "short_currency",
 			currency: mustCurrency(t, "ABC"),
 			want:     "ABC",
 		},
 		{
-			name:     "positive_long_currency",
+			name:     "hex_full_length_currency",
 			currency: mustCurrency(t, hex.EncodeToString([]byte(strings.Repeat("Z", 20)))),
 			want:     "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+		},
+		{
+			name:     "tailing_zero_currency",
+			currency: mustCurrency(t, "636f7265756d3939663062653133663900000000"),
+			want:     "636f7265756d3939663062653133663900000000",
 		},
 	}
 	for _, tt := range tests {

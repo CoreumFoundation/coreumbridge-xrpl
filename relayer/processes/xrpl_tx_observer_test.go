@@ -34,7 +34,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 	require.NoError(t, err)
 	txValue, err := rippledata.NewValue("999", false)
 	require.NoError(t, err)
-	xrplCurrencyAmount := rippledata.Amount{
+	xrplOriginatedTokenXRPLAmount := rippledata.Amount{
 		Value:    txValue,
 		Currency: xrplCurrency,
 		Issuer:   issuerAccount,
@@ -48,9 +48,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 		Issuer:   issuerAccount,
 	}
 
-	coreumAmount := sdkmath.NewIntWithDecimal(999, 15)
-
-	paymentWithMetadataTx := rippledata.TransactionWithMetaData{
+	xrplOriginatedTokenPaymentWithMetadataTx := rippledata.TransactionWithMetaData{
 		Transaction: &rippledata.Payment{
 			Destination: bridgeXRPLAddress,
 			// amount is increased to check that we use the delivered amount
@@ -63,7 +61,28 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 		},
 		MetaData: rippledata.MetaData{
-			DeliveredAmount: &xrplCurrencyAmount,
+			DeliveredAmount: &xrplOriginatedTokenXRPLAmount,
+		},
+	}
+
+	coreumOriginatedTokenXRPLAmount := rippledata.Amount{
+		Value:    txValue,
+		Currency: xrplCurrency,
+		Issuer:   bridgeXRPLAddress,
+	}
+	coreumOriginatedTokenPaymentWithMetadataTx := rippledata.TransactionWithMetaData{
+		Transaction: &rippledata.Payment{
+			Destination: bridgeXRPLAddress,
+			Amount:      coreumOriginatedTokenXRPLAmount,
+			TxBase: rippledata.TxBase{
+				TransactionType: rippledata.PAYMENT,
+				Memos: rippledata.Memos{
+					memo,
+				},
+			},
+		},
+		MetaData: rippledata.MetaData{
+			DeliveredAmount: &coreumOriginatedTokenXRPLAmount,
 		},
 	}
 
@@ -73,13 +92,13 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 		contractClientBuilder func(ctrl *gomock.Controller) processes.ContractClient
 	}{
 		{
-			name: "incoming_valid_payment",
+			name: "incoming_xrpl_originated_token_valid_payment",
 			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
 						go func() {
-							ch <- paymentWithMetadataTx
+							ch <- xrplOriginatedTokenPaymentWithMetadataTx
 							cancel()
 						}()
 						return nil
@@ -94,9 +113,49 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					relayerAddress,
 					coreum.XRPLToCoreumTransferEvidence{
 						TxHash:    rippledata.Hash256{}.String(),
-						Issuer:    xrplCurrencyAmount.Issuer.String(),
-						Currency:  xrplCurrencyAmount.Currency.String(),
-						Amount:    coreumAmount,
+						Issuer:    xrplOriginatedTokenXRPLAmount.Issuer.String(),
+						Currency:  xrplOriginatedTokenXRPLAmount.Currency.String(),
+						Amount:    sdkmath.NewIntWithDecimal(999, processes.XRPLIssuedCurrencyDecimals),
+						Recipient: coreumRecipientAddress,
+					},
+				).Return(nil, nil)
+
+				return contractClientMock
+			},
+		},
+		{
+			name: "incoming_coreum_originated_token_valid_payment",
+			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
+				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
+				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+						go func() {
+							ch <- coreumOriginatedTokenPaymentWithMetadataTx
+							cancel()
+						}()
+						return nil
+					})
+
+				return xrplAccountTxScannerMock
+			},
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				stringCurrency := xrpl.ConvertCurrencyToString(xrplOriginatedTokenXRPLAmount.Currency)
+
+				tokenDecimals := uint32(10)
+				contractClientMock.EXPECT().GetCoreumTokenByXRPLCurrency(gomock.Any(), stringCurrency).
+					Return(coreum.CoreumToken{
+						Decimals: tokenDecimals,
+					}, nil)
+
+				contractClientMock.EXPECT().SendXRPLToCoreumTransferEvidence(
+					gomock.Any(),
+					relayerAddress,
+					coreum.XRPLToCoreumTransferEvidence{
+						TxHash:    rippledata.Hash256{}.String(),
+						Issuer:    bridgeXRPLAddress.String(),
+						Currency:  stringCurrency,
+						Amount:    sdkmath.NewIntWithDecimal(999, int(tokenDecimals)),
 						Recipient: coreumRecipientAddress,
 					},
 				).Return(nil, nil)
@@ -288,7 +347,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 										Account:         bridgeXRPLAddress,
 										TransactionType: rippledata.TRUST_SET,
 									},
-									LimitAmount:    xrplCurrencyAmount,
+									LimitAmount:    xrplOriginatedTokenXRPLAmount,
 									TicketSequence: lo.ToPtr(uint32(11)),
 								},
 							}
@@ -310,8 +369,8 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 							TicketSequence:    lo.ToPtr(uint32(11)),
 							TransactionResult: coreum.TransactionResultAccepted,
 						},
-						Issuer:   xrplCurrencyAmount.Issuer.String(),
-						Currency: xrpl.ConvertCurrencyToString(xrplCurrencyAmount.Currency),
+						Issuer:   xrplOriginatedTokenXRPLAmount.Issuer.String(),
+						Currency: xrpl.ConvertCurrencyToString(xrplOriginatedTokenXRPLAmount.Currency),
 					},
 				).Return(nil, nil)
 
@@ -331,7 +390,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 										Account:         bridgeXRPLAddress,
 										TransactionType: rippledata.TRUST_SET,
 									},
-									LimitAmount:    xrplCurrencyAmount,
+									LimitAmount:    xrplOriginatedTokenXRPLAmount,
 									TicketSequence: lo.ToPtr(uint32(11)),
 								},
 								MetaData: rippledata.MetaData{
@@ -356,8 +415,8 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 							TicketSequence:    lo.ToPtr(uint32(11)),
 							TransactionResult: coreum.TransactionResultRejected,
 						},
-						Issuer:   xrplCurrencyAmount.Issuer.String(),
-						Currency: xrpl.ConvertCurrencyToString(xrplCurrencyAmount.Currency),
+						Issuer:   xrplOriginatedTokenXRPLAmount.Issuer.String(),
+						Currency: xrpl.ConvertCurrencyToString(xrplOriginatedTokenXRPLAmount.Currency),
 					},
 				).Return(nil, nil)
 
@@ -378,7 +437,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 										TransactionType: rippledata.PAYMENT,
 									},
 									Destination:    recipientXRPLAddress,
-									Amount:         xrplCurrencyAmount,
+									Amount:         xrplOriginatedTokenXRPLAmount,
 									TicketSequence: lo.ToPtr(uint32(11)),
 								},
 							}
@@ -420,7 +479,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 										TransactionType: rippledata.PAYMENT,
 									},
 									Destination:    recipientXRPLAddress,
-									Amount:         xrplCurrencyAmount,
+									Amount:         xrplOriginatedTokenXRPLAmount,
 									TicketSequence: lo.ToPtr(uint32(11)),
 								},
 								MetaData: rippledata.MetaData{

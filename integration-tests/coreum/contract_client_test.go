@@ -535,7 +535,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 	// activate token
 	activateXRPLToken(ctx, t, contractClient, relayers, issuer, currency)
 
-	// create an evidence to transfer tokens from XRPL to Coreum
+	// create an evidence of transfer tokens from XRPL to Coreum
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
 		TxHash:    genXRPLTxHash(t),
 		Issuer:    issuerAcc.String(),
@@ -747,6 +747,489 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 			balanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 				Address: coreumRecipient.String(),
 				Denom:   registeredXRPLToken.CoreumDenom,
+			})
+			require.NoError(t, err)
+			require.Equal(t, tt.wantReceivedAmount.String(), balanceRes.Balance.Amount.String())
+		})
+	}
+}
+
+func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	coreumSender := chains.Coreum.GenAccount()
+	coreumRecipient := chains.Coreum.GenAccount()
+	xrplRecipient := chains.XRPL.GenAccount(ctx, t, 1)
+
+	relayers := genRelayers(ctx, t, chains, 2)
+
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSender, coreumintegration.BalancesOptions{
+		Amount: sdkmath.NewInt(1_000_000),
+	})
+
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSender, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.MulRaw(2).Add(sdkmath.NewInt(10_000_000)),
+	})
+
+	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		len(relayers),
+		3,
+		defaultTrustSetLimitAmount,
+		bridgeXRPLAddress,
+	)
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 10)
+
+	// issue asset ft and register it
+	sendingPrecision := int32(5)
+	tokenDecimals := uint32(5)
+	maxHoldingAmount := sdk.NewIntFromUint64(100_000_000_000)
+	issueMsg := &assetfttypes.MsgIssue{
+		Issuer:        coreumSender.String(),
+		Symbol:        "denom",
+		Subunit:       "denom",
+		Precision:     tokenDecimals, // token decimals in terms of the contract
+		InitialAmount: maxHoldingAmount,
+	}
+	_, err := client.BroadcastTx(
+		ctx,
+		chains.Coreum.ClientContext.WithFromAddress(coreumSender),
+		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+		issueMsg,
+	)
+	require.NoError(t, err)
+	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSender)
+	_, err = contractClient.RegisterCoreumToken(ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount)
+	require.NoError(t, err)
+	registeredCoreumToken, err := contractClient.GetCoreumTokenByDenom(ctx, denom)
+
+	coinToSend := sdk.NewCoin(denom, sdkmath.NewInt(10))
+	sendFromCoreumToXRPL(ctx, t, contractClient, relayers, coreumSender, coinToSend, xrplRecipient)
+
+	contractBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: contractClient.GetContractAddress().String(),
+		Denom:   denom,
+	})
+	require.NoError(t, err)
+	require.Equal(t, coinToSend.String(), contractBalanceRes.Balance.String())
+
+	// create an evidence of transfer tokens from XRPL to Coreum
+	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+		TxHash:    genXRPLTxHash(t),
+		Issuer:    bridgeXRPLAddress,
+		Currency:  registeredCoreumToken.XRPLCurrency,
+		Amount:    sdkmath.NewInt(4),
+		Recipient: coreumRecipient,
+	}
+
+	xrplToCoreumTransferEvidenceForNotRegisteredToken := xrplToCoreumTransferEvidence
+	xrplToCoreumTransferEvidenceForNotRegisteredToken.Currency = "XZA"
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidenceForNotRegisteredToken)
+	require.True(t, coreum.IsTokenNotRegisteredError(err), err)
+
+	// call from first relayer
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidence)
+	require.NoError(t, err)
+
+	// call from second relayer
+	txRes, err := contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[1].CoreumAddress, xrplToCoreumTransferEvidence)
+	require.NoError(t, err)
+	thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
+	require.NoError(t, err)
+	require.Equal(t, strconv.FormatBool(true), thresholdReached)
+
+	// check recipient balance
+	recipientBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumRecipient.String(),
+		Denom:   registeredCoreumToken.Denom,
+	})
+	require.NoError(t, err)
+	require.Equal(t, xrplToCoreumTransferEvidence.Amount.String(), recipientBalanceRes.Balance.Amount.String())
+
+	// check contract balance
+	contractBalanceRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: contractClient.GetContractAddress().String(),
+		Denom:   denom,
+	})
+	require.NoError(t, err)
+	require.Equal(t, coinToSend.Amount.Sub(xrplToCoreumTransferEvidence.Amount).String(), contractBalanceRes.Balance.Amount.String())
+}
+
+func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t *testing.T) {
+	// intentionally not parallel
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	coreumRecipient := chains.Coreum.GenAccount()
+	xrplRecipient := chains.XRPL.GenAccount(ctx, t, 1)
+
+	relayers := genRelayers(ctx, t, chains, 2)
+
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+
+	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		len(relayers),
+		3,
+		defaultTrustSetLimitAmount,
+		bridgeXRPLAddress,
+	)
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
+
+	amountToSend := sdkmath.NewInt(10_000)
+
+	tests := []struct {
+		name              string
+		features          []assetfttypes.Feature
+		beforeSendToXRPL  func(t *testing.T, issuer sdk.AccAddress, denom string)
+		afterSendToXRPL   func(t *testing.T, issuer sdk.AccAddress, denom string)
+		checkAssetFTError func(t *testing.T, err error)
+	}{
+		{
+			name: "freezing_of_the_contract_account",
+			features: []assetfttypes.Feature{
+				assetfttypes.Feature_freezing,
+			},
+			afterSendToXRPL: func(t *testing.T, issuer sdk.AccAddress, denom string) {
+				msg := &assetfttypes.MsgFreeze{
+					Sender:  issuer.String(),
+					Account: contractClient.GetContractAddress().String(),
+					Coin:    sdk.NewCoin(denom, amountToSend),
+				}
+				_, err := client.BroadcastTx(
+					ctx,
+					chains.Coreum.ClientContext.WithFromAddress(issuer),
+					chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+					msg,
+				)
+				require.NoError(t, err)
+			},
+			checkAssetFTError: func(t *testing.T, err error) {
+				require.True(t, coreum.IsAssetFTFreezingError(err), err)
+			},
+		},
+		{
+			name: "global_freezing",
+			features: []assetfttypes.Feature{
+				assetfttypes.Feature_freezing,
+			},
+			afterSendToXRPL: func(t *testing.T, issuer sdk.AccAddress, denom string) {
+				msg := &assetfttypes.MsgGloballyFreeze{
+					Sender: issuer.String(),
+					Denom:  denom,
+				}
+				_, err := client.BroadcastTx(
+					ctx,
+					chains.Coreum.ClientContext.WithFromAddress(issuer),
+					chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+					msg,
+				)
+				require.NoError(t, err)
+			},
+			checkAssetFTError: func(t *testing.T, err error) {
+				require.True(t, coreum.IsAssetFTGlobalFreezingError(err), err)
+			},
+		},
+		{
+			name: "whitelisting",
+			features: []assetfttypes.Feature{
+				assetfttypes.Feature_whitelisting,
+			},
+			beforeSendToXRPL: func(t *testing.T, issuer sdk.AccAddress, denom string) {
+				msg := &assetfttypes.MsgSetWhitelistedLimit{
+					Sender:  issuer.String(),
+					Account: contractClient.GetContractAddress().String(),
+					Coin:    sdk.NewCoin(denom, amountToSend),
+				}
+				_, err := client.BroadcastTx(
+					ctx,
+					chains.Coreum.ClientContext.WithFromAddress(issuer),
+					chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+					msg,
+				)
+				require.NoError(t, err)
+			},
+			checkAssetFTError: func(t *testing.T, err error) {
+				require.True(t, coreum.IsAssetFTWhitelistedLimitExceededError(err), err)
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			coreumSender := chains.Coreum.GenAccount()
+			issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+			chains.Coreum.FundAccountWithOptions(ctx, t, coreumSender, coreumintegration.BalancesOptions{
+				Amount: issueFee.Amount.Add(sdkmath.NewInt(1_000_000)),
+			})
+
+			sendingPrecision := int32(5)
+			tokenDecimals := uint32(5)
+			maxHoldingAmount := sdk.NewIntFromUint64(100_000_000_000)
+			issueMsg := &assetfttypes.MsgIssue{
+				Issuer:        coreumSender.String(),
+				Symbol:        "denom",
+				Subunit:       "denom",
+				Precision:     tokenDecimals,
+				InitialAmount: maxHoldingAmount,
+				Features:      tt.features,
+			}
+			_, err := client.BroadcastTx(
+				ctx,
+				chains.Coreum.ClientContext.WithFromAddress(coreumSender),
+				chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+				issueMsg,
+			)
+			require.NoError(t, err)
+			denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSender)
+			_, err = contractClient.RegisterCoreumToken(ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount)
+			require.NoError(t, err)
+			registeredCoreumToken, err := contractClient.GetCoreumTokenByDenom(ctx, denom)
+
+			if tt.beforeSendToXRPL != nil {
+				tt.beforeSendToXRPL(t, coreumSender, denom)
+			}
+
+			coinToSend := sdk.NewCoin(denom, amountToSend)
+			sendFromCoreumToXRPL(ctx, t, contractClient, relayers, coreumSender, coinToSend, xrplRecipient)
+
+			if tt.afterSendToXRPL != nil {
+				tt.afterSendToXRPL(t, coreumSender, denom)
+			}
+
+			contractBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+				Address: contractClient.GetContractAddress().String(),
+				Denom:   denom,
+			})
+			require.NoError(t, err)
+			require.Equal(t, coinToSend.String(), contractBalanceRes.Balance.String())
+
+			// create an evidence of transfer tokens from XRPL to Coreum
+			xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+				TxHash:    genXRPLTxHash(t),
+				Issuer:    bridgeXRPLAddress,
+				Currency:  registeredCoreumToken.XRPLCurrency,
+				Amount:    amountToSend,
+				Recipient: coreumRecipient,
+			}
+
+			// call from first relayer
+			_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidence)
+			require.NoError(t, err)
+
+			// call from second relayer
+			txRes, err := contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayers[1].CoreumAddress, xrplToCoreumTransferEvidence)
+			if tt.checkAssetFTError != nil {
+				require.True(t, coreum.IsAssetFTStateError(err), err)
+				tt.checkAssetFTError(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
+			require.NoError(t, err)
+			require.Equal(t, strconv.FormatBool(true), thresholdReached)
+
+			// check recipient balance
+			recipientBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+				Address: coreumRecipient.String(),
+				Denom:   registeredCoreumToken.Denom,
+			})
+			require.NoError(t, err)
+			require.Equal(t, xrplToCoreumTransferEvidence.Amount.String(), recipientBalanceRes.Balance.Amount.String())
+
+			// check contract balance
+			contractBalanceRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+				Address: contractClient.GetContractAddress().String(),
+				Denom:   denom,
+			})
+			require.NoError(t, err)
+			require.Equal(t, coinToSend.Amount.Sub(xrplToCoreumTransferEvidence.Amount).String(), contractBalanceRes.Balance.Amount.String())
+		})
+	}
+}
+
+func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(t *testing.T) {
+	// intentionally not parallel
+	highMaxHoldingAmount := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+
+	relayers := genRelayers(ctx, t, chains, 2)
+	coreumRecipient := chains.Coreum.GenAccount()
+
+	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		len(relayers),
+		10,
+		defaultTrustSetLimitAmount,
+		bridgeXRPLAddress,
+	)
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
+
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+
+	tests := []struct {
+		name                                       string
+		sendingPrecision                           int32
+		decimals                                   uint32
+		sendingAmount                              sdkmath.Int
+		maxHoldingAmount                           sdkmath.Int
+		wantReceivedAmount                         sdkmath.Int
+		wantIsAmountSentIsZeroAfterTruncationError bool
+	}{
+		{
+			name:               "positive_precision_no_truncation",
+			sendingPrecision:   2,
+			decimals:           6,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", 6),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", 6),
+		},
+		{
+			name:               "positive_precision_with_truncation",
+			sendingPrecision:   2,
+			decimals:           20,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15567", 20),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15", 20),
+		},
+		{
+			name:             "positive_precision_low_amount",
+			sendingPrecision: 2,
+			decimals:         13,
+			maxHoldingAmount: highMaxHoldingAmount,
+			sendingAmount:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.009999", 13),
+			wantIsAmountSentIsZeroAfterTruncationError: true,
+		},
+		{
+			name:               "zero_precision_no_truncation",
+			sendingPrecision:   0,
+			decimals:           11,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", 11),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", 11),
+		},
+		{
+			name:               "zero_precision_with_truncation",
+			sendingPrecision:   0,
+			decimals:           1,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1.15567", 1),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 1),
+		},
+		{
+			name:             "zero_precision_low_amount",
+			sendingPrecision: 0,
+			decimals:         2,
+			maxHoldingAmount: highMaxHoldingAmount,
+			sendingAmount:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.9999", 2),
+			wantIsAmountSentIsZeroAfterTruncationError: true,
+		},
+		{
+			name:               "negative_precision_no_truncation",
+			sendingPrecision:   -2,
+			decimals:           3,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", 3),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", 3),
+		},
+		{
+			name:               "negative_precision_with_truncation",
+			sendingPrecision:   -2,
+			decimals:           20,
+			maxHoldingAmount:   highMaxHoldingAmount,
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999.15567", 20),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9900", 20),
+		},
+		{
+			name:             "negative_precision_low_amount",
+			sendingPrecision: -2,
+			decimals:         6,
+			maxHoldingAmount: highMaxHoldingAmount,
+			sendingAmount:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "99.9999", 6),
+			wantIsAmountSentIsZeroAfterTruncationError: true,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			// fund sender to cover registration fee and some coins on top for the contract calls
+			coreumSenderAddress := chains.Coreum.GenAccount()
+			chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
+				Amount: issueFee.Amount.Add(sdkmath.NewInt(1_000_000)),
+			})
+
+			// issue asset ft and register it
+			issueMsg := &assetfttypes.MsgIssue{
+				Issuer:        coreumSenderAddress.String(),
+				Symbol:        "denom",
+				Subunit:       "denom",
+				Precision:     tt.decimals, // token decimals in terms of the contract
+				InitialAmount: tt.maxHoldingAmount,
+			}
+			_, err := client.BroadcastTx(
+				ctx,
+				chains.Coreum.ClientContext.WithFromAddress(coreumSenderAddress),
+				chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+				issueMsg,
+			)
+			require.NoError(t, err)
+			denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
+
+			_, err = contractClient.RegisterCoreumToken(ctx, owner, denom, tt.decimals, tt.sendingPrecision, tt.maxHoldingAmount)
+			require.NoError(t, err)
+			registeredCoreumToken, err := contractClient.GetCoreumTokenByDenom(ctx, denom)
+			require.NoError(t, err)
+
+			// if we expect an error the amount is invalid so it won't be accepted from the coreum to XRPL
+			if !tt.wantIsAmountSentIsZeroAfterTruncationError {
+				coinToSend := sdk.NewCoin(denom, tt.sendingAmount)
+				sendFromCoreumToXRPL(ctx, t, contractClient, relayers, coreumSenderAddress, coinToSend, xrpl.GenPrivKeyTxSigner().Account())
+			}
+
+			// create an evidence
+			xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+				TxHash:    genXRPLTxHash(t),
+				Issuer:    bridgeXRPLAddress,
+				Currency:  registeredCoreumToken.XRPLCurrency,
+				Amount:    tt.sendingAmount,
+				Recipient: coreumRecipient,
+			}
+
+			// call from all relayers
+			for _, relayer := range relayers {
+				_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer.CoreumAddress, xrplToCoreumTransferEvidence)
+				if tt.wantIsAmountSentIsZeroAfterTruncationError {
+					require.True(t, coreum.IsAmountSentIsZeroAfterTruncationError(err), err)
+					return
+				}
+				require.NoError(t, err)
+			}
+
+			balanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+				Address: coreumRecipient.String(),
+				Denom:   denom,
 			})
 			require.NoError(t, err)
 			require.Equal(t, tt.wantReceivedAmount.String(), balanceRes.Balance.Amount.String())
@@ -1801,6 +2284,45 @@ func sendFromXRPLToCoreum(
 	// send evidences from relayers
 	for _, relayer := range relayers {
 		txRes, err := contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer.CoreumAddress, xrplToCoreumTransferEvidence)
+		require.NoError(t, err)
+		thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
+		require.NoError(t, err)
+		if thresholdReached == strconv.FormatBool(true) {
+			break
+		}
+	}
+}
+
+func sendFromCoreumToXRPL(
+	ctx context.Context,
+	t *testing.T,
+	contractClient *coreum.ContractClient,
+	relayers []coreum.Relayer,
+	senderCoreumAddress sdk.AccAddress,
+	coin sdk.Coin,
+	xrplRecipientAddress rippledata.Account,
+) {
+	_, err := contractClient.SendToXRPL(ctx, senderCoreumAddress, xrplRecipientAddress.String(), coin)
+	require.NoError(t, err)
+
+	pendingOperations, err := contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+	operation := pendingOperations[0]
+	operationType := operation.OperationType.CoreumToXRPLTransfer
+	require.NotNil(t, operationType)
+
+	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            genXRPLTxHash(t),
+			TicketSequence:    &operation.TicketSequence,
+			TransactionResult: coreum.TransactionResultAccepted,
+		},
+	}
+
+	// send evidences from relayers
+	for _, relayer := range relayers {
+		txRes, err := contractClient.SendCoreumToXRPLTransferTransactionResultEvidence(ctx, relayer.CoreumAddress, acceptedTxEvidence)
 		require.NoError(t, err)
 		thresholdReached, err := event.FindStringEventAttribute(txRes.Events, wasmtypes.ModuleName, eventAttributeThresholdReached)
 		require.NoError(t, err)

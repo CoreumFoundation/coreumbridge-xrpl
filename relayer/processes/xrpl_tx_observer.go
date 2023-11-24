@@ -3,6 +3,7 @@ package processes
 import (
 	"context"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
@@ -118,10 +119,27 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	}
 
 	deliveredXRPLAmount := tx.MetaData.DeliveredAmount
-	coreumAmount, err := ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
-	if err != nil {
-		return err
+
+	stringCurrency := xrpl.ConvertCurrencyToString(deliveredXRPLAmount.Currency)
+	var coreumAmount sdkmath.Int
+	// for the coreum originated tokens we need to use toke decimals, but for the XRPL they are static
+	if o.cfg.BridgeXRPLAddress.String() == deliveredXRPLAmount.Issuer.String() {
+		coreumToken, err := o.contractClient.GetCoreumTokenByXRPLCurrency(ctx, stringCurrency)
+		if err != nil {
+			return errors.Wrapf(err, "faild to get XRPL token for the XRPL to coreum transfer")
+		}
+		coreumAmount, err = ConvertCoreumOriginatedTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount, coreumToken.Decimals)
+		if err != nil {
+			return err
+		}
+	} else {
+		var err error
+		coreumAmount, err = ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
+		if err != nil {
+			return err
+		}
 	}
+
 	if coreumAmount.IsZero() {
 		o.log.Info(ctx, "Nothing to send, amount is zero")
 		return nil
@@ -130,12 +148,12 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	evidence := coreum.XRPLToCoreumTransferEvidence{
 		TxHash:    paymentTx.GetHash().String(),
 		Issuer:    deliveredXRPLAmount.Issuer.String(),
-		Currency:  xrpl.ConvertCurrencyToString(deliveredXRPLAmount.Currency),
+		Currency:  stringCurrency,
 		Amount:    coreumAmount,
 		Recipient: coreumRecipient,
 	}
 
-	_, err = o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerCoreumAddress, evidence)
+	_, err := o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerCoreumAddress, evidence)
 	if err == nil {
 		return nil
 	}
@@ -147,6 +165,11 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 
 	if IsEvidenceErrorCausedByResubmission(err) {
 		o.log.Debug(ctx, "Received expected send evidence error caused by re-submission")
+		return nil
+	}
+
+	if coreum.IsAssetFTWhitelistedLimitExceededError(err) {
+		o.log.Info(ctx, "The evidence saving is failed because of the asset FT rules, the evidence is skipped", logger.AnyField("evidence", evidence))
 		return nil
 	}
 
