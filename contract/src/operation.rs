@@ -42,7 +42,7 @@ pub fn check_operation_exists(
     ticket_sequence: Option<u64>,
 ) -> Result<u64, ContractError> {
     // Get the sequence or ticket number (priority for sequence number)
-    let operation_id = account_sequence.unwrap_or(ticket_sequence.unwrap_or_default());
+    let operation_id = account_sequence.unwrap_or_else(|| ticket_sequence.unwrap());
 
     if !PENDING_OPERATIONS.has(storage, operation_id) {
         return Err(ContractError::PendingOperationNotFound {});
@@ -64,7 +64,7 @@ pub fn create_pending_operation(
         operation_type,
     };
 
-    let operation_id = ticket_sequence.unwrap_or(account_sequence.unwrap_or_default());
+    let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
     if PENDING_OPERATIONS.has(storage, operation_id) {
         return Err(ContractError::PendingOperationAlreadyExists {});
     }

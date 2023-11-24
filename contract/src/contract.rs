@@ -790,7 +790,7 @@ fn query_xrpl_tokens(
     limit: Option<u32>,
 ) -> StdResult<XRPLTokensResponse> {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
-    let offset = offset.unwrap_or(0);
+    let offset = offset.unwrap_or_default();
     let tokens: Vec<XRPLToken> = XRPL_TOKENS
         .range(deps.storage, None, None, Order::Ascending)
         .skip(offset as usize)
@@ -808,7 +808,7 @@ fn query_coreum_tokens(
     limit: Option<u32>,
 ) -> StdResult<CoreumTokensResponse> {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
-    let offset = offset.unwrap_or(0);
+    let offset = offset.unwrap_or_default();
     let tokens: Vec<CoreumToken> = COREUM_TOKENS
         .range(deps.storage, None, None, Order::Ascending)
         .skip(offset as usize)
