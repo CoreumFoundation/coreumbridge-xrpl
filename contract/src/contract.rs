@@ -194,6 +194,9 @@ pub fn execute(
             account_sequence,
             number_of_tickets,
         ),
+        ExecuteMsg::RecoverXRPLTokenRegistration { issuer, currency } => {
+            recover_xrpl_token_registration(deps.into_empty(), info.sender, issuer, currency)
+        }
         ExecuteMsg::SaveSignature {
             operation_id,
             signature,
@@ -595,6 +598,53 @@ fn recover_tickets(
         .add_attribute("account_sequence", account_sequence.to_string()))
 }
 
+fn recover_xrpl_token_registration(
+    deps: DepsMut,
+    sender: Addr,
+    issuer: String,
+    currency: String,
+) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
+
+    let mut token = XRPL_TOKENS
+        .load(deps.storage, key.to_owned())
+        .map_err(|_| ContractError::TokenNotRegistered {})?;
+
+    // Check that the token is in inactive state, which means the trust set operation failed.
+    if token.state.ne(&TokenState::Inactive) {
+        return Err(ContractError::XRPLTokenNotInactive {});
+    }
+
+    // Put the state back to Processing since we are going to try to activate it again.
+    token.state = TokenState::Processing;
+    XRPL_TOKENS.save(deps.storage, key, &token)?;
+
+    // Create the pending operation to approve the token again
+    let config = CONFIG.load(deps.storage)?;
+    let ticket = allocate_ticket(deps.storage)?;
+
+    create_pending_operation(
+        deps.storage,
+        Some(ticket),
+        None,
+        OperationType::TrustSet {
+            issuer: issuer.to_owned(),
+            currency: currency.to_owned(),
+            trust_set_limit_amount: config.trust_set_limit_amount,
+        },
+    )?;
+
+    Ok(Response::new()
+        .add_attribute(
+            "action",
+            ContractActions::RecoverXRPLTokenRegistration.as_str(),
+        )
+        .add_attribute("issuer", issuer)
+        .add_attribute("currency", currency))
+}
+
 fn save_signature(
     deps: DepsMut,
     sender: Addr,
@@ -740,7 +790,7 @@ fn query_xrpl_tokens(
     limit: Option<u32>,
 ) -> StdResult<XRPLTokensResponse> {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
-    let offset = offset.unwrap_or(0);
+    let offset = offset.unwrap_or_default();
     let tokens: Vec<XRPLToken> = XRPL_TOKENS
         .range(deps.storage, None, None, Order::Ascending)
         .skip(offset as usize)
@@ -758,7 +808,7 @@ fn query_coreum_tokens(
     limit: Option<u32>,
 ) -> StdResult<CoreumTokensResponse> {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
-    let offset = offset.unwrap_or(0);
+    let offset = offset.unwrap_or_default();
     let tokens: Vec<CoreumToken> = COREUM_TOKENS
         .range(deps.storage, None, None, Order::Ascending)
         .skip(offset as usize)
