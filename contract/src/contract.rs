@@ -225,6 +225,15 @@ fn register_coreum_token(
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
+    // Minimum and maximum sending precisions we allow
+    if !(MIN_SENDING_PRECISION..=MAX_SENDING_PRECISION).contains(&sending_precision) {
+        return Err(ContractError::InvalidSendingPrecision {});
+    }
+
+    if sending_precision > decimals.try_into().unwrap() {
+        return Err(ContractError::TokenSendingPrecisionTooHigh {});
+    }
+
     if COREUM_TOKENS.has(deps.storage, denom.clone()) {
         return Err(ContractError::CoreumTokenAlreadyRegistered { denom });
     }
@@ -402,6 +411,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     false => XRPL_TOKENS_DECIMALS,
                 };
 
+                // Here we simply truncate because the Coreum tokens corresponding to XRPL originated tokens have the same decimals as their corresponding Coreum tokens
                 let amount_to_send = truncate_amount(token.sending_precision, decimals, amount)?;
 
                 if amount_to_send
@@ -442,10 +452,15 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     None => return Err(ContractError::TokenNotRegistered {}),
                 };
 
-                if threshold_reached {
-                    let amount_to_send =
-                        truncate_amount(token.sending_precision, token.decimals, amount)?;
+                // We first convert the amount we receive with XRPL decimals to the corresponding decimals in Coreum and then we apply the truncation according to sending precision.
+                let amount_to_send = convert_and_truncate_amount(
+                    token.sending_precision,
+                    XRPL_TOKENS_DECIMALS,
+                    token.decimals,
+                    amount,
+                )?;
 
+                if threshold_reached {
                     // TODO(keyleu): for now we are SENDING back the entire amount but when fees are implemented this will not happen and part of the amount will be sent and funds will be collected
                     let send_msg = BankMsg::Send {
                         to_address: recipient.to_string(),
@@ -649,7 +664,9 @@ fn send_to_xrpl(
                 false => XRPL_TOKENS_DECIMALS,
             };
 
+            // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
             amount_to_send = truncate_amount(xrpl_token.sending_precision, decimals, funds.amount)?;
+
             // Since tokens are being sent back we need to burn them in the contract
             // TODO(keyleu): for now we are BURNING the entire amount but when fees are implemented this will not happen and part of the amount will be burned and fees will be collected
             let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
@@ -673,8 +690,15 @@ fn send_to_xrpl(
             decimals = coreum_token.decimals;
             issuer = config.bridge_xrpl_address;
             currency = coreum_token.xrpl_currency;
-            amount_to_send =
-                truncate_amount(coreum_token.sending_precision, decimals, funds.amount)?;
+
+            // Since this is a Coreum originated token with different decimals, we are first going to truncate according to sending precision and then we will convert
+            // to corresponding XRPL decimals.
+            amount_to_send = truncate_and_convert_amount(
+                coreum_token.sending_precision,
+                decimals,
+                XRPL_TOKENS_DECIMALS,
+                funds.amount,
+            )?;
 
             // For Coreum originated tokens we need to check that we are not going over max bridge amount.
             if deps
@@ -838,6 +862,7 @@ pub fn validate_xrpl_issuer_and_currency(
     Ok(())
 }
 
+// Function used to truncate the amount to not send tokens over the sending precision.
 fn truncate_amount(
     sending_precision: i32,
     decimals: u32,
@@ -855,6 +880,49 @@ fn truncate_amount(
     }
 
     Ok(amount_to_send.checked_mul(Uint128::new(10u128.pow(exponent.unsigned_abs())))?)
+}
+
+// Function used to convert the amount received from XRPL with XRPL decimals to the Coreum amount with Coreum decimals
+fn convert_amount_decimals(
+    from_decimals: u32,
+    to_decimals: u32,
+    amount: Uint128,
+) -> Result<Uint128, ContractError> {
+    let converted_amount = match from_decimals.cmp(&to_decimals) {
+        std::cmp::Ordering::Less => amount.checked_mul(Uint128::new(
+            10u128.pow(to_decimals.saturating_sub(from_decimals)),
+        ))?,
+        std::cmp::Ordering::Greater => amount.checked_div(Uint128::new(
+            10u128.pow(from_decimals.saturating_sub(to_decimals)),
+        ))?,
+        std::cmp::Ordering::Equal => amount,
+    };
+
+    Ok(converted_amount)
+}
+
+// Helper function to combine the conversion and truncation of amounts.
+fn convert_and_truncate_amount(
+    sending_precision: i32,
+    from_decimals: u32,
+    to_decimals: u32,
+    amount: Uint128,
+) -> Result<Uint128, ContractError> {
+    let converted_amount = convert_amount_decimals(from_decimals, to_decimals, amount)?;
+    let truncated_amount = truncate_amount(sending_precision, to_decimals, converted_amount)?;
+    Ok(truncated_amount)
+}
+
+// Helper function to combine the truncation and conversion of amounts
+fn truncate_and_convert_amount(
+    sending_precision: i32,
+    from_decimals: u32,
+    to_decimals: u32,
+    amount: Uint128,
+) -> Result<Uint128, ContractError> {
+    let truncated_amount = truncate_amount(sending_precision, from_decimals, amount)?;
+    let converted_amount = convert_amount_decimals(from_decimals, to_decimals, truncated_amount)?;
+    Ok(converted_amount)
 }
 
 fn is_token_xrp(issuer: String, currency: String) -> bool {

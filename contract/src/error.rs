@@ -124,7 +124,9 @@ pub enum ContractError {
     #[error("XRPLTokenNotEnabled: This token must be enabled to be bridged")]
     XRPLTokenNotEnabled {},
 
-    #[error("CoreumOriginatedTokenDisabled: This token is currently disabled and can't be bridged")]
+    #[error(
+        "CoreumOriginatedTokenDisabled: This token is currently disabled and can't be bridged"
+    )]
     CoreumOriginatedTokenDisabled {},
 
     #[error("XRPLTokenNotInProcessing: This token must be in processing state to be enabled")]
@@ -140,4 +142,9 @@ pub enum ContractError {
     "InvalidSendingPrecision: The sending precision can't be more than the token decimals or less than the negative token decimals"
     )]
     InvalidSendingPrecision {},
+
+    #[error(
+        "TokenSendingPrecisionTooHigh: The sending precision can't be more than the token decimals"
+    )]
+    TokenSendingPrecisionTooHigh {},
 }
