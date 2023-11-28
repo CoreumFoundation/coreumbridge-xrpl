@@ -812,6 +812,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 	_, err = contractClient.RegisterCoreumToken(ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount)
 	require.NoError(t, err)
 	registeredCoreumToken, err := contractClient.GetCoreumTokenByDenom(ctx, denom)
+	require.NoError(t, err)
 
 	coinToSend := sdk.NewCoin(denom, sdkmath.NewInt(10))
 	sendFromCoreumToXRPL(ctx, t, contractClient, relayers, coreumSender, coinToSend, xrplRecipient)
@@ -999,6 +1000,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 			_, err = contractClient.RegisterCoreumToken(ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount)
 			require.NoError(t, err)
 			registeredCoreumToken, err := contractClient.GetCoreumTokenByDenom(ctx, denom)
+			require.NoError(t, err)
 
 			if tt.beforeSendToXRPL != nil {
 				tt.beforeSendToXRPL(t, coreumSender, denom)
