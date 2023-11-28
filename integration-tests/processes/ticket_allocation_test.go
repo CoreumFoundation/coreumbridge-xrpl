@@ -197,7 +197,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 
 	// register more than threshold to activate tickets re-allocation
 	numberOfXRPLTokensToRegister := envCfg.UsedTicketSequenceThreshold + 1
-	// fund owner to cover registration fees
+	// fund owner to cover asset FT issuance fees
 	chains.Coreum.FundAccountWithOptions(ctx, t, runnerEnv.ContractOwner, coreumintegration.BalancesOptions{
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(int64(numberOfXRPLTokensToRegister)).MulRaw(2),
 	})

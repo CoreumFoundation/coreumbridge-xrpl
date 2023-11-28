@@ -4,6 +4,7 @@
 package processes_test
 
 import (
+	"context"
 	"encoding/hex"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreum/v3/pkg/client"
 	coreumintegration "github.com/CoreumFoundation/coreum/v3/testutil/integration"
 	assetfttypes "github.com/CoreumFoundation/coreum/v3/x/asset/ft/types"
@@ -186,18 +188,20 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithTicketsReallocation(t *testi
 	totalSent := sdkmath.ZeroInt()
 	amountToSend := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "10", XRPLTokenDecimals)
 	for i := 0; i < sendingCount; i++ {
-		for {
+		retryCtx, retryCtxCancel := context.WithTimeout(ctx, 15*time.Second)
+		require.NoError(t, retry.Do(retryCtx, 500*time.Millisecond, func() error {
 			_, err = runnerEnv.ContractClient.SendToXRPL(ctx, coreumSender, xrplRecipientAddress.String(), sdk.NewCoin(registeredXRPLToken.CoreumDenom, amountToSend))
 			if err == nil {
-				break
+				return nil
 			}
 			if coreum.IsLastTicketReservedError(err) || coreum.IsNoAvailableTicketsError(err) {
 				t.Logf("No tickets left, waiting for new tickets...")
-				<-time.After(500 * time.Millisecond)
-				continue
+				return retry.Retryable(err)
 			}
 			require.NoError(t, err)
-		}
+			return nil
+		}))
+		retryCtxCancel()
 		totalSent = totalSent.Add(amountToSend)
 	}
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
@@ -231,7 +235,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 	registeredXRPLHexCurrency, err := rippledata.NewCurrency(currencyHexSymbol)
 	require.NoError(t, err)
 
-	// fund owner to cover registration fees
+	// fund owner to cover asset FT issuance fees
 	chains.Coreum.FundAccountWithOptions(ctx, t, runnerEnv.ContractOwner, coreumintegration.BalancesOptions{
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),
 	})
@@ -289,8 +293,6 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 
 	// incorrect memo
 	runnerEnv.SendXRPLPaymentTx(ctx, t, xrplIssuerAddress, runnerEnv.bridgeXRPLAddress, maxDecimalsRegisterCurrencyAmount, rippledata.Memo{})
-
-	// send correct transactions
 
 	// send tx with partial payment
 	runnerEnv.SendXRPLPartialPaymentTx(ctx, t, xrplIssuerAddress, runnerEnv.bridgeXRPLAddress, highValueRegisteredCurrencyAmount, maxDecimalsRegisterCurrencyAmount, memo)
