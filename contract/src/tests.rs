@@ -2610,7 +2610,8 @@ mod tests {
         )
         .unwrap();
 
-        let amount_to_send = Uint128::new(1000000);
+        let amount_to_send = Uint128::new(1000000); // 1e6 -> truncate -> 1e6 -> decimal conversion -> 1e15
+
         // Bridge the token to the xrpl receiver address and check pending operations
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -2660,7 +2661,7 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: multisig_address,
                     currency: coreum_originated_token.xrpl_currency.to_owned(),
-                    amount: amount_to_send,
+                    amount: amount_to_send.checked_mul(Uint128::new(10u128.pow(9))).unwrap(),  // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
                     recipient: xrpl_receiver_address,
                 },
             }
