@@ -3843,6 +3843,202 @@ mod tests {
     }
 
     #[test]
+    fn xrpl_token_registration_recovery() {
+        let app = CoreumTestApp::new();
+        let signer = app
+            .init_account(&coins(100_000_000_000, FEE_DENOM))
+            .unwrap();
+        let wasm = Wasm::new(&app);
+        let asset_ft = AssetFT::new(&app);
+
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(signer.address()),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
+        };
+
+        let token_issuer = generate_xrpl_address();
+        let token_currency = "BTC".to_string();
+        let token = XRPLToken {
+            issuer: token_issuer.to_owned(),
+            currency: token_currency.to_owned(),
+            sending_precision: -15,
+            max_holding_amount: 100,
+        };
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            vec![relayer.clone()],
+            1,
+            2,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+            query_issue_fee(&asset_ft),
+            generate_xrpl_address(),
+        );
+
+        // We successfully recover 3 tickets to perform operations
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(3),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TicketsAllocation {
+                        tickets: Some(vec![1, 2, 3]),
+                    },
+                },
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // We perform the register token operation, which should put the token to Processing state and create the PendingOperation
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterXRPLToken {
+                issuer: token.issuer.clone(),
+                currency: token.currency.clone(),
+                sending_precision: token.sending_precision,
+                max_holding_amount: Uint128::new(token.max_holding_amount),
+            },
+            &query_issue_fee(&asset_ft),
+            &signer,
+        )
+        .unwrap();
+
+        // If we try to recover a token that is not in Inactive state, it should fail.
+        let recover_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RecoverXRPLTokenRegistration {
+                    issuer: token.issuer.clone(),
+                    currency: token.currency.clone(),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(recover_error
+            .to_string()
+            .contains(ContractError::XRPLTokenNotInactive {}.to_string().as_str()));
+
+        // If we try to recover a token that is not registered, it should fail
+        let recover_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RecoverXRPLTokenRegistration {
+                    issuer: token.issuer.clone(),
+                    currency: "NOT".to_string(),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(recover_error
+            .to_string()
+            .contains(ContractError::TokenNotRegistered {}.to_string().as_str()));
+
+        // Let's fail the trust set operation to put the token to Inactive so that we can recover it
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: None,
+                    ticket_sequence: Some(
+                        query_pending_operations.operations[0]
+                            .ticket_sequence
+                            .unwrap(),
+                    ),
+                    transaction_result: TransactionResult::Rejected,
+                    operation_result: OperationResult::TrustSet {
+                        issuer: token.issuer.clone(),
+                        currency: token.currency.clone(),
+                    },
+                },
+            },
+            &[],
+            &signer,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert!(query_pending_operations.operations.is_empty());
+
+        // We should be able to recover the token now
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverXRPLTokenRegistration {
+                issuer: token.issuer.clone(),
+                currency: token.currency.clone(),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+        assert_eq!(
+            query_pending_operations.operations[0],
+            Operation {
+                ticket_sequence: Some(
+                    query_pending_operations.operations[0]
+                        .ticket_sequence
+                        .unwrap()
+                ),
+                account_sequence: None,
+                signatures: vec![],
+                operation_type: OperationType::TrustSet {
+                    issuer: token_issuer,
+                    currency: token_currency,
+                    trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+                },
+            }
+        );
+    }
+
+    #[test]
     fn rejected_ticket_allocation_with_no_tickets_left() {
         let app = CoreumTestApp::new();
         let signer = app

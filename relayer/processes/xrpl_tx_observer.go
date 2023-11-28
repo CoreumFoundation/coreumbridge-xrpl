@@ -2,6 +2,7 @@ package processes
 
 import (
 	"context"
+	"strings"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -83,6 +84,10 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 
 func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	ctx = tracing.WithTracingXRPLTxHash(tracing.WithTracingID(ctx), tx.GetHash().String())
+	if !txIsFinal(tx) {
+		o.log.Debug(ctx, "Transaction is not final", logger.StringField("txStatus", tx.MetaData.TransactionResult.String()))
+		return nil
+	}
 	if o.cfg.BridgeXRPLAddress == tx.GetBase().Account {
 		return o.processOutgoingTx(ctx, tx)
 	}
@@ -291,6 +296,22 @@ func (o *XRPLTxObserver) handleEvidenceSubmissionError(
 		return nil
 	}
 	return err
+}
+
+// txIsFinal returns value which indicates whether the transaction if final and can be used.
+// Result Code	 Finality.
+// tesSUCCESS	 Final when included in a validated ledger.
+// Any tec code	 Final when included in a validated ledger.
+// Any tem code	 Final unless the protocol changes to make the transaction valid.
+// tefPAST_SEQ	 Final when another transaction with the same sequence number is included in a validated ledger.
+// tefMAX_LEDGER Final when a validated ledger has a ledger index higher than the transaction's LastLedgerSequence field, and no validated ledger includes the transaction.
+func txIsFinal(tx rippledata.TransactionWithMetaData) bool {
+	txResult := tx.MetaData.TransactionResult
+	return tx.MetaData.TransactionResult.Success() ||
+		strings.HasPrefix(txResult.String(), xrpl.TecTxResultPrefix) ||
+		strings.HasPrefix(txResult.String(), xrpl.TemTxResultPrefix) ||
+		txResult.String() == xrpl.TefPastSeqTxResult ||
+		txResult.String() == xrpl.TefMaxLedgerTxResult
 }
 
 func getTransactionResult(tx rippledata.TransactionWithMetaData) coreum.TransactionResult {
