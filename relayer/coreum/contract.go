@@ -1010,6 +1010,7 @@ func IsNoAvailableTicketsError(err error) bool {
 
 // ******************** Asset FT errors ********************
 
+// IsAssetFTStateError returns true if the error is caused by enabled asset FT features.
 func IsAssetFTStateError(err error) bool {
 	return IsAssetFTFreezingError(err) ||
 		IsAssetFTGlobalFreezingError(err) ||
