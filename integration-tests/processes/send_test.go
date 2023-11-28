@@ -497,11 +497,11 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 
 	// check the XRPL recipient balance
 	balance := runnerEnv.Chains.XRPL.GetAccountBalance(ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency)
-	require.Equal(t, "99", balance.Value.String())
+	require.Equal(t, "0.0009", balance.Value.String())
 
 	// send the full amount back
 	memo, err := xrpl.EncodeCoreumRecipientToMemo(coreumRecipientAddress)
 	require.NoError(t, err)
 	runnerEnv.SendXRPLPaymentTx(ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, balance, memo)
-	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipientAddress, sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL))
+	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipientAddress, sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdk.NewInt(9000000)))
 }
