@@ -132,6 +132,9 @@ pub enum ContractError {
     #[error("XRPLTokenNotInProcessing: This token must be in processing state to be enabled")]
     XRPLTokenNotInProcessing {},
 
+    #[error("XRPLTokenNotInactive: To recover this token it must be inactive")]
+    XRPLTokenNotInactive {},
+
     #[error("AmountSentIsZeroAfterTruncation: Amount sent is zero after truncating to sending precision")]
     AmountSentIsZeroAfterTruncation {},
 

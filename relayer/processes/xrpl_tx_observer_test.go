@@ -23,7 +23,10 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 	recipientXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
 	issuerAccount := xrpl.GenPrivKeyTxSigner().Account()
 
-	failTxResult := rippledata.TransactionResult(111)
+	// tecPATH_PARTIAL
+	failTxResult := rippledata.TransactionResult(101)
+	// tefBAD_AUTH
+	notTxResult := rippledata.TransactionResult(-199)
 
 	relayerAddress := coreum.GenAccount()
 	coreumRecipientAddress := coreum.GenAccount()
@@ -115,6 +118,27 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 								Transaction: &rippledata.Payment{},
 								MetaData: rippledata.MetaData{
 									TransactionResult: failTxResult,
+								},
+							}
+							cancel()
+						}()
+						return nil
+					})
+
+				return xrplAccountTxScannerMock
+			},
+		},
+		{
+			name: "incoming_not_confirmed_tx",
+			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
+				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
+				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+						go func() {
+							ch <- rippledata.TransactionWithMetaData{
+								Transaction: &rippledata.Payment{},
+								MetaData: rippledata.MetaData{
+									TransactionResult: notTxResult,
 								},
 							}
 							cancel()
