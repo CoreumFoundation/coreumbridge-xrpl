@@ -16,7 +16,6 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-//nolint:dupl // similar prep for some testcases
 func TestXRPLTxSubmitter_Start(t *testing.T) {
 	// intentionally not parallel since uses the common data
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
