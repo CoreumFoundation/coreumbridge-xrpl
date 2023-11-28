@@ -447,7 +447,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                         }
                         token
                     }
-                    // In theory this will never happen because any token issued from the multisig address is a token that was bridged from Coreum so it will be registered.
+                    // In practice this will never happen because any token issued from the multisig address is a token that was bridged from Coreum so it will be registered.
                     // This could theoretically happen if the multisig address on XRPL issued a token on its own and then tried to bridge it
                     None => return Err(ContractError::TokenNotRegistered {}),
                 };
@@ -869,7 +869,7 @@ fn truncate_amount(
     amount: Uint128,
 ) -> Result<Uint128, ContractError> {
     // To get exactly by how much we need to divide the original amount
-    // Example: if sending precision = -1. Exponent will be 15 - ( - 1) = 16 for XRPL tokens so we will divide the original amount by 1e16
+    // Example: if sending precision = -1. Exponent will be 15 - (-1) = 16 for XRPL tokens so we will divide the original amount by 1e16
     // Example: if sending precision = 14. Exponent will be 15 - 14 = 1 for XRPL tokens so we will divide the original amount by 10
     let exponent = decimals as i32 - sending_precision;
 
