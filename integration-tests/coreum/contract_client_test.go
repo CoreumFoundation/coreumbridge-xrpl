@@ -592,8 +592,10 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
 }
 
+//nolint:tparallel // the test is parallel, but test cases are not
 func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t *testing.T) {
-	// intentionally not parallel
+	t.Parallel()
+
 	var (
 		tokenDecimals        = int64(15)
 		highMaxHoldingAmount = integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
@@ -866,8 +868,10 @@ func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 	require.Equal(t, coinToSend.Amount.Sub(xrplToCoreumTransferEvidence.Amount).String(), contractBalanceRes.Balance.Amount.String())
 }
 
+//nolint:tparallel // the test is parallel, but test cases are not
 func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t *testing.T) {
-	// intentionally not parallel
+	t.Parallel()
+
 	ctx, chains := integrationtests.NewTestingContext(t)
 
 	coreumRecipient := chains.Coreum.GenAccount()
@@ -1065,8 +1069,10 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 	}
 }
 
+//nolint:tparallel // the test is parallel, but test cases are not
 func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(t *testing.T) {
-	// intentionally not parallel
+	t.Parallel()
+
 	highMaxHoldingAmount := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
 
 	ctx, chains := integrationtests.NewTestingContext(t)
@@ -1652,8 +1658,10 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	require.True(t, coreum.IsLastTicketReservedError(err))
 }
 
+//nolint:tparallel // the test is parallel, but test cases are not
 func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t *testing.T) {
-	// intentionally not parallel
+	t.Parallel()
+
 	var (
 		tokenDecimals        = int64(15)
 		highMaxHoldingAmount = integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
@@ -2005,8 +2013,10 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	require.True(t, coreum.IsLastTicketReservedError(err))
 }
 
+//nolint:tparallel // the test is parallel, but test cases are not
 func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionAndDecimals(t *testing.T) {
-	// intentionally not parallel
+	t.Parallel()
+
 	highMaxHoldingAmount := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
 	ctx, chains := integrationtests.NewTestingContext(t)
 
