@@ -2186,6 +2186,156 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 	}
 }
 
+func TestRecoverXRPLTokeRegistration(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	relayers := genRelayers(ctx, t, chains, 2)
+
+	notOwner := chains.Coreum.GenAccount()
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	chains.Coreum.FundAccountWithOptions(ctx, t, notOwner, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.AddRaw(1_000_000),
+	})
+
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		len(relayers),
+		3,
+		defaultTrustSetLimitAmount,
+		xrpl.GenPrivKeyTxSigner().Account().String(),
+	)
+
+	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.Mul(sdkmath.NewIntFromUint64(1)),
+	})
+
+	issuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
+	issuer := issuerAcc.String()
+	currency := "CRN"
+	sendingPrecision := int32(15)
+	maxHoldingAmount := sdk.NewIntFromUint64(10000)
+
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
+
+	// register from the owner
+	_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
+	require.NoError(t, err)
+
+	registeredXRPLToken, err := contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, currency)
+	require.NoError(t, err)
+
+	require.Equal(t, coreum.XRPLToken{
+		Issuer:           issuer,
+		Currency:         currency,
+		CoreumDenom:      registeredXRPLToken.CoreumDenom,
+		SendingPrecision: sendingPrecision,
+		MaxHoldingAmount: maxHoldingAmount,
+		State:            coreum.TokenStateProcessing,
+	}, registeredXRPLToken)
+
+	// try to recover the token with the unexpected current state
+	_, err = contractClient.RecoverXRPLTokenRegistration(ctx, owner, issuer, currency)
+	require.True(t, coreum.IsXRPLTokenNotInactiveError(err), err)
+
+	// reject token trust set to be able to recover
+	pendingOperations, err := contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+	operation := pendingOperations[0]
+	require.NotNil(t, operation.OperationType.TrustSet)
+
+	require.Equal(t, coreum.OperationTypeTrustSet{
+		Issuer:              issuer,
+		Currency:            currency,
+		TrustSetLimitAmount: defaultTrustSetLimitAmount,
+	}, *operation.OperationType.TrustSet)
+
+	rejectedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            genXRPLTxHash(t),
+			TicketSequence:    &operation.TicketSequence,
+			TransactionResult: coreum.TransactionResultRejected,
+		},
+		Issuer:   issuer,
+		Currency: currency,
+	}
+
+	// send from first relayer
+	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[0].CoreumAddress, rejectedTxEvidenceTrustSet)
+	require.NoError(t, err)
+	// send from second relayer
+	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[1].CoreumAddress, rejectedTxEvidenceTrustSet)
+	require.NoError(t, err)
+
+	// check that we don't have pending operations anymore
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Empty(t, pendingOperations)
+
+	// fetch token to validate status
+	registeredXRPLToken, err = contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, currency)
+	require.NoError(t, err)
+	require.Equal(t, coreum.TokenStateInactive, registeredXRPLToken.State)
+
+	// try to recover from now owner
+	_, err = contractClient.RecoverXRPLTokenRegistration(ctx, notOwner, issuer, currency)
+	require.True(t, coreum.IsNotOwnerError(err), err)
+
+	// recover from owner
+	_, err = contractClient.RecoverXRPLTokenRegistration(ctx, owner, issuer, currency)
+	require.NoError(t, err)
+
+	// fetch token to validate status
+	registeredXRPLToken, err = contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, currency)
+	require.NoError(t, err)
+	require.Equal(t, coreum.TokenStateProcessing, registeredXRPLToken.State)
+
+	// check that new operation is present here
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+	operation = pendingOperations[0]
+	require.NotNil(t, operation.OperationType.TrustSet)
+
+	require.Equal(t, coreum.OperationTypeTrustSet{
+		Issuer:              issuer,
+		Currency:            currency,
+		TrustSetLimitAmount: defaultTrustSetLimitAmount,
+	}, *operation.OperationType.TrustSet)
+
+	acceptedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            genXRPLTxHash(t),
+			TicketSequence:    &operation.TicketSequence,
+			TransactionResult: coreum.TransactionResultAccepted,
+		},
+		Issuer:   issuer,
+		Currency: currency,
+	}
+
+	// send from first relayer
+	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[0].CoreumAddress, acceptedTxEvidenceTrustSet)
+	require.NoError(t, err)
+	// send from second relayer
+	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(ctx, relayers[1].CoreumAddress, acceptedTxEvidenceTrustSet)
+	require.NoError(t, err)
+
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Empty(t, pendingOperations)
+
+	// fetch token to validate status
+	registeredXRPLToken, err = contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, currency)
+	require.NoError(t, err)
+	require.Equal(t, coreum.TokenStateEnabled, registeredXRPLToken.State)
+}
+
 func recoverTickets(
 	ctx context.Context,
 	t *testing.T,

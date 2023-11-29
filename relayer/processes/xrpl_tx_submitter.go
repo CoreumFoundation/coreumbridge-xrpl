@@ -227,6 +227,12 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation c
 			"The transaction has been sent, but will be reverted since the provided path does not have enough liquidity or the receipt doesn't link by trust lines.",
 			logger.StringField("txHash", tx.GetHash().String()))
 		return nil
+	case xrpl.TecNoDstTxResult:
+		s.log.Info(
+			ctx,
+			"The transaction has been sent, but will be reverted since account used in the transaction doesn't exist.",
+			logger.StringField("txHash", tx.GetHash().String()))
+		return nil
 	case xrpl.TecInsufficientReserveTxResult:
 		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
 		s.log.Error(ctx, "Insufficient reserve to complete the operation", logger.StringField("txHash", tx.GetHash().String()))

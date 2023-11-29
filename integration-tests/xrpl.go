@@ -95,6 +95,16 @@ func (c XRPLChain) RPCClient() *xrpl.RPCClient {
 func (c XRPLChain) GenAccount(ctx context.Context, t *testing.T, amount float64) rippledata.Account {
 	t.Helper()
 
+	acc := c.GenEmptyAccount(t)
+	c.CreateAccount(ctx, t, acc, amount)
+
+	return acc
+}
+
+// GenEmptyAccount generates the signer but doesn't activate it.
+func (c XRPLChain) GenEmptyAccount(t *testing.T) rippledata.Account {
+	t.Helper()
+
 	const signerKeyName = "signer"
 	kr := createInMemoryKeyring()
 	_, mnemonic, err := kr.NewMnemonic(
@@ -118,9 +128,14 @@ func (c XRPLChain) GenAccount(ctx context.Context, t *testing.T, amount float64)
 	)
 	require.NoError(t, err)
 
-	c.FundAccount(ctx, t, acc, amount+xrplReserveToActivateAccount)
-
 	return acc
+}
+
+// CreateAccount funds the provided account with the amount/reserve to activate the account.
+func (c XRPLChain) CreateAccount(ctx context.Context, t *testing.T, acc rippledata.Account, amount float64) {
+	t.Helper()
+	// amount to activate the account and some tokens on top
+	c.FundAccount(ctx, t, acc, amount+xrplReserveToActivateAccount)
 }
 
 // GetSignerKeyring returns signer keyring.
