@@ -71,27 +71,6 @@ const (
 	QueryMethodAvailableTickets  QueryMethod = "available_tickets"
 )
 
-const (
-	notOwnerErrorString                        = "Caller is not the contract's current owner"
-	coreumTokenAlreadyRegisteredErrorString    = "CoreumTokenAlreadyRegistered"
-	xrplTokenAlreadyRegisteredErrorString      = "XRPLTokenAlreadyRegistered"
-	unauthorizedSenderErrorString              = "UnauthorizedSender"
-	operationAlreadyExecutedErrorString        = "OperationAlreadyExecuted"
-	tokenNotRegisteredErrorString              = "TokenNotRegistered"
-	evidenceAlreadyProvidedErrorString         = "EvidenceAlreadyProvided"
-	pendingTicketUpdateErrorString             = "PendingTicketUpdate"
-	invalidTicketSequenceToAllocateErrorString = "InvalidTicketSequenceToAllocate"
-	signatureAlreadyProvidedErrorString        = "SignatureAlreadyProvided"
-	pendingOperationNotFoundErrorString        = "PendingOperationNotFound"
-	amountSentIsZeroAfterTruncatingErrorString = "AmountSentIsZeroAfterTruncation"
-	maximumBridgedAmountReachedErrorString     = "MaximumBridgedAmountReached"
-	stillHaveAvailableTicketsErrorString       = "StillHaveAvailableTickets"
-	xrplTokenNotEnabledErrorString             = "XRPLTokenNotEnabled"
-	invalidXRPLAddressErrorString              = "InvalidXRPLAddress"
-	lastTicketReservedErrorString              = "LastTicketReserved"
-	noAvailableTicketsErrorString              = "NoAvailableTickets"
-)
-
 // Relayer is the relayer information in the contract config.
 type Relayer struct {
 	CoreumAddress sdk.AccAddress `json:"coreum_address"`
@@ -937,96 +916,120 @@ func (c *ContractClient) getTxFactory() client.Factory {
 		WithSimulateAndExecute(true)
 }
 
-// ******************** Error func ********************
+// ******************** Contract error ********************
 
 // IsNotOwnerError returns true if error is `not owner`.
 func IsNotOwnerError(err error) bool {
-	return isError(err, notOwnerErrorString)
+	return isError(err, "Caller is not the contract's current owner")
 }
 
 // IsCoreumTokenAlreadyRegisteredError returns true if error is `CoreumTokenAlreadyRegistered`.
 func IsCoreumTokenAlreadyRegisteredError(err error) bool {
-	return isError(err, coreumTokenAlreadyRegisteredErrorString)
+	return isError(err, "CoreumTokenAlreadyRegistered")
 }
 
 // IsXRPLTokenAlreadyRegisteredError returns true if error is `XRPLTokenAlreadyRegistered`.
 func IsXRPLTokenAlreadyRegisteredError(err error) bool {
-	return isError(err, xrplTokenAlreadyRegisteredErrorString)
+	return isError(err, "XRPLTokenAlreadyRegistered")
 }
 
 // IsUnauthorizedSenderError returns true if error is `UnauthorizedSender`.
 func IsUnauthorizedSenderError(err error) bool {
-	return isError(err, unauthorizedSenderErrorString)
+	return isError(err, "UnauthorizedSender")
 }
 
 // IsOperationAlreadyExecutedError returns true if error is `OperationAlreadyExecuted`.
 func IsOperationAlreadyExecutedError(err error) bool {
-	return isError(err, operationAlreadyExecutedErrorString)
+	return isError(err, "OperationAlreadyExecuted")
 }
 
 // IsTokenNotRegisteredError returns true if error is `TokenNotRegistered`.
 func IsTokenNotRegisteredError(err error) bool {
-	return isError(err, tokenNotRegisteredErrorString)
+	return isError(err, "TokenNotRegistered")
 }
 
 // IsEvidenceAlreadyProvidedError returns true if error is `EvidenceAlreadyProvided`.
 func IsEvidenceAlreadyProvidedError(err error) bool {
-	return isError(err, evidenceAlreadyProvidedErrorString)
+	return isError(err, "EvidenceAlreadyProvided")
 }
 
 // IsPendingTicketUpdateError returns true if error is `PendingTicketUpdate`.
 func IsPendingTicketUpdateError(err error) bool {
-	return isError(err, pendingTicketUpdateErrorString)
+	return isError(err, "PendingTicketUpdate")
 }
 
 // IsInvalidTicketSequenceToAllocateError returns true if error is `InvalidTicketSequenceToAllocate`.
 func IsInvalidTicketSequenceToAllocateError(err error) bool {
-	return isError(err, invalidTicketSequenceToAllocateErrorString)
+	return isError(err, "InvalidTicketSequenceToAllocate")
 }
 
 // IsSignatureAlreadyProvidedError returns true if error is `SignatureAlreadyProvided`.
 func IsSignatureAlreadyProvidedError(err error) bool {
-	return isError(err, signatureAlreadyProvidedErrorString)
+	return isError(err, "SignatureAlreadyProvided")
 }
 
 // IsPendingOperationNotFoundError returns true if error is `PendingOperationNotFound`.
 func IsPendingOperationNotFoundError(err error) bool {
-	return isError(err, pendingOperationNotFoundErrorString)
+	return isError(err, "PendingOperationNotFound")
 }
 
 // IsAmountSentIsZeroAfterTruncationError returns true if error is `AmountSentIsZeroAfterTruncation`.
 func IsAmountSentIsZeroAfterTruncationError(err error) bool {
-	return isError(err, amountSentIsZeroAfterTruncatingErrorString)
+	return isError(err, "AmountSentIsZeroAfterTruncation")
 }
 
 // IsMaximumBridgedAmountReachedError returns true if error is `MaximumBridgedAmountReached`.
 func IsMaximumBridgedAmountReachedError(err error) bool {
-	return isError(err, maximumBridgedAmountReachedErrorString)
+	return isError(err, "MaximumBridgedAmountReached")
 }
 
 // IsStillHaveAvailableTicketsError returns true if error is `StillHaveAvailableTickets`.
 func IsStillHaveAvailableTicketsError(err error) bool {
-	return isError(err, stillHaveAvailableTicketsErrorString)
+	return isError(err, "StillHaveAvailableTickets")
 }
 
 // IsXRPLTokenNotEnabledError returns true if error is `XRPLTokenNotEnabled`.
 func IsXRPLTokenNotEnabledError(err error) bool {
-	return isError(err, xrplTokenNotEnabledErrorString)
+	return isError(err, "XRPLTokenNotEnabled")
 }
 
 // IsInvalidXRPLAddressError returns true if error is `InvalidXRPLAddress`.
 func IsInvalidXRPLAddressError(err error) bool {
-	return isError(err, invalidXRPLAddressErrorString)
+	return isError(err, "InvalidXRPLAddress")
 }
 
 // IsLastTicketReservedError returns true if error is `LastTicketReserved`.
 func IsLastTicketReservedError(err error) bool {
-	return isError(err, lastTicketReservedErrorString)
+	return isError(err, "LastTicketReserved")
 }
 
 // IsNoAvailableTicketsError returns true if error is `NoAvailableTickets`.
 func IsNoAvailableTicketsError(err error) bool {
-	return isError(err, noAvailableTicketsErrorString)
+	return isError(err, "NoAvailableTickets")
+}
+
+// ******************** Asset FT errors ********************
+
+// IsAssetFTStateError returns true if the error is caused by enabled asset FT features.
+func IsAssetFTStateError(err error) bool {
+	return IsAssetFTFreezingError(err) ||
+		IsAssetFTGlobalFreezingError(err) ||
+		IsAssetFTWhitelistedLimitExceededError(err)
+}
+
+// IsAssetFTFreezingError returns true if error is cause of the lack of freezing amount.
+func IsAssetFTFreezingError(err error) bool {
+	return isError(err, "is not available, available") && isError(err, "insufficient funds")
+}
+
+// IsAssetFTGlobalFreezingError returns true if error is cause is token global freeze.
+func IsAssetFTGlobalFreezingError(err error) bool {
+	return isError(err, "token is globally frozen")
+}
+
+// IsAssetFTWhitelistedLimitExceededError returns true if error is whitelisted limit exceeded.
+func IsAssetFTWhitelistedLimitExceededError(err error) bool {
+	return isError(err, "whitelisted limit exceeded")
 }
 
 func isError(err error, errorString string) bool {
