@@ -455,7 +455,6 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     None => return Err(ContractError::TokenNotRegistered {}),
                 };
 
-<<<<<<< HEAD
                 // We first convert the amount we receive with XRPL decimals to the corresponding decimals in Coreum and then we apply the truncation according to sending precision.
                 let amount_to_send = convert_and_truncate_amount(
                     token.sending_precision,
@@ -463,11 +462,6 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     token.decimals,
                     amount,
                 )?;
-=======
-                // TODO(keyleu): add/update tests for it
-                // We build the amount_to_send here since it includes validation against zero amount after the truncation
-                let amount_to_send = truncate_amount(token.sending_precision, token.decimals, amount)?;
->>>>>>> master
 
                 if threshold_reached {
                     // TODO(keyleu): for now we are SENDING back the entire amount but when fees are implemented this will not happen and part of the amount will be sent and funds will be collected
