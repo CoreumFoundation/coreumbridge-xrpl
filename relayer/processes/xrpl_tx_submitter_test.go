@@ -47,10 +47,9 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 		coreumToXRPLXRPLOriginatedTokenTransferOperationValidSigners := buildCoreumToXRPLXRPLOriginatedTokenTransferTestData(t, xrplTxSigners, bridgeXRPLAddress, contractRelayers)
 
 	// CoreumOriginated
-	coreumOriginatedTokenDecimals := uint32(6)
 	coreumToXRPLCoreumOriginatedTokenTransferOperation,
 		coreumToXRPLCoreumOriginatedTokenTransferOperationWithSignatures,
-		coreumToXRPLCoreumOriginatedTokenTransferOperationValidSigners := buildCoreumToXRPLCoreumOriginatedTokenTransferTestData(t, xrplTxSigners, bridgeXRPLAddress, contractRelayers, coreumOriginatedTokenDecimals)
+		coreumToXRPLCoreumOriginatedTokenTransferOperationValidSigners := buildCoreumToXRPLCoreumOriginatedTokenTransferTestData(t, xrplTxSigners, bridgeXRPLAddress, contractRelayers)
 
 	tests := []struct {
 		name                  string
@@ -257,10 +256,6 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
-				contractClientMock.EXPECT().GetCoreumTokenByXRPLCurrency(gomock.Any(), coreumToXRPLCoreumOriginatedTokenTransferOperation.OperationType.CoreumToXRPLTransfer.Currency).
-					Return(coreum.CoreumToken{
-						Decimals: coreumOriginatedTokenDecimals,
-					}, nil)
 				contractClientMock.EXPECT().SaveSignature(gomock.Any(), contractRelayers[0].CoreumAddress, coreumToXRPLCoreumOriginatedTokenTransferOperation.TicketSequence, coreumToXRPLCoreumOriginatedTokenTransferOperationValidSigners[0].Signer.TxnSignature.String())
 				return contractClientMock
 			},
@@ -271,7 +266,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
 				xrplTxSignerMock := NewMockXRPLTxSigner(ctrl)
-				tx, err := processes.BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAddress, coreumToXRPLCoreumOriginatedTokenTransferOperation, coreumOriginatedTokenDecimals)
+				tx, err := processes.BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAddress, coreumToXRPLCoreumOriginatedTokenTransferOperation)
 				require.NoError(t, err)
 				xrplTxSignerMock.EXPECT().MultiSign(tx, xrplTxSignerKeyName).Return(coreumToXRPLCoreumOriginatedTokenTransferOperationValidSigners[0], nil)
 
@@ -286,16 +281,12 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
-				contractClientMock.EXPECT().GetCoreumTokenByXRPLCurrency(gomock.Any(), coreumToXRPLCoreumOriginatedTokenTransferOperationWithSignatures.OperationType.CoreumToXRPLTransfer.Currency).
-					Return(coreum.CoreumToken{
-						Decimals: coreumOriginatedTokenDecimals,
-					}, nil).Times(3)
 				return contractClientMock
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
 				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
 				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), bridgeXRPLAddress).Return(bridgeXRPLSignerAccountWithSigners, nil)
-				expectedTx, err := processes.BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAddress, coreumToXRPLCoreumOriginatedTokenTransferOperationWithSignatures, coreumOriginatedTokenDecimals)
+				expectedTx, err := processes.BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAddress, coreumToXRPLCoreumOriginatedTokenTransferOperationWithSignatures)
 				require.NoError(t, err)
 				require.NoError(t, rippledata.SetSigners(expectedTx, coreumToXRPLCoreumOriginatedTokenTransferOperationValidSigners...))
 				xrplRPCClientMock.EXPECT().Submit(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error) {
@@ -502,7 +493,6 @@ func buildCoreumToXRPLCoreumOriginatedTokenTransferTestData(
 	xrplTxSigners []*xrpl.PrivKeyTxSigner,
 	bridgeXRPLAddress rippledata.Account,
 	contractRelayers []coreum.Relayer,
-	decimals uint32,
 ) (
 	coreum.Operation, coreum.Operation, []rippledata.Signer,
 ) {
@@ -526,9 +516,7 @@ func buildCoreumToXRPLCoreumOriginatedTokenTransferTestData(
 		xrplTxSigners,
 		contractRelayers,
 		bridgeXRPLAddress,
-		func(t *testing.T, signer *xrpl.PrivKeyTxSigner, account rippledata.Account, operation coreum.Operation) rippledata.Signer {
-			return multiSignCoreumToXRPLCoreumOriginatedTokeTransferOperation(t, signer, account, operation, decimals)
-		},
+		multiSignCoreumToXRPLCoreumOriginatedTokeTransferOperation,
 	)
 
 	return operation, operationWithSignatures, validSigners
@@ -616,9 +604,8 @@ func multiSignCoreumToXRPLCoreumOriginatedTokeTransferOperation(
 	relayerXRPLSigner *xrpl.PrivKeyTxSigner,
 	bridgeXRPLAcc rippledata.Account,
 	operation coreum.Operation,
-	decimals uint32,
 ) rippledata.Signer {
-	tx, err := processes.BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAcc, operation, decimals)
+	tx, err := processes.BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAcc, operation)
 	require.NoError(t, err)
 	signer, err := relayerXRPLSigner.MultiSign(tx)
 	require.NoError(t, err)
