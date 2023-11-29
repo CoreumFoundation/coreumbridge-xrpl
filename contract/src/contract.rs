@@ -445,10 +445,11 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     None => return Err(ContractError::TokenNotRegistered {}),
                 };
 
-                if threshold_reached {
-                    let amount_to_send =
-                        truncate_amount(token.sending_precision, token.decimals, amount)?;
+                // TODO(keyleu): add/update tests for it
+                // We build the amount_to_send here since it includes validation against zero amount after the truncation
+                let amount_to_send = truncate_amount(token.sending_precision, token.decimals, amount)?;
 
+                if threshold_reached {
                     // TODO(keyleu): for now we are SENDING back the entire amount but when fees are implemented this will not happen and part of the amount will be sent and funds will be collected
                     let send_msg = BankMsg::Send {
                         to_address: recipient.to_string(),

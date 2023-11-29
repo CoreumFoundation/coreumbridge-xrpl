@@ -187,6 +187,67 @@ func TestConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(t *testing.T) {
 	}
 }
 
+func TestConvertCoreumOriginatedTokenXRPLAmountToCoreumAmount(t *testing.T) {
+	t.Parallel()
+
+	var (
+		fooIssuer   = xrpl.GenPrivKeyTxSigner().Account().String()
+		fooCurrency = "FOO"
+	)
+
+	tests := []struct {
+		name       string
+		xrplAmount rippledata.Amount
+		decimals   uint32
+		want       sdkmath.Int
+		wantErr    bool
+	}{
+		{
+			name:       "one_XRPL_FOO_to_coreum_FOO",
+			xrplAmount: amountStringToXRPLAmount(t, fmt.Sprintf("1.0/%s/%s", fooCurrency, fooIssuer)),
+			decimals:   10,
+			want:       stringToSDKInt(t, "10000000000"),
+		},
+		{
+			name:       "one_with_some_decimals_XRPL_FOO_to_coreum_FOO",
+			xrplAmount: amountStringToXRPLAmount(t, fmt.Sprintf("1.00000000101/%s/%s", fooCurrency, fooIssuer)),
+			decimals:   10,
+			want:       sdkmath.NewIntFromUint64(10000000010),
+		},
+		{
+			name:       "min_decimals_XRPL_FOO_to_coreum_FOO",
+			xrplAmount: amountStringToXRPLAmount(t, fmt.Sprintf("0.000000000000001/%s/%s", fooCurrency, fooIssuer)),
+			decimals:   15,
+			want:       sdkmath.NewIntFromUint64(1),
+		},
+		{
+			name:       "high_value_XRPL_FOO_to_coreum_FOO_with_high_decimals",
+			xrplAmount: amountStringToXRPLAmount(t, fmt.Sprintf("1.1e10/%s/%s", fooCurrency, fooIssuer)),
+			decimals:   20,
+			want:       stringToSDKInt(t, "1100000000000000000000000000000"),
+		},
+		{
+			name:       "invalid_foo_amount",
+			xrplAmount: amountStringToXRPLAmount(t, fmt.Sprintf("1e92/%s/%s", fooCurrency, fooIssuer)),
+			decimals:   15,
+			wantErr:    true,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := processes.ConvertCoreumOriginatedTokenXRPLAmountToCoreumAmount(tt.xrplAmount, tt.decimals)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.want.String(), got.String())
+		})
+	}
+}
+
 func TestConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount(t *testing.T) {
 	t.Parallel()
 

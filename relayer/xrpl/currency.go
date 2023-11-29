@@ -2,6 +2,7 @@ package xrpl
 
 import (
 	"encoding/hex"
+	"strings"
 
 	rippledata "github.com/rubblelabs/ripple/data"
 )
@@ -12,6 +13,8 @@ func ConvertCurrencyToString(currency rippledata.Currency) string {
 	if len(currencyString) == 3 {
 		return currencyString
 	}
-
-	return hex.EncodeToString([]byte(currencyString))
+	hexString := hex.EncodeToString([]byte(currencyString))
+	// append tailing zeros to match the contract expectation
+	hexString += strings.Repeat("0", 40-len(hexString))
+	return hexString
 }

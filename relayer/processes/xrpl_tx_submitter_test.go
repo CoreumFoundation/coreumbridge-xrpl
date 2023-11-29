@@ -16,8 +16,10 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
+//nolint:tparallel // the test is parallel, but test cases are not
 func TestXRPLTxSubmitter_Start(t *testing.T) {
-	// intentionally not parallel since uses the common data
+	t.Parallel()
+
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
 	xrplTxSignerKeyName := "xrpl-tx-signer"
 

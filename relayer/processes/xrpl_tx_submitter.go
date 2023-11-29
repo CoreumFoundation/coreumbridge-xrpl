@@ -418,9 +418,8 @@ func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(ctx context.Context, operatio
 				return nil, errors.Wrapf(err, "faild to get XRPL token for the coreum to XRPL transfer")
 			}
 			return BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation, coreumToken.Decimals)
-		} else {
-			return BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 		}
+		return BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	default:
 		return nil, errors.Errorf("failed to process operation, unable to determine operation type, operation:%+v", operation)
 	}

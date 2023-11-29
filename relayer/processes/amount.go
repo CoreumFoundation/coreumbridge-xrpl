@@ -33,14 +33,7 @@ func ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(xrplAmount rippledata.Am
 	if xrplAmount.IsNative() {
 		return sdkmath.NewIntFromBigInt(xrplRatAmount.Num()), nil
 	}
-	// not XRP value is repressed as value multiplied by 1e15
-	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(XRPLIssuedCurrencyDecimals)), nil)
-	binIntAmount := big.NewInt(0).Quo(big.NewInt(0).Mul(tenPowerDec, xrplRatAmount.Num()), xrplRatAmount.Denom())
-	if binIntAmount.BitLen() > sdkmath.MaxBitLen {
-		return sdkmath.Int{}, errors.New("failed to convert big.Int to sdkmath.Int, out of bound")
-	}
-
-	return sdkmath.NewIntFromBigInt(binIntAmount), nil
+	return convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount, XRPLIssuedCurrencyDecimals)
 }
 
 // ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount converts the XRPL originated token amount from coreum to XRPL amount
@@ -62,9 +55,26 @@ func ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int
 	return convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount, XRPLIssuedCurrencyDecimals, issuerString, currencyString)
 }
 
+// ConvertCoreumOriginatedTokenXRPLAmountToCoreumAmount converts the coreum originated token XRPL amount to coreum amount based on decimals.
+func ConvertCoreumOriginatedTokenXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount, decimals uint32) (sdkmath.Int, error) {
+	return convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount, decimals)
+}
+
 // ConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount converts the coreum originated token amount to XRPL amount based on decimals.
 func ConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int, decimals uint32, issuerString, currencyString string) (rippledata.Amount, error) {
 	return convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount, decimals, issuerString, currencyString)
+}
+
+func convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount rippledata.Amount, decimals uint32) (sdkmath.Int, error) {
+	xrplRatAmount := xrplAmount.Value.Rat()
+	// not XRP value is repressed as value multiplied by 1e15
+	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
+	binIntAmount := big.NewInt(0).Quo(big.NewInt(0).Mul(tenPowerDec, xrplRatAmount.Num()), xrplRatAmount.Denom())
+	if binIntAmount.BitLen() > sdkmath.MaxBitLen {
+		return sdkmath.Int{}, errors.New("failed to convert big.Int to sdkmath.Int, out of bound")
+	}
+
+	return sdkmath.NewIntFromBigInt(binIntAmount), nil
 }
 
 func convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount sdkmath.Int, decimals uint32, issuerString, currencyString string) (rippledata.Amount, error) {
