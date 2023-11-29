@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
@@ -126,23 +125,10 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	deliveredXRPLAmount := tx.MetaData.DeliveredAmount
 
 	stringCurrency := xrpl.ConvertCurrencyToString(deliveredXRPLAmount.Currency)
-	var coreumAmount sdkmath.Int
-	// for the coreum originated tokens we need to use toke decimals, but for the XRPL they are static
-	if o.cfg.BridgeXRPLAddress.String() == deliveredXRPLAmount.Issuer.String() {
-		coreumToken, err := o.contractClient.GetCoreumTokenByXRPLCurrency(ctx, stringCurrency)
-		if err != nil {
-			return errors.Wrapf(err, "faild to get XRPL token for the XRPL to coreum transfer")
-		}
-		coreumAmount, err = ConvertCoreumOriginatedTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount, coreumToken.Decimals)
-		if err != nil {
-			return err
-		}
-	} else {
-		var err error
-		coreumAmount, err = ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
-		if err != nil {
-			return err
-		}
+
+	coreumAmount, err := ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
+	if err != nil {
+		return err
 	}
 
 	if coreumAmount.IsZero() {
@@ -158,7 +144,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		Recipient: coreumRecipient,
 	}
 
-	_, err := o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerCoreumAddress, evidence)
+	_, err = o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerCoreumAddress, evidence)
 	if err == nil {
 		return nil
 	}
