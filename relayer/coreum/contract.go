@@ -28,13 +28,14 @@ type ExecMethod string
 
 // ExecMethods.
 const (
-	ExecMethodUpdateOwnership     ExecMethod = "update_ownership"
-	ExecMethodRegisterCoreumToken ExecMethod = "register_coreum_token"
-	ExecMethodRegisterXRPLToken   ExecMethod = "register_xrpl_token"
-	ExecMethodSaveEvidence        ExecMethod = "save_evidence"
-	ExecMethodRecoverTickets      ExecMethod = "recover_tickets"
-	ExecMethodSaveSignature       ExecMethod = "save_signature"
-	ExecSendToXRPL                ExecMethod = "send_to_xrpl"
+	ExecMethodUpdateOwnership         ExecMethod = "update_ownership"
+	ExecMethodRegisterCoreumToken     ExecMethod = "register_coreum_token"
+	ExecMethodRegisterXRPLToken       ExecMethod = "register_xrpl_token"
+	ExecMethodSaveEvidence            ExecMethod = "save_evidence"
+	ExecMethodRecoverTickets          ExecMethod = "recover_tickets"
+	ExecMethodSaveSignature           ExecMethod = "save_signature"
+	ExecSendToXRPL                    ExecMethod = "send_to_xrpl"
+	ExecRecoveryXRPLTokenRegistration ExecMethod = "recover_xrpl_token_registration"
 )
 
 // TransactionResult is transaction result.
@@ -260,6 +261,11 @@ type saveSignatureRequest struct {
 
 type sendToXRPLRequest struct {
 	Recipient string `json:"recipient"`
+}
+
+type recoverXRPLTokenRegistrationRequest struct {
+	Issuer   string `json:"issuer"`
+	Currency string `json:"currency"`
 }
 
 type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
@@ -673,6 +679,23 @@ func (c *ContractClient) SendToXRPL(ctx context.Context, sender sdk.AccAddress, 
 	return txRes, nil
 }
 
+// RecoverXRPLTokenRegistration executes `recover_xrpl_token_registration` method.
+func (c *ContractClient) RecoverXRPLTokenRegistration(ctx context.Context, sender sdk.AccAddress, issuer, currency string) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]recoverXRPLTokenRegistrationRequest{
+			ExecRecoveryXRPLTokenRegistration: {
+				Issuer:   issuer,
+				Currency: currency,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
 // ******************** Query ********************
 
 // GetContractConfig returns contract config.
@@ -1006,6 +1029,11 @@ func IsLastTicketReservedError(err error) bool {
 // IsNoAvailableTicketsError returns true if error is `NoAvailableTickets`.
 func IsNoAvailableTicketsError(err error) bool {
 	return isError(err, "NoAvailableTickets")
+}
+
+// IsXRPLTokenNotInactiveError returns true if error is `XRPLTokenNotInactive`.
+func IsXRPLTokenNotInactiveError(err error) bool {
+	return isError(err, "XRPLTokenNotInactive")
 }
 
 // ******************** Asset FT errors ********************
