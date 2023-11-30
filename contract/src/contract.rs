@@ -228,14 +228,7 @@ fn register_coreum_token(
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
-    // Minimum and maximum sending precisions we allow
-    if !(MIN_SENDING_PRECISION..=MAX_SENDING_PRECISION).contains(&sending_precision) {
-        return Err(ContractError::InvalidSendingPrecision {});
-    }
-
-    if sending_precision > decimals.try_into().unwrap() {
-        return Err(ContractError::TokenSendingPrecisionTooHigh {});
-    }
+    validate_sending_precision(sending_precision, decimals)?;
 
     if COREUM_TOKENS.has(deps.storage, denom.clone()) {
         return Err(ContractError::CoreumTokenAlreadyRegistered { denom });
@@ -294,10 +287,7 @@ fn register_xrpl_token(
 
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
 
-    // Minimum and maximum sending precisions we allow
-    if !(MIN_SENDING_PRECISION..=MAX_SENDING_PRECISION).contains(&sending_precision) {
-        return Err(ContractError::InvalidSendingPrecision {});
-    }
+    validate_sending_precision(sending_precision, XRPL_TOKENS_DECIMALS)?;
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
@@ -909,6 +899,21 @@ pub fn validate_xrpl_issuer_and_currency(
         return Err(ContractError::InvalidXRPLCurrency {});
     }
 
+    Ok(())
+}
+
+pub fn validate_sending_precision(
+    sending_precision: i32,
+    decimals: u32,
+) -> Result<(), ContractError> {
+    // Minimum and maximum sending precisions we allow
+    if !(MIN_SENDING_PRECISION..=MAX_SENDING_PRECISION).contains(&sending_precision) {
+        return Err(ContractError::InvalidSendingPrecision {});
+    }
+
+    if sending_precision > decimals.try_into().unwrap() {
+        return Err(ContractError::TokenSendingPrecisionTooHigh {});
+    }
     Ok(())
 }
 
