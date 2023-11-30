@@ -1994,7 +1994,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	require.Equal(t, operationType.Issuer, bridgeXRPLAddress)
 	require.Equal(t, operationType.Currency, registeredCoreumOriginatedToken2.XRPLCurrency)
 	// XRPL DECIMALS (15) - TOKEN DECIMALS (6) = 9
-	require.Equal(t, operationType.Amount, amountToSendOfToken2.Mul(sdk.NewInt(1_000_000_000)))
+	require.Equal(t, operationType.Amount, amountToSendOfToken2.Mul(sdkmath.NewIntWithDecimal(1, 9)))
 	require.Equal(t, operationType.Recipient, xrplRecipientAddress.String())
 
 	acceptedTxEvidence = coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
