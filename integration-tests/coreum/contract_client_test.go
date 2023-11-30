@@ -1190,7 +1190,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			decimals:          6,
 			maxHoldingAmount:  highMaxHoldingAmount,
 			sendingAmount:     integrationtests.ConvertStringWithDecimalsToSDKInt(t, "99.9999", 6),
-			xrplSendingAmount: sdkmath.NewIntWithDecimal(999999, 11)
+			xrplSendingAmount: sdkmath.NewIntWithDecimal(999999, 11),
 			wantIsAmountSentIsZeroAfterTruncationError: true,
 		},
 	}
