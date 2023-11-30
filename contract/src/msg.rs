@@ -76,9 +76,6 @@ pub enum QueryMsg {
         offset: Option<u64>,
         limit: Option<u32>,
     },
-    #[returns(CoreumTokenResponse)]
-    #[serde(rename = "coreum_token_by_xrpl_currency")]
-    CoreumTokenByXRPLCurrency { xrpl_currency: String },
     #[returns(PendingOperationsResponse)]
     PendingOperations {},
     #[returns(AvailableTicketsResponse)]
@@ -93,11 +90,6 @@ pub struct XRPLTokensResponse {
 #[cw_serde]
 pub struct CoreumTokensResponse {
     pub tokens: Vec<CoreumToken>,
-}
-
-#[cw_serde]
-pub struct CoreumTokenResponse {
-    pub token: Option<CoreumToken>,
 }
 
 #[cw_serde]

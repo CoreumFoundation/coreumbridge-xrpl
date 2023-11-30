@@ -15,7 +15,7 @@ mod tests {
         error::ContractError,
         evidence::{Evidence, OperationResult, TransactionResult},
         msg::{
-            AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
+            AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg,
             InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
         },
         operation::{Operation, OperationType},
@@ -713,21 +713,6 @@ mod tests {
             .unwrap();
         assert_eq!(query_coreum_tokens.tokens.len(), 1);
         assert_eq!(query_coreum_tokens.tokens[0].denom, test_tokens[1].denom);
-
-        // Query a token using the xrpl currency
-        let query_coreum_token_by_xrpl_currency = wasm
-            .query::<QueryMsg, CoreumTokenResponse>(
-                &contract_addr,
-                &QueryMsg::CoreumTokenByXRPLCurrency {
-                    xrpl_currency: query_coreum_tokens.tokens[0].xrpl_currency.to_owned(),
-                },
-            )
-            .unwrap();
-
-        assert_eq!(
-            query_coreum_token_by_xrpl_currency.token.unwrap(),
-            query_coreum_tokens.tokens[0]
-        );
     }
 
     #[test]

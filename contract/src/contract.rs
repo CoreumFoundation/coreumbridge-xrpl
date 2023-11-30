@@ -4,7 +4,7 @@ use crate::{
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
     msg::{
-        AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
+        AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg,
         InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
     },
     operation::{
@@ -783,10 +783,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::CoreumTokens { offset, limit } => {
             to_json_binary(&query_coreum_tokens(deps, offset, limit)?)
-        }
-        QueryMsg::CoreumTokenByXRPLCurrency { xrpl_currency } => {
-            to_json_binary(&query_coreum_token_by_xrpl_currency(deps, xrpl_currency)?)
-        }
+        },
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
         QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
@@ -832,19 +829,6 @@ fn query_coreum_tokens(
         .collect();
 
     Ok(CoreumTokensResponse { tokens })
-}
-
-fn query_coreum_token_by_xrpl_currency(
-    deps: Deps,
-    xrpl_currency: String,
-) -> StdResult<CoreumTokenResponse> {
-    let token = COREUM_TOKENS
-        .idx
-        .xrpl_currency
-        .item(deps.storage, xrpl_currency)?
-        .map(|(_, ct)| ct);
-
-    Ok(CoreumTokenResponse { token })
 }
 
 fn query_pending_operations(deps: Deps) -> StdResult<PendingOperationsResponse> {
