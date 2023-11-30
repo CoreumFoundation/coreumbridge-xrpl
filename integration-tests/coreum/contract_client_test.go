@@ -1128,7 +1128,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15567", 20),
 			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15", 20),
-			xrplSendingAmount:  sdkmath.NewIntWithDecimal(15, 13)//sdkmath.NewInt(150_000_000_000_000),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(15, 13),
 		},
 		{
 			name:              "positive_precision_low_amount",
