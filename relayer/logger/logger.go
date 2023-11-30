@@ -4,9 +4,16 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 )
 
-//go:generate mockgen -destination=mock.go -package=logger . Logger
+//go:generate mockgen -destination=mock.go -package=logger . Logger,ParallelLogger
+
+// ParallelLogger is parallel logger interface used mostly for mocks.
+type ParallelLogger interface {
+	parallel.Logger
+}
 
 // A Field is a marshaling operation used to add a key-value pair to a logger's context. Most fields are lazily
 // marshaled, so it's inexpensive to add fields to disabled debug-level log statements.
@@ -27,6 +34,7 @@ type Logger interface {
 	Info(ctx context.Context, msg string, fields ...Field)
 	Warn(ctx context.Context, msg string, fields ...Field)
 	Error(ctx context.Context, msg string, fields ...Field)
+	ParallelLogger(ctx context.Context) ParallelLogger
 }
 
 // AnyField takes a key and an arbitrary value and chooses the best way to represent them as a field, falling back to a
@@ -53,6 +61,11 @@ func Int64Field(key string, value int64) Field {
 // Uint64Field constructs a field with the given key and value.
 func Uint64Field(key string, value uint64) Field {
 	return convertZapFieldToField(zap.Uint64(key, value))
+}
+
+// ByteStringField constructs a field with the given key and value.
+func ByteStringField(key string, value []byte) Field {
+	return convertZapFieldToField(zap.ByteString(key, value))
 }
 
 // Error is shorthand for the common idiom NamedError("error", err).

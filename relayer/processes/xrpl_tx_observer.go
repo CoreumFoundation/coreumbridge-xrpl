@@ -75,7 +75,7 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 				if errors.Is(err, context.Canceled) {
 					o.log.Warn(ctx, "Context canceled during the XRPL tx processing", logger.StringField("error", err.Error()))
 				} else {
-					o.log.Error(ctx, "Failed to process XRPL tx", logger.Error(err))
+					return errors.Wrapf(err, "failed to process XRPL tx, txHash:%s", tx.GetHash().String())
 				}
 			}
 		}

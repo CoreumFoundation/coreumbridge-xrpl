@@ -2,10 +2,10 @@ package processes
 
 import (
 	"context"
-	"sync"
 
 	"github.com/pkg/errors"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/tracing"
 )
@@ -47,46 +47,40 @@ func (p *Processor) StartProcesses(ctx context.Context, processes ...ProcessWith
 		}
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(processes))
-	for _, process := range processes {
-		go func(process ProcessWithOptions) {
-			// set process name to the context
+	pg := parallel.NewGroup(ctx, parallel.WithGroupLogger(p.log.ParallelLogger(ctx)))
+	for i := range processes {
+		process := processes[i]
+		pg.Spawn(process.Name, parallel.Continue, func(ctx context.Context) error {
 			ctx = tracing.WithTracingProcess(ctx, process.Name)
-			defer wg.Done()
-			defer func() {
-				if r := recover(); r != nil {
-					p.log.Error(ctx, "Received panic during the process execution", logger.Error(errors.Errorf("%s", r)))
-					if !process.IsRestartableOnError {
-						p.log.Warn(ctx, "The process is not auto-restartable on error")
-						return
-					}
-					p.log.Info(ctx, "Restarting process after the panic")
-					p.startProcessWithRestartOnError(ctx, process)
-				}
-			}()
-			p.startProcessWithRestartOnError(ctx, process)
-		}(process)
+			return p.startProcessWithRestartOnError(ctx, process)
+		})
 	}
-	wg.Wait()
 
-	return nil
+	return pg.Wait()
 }
 
-func (p *Processor) startProcessWithRestartOnError(ctx context.Context, process ProcessWithOptions) {
+func (p *Processor) startProcessWithRestartOnError(ctx context.Context, process ProcessWithOptions) error {
 	for {
-		if err := process.Process.Start(ctx); err != nil {
+		// spawn one independent task to handle the panics properly
+		err := parallel.Run(ctx, func(ctx context.Context, spawnFn parallel.SpawnFn) error {
+			spawnFn(process.Name, parallel.Continue, func(ctx context.Context) error {
+				return process.Process.Start(ctx)
+			})
+			return nil
+		}, parallel.WithGroupLogger(p.log.ParallelLogger(ctx)))
+
+		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return
+				return nil
 			}
 			p.log.Error(ctx, "Received unexpected error from the process", logger.Error(err))
 			if !process.IsRestartableOnError {
 				p.log.Warn(ctx, "The process is not auto-restartable on error")
-				break
+				return err
 			}
 			p.log.Info(ctx, "Restarting process after the error")
 		} else {
-			return
+			return nil
 		}
 	}
 }

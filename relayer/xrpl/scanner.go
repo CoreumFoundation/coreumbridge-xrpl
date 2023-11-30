@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
@@ -67,21 +68,28 @@ func NewAccountScanner(cfg AccountScannerConfig, log logger.Logger, rpcTxProvide
 // ScanTxs subscribes on rpc account transactions and continuously scans the recent and historical transactions.
 func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
 	s.log.Info(ctx, "Subscribing xrpl scanner", logger.AnyField("config", s.cfg))
+
+	if !s.cfg.RecentScanEnabled && !s.cfg.FullScanEnabled {
+		return errors.Errorf("both recent and full scans are disabled")
+	}
+
+	pg := parallel.NewGroup(ctx, parallel.WithGroupLogger(s.log.ParallelLogger(ctx)))
 	if s.cfg.RecentScanEnabled {
 		currentLedgerRes, err := s.rpcTxProvider.LedgerCurrent(ctx)
 		if err != nil {
 			return err
 		}
 		currentLedger := currentLedgerRes.LedgerCurrentIndex
-		go s.scanRecentHistory(ctx, currentLedger, ch)
+		pg.Spawn("recent-history-scanner", parallel.Continue, func(ctx context.Context) error {
+			s.scanRecentHistory(ctx, currentLedger, ch)
+			return nil
+		})
 	}
-
 	if s.cfg.FullScanEnabled {
-		go s.scanFullHistory(ctx, ch)
-	}
-
-	if !s.cfg.RecentScanEnabled && !s.cfg.FullScanEnabled {
-		return errors.Errorf("both recent and full scans are disabled")
+		pg.Spawn("full-history-scanner", parallel.Continue, func(ctx context.Context) error {
+			s.scanFullHistory(ctx, ch)
+			return nil
+		})
 	}
 
 	return nil

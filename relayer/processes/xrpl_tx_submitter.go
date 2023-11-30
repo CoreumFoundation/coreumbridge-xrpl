@@ -98,7 +98,7 @@ func (s *XRPLTxSubmitter) Start(ctx context.Context) error {
 			return errors.WithStack(ctx.Err())
 		default:
 			if err := s.processPendingOperations(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				s.log.Error(ctx, "Failed to process pending operations", logger.Error(err))
+				return errors.Wrap(err, "failed to process pending operations")
 			}
 			if !s.cfg.RepeatRecentScan {
 				s.log.Info(ctx, "Process repeating is disabled, process is finished")
