@@ -152,7 +152,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 						TxHash:    rippledata.Hash256{}.String(),
 						Issuer:    bridgeXRPLAddress.String(),
 						Currency:  stringCurrency,
-						Amount:    sdkmath.NewIntWithDecimal(999, int(15)),
+						Amount:    sdkmath.NewIntWithDecimal(999, int(processes.XRPLIssuedCurrencyDecimals)),
 						Recipient: coreumRecipientAddress,
 					},
 				).Return(nil, nil)

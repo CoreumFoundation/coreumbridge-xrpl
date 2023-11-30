@@ -55,11 +55,6 @@ func ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int
 	return convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount, XRPLIssuedCurrencyDecimals, issuerString, currencyString)
 }
 
-// ConvertCoreumOriginatedTokenXRPLAmountToCoreumAmount converts the coreum originated token XRPL amount to coreum amount based on decimals.
-func ConvertCoreumOriginatedTokenXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount, decimals uint32) (sdkmath.Int, error) {
-	return convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount, decimals)
-}
-
 // ConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount converts the coreum originated token amount to XRPL amount based on decimals.
 func ConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int, decimals uint32, issuerString, currencyString string) (rippledata.Amount, error) {
 	return convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount, decimals, issuerString, currencyString)

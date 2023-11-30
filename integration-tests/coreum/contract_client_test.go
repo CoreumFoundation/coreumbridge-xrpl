@@ -1102,7 +1102,6 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 
-	// TODO(dzmitryhil) Change amount in Evidence from sdkmath.Int to a different type to allow sending bigger amounts
 	tests := []struct {
 		name                                       string
 		sendingPrecision                           int32
@@ -1118,9 +1117,9 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			sendingPrecision:   2,
 			decimals:           6,
 			maxHoldingAmount:   highMaxHoldingAmount,
-			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "99.15", 6),
-			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "99.15", 6),
-			xrplSendingAmount:  sdkmath.NewInt(99_150_000_000_000_000),
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", 6),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", 6),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(999999999915, 13),
 		},
 		{
 			name:               "positive_precision_with_truncation",
@@ -1145,9 +1144,9 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			sendingPrecision:   0,
 			decimals:           11,
 			maxHoldingAmount:   highMaxHoldingAmount,
-			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "99", 11),
-			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "99", 11),
-			xrplSendingAmount:  sdkmath.NewInt(99_000_000_000_000_000),
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", 11),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", 11),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(9999999999, 15),
 		},
 		{
 			name:               "zero_precision_with_truncation",
@@ -1172,18 +1171,18 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			sendingPrecision:   -2,
 			decimals:           3,
 			maxHoldingAmount:   highMaxHoldingAmount,
-			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "900", 3),
-			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "900", 3),
-			xrplSendingAmount:  sdkmath.NewInt(900_000_000_000_000_000),
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", 3),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", 3),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(9999999900, 15),
 		},
 		{
 			name:               "negative_precision_with_truncation",
 			sendingPrecision:   -2,
 			decimals:           20,
 			maxHoldingAmount:   highMaxHoldingAmount,
-			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "999.15567", 20),
-			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "900", 20),
-			xrplSendingAmount:  sdkmath.NewInt(900_000_000_000_000_000),
+			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999.15567", 20),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9900", 20),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(9900, 15),
 		},
 		{
 			name:              "negative_precision_low_amount",
