@@ -12,7 +12,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-func TestConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(t *testing.T) {
+func TestConvertXRPLAmountToCoreumAmount(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -81,7 +81,7 @@ func TestConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := processes.ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(tt.xrplAmount)
+			got, err := processes.ConvertXRPLAmountToCoreumAmount(tt.xrplAmount)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -177,79 +177,6 @@ func TestConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := processes.ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(tt.coreumAmount, tt.issuer, tt.currency)
-			if tt.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-			require.Equal(t, tt.want.String(), got.String())
-		})
-	}
-}
-
-func TestConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount(t *testing.T) {
-	t.Parallel()
-
-	var (
-		fooIssuer   = xrpl.GenPrivKeyTxSigner().Account().String()
-		fooCurrency = "FOO"
-	)
-
-	tests := []struct {
-		name         string
-		coreumAmount sdkmath.Int
-		decimals     uint32
-		issuer       string
-		currency     string
-		want         rippledata.Amount
-		wantErr      bool
-	}{
-		{
-			name:         "one_coreum_FOO_to_XRPL_FOO",
-			coreumAmount: sdkmath.NewIntFromUint64(1000000000000000),
-			decimals:     15,
-			issuer:       fooIssuer,
-			currency:     fooCurrency,
-			want:         amountStringToXRPLAmount(t, fmt.Sprintf("1.0/%s/%s", fooCurrency, fooIssuer)),
-		},
-		{
-			name:         "one_with_some_decimals_FOO_to_XRPL_FOO",
-			coreumAmount: sdkmath.NewIntFromUint64(1000000000100000),
-			decimals:     6,
-			issuer:       fooIssuer,
-			currency:     fooCurrency,
-			want:         amountStringToXRPLAmount(t, fmt.Sprintf("1000000000.1/%s/%s", fooCurrency, fooIssuer)),
-		},
-		{
-			name:         "min_decimals_FOO_to_XRPL_FOO",
-			coreumAmount: sdkmath.NewIntFromUint64(1),
-			decimals:     15,
-			issuer:       fooIssuer,
-			currency:     fooCurrency,
-			want:         amountStringToXRPLAmount(t, fmt.Sprintf("0.000000000000001/%s/%s", fooCurrency, fooIssuer)),
-		},
-		{
-			name:         "high_value_FOO_to_XRPL_FOO",
-			coreumAmount: stringToSDKInt(t, "10000000000000000000000000000000000000000"),
-			decimals:     10,
-			issuer:       fooIssuer,
-			currency:     fooCurrency,
-			want:         amountStringToXRPLAmount(t, fmt.Sprintf("1e30/%s/%s", fooCurrency, fooIssuer)),
-		},
-		{
-			name:         "max_high_value_with_some_decimals_FOO_to_XRPL_FOO",
-			coreumAmount: stringToSDKInt(t, "1000000000000001"),
-			decimals:     15,
-			issuer:       fooIssuer,
-			currency:     fooCurrency,
-			want:         amountStringToXRPLAmount(t, fmt.Sprintf("1.000000000000001/%s/%s", fooCurrency, fooIssuer)),
-		},
-	}
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			got, err := processes.ConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount(tt.coreumAmount, tt.decimals, tt.issuer, tt.currency)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {

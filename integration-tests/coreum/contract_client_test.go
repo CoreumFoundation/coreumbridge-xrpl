@@ -1155,7 +1155,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1.15567", 1),
 			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 1),
-			xrplSendingAmount:  sdkmath.NewInt(1_000_000_000_000_000),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(1, 15),
 		},
 		{
 			name:              "zero_precision_low_amount",
@@ -1163,7 +1163,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			decimals:          2,
 			maxHoldingAmount:  highMaxHoldingAmount,
 			sendingAmount:     integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.9999", 2),
-			xrplSendingAmount: sdkmath.NewInt(999_900_000_000_000),
+			xrplSendingAmount: sdkmath.NewIntWithDecimal(9999, 11),
 			wantIsAmountSentIsZeroAfterTruncationError: true,
 		},
 		{
@@ -1190,7 +1190,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			decimals:          6,
 			maxHoldingAmount:  highMaxHoldingAmount,
 			sendingAmount:     integrationtests.ConvertStringWithDecimalsToSDKInt(t, "99.9999", 6),
-			xrplSendingAmount: sdkmath.NewInt(99_999_900_000_000_000),
+			xrplSendingAmount: sdkmath.NewIntWithDecimal(999999, 11)
 			wantIsAmountSentIsZeroAfterTruncationError: true,
 		},
 	}

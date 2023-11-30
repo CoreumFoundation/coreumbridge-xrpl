@@ -126,7 +126,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 
 	stringCurrency := xrpl.ConvertCurrencyToString(deliveredXRPLAmount.Currency)
 
-	coreumAmount, err := ConvertXRPLOriginatedTokenXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
+	coreumAmount, err := ConvertXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
 	if err != nil {
 		return err
 	}
