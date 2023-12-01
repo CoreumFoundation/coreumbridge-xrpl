@@ -15,7 +15,7 @@ mod tests {
         error::ContractError,
         evidence::{Evidence, OperationResult, TransactionResult},
         msg::{
-            AvailableTicketsResponse, CoreumTokenResponse, CoreumTokensResponse, ExecuteMsg,
+            AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg,
             InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
         },
         operation::{Operation, OperationType},
@@ -630,7 +630,7 @@ mod tests {
             .unwrap();
         }
 
-        // Register 1 token with same denom, should fail
+        // Registering a token with same denom, should fail
         let register_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -651,6 +651,27 @@ mod tests {
             }
             .to_string()
             .as_str()
+        ));
+
+        // Registering a token with invalid sending precision should fail
+        let register_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: test_tokens[0].denom.clone(),
+                    decimals: 6,
+                    sending_precision: -17,
+                    max_holding_amount: Uint128::new(1),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(register_error.to_string().contains(
+            ContractError::InvalidSendingPrecision {}
+                .to_string()
+                .as_str()
         ));
 
         // Query all tokens
@@ -692,21 +713,6 @@ mod tests {
             .unwrap();
         assert_eq!(query_coreum_tokens.tokens.len(), 1);
         assert_eq!(query_coreum_tokens.tokens[0].denom, test_tokens[1].denom);
-
-        // Query a token using the xrpl currency
-        let query_coreum_token_by_xrpl_currency = wasm
-            .query::<QueryMsg, CoreumTokenResponse>(
-                &contract_addr,
-                &QueryMsg::CoreumTokenByXRPLCurrency {
-                    xrpl_currency: query_coreum_tokens.tokens[0].xrpl_currency.to_owned(),
-                },
-            )
-            .unwrap();
-
-        assert_eq!(
-            query_coreum_token_by_xrpl_currency.token.unwrap(),
-            query_coreum_tokens.tokens[0]
-        );
     }
 
     #[test]
@@ -1611,7 +1617,7 @@ mod tests {
         )
         .unwrap();
 
-        // Let's issue a token to the sender and register it.
+        // Let's issue a token where decimals are less than an XRPL token decimals to the sender and register it.
         let asset_ft = AssetFT::new(&app);
         let symbol = "TEST".to_string();
         let subunit = "utest".to_string();
@@ -1643,7 +1649,7 @@ mod tests {
             &ExecuteMsg::RegisterCoreumToken {
                 denom: denom.to_owned(),
                 decimals,
-                sending_precision: 6,
+                sending_precision: 5,
                 max_holding_amount: Uint128::new(10000000),
             },
             &vec![],
@@ -1651,7 +1657,9 @@ mod tests {
         )
         .unwrap();
 
-        let amount_to_send = Uint128::new(1000000);
+        // It should truncate 1 because sending precision is 5
+        let amount_to_send = Uint128::new(1000001);
+
         // Bridge the token to the xrpl receiver address so that we can send it back.
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -1688,6 +1696,23 @@ mod tests {
 
         assert_eq!(request_balance.balance, amount_to_send.to_string());
 
+        // Get the token information
+        let query_coreum_tokens = wasm
+            .query::<QueryMsg, CoreumTokensResponse>(
+                &contract_addr,
+                &QueryMsg::CoreumTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let coreum_originated_token = query_coreum_tokens
+            .tokens
+            .iter()
+            .find(|t| t.denom == denom)
+            .unwrap();
+
         // Confirm the operation to remove it from pending operations.
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
@@ -1696,7 +1721,17 @@ mod tests {
             )
             .unwrap();
 
+        let amount_truncated_and_converted = Uint128::new(1000000000000000); // 100001 -> truncate -> 100000 -> convert -> 1e15
         assert_eq!(query_pending_operations.operations.len(), 1);
+        assert_eq!(
+            query_pending_operations.operations[0].operation_type,
+            OperationType::CoreumToXRPLTransfer {
+                issuer: bridge_xrpl_address.to_owned(),
+                currency: coreum_originated_token.xrpl_currency.to_owned(),
+                amount: amount_truncated_and_converted,
+                recipient: xrpl_receiver_address.to_owned(),
+            }
+        );
 
         // Send successfull evidence to remove from queue (tokens should be released on XRPL to the receiver)
         wasm.execute::<ExecuteMsg>(
@@ -1724,25 +1759,9 @@ mod tests {
 
         assert_eq!(query_pending_operations.operations.len(), 0);
 
-        // Get the xrpl bridge address and xrpl currency of the token so that we can send it back.
-        let query_coreum_tokens = wasm
-            .query::<QueryMsg, CoreumTokensResponse>(
-                &contract_addr,
-                &QueryMsg::CoreumTokens {
-                    offset: None,
-                    limit: None,
-                },
-            )
-            .unwrap();
-
-        let coreum_originated_token = query_coreum_tokens
-            .tokens
-            .iter()
-            .find(|t| t.denom == denom)
-            .unwrap();
-
         // Test sending the amount back from XRPL to Coreum
-        let amount_to_send_back = Uint128::new(1);
+        // 10000000000 (1e10) is the minimum we can send back (15 - 5 (sending precision))
+        let amount_to_send_back = Uint128::new(10000000000);
 
         // If we send the token with a different issuer (not multisig address) it should fail
         let transfer_error = wasm
@@ -1788,6 +1807,30 @@ mod tests {
             .to_string()
             .contains(ContractError::TokenNotRegistered {}.to_string().as_str()));
 
+        // Sending under the minimum should fail (minimum - 1)
+        let transfer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: generate_hash(),
+                        issuer: bridge_xrpl_address.to_owned(),
+                        currency: coreum_originated_token.xrpl_currency.to_owned(),
+                        amount: amount_to_send_back.checked_sub(Uint128::one()).unwrap(),
+                        recipient: Addr::unchecked(sender.address()),
+                    },
+                },
+                &[],
+                relayer_account,
+            )
+            .unwrap_err();
+
+        assert!(transfer_error.to_string().contains(
+            ContractError::AmountSentIsZeroAfterTruncation {}
+                .to_string()
+                .as_str()
+        ));
+
         // Sending the right evidence should move tokens from the contract to the sender's account
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -1816,9 +1859,9 @@ mod tests {
         assert_eq!(
             request_balance.balance,
             initial_amount
-                .checked_sub(amount_to_send)
+                .checked_sub(amount_to_send) // initial amount
                 .unwrap()
-                .checked_add(amount_to_send_back)
+                .checked_add(Uint128::new(10)) // Amount that we sent back (10) after conversion, the minimum
                 .unwrap()
                 .to_string()
         );
@@ -1833,7 +1876,270 @@ mod tests {
         assert_eq!(
             request_balance.balance,
             amount_to_send
-                .checked_sub(amount_to_send_back)
+                .checked_sub(Uint128::new(10))
+                .unwrap()
+                .to_string()
+        );
+
+        // Now let's issue a token where decimals are more than an XRPL token decimals to the sender and register it.
+        let symbol = "TEST2".to_string();
+        let subunit = "utest2".to_string();
+        let decimals = 20;
+        let initial_amount = Uint128::new(200000000000000000000); // 2e20
+        asset_ft
+            .issue(
+                MsgIssue {
+                    issuer: sender.address(),
+                    symbol,
+                    subunit: subunit.to_owned(),
+                    precision: decimals,
+                    initial_amount: initial_amount.to_string(),
+                    description: "description".to_string(),
+                    features: vec![MINTING as i32],
+                    burn_rate: "0".to_string(),
+                    send_commission_rate: "0".to_string(),
+                    uri: "uri".to_string(),
+                    uri_hash: "uri_hash".to_string(),
+                },
+                &sender,
+            )
+            .unwrap();
+
+        let denom = format!("{}-{}", subunit, sender.address()).to_lowercase();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterCoreumToken {
+                denom: denom.to_owned(),
+                decimals,
+                sending_precision: 10,
+                max_holding_amount: Uint128::new(200000000000000000000), //2e20
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // It should truncate and remove all 9s because they are under precision
+        let amount_to_send = Uint128::new(100000000019999999999);
+
+        // Bridge the token to the xrpl receiver address so that we can send it back.
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+            },
+            &coins(amount_to_send.u128(), denom.to_owned()),
+            &sender,
+        )
+        .unwrap();
+
+        // Check balance of sender and contract
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            request_balance.balance,
+            initial_amount
+                .checked_sub(amount_to_send)
+                .unwrap()
+                .to_string()
+        );
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, amount_to_send.to_string());
+
+        // Get the token information
+        let query_coreum_tokens = wasm
+            .query::<QueryMsg, CoreumTokensResponse>(
+                &contract_addr,
+                &QueryMsg::CoreumTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let coreum_originated_token = query_coreum_tokens
+            .tokens
+            .iter()
+            .find(|t| t.denom == denom)
+            .unwrap();
+
+        // Confirm the operation to remove it from pending operations.
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        let amount_truncated_and_converted = Uint128::new(1000000000100000); // 100000000019999999999 -> truncate -> 100000000010000000000  -> convert -> 1000000000100000
+        assert_eq!(query_pending_operations.operations.len(), 1);
+        assert_eq!(
+            query_pending_operations.operations[0].operation_type,
+            OperationType::CoreumToXRPLTransfer {
+                issuer: bridge_xrpl_address.to_owned(),
+                currency: coreum_originated_token.xrpl_currency.to_owned(),
+                amount: amount_truncated_and_converted,
+                recipient: xrpl_receiver_address.to_owned(),
+            }
+        );
+
+        // Send successfull evidence to remove from queue (tokens should be released on XRPL to the receiver)
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: query_pending_operations.operations[0].account_sequence,
+                    ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 0);
+
+        // Test sending the amount back from XRPL to Coreum
+        // 100000 (1e5) is the minimum we can send back (15 - 10 (sending precision))
+        let amount_to_send_back = Uint128::new(100000);
+
+        // If we send the token with a different issuer (not multisig address) it should fail
+        let transfer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: generate_hash(),
+                        issuer: generate_xrpl_address(),
+                        currency: coreum_originated_token.xrpl_currency.to_owned(),
+                        amount: amount_to_send_back.clone(),
+                        recipient: Addr::unchecked(sender.address()),
+                    },
+                },
+                &[],
+                relayer_account,
+            )
+            .unwrap_err();
+
+        assert!(transfer_error
+            .to_string()
+            .contains(ContractError::TokenNotRegistered {}.to_string().as_str()));
+
+        // If we send the token with a different currency (one that is not the one in the registered token list) it should fail
+        let transfer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: generate_hash(),
+                        issuer: bridge_xrpl_address.to_owned(),
+                        currency: "invalid_currency".to_string(),
+                        amount: amount_to_send_back.clone(),
+                        recipient: Addr::unchecked(sender.address()),
+                    },
+                },
+                &[],
+                relayer_account,
+            )
+            .unwrap_err();
+
+        assert!(transfer_error
+            .to_string()
+            .contains(ContractError::TokenNotRegistered {}.to_string().as_str()));
+
+        // Sending under the minimum should fail (minimum - 1)
+        let transfer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: generate_hash(),
+                        issuer: bridge_xrpl_address.to_owned(),
+                        currency: coreum_originated_token.xrpl_currency.to_owned(),
+                        amount: amount_to_send_back.checked_sub(Uint128::one()).unwrap(),
+                        recipient: Addr::unchecked(sender.address()),
+                    },
+                },
+                &[],
+                relayer_account,
+            )
+            .unwrap_err();
+
+        assert!(transfer_error.to_string().contains(
+            ContractError::AmountSentIsZeroAfterTruncation {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Sending the right evidence should move tokens from the contract to the sender's account
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: generate_hash(),
+                    issuer: bridge_xrpl_address.to_owned(),
+                    currency: coreum_originated_token.xrpl_currency.to_owned(),
+                    amount: amount_to_send_back.clone(),
+                    recipient: Addr::unchecked(sender.address()),
+                },
+            },
+            &[],
+            relayer_account,
+        )
+        .unwrap();
+
+        // Check balance of sender and contract
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            request_balance.balance,
+            initial_amount
+                .checked_sub(amount_to_send) // initial amount
+                .unwrap()
+                .checked_add(Uint128::new(10000000000)) // Amount that we sent back after conversion (1e10), the minimum
+                .unwrap()
+                .to_string()
+        );
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            request_balance.balance,
+            amount_to_send
+                .checked_sub(Uint128::new(10000000000))
                 .unwrap()
                 .to_string()
         );
@@ -2289,7 +2595,8 @@ mod tests {
         )
         .unwrap();
 
-        let amount_to_send = Uint128::new(1000000);
+        let amount_to_send = Uint128::new(1000000); // 1e6 -> truncate -> 1e6 -> decimal conversion -> 1e15
+
         // Bridge the token to the xrpl receiver address and check pending operations
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -2339,7 +2646,7 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: multisig_address,
                     currency: coreum_originated_token.xrpl_currency.to_owned(),
-                    amount: amount_to_send,
+                    amount: amount_to_send.checked_mul(Uint128::new(10u128.pow(9))).unwrap(),  // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
                     recipient: xrpl_receiver_address,
                 },
             }
@@ -3217,6 +3524,24 @@ mod tests {
         assert_eq!(request_balance.balance, "3".to_string());
 
         // Test sending token 2 with medium precision
+
+        // Sending under sending precision would return error because it will be truncated to 0.
+        let precision_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: generate_xrpl_address(),
+                },
+                &coins(100000, denom2.to_owned()),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(precision_error.to_string().contains(
+            ContractError::AmountSentIsZeroAfterTruncation {}
+                .to_string()
+                .as_str()
+        ));
 
         // Sending 3990000 would work as it is the maximum bridgable amount
         wasm.execute::<ExecuteMsg>(

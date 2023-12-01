@@ -145,4 +145,9 @@ pub enum ContractError {
     "InvalidSendingPrecision: The sending precision can't be more than the token decimals or less than the negative token decimals"
     )]
     InvalidSendingPrecision {},
+
+    #[error(
+        "TokenSendingPrecisionTooHigh: The sending precision can't be more than the token decimals"
+    )]
+    TokenSendingPrecisionTooHigh {},
 }

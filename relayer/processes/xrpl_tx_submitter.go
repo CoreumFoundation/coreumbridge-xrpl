@@ -285,7 +285,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 				SigningPubKey: &xrplPubKey,
 			},
 		}
-		tx, err := s.buildXRPLTxFromOperation(ctx, operation)
+		tx, err := s.buildXRPLTxFromOperation(operation)
 		if err != nil {
 			return nil, false, err
 		}
@@ -319,7 +319,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		return nil, false, nil
 	}
 	// build tx one more time to be sure that it is not affected
-	tx, err := s.buildXRPLTxFromOperation(ctx, operation)
+	tx, err := s.buildXRPLTxFromOperation(operation)
 	if err != nil {
 		return nil, false, err
 	}
@@ -385,7 +385,7 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 }
 
 func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation coreum.Operation) error {
-	tx, err := s.buildXRPLTxFromOperation(ctx, operation)
+	tx, err := s.buildXRPLTxFromOperation(operation)
 	if err != nil {
 		return err
 	}
@@ -409,22 +409,13 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 	return errors.Wrap(err, "failed to register transaction signature")
 }
 
-func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(ctx context.Context, operation coreum.Operation) (MultiSignableTransaction, error) {
+func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (MultiSignableTransaction, error) {
 	switch {
 	case isAllocateTicketsOperation(operation):
 		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	case isTrustSetOperation(operation):
 		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	case isCoreumToXRPLTransfer(operation):
-		// for the coreum originated tokens we need to fetch token decimals, but for the XRPL they are static
-		operationType := operation.OperationType.CoreumToXRPLTransfer
-		if s.cfg.BridgeXRPLAddress.String() == operationType.Issuer {
-			coreumToken, err := s.contractClient.GetCoreumTokenByXRPLCurrency(ctx, operationType.Currency)
-			if err != nil {
-				return nil, errors.Wrapf(err, "faild to get XRPL token for the coreum to XRPL transfer")
-			}
-			return BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation, coreumToken.Decimals)
-		}
 		return BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	default:
 		return nil, errors.Errorf("failed to process operation, unable to determine operation type, operation:%+v", operation)

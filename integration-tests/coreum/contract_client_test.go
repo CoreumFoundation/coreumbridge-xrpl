@@ -827,11 +827,13 @@ func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 	require.Equal(t, coinToSend.String(), contractBalanceRes.Balance.String())
 
 	// create an evidence of transfer tokens from XRPL to Coreum
+	// account has 100_000_000_000 in XRPL after conversion
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
-		Issuer:    bridgeXRPLAddress,
-		Currency:  registeredCoreumToken.XRPLCurrency,
-		Amount:    sdkmath.NewInt(4),
+		TxHash:   genXRPLTxHash(t),
+		Issuer:   bridgeXRPLAddress,
+		Currency: registeredCoreumToken.XRPLCurrency,
+		// Equivalent of sending 4 tokens back
+		Amount:    sdkmath.NewInt(40_000_000_000),
 		Recipient: coreumRecipient,
 	}
 
@@ -857,7 +859,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 		Denom:   registeredCoreumToken.Denom,
 	})
 	require.NoError(t, err)
-	require.Equal(t, xrplToCoreumTransferEvidence.Amount.String(), recipientBalanceRes.Balance.Amount.String())
+	require.Equal(t, sdkmath.NewInt(4).String(), recipientBalanceRes.Balance.Amount.String())
 
 	// check contract balance
 	contractBalanceRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
@@ -865,7 +867,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 		Denom:   denom,
 	})
 	require.NoError(t, err)
-	require.Equal(t, coinToSend.Amount.Sub(xrplToCoreumTransferEvidence.Amount).String(), contractBalanceRes.Balance.Amount.String())
+	require.Equal(t, coinToSend.Amount.Sub(sdkmath.NewInt(4)).String(), contractBalanceRes.Balance.Amount.String())
 }
 
 //nolint:tparallel // the test is parallel, but test cases are not
@@ -1024,12 +1026,15 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 			require.NoError(t, err)
 			require.Equal(t, coinToSend.String(), contractBalanceRes.Balance.String())
 
+			// The amount is the converted amount that was sent in XRPL and is the equivalent of 10_000 in Coreum
+			amountToSendBack := sdkmath.NewInt(1_000_000_000_000_000)
+
 			// create an evidence of transfer tokens from XRPL to Coreum
 			xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
 				TxHash:    genXRPLTxHash(t),
 				Issuer:    bridgeXRPLAddress,
 				Currency:  registeredCoreumToken.XRPLCurrency,
-				Amount:    amountToSend,
+				Amount:    amountToSendBack,
 				Recipient: coreumRecipient,
 			}
 
@@ -1105,6 +1110,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 		maxHoldingAmount                           sdkmath.Int
 		wantReceivedAmount                         sdkmath.Int
 		wantIsAmountSentIsZeroAfterTruncationError bool
+		xrplSendingAmount                          sdkmath.Int
 	}{
 		{
 			name:               "positive_precision_no_truncation",
@@ -1113,6 +1119,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", 6),
 			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", 6),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(999999999915, 13),
 		},
 		{
 			name:               "positive_precision_with_truncation",
@@ -1121,13 +1128,15 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15567", 20),
 			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15", 20),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(15, 13),
 		},
 		{
-			name:             "positive_precision_low_amount",
-			sendingPrecision: 2,
-			decimals:         13,
-			maxHoldingAmount: highMaxHoldingAmount,
-			sendingAmount:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.009999", 13),
+			name:              "positive_precision_low_amount",
+			sendingPrecision:  2,
+			decimals:          13,
+			maxHoldingAmount:  highMaxHoldingAmount,
+			sendingAmount:     integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.009999", 13),
+			xrplSendingAmount: sdkmath.NewIntWithDecimal(9999, 8),
 			wantIsAmountSentIsZeroAfterTruncationError: true,
 		},
 		{
@@ -1137,6 +1146,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", 11),
 			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", 11),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(9999999999, 15),
 		},
 		{
 			name:               "zero_precision_with_truncation",
@@ -1145,13 +1155,15 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1.15567", 1),
 			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 1),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(1, 15),
 		},
 		{
-			name:             "zero_precision_low_amount",
-			sendingPrecision: 0,
-			decimals:         2,
-			maxHoldingAmount: highMaxHoldingAmount,
-			sendingAmount:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.9999", 2),
+			name:              "zero_precision_low_amount",
+			sendingPrecision:  0,
+			decimals:          2,
+			maxHoldingAmount:  highMaxHoldingAmount,
+			sendingAmount:     integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.9999", 2),
+			xrplSendingAmount: sdkmath.NewIntWithDecimal(9999, 11),
 			wantIsAmountSentIsZeroAfterTruncationError: true,
 		},
 		{
@@ -1161,6 +1173,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", 3),
 			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", 3),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(9999999900, 15),
 		},
 		{
 			name:               "negative_precision_with_truncation",
@@ -1169,13 +1182,15 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999.15567", 20),
 			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9900", 20),
+			xrplSendingAmount:  sdkmath.NewIntWithDecimal(9900, 15),
 		},
 		{
-			name:             "negative_precision_low_amount",
-			sendingPrecision: -2,
-			decimals:         6,
-			maxHoldingAmount: highMaxHoldingAmount,
-			sendingAmount:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "99.9999", 6),
+			name:              "negative_precision_low_amount",
+			sendingPrecision:  -2,
+			decimals:          6,
+			maxHoldingAmount:  highMaxHoldingAmount,
+			sendingAmount:     integrationtests.ConvertStringWithDecimalsToSDKInt(t, "99.9999", 6),
+			xrplSendingAmount: sdkmath.NewIntWithDecimal(999999, 11),
 			wantIsAmountSentIsZeroAfterTruncationError: true,
 		},
 	}
@@ -1221,7 +1236,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 				TxHash:    genXRPLTxHash(t),
 				Issuer:    bridgeXRPLAddress,
 				Currency:  registeredCoreumToken.XRPLCurrency,
-				Amount:    tt.sendingAmount,
+				Amount:    tt.xrplSendingAmount,
 				Recipient: coreumRecipient,
 			}
 
@@ -1928,7 +1943,8 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	require.NotNil(t, operationType)
 	require.Equal(t, operationType.Issuer, bridgeXRPLAddress)
 	require.Equal(t, operationType.Currency, registeredCoreumOriginatedToken1.XRPLCurrency)
-	require.Equal(t, operationType.Amount, amountToSendOfToken1)
+	// XRPL DECIMALS (15) - TOKEN DECIMALS (5) = 10
+	require.Equal(t, operationType.Amount, amountToSendOfToken1.Mul(sdk.NewInt(10_000_000_000)))
 	require.Equal(t, operationType.Recipient, xrplRecipientAddress.String())
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
@@ -1977,7 +1993,8 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	require.NotNil(t, operationType)
 	require.Equal(t, operationType.Issuer, bridgeXRPLAddress)
 	require.Equal(t, operationType.Currency, registeredCoreumOriginatedToken2.XRPLCurrency)
-	require.Equal(t, operationType.Amount, amountToSendOfToken2)
+	// XRPL DECIMALS (15) - TOKEN DECIMALS (6) = 9
+	require.Equal(t, operationType.Amount, amountToSendOfToken2.Mul(sdkmath.NewIntWithDecimal(1, 9)))
 	require.Equal(t, operationType.Recipient, xrplRecipientAddress.String())
 
 	acceptedTxEvidence = coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
@@ -2054,7 +2071,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 			decimals:           6,
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", 6),
-			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", 6),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", 15),
 		},
 		{
 			name:               "positive_precision_with_truncation",
@@ -2062,7 +2079,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 			decimals:           20,
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15567", 20),
-			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15", 20),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.15", 15),
 		},
 		{
 			name:             "positive_precision_low_amount",
@@ -2078,7 +2095,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 			decimals:           11,
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", 11),
-			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", 11),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999", 15),
 		},
 		{
 			name:               "zero_precision_with_truncation",
@@ -2086,7 +2103,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 			decimals:           1,
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1.15567", 1),
-			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 1),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 15),
 		},
 		{
 			name:             "zero_precision_low_amount",
@@ -2102,7 +2119,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 			decimals:           3,
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", 3),
-			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", 3),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999900", 15),
 		},
 		{
 			name:               "negative_precision_with_truncation",
@@ -2110,7 +2127,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 			decimals:           20,
 			maxHoldingAmount:   highMaxHoldingAmount,
 			sendingAmount:      integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999.15567", 20),
-			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9900", 20),
+			wantReceivedAmount: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9900", 15),
 		},
 		{
 			name:             "negative_precision_low_amount",

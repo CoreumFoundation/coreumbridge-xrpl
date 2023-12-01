@@ -90,12 +90,10 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(bridge
 func BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
-	decimals uint32,
 ) (*rippledata.Payment, error) {
 	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
-	value, err := ConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount(
+	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
 		coreumToXRPLTransferOperationType.Amount,
-		decimals,
 		coreumToXRPLTransferOperationType.Issuer,
 		coreumToXRPLTransferOperationType.Currency,
 	)

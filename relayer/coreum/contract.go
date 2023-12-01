@@ -773,22 +773,6 @@ func (c *ContractClient) GetCoreumTokenByDenom(ctx context.Context, denom string
 	return CoreumToken{}, errors.Errorf("token not found in the registered tokens list, denom:%s", denom)
 }
 
-// GetCoreumTokenByXRPLCurrency returns a coreum registered token or nil by the provided xrpl currency.
-func (c *ContractClient) GetCoreumTokenByXRPLCurrency(ctx context.Context, xrplCurrency string) (CoreumToken, error) {
-	// TODO(dzmitryhil) use new query function from the contract once we create it
-	tokens, err := c.GetCoreumTokens(ctx)
-	if err != nil {
-		return CoreumToken{}, err
-	}
-	for _, token := range tokens {
-		if token.XRPLCurrency == xrplCurrency {
-			return token, nil
-		}
-	}
-
-	return CoreumToken{}, errors.Errorf("token not found in the registered tokens list, xrplCurrency:%s", xrplCurrency)
-}
-
 // GetCoreumTokens returns a list of all coreum tokens.
 func (c *ContractClient) GetCoreumTokens(ctx context.Context) ([]CoreumToken, error) {
 	tokens := make([]CoreumToken, 0)
