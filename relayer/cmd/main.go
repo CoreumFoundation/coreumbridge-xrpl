@@ -1,29 +1,17 @@
 package main
 
 import (
-	"bufio"
 	"context"
-	"fmt"
 	"os"
-	"path"
-	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/run"
 	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
 	"github.com/CoreumFoundation/coreum/v3/pkg/config"
-)
-
-var defaultKeyringDir = path.Join(".coreumbridge-xrpl-relayer", "keys")
-
-const (
-	// That key name is constant here temporary, we will take it from the relayer config later.
-	relayerKeyName = "coreumbridge-xrpl-relayer"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 )
 
 func main() {
@@ -52,55 +40,9 @@ func RootCmd(ctx context.Context) *cobra.Command {
 	}
 	cmd.SetContext(ctx)
 
-	cmd.AddCommand(StartCmd(ctx))
-	cmd.AddCommand(keys.Commands(defaultKeyringDir))
+	cmd.AddCommand(cli.InitCmd())
+	cmd.AddCommand(cli.StartCmd())
+	cmd.AddCommand(cli.KeyringCmd())
 
 	return cmd
-}
-
-// StartCmd returns the start cmd.
-func StartCmd(ctx context.Context) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "start",
-		Short: "Start relayer.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// scan helps to wait for any input infinitely and just then call the relayer. That handles
-			// the relayer restart in the container. Because after the restart the container is detached, relayer
-			// requests the keyring password and fail inanimately.
-			// TODO(dzmitryhil) replace to logger once we integrate the runner
-			fmt.Print("Press any key to start the relayer.")
-			input := bufio.NewScanner(os.Stdin)
-			input.Scan()
-
-			// that code is just for an example and will be replaced later
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-			keyRecord, err := clientCtx.Keyring.Key(relayerKeyName)
-			if err != nil {
-				return errors.Wrap(err, "failed to get key from keyring")
-			}
-			address, err := keyRecord.GetAddress()
-			if err != nil {
-				return errors.Wrap(err, "failed to get address from the key record")
-			}
-			for {
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-time.After(time.Second):
-					fmt.Printf("Address from the keyring:%s\n", address.String())
-				}
-			}
-		},
-	}
-	addKeyringFlags(cmd)
-
-	return cmd
-}
-
-func addKeyringFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().String(flags.FlagKeyringBackend, flags.DefaultKeyringBackend, "Select keyring's backend (os|file|kwallet|pass|test)")
-	cmd.PersistentFlags().String(flags.FlagKeyringDir, defaultKeyringDir, "The client Keyring directory; if omitted, the default 'home' directory will be used")
 }
