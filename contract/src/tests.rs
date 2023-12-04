@@ -897,7 +897,7 @@ mod tests {
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(vec![1, 2, 3]),
+                        tickets: Some((1..4).collect()),
                     },
                 },
             },
@@ -1096,7 +1096,7 @@ mod tests {
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(vec![1, 2, 3]),
+                        tickets: Some((1..4).collect()),
                     },
                 },
             },
@@ -1251,7 +1251,7 @@ mod tests {
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(vec![1, 2, 3]),
+                        tickets: Some((1..4).collect()),
                     },
                 },
             },
@@ -1269,7 +1269,7 @@ mod tests {
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(vec![1, 2, 3]),
+                        tickets: Some((1..4).collect()),
                     },
                 },
             },
@@ -1608,7 +1608,7 @@ mod tests {
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+                        tickets: Some((1..11).collect()),
                     },
                 },
             },
@@ -2350,7 +2350,7 @@ mod tests {
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                        tickets: Some((1..12).collect()),
                     },
                 },
             },
@@ -3011,7 +3011,7 @@ mod tests {
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(vec![1, 2, 3, 4, 5, 6, 7, 8]),
+                        tickets: Some((1..9).collect()),
                     },
                 },
             },
@@ -4508,7 +4508,7 @@ mod tests {
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(vec![1, 2, 3]),
+                        tickets: Some((1..4).collect()),
                     },
                 },
             },
@@ -4710,7 +4710,7 @@ mod tests {
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(vec![1, 2, 3]),
+                        tickets: Some((1..4).collect()),
                     },
                 },
             },
@@ -5129,7 +5129,7 @@ mod tests {
             ticket_sequence: None,
             transaction_result: TransactionResult::Rejected,
             operation_result: OperationResult::TicketsAllocation {
-                tickets: Some(vec![1, 2, 3, 4, 5]),
+                tickets: Some((1..6).collect()),
             },
         };
 
@@ -5139,7 +5139,7 @@ mod tests {
             ticket_sequence: None,
             transaction_result: TransactionResult::Accepted,
             operation_result: OperationResult::TicketsAllocation {
-                tickets: Some(vec![1, 2, 3, 4, 5]),
+                tickets: Some((1..6).collect()),
             },
         };
 
