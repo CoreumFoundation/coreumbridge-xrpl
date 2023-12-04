@@ -2,6 +2,7 @@ package processes
 
 import (
 	"context"
+	"runtime/debug"
 
 	"github.com/pkg/errors"
 
@@ -61,14 +62,19 @@ func (p *Processor) StartProcesses(ctx context.Context, processes ...ProcessWith
 
 func (p *Processor) startProcessWithRestartOnError(ctx context.Context, process ProcessWithOptions) error {
 	for {
-		// spawn one independent task to handle the panics properly
-		err := parallel.Run(ctx, func(ctx context.Context, spawnFn parallel.SpawnFn) error {
-			spawnFn(process.Name, parallel.Continue, func(ctx context.Context) error {
-				return process.Process.Start(ctx)
-			})
-			return nil
-		}, parallel.WithGroupLogger(p.log.ParallelLogger(ctx)))
-
+		// start process and handle the panic
+		err := func() (err error) {
+			defer func() {
+				if p := recover(); p != nil {
+					err = errors.Wrapf(
+						parallel.ErrPanic{Value: p, Stack: debug.Stack()},
+						"handled panic on process:%s", process.Name,
+					)
+				}
+			}()
+			return process.Process.Start(ctx)
+		}()
+		// restart the process is it is restartable
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
