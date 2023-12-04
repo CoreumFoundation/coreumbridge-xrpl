@@ -2667,6 +2667,7 @@ mod tests {
         let asset_ft = AssetFT::new(&app);
         let symbol = "TEST".to_string();
         let subunit = "utest".to_string();
+        let initial_amount = Uint128::new(1000000000);
         let decimals = 6;
         asset_ft
             .issue(
@@ -2675,7 +2676,7 @@ mod tests {
                     symbol,
                     subunit: subunit.to_owned(),
                     precision: decimals,
-                    initial_amount: "1000000000".to_string(),
+                    initial_amount: initial_amount.to_string(),
                     description: "description".to_string(),
                     features: vec![MINTING as i32],
                     burn_rate: "0".to_string(),
@@ -2694,7 +2695,7 @@ mod tests {
             &ExecuteMsg::RegisterCoreumToken {
                 denom: denom.to_owned(),
                 decimals,
-                sending_precision: 6,
+                sending_precision: 5,
                 max_holding_amount: Uint128::new(10000000),
             },
             &vec![],
@@ -2702,7 +2703,7 @@ mod tests {
         )
         .unwrap();
 
-        let amount_to_send = Uint128::new(1000000); // 1e6 -> truncate -> 1e6 -> decimal conversion -> 1e15
+        let amount_to_send = Uint128::new(1000001); // 1000001 -> truncate -> 1e6 -> decimal conversion -> 1e15
 
         // Bridge the token to the xrpl receiver address and check pending operations
         wasm.execute::<ExecuteMsg>(
@@ -2754,13 +2755,57 @@ mod tests {
                     issuer: multisig_address,
                     currency: coreum_originated_token.xrpl_currency.to_owned(),
                     amount: amount_to_send
-                        .checked_mul(Uint128::new(10u128.pow(9)))
-                        .unwrap(), // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
+                        .checked_sub(Uint128::one()) //Truncated amount
+                        .unwrap()
+                        .checked_mul(Uint128::new(10u128.pow(9))) // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
+                        .unwrap(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address,
                 },
             }
         );
+
+        // If we reject the operation, the tokens should be sent back to the sender (except truncated amount)
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: None,
+                    ticket_sequence: Some(6),
+                    transaction_result: TransactionResult::Rejected,
+                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+
+        // Truncated amount won't be sent back
+        assert_eq!(
+            request_balance.balance,
+            initial_amount
+                .checked_sub(Uint128::one())
+                .unwrap()
+                .to_string()
+        );
+
+        // Truncated amount will stay in contract (until we have fees collection)
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+        assert_eq!(request_balance.balance, Uint128::one().to_string());
     }
 
     #[test]

@@ -3,7 +3,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Response, Storage, Uint128};
 
 use crate::{
-    contract::build_xrpl_token_key,
+    contract::{build_xrpl_token_key, convert_amount_decimals, XRPL_TOKENS_DECIMALS},
     error::ContractError,
     evidence::TransactionResult,
     signatures::Signature,
@@ -138,7 +138,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                     }
                 }
                 None => {
-                    // The token sent was a Coreum originated token we only need to send back in case of rejection.
+                    // If the token sent was a Coreum originated token we only need to send back in case of rejection.
                     if transaction_result.ne(&TransactionResult::Accepted) {
                         match COREUM_TOKENS
                             .idx
@@ -147,9 +147,15 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                             .map(|(_, ct)| ct)
                         {
                             Some(token) => {
+                                // We need to convert the decimals to coreum decimals
+                                let amount_to_send_back = convert_amount_decimals(
+                                    XRPL_TOKENS_DECIMALS,
+                                    token.decimals,
+                                    amount,
+                                )?;
                                 let send_msg = BankMsg::Send {
                                     to_address: sender.to_string(),
-                                    amount: coins(amount.u128(), token.denom),
+                                    amount: coins(amount_to_send_back.u128(), token.denom),
                                 };
 
                                 *response = response.to_owned().add_message(send_msg);

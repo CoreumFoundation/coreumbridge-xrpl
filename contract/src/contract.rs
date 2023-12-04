@@ -48,7 +48,7 @@ const XRP_DECIMALS: u32 = 6;
 
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
-const XRPL_TOKENS_DECIMALS: u32 = 15;
+pub const XRPL_TOKENS_DECIMALS: u32 = 15;
 
 const XRP_CURRENCY: &str = "XRP";
 const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
@@ -923,7 +923,7 @@ fn truncate_amount(
 }
 
 // Function used to convert the amount received from XRPL with XRPL decimals to the Coreum amount with Coreum decimals
-fn convert_amount_decimals(
+pub fn convert_amount_decimals(
     from_decimals: u32,
     to_decimals: u32,
     amount: Uint128,
