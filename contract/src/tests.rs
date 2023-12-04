@@ -1580,7 +1580,7 @@ mod tests {
             Addr::unchecked(signer.address()),
             vec![relayer.clone()],
             1,
-            4,
+            9,
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
@@ -1592,7 +1592,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::RecoverTickets {
                 account_sequence: 1,
-                number_of_tickets: Some(5),
+                number_of_tickets: Some(10),
             },
             &vec![],
             &signer,
@@ -1608,7 +1608,7 @@ mod tests {
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
                     operation_result: OperationResult::TicketsAllocation {
-                        tickets: Some(vec![1, 2, 3, 4, 5]),
+                        tickets: Some(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
                     },
                 },
             },
@@ -1660,7 +1660,7 @@ mod tests {
         // It should truncate 1 because sending precision is 5
         let amount_to_send = Uint128::new(1000001);
 
-        // Bridge the token to the xrpl receiver address so that we can send it back.
+        // Try to bridge the token to the xrpl receiver address so that we can send it back.
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -1733,6 +1733,66 @@ mod tests {
                 recipient: xrpl_receiver_address.to_owned(),
             }
         );
+
+        // Reject the operation, therefore the tokens should be sent back to the sender.
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: query_pending_operations.operations[0].account_sequence,
+                    ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
+                    transaction_result: TransactionResult::Rejected,
+                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
+        // Truncated amount won't be sent back
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            request_balance.balance,
+            initial_amount
+                .checked_sub(Uint128::one())
+                .unwrap()
+                .to_string()
+        );
+
+        // Truncated amount will stay in contract (until we have fees collection)
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+        assert_eq!(request_balance.balance, Uint128::one().to_string());
+
+        // Try to send again
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+            },
+            &coins(amount_to_send.u128(), denom.to_owned()),
+            &sender,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
 
         // Send successfull evidence to remove from queue (tokens should be released on XRPL to the receiver)
         wasm.execute::<ExecuteMsg>(
@@ -1862,6 +1922,8 @@ mod tests {
             initial_amount
                 .checked_sub(amount_to_send) // initial amount
                 .unwrap()
+                .checked_sub(Uint128::one()) // amount lost during truncation of first rejection
+                .unwrap()
                 .checked_add(Uint128::new(10)) // Amount that we sent back (10) after conversion, the minimum
                 .unwrap()
                 .to_string()
@@ -1877,6 +1939,8 @@ mod tests {
         assert_eq!(
             request_balance.balance,
             amount_to_send
+                .checked_add(Uint128::one()) // Truncated amount staying in contract
+                .unwrap()
                 .checked_sub(Uint128::new(10))
                 .unwrap()
                 .to_string()
@@ -1997,6 +2061,69 @@ mod tests {
                 recipient: xrpl_receiver_address.to_owned(),
             }
         );
+
+        // Reject the operation so that tokens are sent back to sender
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: query_pending_operations.operations[0].account_sequence,
+                    ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
+                    transaction_result: TransactionResult::Rejected,
+                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
+        // Truncated amount won't be sent back
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            request_balance.balance,
+            initial_amount
+                .checked_sub(Uint128::new(9999999999)) // Truncated amount is not sent back
+                .unwrap()
+                .to_string()
+        );
+
+        // Truncated amount will stay in contract (until we have fees collection)
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+        assert_eq!(
+            request_balance.balance,
+            Uint128::new(9999999999).to_string()
+        );
+
+        // Try to send again
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+            },
+            &coins(amount_to_send.u128(), denom.to_owned()),
+            &sender,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
 
         // Send successfull evidence to remove from queue (tokens should be released on XRPL to the receiver)
         wasm.execute::<ExecuteMsg>(
@@ -2126,6 +2253,8 @@ mod tests {
             initial_amount
                 .checked_sub(amount_to_send) // initial amount
                 .unwrap()
+                .checked_sub(Uint128::new(9999999999)) // Amount lost during first truncation that was rejected
+                .unwrap()
                 .checked_add(Uint128::new(10000000000)) // Amount that we sent back after conversion (1e10), the minimum
                 .unwrap()
                 .to_string()
@@ -2141,12 +2270,12 @@ mod tests {
         assert_eq!(
             request_balance.balance,
             amount_to_send
-                .checked_sub(Uint128::new(10000000000))
+                .checked_add(Uint128::new(9999999999)) // Amount that was kept during truncation of rejected operation
+                .unwrap()
+                .checked_sub(Uint128::new(10000000000)) // Amount sent from XRPL to the user
                 .unwrap()
                 .to_string()
         );
-
-        // Let's test rejecting an operation
     }
 
     #[test]
