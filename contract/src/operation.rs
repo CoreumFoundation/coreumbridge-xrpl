@@ -118,7 +118,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
         } => {
             // We check that the token that was sent was an XRPL originated token:
             let key = build_xrpl_token_key(issuer, currency.to_owned());
-            match XRPL_TOKENS.may_load(storage, key.clone())? {
+            match XRPL_TOKENS.may_load(storage, key)? {
                 Some(xrpl_token) => {
                     // If transaction was accepted and the token that was sent back was an XRPL originated token, we must burn the token amount
                     if transaction_result.eq(&TransactionResult::Accepted) {
