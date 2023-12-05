@@ -8,10 +8,10 @@ The spec describes the technical solution of the XRPL two-way bridge.
 
 ### XRPL multi-signing account
 
-The account holds the tokens issued on the XRPL on its balance. Depending on workflow it either uses the received tokens
+The account holds the tokens issued on the XRPL on its balance. Depending on the workflow it either uses the received tokens
 balance to send to XRPL accounts (in case the account is not an issuer) or mints and sends the tokens to XRPL accounts (
-in case it is the coreum token representation issued by the address). The account uses the multi-signing and public keys
-associated with each relayer from the contract for the transactions signing.
+in case it is the Coreum token representation issued by the address). The account uses the multi-signing and public keys
+associated with each relayer from the contract for the transaction signing.
 
 ### Bridge contract
 
@@ -21,27 +21,27 @@ settings of the bridge and execute the workflows' recovery.
 
 #### Tokens registry
 
-Before the bridging, a token (XRPL or coreum) should be manually registered for the bridging. The tokes that are not
+Before the bridging, a token (XRPL or Coreum) should be manually registered for the bridging. The tokens that are not
 registered can't be bridged.
 
 ##### XRPL originated tokens registration
 
-All tokens issued on XRPL that can be bridged from the XRPL to the coreum and back must have a representation on the
-coreum. Such tokens should be registered by owner on the contract side with the `XRPL issuer`, `XRPL currency`, `fees`,
-`token decimals` (always 15), `sending precision` and `max holding amount`. The `sending precision` and
-` max holding amount`` should be provided taking into account the [Amount rounding handling](#amount-rounding-handling).
-The token's  `denom`is built uniquely by the contract using the`XRPL issuer`, `XRPL currency`, `block time`hash and`xrpl`prefix.
-Required features for the issuance are`minting`, `burning`, and `IBC`. During the registration, the contract issues a
-token and will be responsible for its minting later. After the registration, the contract triggers
+All tokens issued on XRPL that can be bridged from the XRPL to the Coreum and back must have a representation on the
+Coreum. Such tokens should be registered by owner on the contract side with the `XRPL issuer`, `XRPL currency`, `fees`,
+`sending precision` and `max holding amount`. The `token decimals` (always 15) will be set by the contract. The `sending precision` and
+`max holding amount` should be provided taking into account the [Amount rounding handling](#amount-rounding-handling).
+The token's `denom` is unique and is built by the contract using the `XRPL issuer`, `XRPL currency`, `block time` hash and `xrpl` prefix.
+Required features for the issuance are `minting`, `burning`, and `IBC`. During the registration, the contract issues a
+token and will be responsible for its minting when a token is bridged from the XRPL to Coreum. After the registration, the contract triggers
 the `submit-trust-set-for-xrpl-token` operation to allow the multi-signing account to receive that token. The value of
 the trustset limit amount will be provided during constract instantiation and saved in the config of the contract.
 Check [register-token workflow](#register-token) for more details.
 
 ##### XRP token registration
 
-The XRP token is registered in the token registry on the contract instantiation. That token use the constant issuer
-`rrrrrrrrrrrrrrrrrrrrrho` and currency `XRP` token. That token can be enabled or disabled by the owner similar to other
-tokens. Similar to XRPL originated tokens the XRP token has the `sending precision` and `max holding amount` which we set
+The XRP token is registered in the token registry during the contract instantiation. That token uses the constant issuer
+`rrrrrrrrrrrrrrrrrrrrrho` and currency `XRP` set in the contract as default values. That token can be enabled or disabled by the owner similar to other
+tokens. Similar to XRPL originated tokens, the XRP token has the `sending precision` and `max holding amount` which we set
 to default values on the contact instantiation.
 The XRP token has a bit of a different nature than other tokens. That token doesn't need approval (TrustSet) to be
 received and is used by the multi-signing account to pay fees. Since the balance for fees and received balance are not
@@ -52,11 +52,12 @@ that fee-balance might also minimise that risk.
 
 ##### Coreum originated tokens registration
 
-All tokens issued on the coreum that can be bridged from the coreum to XRPL and back must have a representation on the
+All tokens issued on the Coreum that can be bridged from the Coreum to XRPL and back must have a representation on the
 XRPL, managed by the multi-signing account. Such tokens should be registered by owner on the contract side with the
 `coreum denom`, `token decimals`, `sending precision`, `max holding amount` and `fees`. The `sending precision` and
 `max holding amount` should be provided taking into account the [Amount rounding handling](#amount-rounding-handling).
-The `XRPL currency` will be uniquely generated by the contract using the `denom` and will be used as a representation of
+The `XRPL currency` will be uniquely generated by the contract using the `denom`, `decimals`, `block time` hash with a `coreum` prefix and
+encoding it into the hexadecimal currency notation used in XRPL. This will be used as a representation of
 that token on the XRPL side.
 Check [workflow](#register-token) for more details.
 
@@ -111,7 +112,7 @@ idempotent. And let some operations be safely re-processed at any time.
 The XRPL tickets allow us to execute a transaction with non-sequential sequence numbers, hence we can execute multiple
 transactions in parallel. Any workflow can allocate a ticket and the ticket allocation mechanism either returns a ticket
 number or errors out, in case of lack of the free tickets. The ticket re-allocation will be triggered by the tx
-conformation (Submit XRPL transaction last step) once the used tickets count is gather that allowed threshold. The
+comfirmation (Submit XRPL transaction last step) once the used tickets count is greater than the allowed threshold. The
 contract initiates the `submit-increase-tickets` operation to increase the amount. Once the operation is confirmed, the
 contract increases the free slots on the contract as well (based on the tx result).
 
@@ -121,7 +122,7 @@ Check [workflow](#allocate-ticket) for more details.
 
 ##### Sending of tokens from XRPL
 
-The contract receives the `send-to-coreum` request and starts the corresponding [workflow](#send-from-xrpl-to-coreum).
+The contract receives a `save-evidence` request with an `XRPL-to-coreum-transfer` evidence and starts the corresponding [workflow](#send-from-xrpl-to-coreum).
 
 ##### Sending of tokens to XRPL
 
@@ -138,7 +139,7 @@ The transfer fee is the fee for the tokens which charge the commission for the t
 the locked tokens back in case they are locked either on the contract or on the multi-signing address. Both fees will be
 taken from the amount a user sends.
 The bridging fees are distributed across the relayer addresses
-after the successful execution of the sending, and locked until a relayer manually requests it. After such a request the
+after the execution of the sending, and locked until a relayer manually requests it. After such a request the
 accumulated bridging fee will be distributed equally to the current relayer addresses.
 
 ###### Fee charging from XRPL to Coreum
@@ -175,7 +176,7 @@ roundedRatAmount := roundWithSendingPrecision(sendingRatValueWithoutAllFees)
 We don't include the transfer rate to the bridgingFee intentionally to simplify the calculation, but it will be included
 at the step of the `offline` `bridgingFee` calculation.
 
-The contract receives the `send to XRPL` request for a user, executes the formula and checks, if after the calculation
+The contract receives the `send-to-XRPL` request for a user, executes the formula and checks, if after the calculation
 the `roundedRatAmount <= 0` or `roundedRatAmount > max allowed value` returns an error. If all validation pass, the
 contract creates a sending operation with roundedRatAmount, and relayers fees. The rounding reminder remains on the
 contract balance.
