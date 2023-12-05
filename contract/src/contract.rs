@@ -50,7 +50,7 @@ const XRPL_DENOM_PREFIX: &str = "xrpl";
 const XRPL_TOKENS_DECIMALS: u32 = 15;
 
 const XRP_CURRENCY: &str = "XRP";
-const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
+const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
 
 // Initial values for the XRP token that can be modified afterwards.
 const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;

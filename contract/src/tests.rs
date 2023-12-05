@@ -29,7 +29,7 @@ mod tests {
     const XRP_SUBUNIT: &str = "drop";
     const XRPL_DENOM_PREFIX: &str = "xrpl";
     const XRP_CURRENCY: &str = "XRP";
-    const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
+    const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
     const TRUST_SET_LIMIT_AMOUNT: u128 = 1000000000000000000; // 1e18
     const XRP_DECIMALS: u32 = 6;
     const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;

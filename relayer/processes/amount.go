@@ -7,19 +7,14 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 const (
 	// XRPLAmountPrec is precision we use to covert float to float string for the amount representation.
 	// That value is value which corelates with the min/max sending precision.
 	XRPLAmountPrec = 16
-	// XRPLIssuedCurrencyDecimals is XRPL decimals used on the coreum.
-	XRPLIssuedCurrencyDecimals = 15
-	// XRPIssuer is XRP issuer address used to generate XRP token representation on coreum side. This is done to unify
-	// representation for all XRPL originated tokens.
-	XRPIssuer = "rrrrrrrrrrrrrrrrrrrrrho"
-	// XRPCurrency is XRP currency name used on the coreum.
-	XRPCurrency = "XRP"
 )
 
 // ConvertXRPLAmountToCoreumAmount converts the XRPL native token amount from XRPL to coreum amount
@@ -33,7 +28,7 @@ func ConvertXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount) (sdkmath.Int,
 	if xrplAmount.IsNative() {
 		return sdkmath.NewIntFromBigInt(xrplRatAmount.Num()), nil
 	}
-	return convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount, XRPLIssuedCurrencyDecimals)
+	return convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount, xrpl.XRPLIssuedTokenDecimals)
 }
 
 // ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount converts the XRPL originated token amount from coreum to XRPL amount
@@ -52,7 +47,7 @@ func ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int
 		}, nil
 	}
 
-	return convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount, XRPLIssuedCurrencyDecimals, issuerString, currencyString)
+	return convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount, xrpl.XRPLIssuedTokenDecimals, issuerString, currencyString)
 }
 
 func convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount rippledata.Amount, decimals uint32) (sdkmath.Int, error) {
@@ -93,5 +88,5 @@ func convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount sdkmath.Int, decim
 }
 
 func isXRPToken(issuer, currency string) bool {
-	return issuer == XRPIssuer && currency == XRPCurrency
+	return issuer == xrpl.XRPTokenIssuer.String() && currency == xrpl.XRPTokenCurrency.String()
 }
