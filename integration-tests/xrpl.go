@@ -289,7 +289,7 @@ func (c XRPLChain) GetAccountBalances(ctx context.Context, t *testing.T, acc rip
 
 	accInfo, err := c.rpcClient.AccountInfo(ctx, acc)
 	require.NoError(t, err)
-	amounts[XRPCurrencyCode] = rippledata.Amount{
+	amounts[fmt.Sprintf("%s/%s", xrpl.XRPTokenCurrency.String(), xrpl.XRPTokenIssuer.String())] = rippledata.Amount{
 		Value: accInfo.AccountData.Balance,
 	}
 	// none xrp amounts
