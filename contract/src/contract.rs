@@ -4,11 +4,12 @@ use crate::{
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
     msg::{
-        AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg,
-        InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
+        AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg,
+        PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
     },
     operation::{
-        check_operation_exists, create_pending_operation, handle_trust_set_confirmation, Operation,
+        check_operation_exists, create_pending_operation,
+        handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation, Operation,
         OperationType,
     },
     relayer::{assert_relayer, validate_relayers, validate_xrpl_address},
@@ -18,7 +19,7 @@ use crate::{
         COREUM_TOKENS, PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
         XRPL_TOKENS,
     },
-    tickets::{allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket},
+    tickets::{allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket},
 };
 
 use coreum_wasm_sdk::{
@@ -47,7 +48,7 @@ const XRP_DECIMALS: u32 = 6;
 
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
-const XRPL_TOKENS_DECIMALS: u32 = 15;
+pub const XRPL_TOKENS_DECIMALS: u32 = 15;
 
 const XRP_CURRENCY: &str = "XRP";
 const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrho";
@@ -518,7 +519,14 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                             transaction_result.clone(),
                         )?;
                     }
-                    OperationResult::CoreumToXRPLTransfer {} => (),
+                    OperationResult::CoreumToXRPLTransfer {} => {
+                        handle_coreum_to_xrpl_transfer_confirmation(
+                            deps.storage,
+                            transaction_result.clone(),
+                            operation_id,
+                            &mut response,
+                        )?;
+                    }
                 }
                 PENDING_OPERATIONS.remove(deps.storage, operation_id);
 
@@ -534,7 +542,12 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                             false.to_string(),
                         );
                     }
-                };
+                }
+
+                if transaction_result.eq(&TransactionResult::Invalid) && ticket_sequence.is_some() {
+                    // If an operation was invalid, the ticket was never consumed, so we must return it to the ticket array.
+                    return_ticket(deps.storage, ticket_sequence.unwrap())?;   
+                }
             }
 
             response = response
@@ -679,7 +692,6 @@ fn send_to_xrpl(
     // Check that the recipient is a valid XRPL address.
     validate_xrpl_address(recipient.to_owned())?;
 
-    let mut response = Response::new();
     let decimals;
     let amount_to_send;
     let issuer;
@@ -706,13 +718,6 @@ fn send_to_xrpl(
 
             // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
             amount_to_send = truncate_amount(xrpl_token.sending_precision, decimals, funds.amount)?;
-
-            // Since tokens are being sent back we need to burn them in the contract
-            // TODO(keyleu): for now we are BURNING the entire amount but when fees are implemented this will not happen and part of the amount will be burned and fees will be collected
-            let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
-                coin: coin(funds.amount.u128(), xrpl_token.coreum_denom),
-            }));
-            response = response.add_message(burn_msg);
         }
 
         None => {
@@ -762,11 +767,12 @@ fn send_to_xrpl(
             issuer,
             currency,
             amount: amount_to_send,
+            sender: info.sender.to_owned(),
             recipient: recipient.to_owned(),
         },
     )?;
 
-    Ok(response
+    Ok(Response::new()
         .add_attribute("action", ContractActions::SendToXRPL.as_str())
         .add_attribute("sender", info.sender)
         .add_attribute("recipient", recipient)
@@ -783,7 +789,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::CoreumTokens { offset, limit } => {
             to_json_binary(&query_coreum_tokens(deps, offset, limit)?)
-        },
+        }
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
         QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
@@ -922,7 +928,7 @@ fn truncate_amount(
 }
 
 // Function used to convert the amount received from XRPL with XRPL decimals to the Coreum amount with Coreum decimals
-fn convert_amount_decimals(
+pub fn convert_amount_decimals(
     from_decimals: u32,
     to_decimals: u32,
     amount: Uint128,
