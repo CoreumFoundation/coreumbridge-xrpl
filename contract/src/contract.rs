@@ -19,7 +19,7 @@ use crate::{
         COREUM_TOKENS, PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
         XRPL_TOKENS,
     },
-    tickets::{allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket},
+    tickets::{allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket},
 };
 
 use coreum_wasm_sdk::{
@@ -542,7 +542,12 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                             false.to_string(),
                         );
                     }
-                };
+                }
+
+                if transaction_result.eq(&TransactionResult::Invalid) && ticket_sequence.is_some() {
+                    // If an operation was invalid, the ticket was never consumed, so we must return it to the ticket array.
+                    return_ticket(deps.storage, ticket_sequence.unwrap())?;   
+                }
             }
 
             response = response

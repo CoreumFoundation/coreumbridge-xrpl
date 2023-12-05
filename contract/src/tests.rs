@@ -4823,6 +4823,179 @@ mod tests {
     }
 
     #[test]
+    fn ticket_return_invalid_transactions() {
+        let app = CoreumTestApp::new();
+        let accounts_number = 3;
+        let accounts = app
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
+            .unwrap();
+
+        let signer = accounts.get(0).unwrap();
+        let sender = accounts.get(1).unwrap();
+        let relayer_account = accounts.get(2).unwrap();
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(relayer_account.address()),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
+        };
+
+        let xrpl_receiver_address = generate_xrpl_address();
+        let bridge_xrpl_address = generate_xrpl_address();
+
+        let wasm = Wasm::new(&app);
+        let asset_ft = AssetFT::new(&app);
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            signer,
+            Addr::unchecked(signer.address()),
+            vec![relayer.clone()],
+            1,
+            5,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+            query_issue_fee(&asset_ft),
+            bridge_xrpl_address.to_owned(),
+        );
+
+        // Add enough tickets to test that ticket is correctly returned
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(6),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TicketsAllocation {
+                        tickets: Some((1..7).collect()),
+                    },
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
+        // Let's issue a token and register it
+        let asset_ft = AssetFT::new(&app);
+        let symbol = "TEST".to_string();
+        let subunit = "utest".to_string();
+        let decimals = 6;
+        let initial_amount = Uint128::new(100000000);
+        asset_ft
+            .issue(
+                MsgIssue {
+                    issuer: sender.address(),
+                    symbol,
+                    subunit: subunit.to_owned(),
+                    precision: decimals,
+                    initial_amount: initial_amount.to_string(),
+                    description: "description".to_string(),
+                    features: vec![MINTING as i32],
+                    burn_rate: "0".to_string(),
+                    send_commission_rate: "0".to_string(),
+                    uri: "uri".to_string(),
+                    uri_hash: "uri_hash".to_string(),
+                },
+                &sender,
+            )
+            .unwrap();
+
+        let denom = format!("{}-{}", subunit, sender.address()).to_lowercase();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterCoreumToken {
+                denom: denom.to_owned(),
+                decimals,
+                sending_precision: 6,
+                max_holding_amount: Uint128::new(10000000),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // We are going to bridge a token and reject the operation
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+            },
+            &coins(1, denom.to_owned()),
+            &sender,
+        )
+        .unwrap();
+
+        // Get the current ticket used to compare later
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        let ticket_used_invalid_operation = query_pending_operations.operations[0]
+            .ticket_sequence
+            .unwrap();
+
+        // Send evidence of invalid operation, which should return the ticket to the ticket array
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: None,
+                    account_sequence: query_pending_operations.operations[0].account_sequence,
+                    ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
+                    transaction_result: TransactionResult::Invalid,
+                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
+        // Now let's try to send again and verify that the ticket is the same as before (it was given back)
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+            },
+            &coins(1, denom.to_owned()),
+            &sender,
+        )
+        .unwrap();
+
+        // Get the current ticket used to compare later
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(
+            ticket_used_invalid_operation,
+            query_pending_operations.operations[0]
+                .ticket_sequence
+                .unwrap()
+        );
+    }
+
+    #[test]
     fn invalid_transaction_evidences() {
         let app = CoreumTestApp::new();
         let signer = app
