@@ -48,16 +48,16 @@ func (p *Processor) StartProcesses(ctx context.Context, processes ...ProcessWith
 		}
 	}
 
-	pg := parallel.NewGroup(ctx, parallel.WithGroupLogger(p.log.ParallelLogger(ctx)))
-	for i := range processes {
-		process := processes[i]
-		pg.Spawn(process.Name, parallel.Continue, func(ctx context.Context) error {
-			ctx = tracing.WithTracingProcess(ctx, process.Name)
-			return p.startProcessWithRestartOnError(ctx, process)
-		})
-	}
-
-	return pg.Wait()
+	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+		for i := range processes {
+			process := processes[i]
+			spawn(process.Name, parallel.Continue, func(ctx context.Context) error {
+				ctx = tracing.WithTracingProcess(ctx, process.Name)
+				return p.startProcessWithRestartOnError(ctx, process)
+			})
+		}
+		return nil
+	}, parallel.WithGroupLogger(p.log.ParallelLogger(ctx)))
 }
 
 func (p *Processor) startProcessWithRestartOnError(ctx context.Context, process ProcessWithOptions) error {
