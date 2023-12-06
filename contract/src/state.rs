@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Empty, Uint128};
+use cosmwasm_std::{Coin, Empty, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 
 use crate::{evidence::Evidences, operation::Operation, relayer::Relayer};
@@ -20,6 +20,7 @@ pub enum TopKey {
     UsedTickets = b'8',
     PendingOperations = b'9',
     PendingTicketUpdate = b'a',
+    FeesCollected = b'b',
 }
 
 impl TopKey {
@@ -49,6 +50,7 @@ pub struct XRPLToken {
     pub sending_precision: i32,
     pub max_holding_amount: Uint128,
     pub state: TokenState,
+    pub bridging_fee: Uint128,
 }
 
 #[cw_serde]
@@ -71,6 +73,7 @@ pub struct CoreumToken {
     pub sending_precision: i32,
     pub max_holding_amount: Uint128,
     pub state: TokenState,
+    pub bridging_fee: Uint128,
 }
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
@@ -134,6 +137,8 @@ pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str
 pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
 // Flag to know if we are currently waiting for new_tickets to be allocated
 pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
+// Array of tokens for all fees collected that will be distributed to relayers
+pub const FEES_COLLECTED: Item<Vec<Coin>> = Item::new(TopKey::FeesCollected.as_str());
 
 pub enum ContractActions {
     Instantiation,
@@ -145,6 +150,7 @@ pub enum ContractActions {
     XRPLTransactionResult,
     SaveSignature,
     SendToXRPL,
+    ClaimFees,
 }
 
 impl ContractActions {
@@ -159,6 +165,7 @@ impl ContractActions {
             ContractActions::XRPLTransactionResult => "submit_xrpl_transaction_result",
             ContractActions::SaveSignature => "save_signature",
             ContractActions::SendToXRPL => "send_to_xrpl",
+            ContractActions::ClaimFees => "claim_fees",
         }
     }
 }
