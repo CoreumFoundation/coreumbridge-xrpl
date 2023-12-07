@@ -3,6 +3,7 @@ package xrpl_test
 import (
 	"context"
 	"encoding/hex"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -14,16 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestAccountScanner_ScanTxs(t *testing.T) {
 	t.Parallel()
-
-	// set the time to prevent infinite test
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	t.Cleanup(cancel)
 
 	account := xrpl.GenPrivKeyTxSigner().Account()
 	notEmptyMarker := map[string]any{"key": "val"}
@@ -93,7 +91,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 			rpcTxProvider: func(ctrl *gomock.Controller) xrpl.RPCTxProvider {
 				mockedProvider := NewMockRPCTxProvider(ctrl)
 
-				mockedProvider.EXPECT().LedgerCurrent(ctx).Return(xrpl.LedgerCurrentResult{
+				mockedProvider.EXPECT().LedgerCurrent(gomock.Any()).Return(xrpl.LedgerCurrentResult{
 					LedgerCurrentIndex: 100,
 				}, nil)
 
@@ -170,17 +168,25 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 
 			s := xrpl.NewAccountScanner(tt.cfg, logger.NewZapLoggerFromLogger(zapDevLogger), rpcTxProvider)
 			txsCh := make(chan rippledata.TransactionWithMetaData)
-			if err := s.ScanTxs(ctx, txsCh); (err != nil) != tt.wantErr {
-				t.Errorf("ScanTxs() error = %+v, wantErr %+v", err, tt.wantErr)
-			}
-			if len(tt.wantTxHashes) == 0 {
-				return
-			}
-			// validate that we have received expected hashes
-			gotTxHashes := readTxHashesFromChannels(ctx, t, txsCh, len(tt.wantTxHashes))
-			require.Equal(t, lo.SliceToMap(tt.wantTxHashes, func(hash string) (string, struct{}) {
-				return hash, struct{}{}
-			}), gotTxHashes)
+
+			ctx := context.Background()
+			require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+				spawn("scan", parallel.Continue, func(ctx context.Context) error {
+					return s.ScanTxs(ctx, txsCh)
+				})
+				spawn("read", parallel.Exit, func(ctx context.Context) error {
+					// validate that we have received expected hashes
+					gotTxHashes := readTxHashesFromChannels(ctx, t, txsCh, len(tt.wantTxHashes))
+					expectedTxHashes := lo.SliceToMap(tt.wantTxHashes, func(hash string) (string, struct{}) {
+						return hash, struct{}{}
+					})
+					if !reflect.DeepEqual(expectedTxHashes, gotTxHashes) {
+						return errors.Errorf("expectec tx hashes:%v, got:%v", expectedTxHashes, gotTxHashes)
+					}
+					return nil
+				})
+				return nil
+			}))
 		})
 	}
 }

@@ -73,26 +73,28 @@ func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.Trans
 		return errors.Errorf("both recent and full scans are disabled")
 	}
 
-	pg := parallel.NewGroup(ctx, parallel.WithGroupLogger(s.log.ParallelLogger(ctx)))
-	if s.cfg.RecentScanEnabled {
-		currentLedgerRes, err := s.rpcTxProvider.LedgerCurrent(ctx)
-		if err != nil {
-			return err
+	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+		if s.cfg.RecentScanEnabled {
+			currentLedgerRes, err := s.rpcTxProvider.LedgerCurrent(ctx)
+			if err != nil {
+				return err
+			}
+			currentLedger := currentLedgerRes.LedgerCurrentIndex
+			spawn("recent-history-scanner", parallel.Continue, func(ctx context.Context) error {
+				s.scanRecentHistory(ctx, currentLedger, ch)
+				return nil
+			})
 		}
-		currentLedger := currentLedgerRes.LedgerCurrentIndex
-		pg.Spawn("recent-history-scanner", parallel.Continue, func(ctx context.Context) error {
-			s.scanRecentHistory(ctx, currentLedger, ch)
-			return nil
-		})
-	}
-	if s.cfg.FullScanEnabled {
-		pg.Spawn("full-history-scanner", parallel.Continue, func(ctx context.Context) error {
-			s.scanFullHistory(ctx, ch)
-			return nil
-		})
-	}
 
-	return nil
+		if s.cfg.FullScanEnabled {
+			spawn("full-history-scanner", parallel.Continue, func(ctx context.Context) error {
+				s.scanFullHistory(ctx, ch)
+				return nil
+			})
+		}
+
+		return nil
+	}, parallel.WithGroupLogger(s.log.ParallelLogger(ctx)))
 }
 
 func (s *AccountScanner) scanRecentHistory(ctx context.Context, currentLedger int64, ch chan<- rippledata.TransactionWithMetaData) {
@@ -163,7 +165,12 @@ func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, 
 				if tx == nil {
 					continue
 				}
-				ch <- *tx
+				select {
+				case <-ctx.Done():
+					return lastLedger
+				default:
+					ch <- *tx
+				}
 			}
 		}
 		if len(accountTxResult.Marker) == 0 {

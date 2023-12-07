@@ -8,10 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/http"
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -52,9 +54,18 @@ func TestFullHistoryScanAccountTx(t *testing.T) {
 	// add timeout to finish the tests in case of error
 
 	txsCh := make(chan rippledata.TransactionWithMetaData, txsCount)
-	require.NoError(t, scanner.ScanTxs(ctx, txsCh))
+
 	t.Logf("Waiting for %d transactions to be scanned by the historycal scanner", len(writtenTxHashes))
-	validateTxsHashesInChannel(ctx, t, writtenTxHashes, txsCh)
+
+	require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+		spawn("scan", parallel.Continue, func(ctx context.Context) error {
+			return scanner.ScanTxs(ctx, txsCh)
+		})
+		spawn("read", parallel.Exit, func(ctx context.Context) error {
+			return validateTxsHashesInChannel(ctx, writtenTxHashes, txsCh)
+		})
+		return nil
+	}))
 }
 
 func TestRecentHistoryScanAccountTx(t *testing.T) {
@@ -93,29 +104,33 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 	// await for the state when the current ledger is valid to run the scanner
 	currentLedger, err := chains.XRPL.RPCClient().LedgerCurrent(ctx)
 	require.NoError(t, err)
-	chains.XRPL.AwaitLedger(ctx, t,
-		currentLedger.LedgerCurrentIndex+
-			scannerCfg.RecentScanWindow)
+	chains.XRPL.AwaitLedger(ctx, t, currentLedger.LedgerCurrentIndex+scannerCfg.RecentScanWindow)
 
 	var writtenTxHashes map[string]struct{}
-	writeDone := make(chan struct{})
-	go func() {
-		defer close(writeDone)
-		writtenTxHashes = sendMultipleTxs(ctx, t, chains.XRPL, 20, senderAcc, recipientAcc)
-	}()
+	receivedTxHashes := make(map[string]struct{})
 
 	txsCh := make(chan rippledata.TransactionWithMetaData, txsCount)
-	require.NoError(t, scanner.ScanTxs(ctx, txsCh))
+	require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+		spawn("scan", parallel.Continue, func(ctx context.Context) error {
+			return scanner.ScanTxs(ctx, txsCh)
+		})
+		spawn("write", parallel.Continue, func(ctx context.Context) error {
+			writtenTxHashes = sendMultipleTxs(ctx, t, chains.XRPL, txsCount, senderAcc, recipientAcc)
+			return nil
+		})
+		spawn("wait", parallel.Exit, func(ctx context.Context) error {
+			t.Logf("Waiting for %d transactions to be scanned by the scanner", txsCount)
+			for tx := range txsCh {
+				receivedTxHashes[tx.GetHash().String()] = struct{}{}
+				if len(receivedTxHashes) == txsCount {
+					return nil
+				}
+			}
+			return nil
+		})
+		return nil
+	}))
 
-	t.Logf("Waiting for %d transactions to be scanned by the recent scanner", len(writtenTxHashes))
-	receivedTxHashes := getTxHashesFromChannel(ctx, t, txsCh, txsCount)
-
-	// wait for the writing to be done
-	select {
-	case <-ctx.Done():
-		t.FailNow()
-	case <-writeDone:
-	}
 	require.Equal(t, writtenTxHashes, receivedTxHashes)
 }
 
@@ -144,7 +159,7 @@ func sendMultipleTxs(
 	return writtenTxHashes
 }
 
-func validateTxsHashesInChannel(ctx context.Context, t *testing.T, writtenTxHashes map[string]struct{}, txsCh chan rippledata.TransactionWithMetaData) {
+func validateTxsHashesInChannel(ctx context.Context, writtenTxHashes map[string]struct{}, txsCh chan rippledata.TransactionWithMetaData) error {
 	scanCtx, scanCtxCancel := context.WithTimeout(ctx, time.Minute)
 	defer scanCtxCancel()
 	// copy the original map
@@ -155,32 +170,18 @@ func validateTxsHashesInChannel(ctx context.Context, t *testing.T, writtenTxHash
 	for {
 		select {
 		case <-scanCtx.Done():
-			t.Fail()
+			return scanCtx.Err()
 		case tx := <-txsCh:
 			// validate that we have all sent hashed and no duplicated
 			hash := tx.GetHash().String()
 			_, found := expectedHashes[hash]
-			require.True(t, found)
+			if !found {
+				return errors.Errorf("not found expected tx hash:%s", hash)
+			}
+
 			delete(expectedHashes, hash)
 			if len(expectedHashes) == 0 {
-				return
-			}
-		}
-	}
-}
-
-func getTxHashesFromChannel(ctx context.Context, t *testing.T, txsCh chan rippledata.TransactionWithMetaData, count int) map[string]struct{} {
-	scanCtx, scanCtxCancel := context.WithTimeout(ctx, time.Minute)
-	defer scanCtxCancel()
-	txHashes := make(map[string]struct{}, count)
-	for {
-		select {
-		case <-scanCtx.Done():
-			t.Fail()
-		case tx := <-txsCh:
-			txHashes[tx.GetHash().String()] = struct{}{}
-			if len(txHashes) == count {
-				return txHashes
+				return nil
 			}
 		}
 	}

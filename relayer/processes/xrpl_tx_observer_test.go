@@ -100,10 +100,8 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- xrplOriginatedTokenPaymentWithMetadataTx
-							cancel()
-						}()
+						ch <- xrplOriginatedTokenPaymentWithMetadataTx
+						cancel()
 						return nil
 					})
 
@@ -132,10 +130,8 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- coreumOriginatedTokenPaymentWithMetadataTx
-							cancel()
-						}()
+						ch <- coreumOriginatedTokenPaymentWithMetadataTx
+						cancel()
 						return nil
 					})
 
@@ -172,15 +168,13 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.Payment{},
-								MetaData: rippledata.MetaData{
-									TransactionResult: failTxResult,
-								},
-							}
-							cancel()
-						}()
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.Payment{},
+							MetaData: rippledata.MetaData{
+								TransactionResult: failTxResult,
+							},
+						}
+						cancel()
 						return nil
 					})
 
@@ -193,15 +187,13 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.Payment{},
-								MetaData: rippledata.MetaData{
-									TransactionResult: notTxResult,
-								},
-							}
-							cancel()
-						}()
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.Payment{},
+							MetaData: rippledata.MetaData{
+								TransactionResult: notTxResult,
+							},
+						}
+						cancel()
 						return nil
 					})
 
@@ -214,16 +206,14 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.TrustSet{
-									TxBase: rippledata.TxBase{
-										TransactionType: rippledata.TRUST_SET,
-									},
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.TrustSet{
+								TxBase: rippledata.TxBase{
+									TransactionType: rippledata.TRUST_SET,
 								},
-							}
-							cancel()
-						}()
+							},
+						}
+						cancel()
 						return nil
 					})
 
@@ -236,19 +226,17 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.TicketCreate{
-									TxBase: rippledata.TxBase{
-										Account:         bridgeXRPLAddress,
-										Sequence:        5,
-										TransactionType: rippledata.TICKET_CREATE,
-									},
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.TicketCreate{
+								TxBase: rippledata.TxBase{
+									Account:         bridgeXRPLAddress,
+									Sequence:        5,
+									TransactionType: rippledata.TICKET_CREATE,
 								},
-								MetaData: createAllocatedTicketsMetaData([]uint32{3, 5, 7}),
-							}
-							cancel()
-						}()
+							},
+							MetaData: createAllocatedTicketsMetaData([]uint32{3, 5, 7}),
+						}
+						cancel()
 						return nil
 					})
 
@@ -278,19 +266,17 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.TicketCreate{
-									TxBase: rippledata.TxBase{
-										Account:         bridgeXRPLAddress,
-										TransactionType: rippledata.TICKET_CREATE,
-									},
-									TicketSequence: lo.ToPtr(uint32(11)),
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.TicketCreate{
+								TxBase: rippledata.TxBase{
+									Account:         bridgeXRPLAddress,
+									TransactionType: rippledata.TICKET_CREATE,
 								},
-								MetaData: createAllocatedTicketsMetaData([]uint32{3, 5, 7}),
-							}
-							cancel()
-						}()
+								TicketSequence: lo.ToPtr(uint32(11)),
+							},
+							MetaData: createAllocatedTicketsMetaData([]uint32{3, 5, 7}),
+						}
+						cancel()
 						return nil
 					})
 
@@ -320,21 +306,19 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.TicketCreate{
-									TxBase: rippledata.TxBase{
-										Account:         bridgeXRPLAddress,
-										Sequence:        5,
-										TransactionType: rippledata.TICKET_CREATE,
-									},
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.TicketCreate{
+								TxBase: rippledata.TxBase{
+									Account:         bridgeXRPLAddress,
+									Sequence:        5,
+									TransactionType: rippledata.TICKET_CREATE,
 								},
-								MetaData: rippledata.MetaData{
-									TransactionResult: failTxResult,
-								},
-							}
-							cancel()
-						}()
+							},
+							MetaData: rippledata.MetaData{
+								TransactionResult: failTxResult,
+							},
+						}
+						cancel()
 						return nil
 					})
 
@@ -364,19 +348,17 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.TrustSet{
-									TxBase: rippledata.TxBase{
-										Account:         bridgeXRPLAddress,
-										TransactionType: rippledata.TRUST_SET,
-									},
-									LimitAmount:    xrplOriginatedTokenXRPLAmount,
-									TicketSequence: lo.ToPtr(uint32(11)),
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.TrustSet{
+								TxBase: rippledata.TxBase{
+									Account:         bridgeXRPLAddress,
+									TransactionType: rippledata.TRUST_SET,
 								},
-							}
-							cancel()
-						}()
+								LimitAmount:    xrplOriginatedTokenXRPLAmount,
+								TicketSequence: lo.ToPtr(uint32(11)),
+							},
+						}
+						cancel()
 						return nil
 					})
 
@@ -407,22 +389,20 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.TrustSet{
-									TxBase: rippledata.TxBase{
-										Account:         bridgeXRPLAddress,
-										TransactionType: rippledata.TRUST_SET,
-									},
-									LimitAmount:    xrplOriginatedTokenXRPLAmount,
-									TicketSequence: lo.ToPtr(uint32(11)),
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.TrustSet{
+								TxBase: rippledata.TxBase{
+									Account:         bridgeXRPLAddress,
+									TransactionType: rippledata.TRUST_SET,
 								},
-								MetaData: rippledata.MetaData{
-									TransactionResult: failTxResult,
-								},
-							}
-							cancel()
-						}()
+								LimitAmount:    xrplOriginatedTokenXRPLAmount,
+								TicketSequence: lo.ToPtr(uint32(11)),
+							},
+							MetaData: rippledata.MetaData{
+								TransactionResult: failTxResult,
+							},
+						}
+						cancel()
 						return nil
 					})
 
@@ -453,20 +433,18 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.Payment{
-									TxBase: rippledata.TxBase{
-										Account:         bridgeXRPLAddress,
-										TransactionType: rippledata.PAYMENT,
-									},
-									Destination:    recipientXRPLAddress,
-									Amount:         xrplOriginatedTokenXRPLAmount,
-									TicketSequence: lo.ToPtr(uint32(11)),
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.Payment{
+								TxBase: rippledata.TxBase{
+									Account:         bridgeXRPLAddress,
+									TransactionType: rippledata.PAYMENT,
 								},
-							}
-							cancel()
-						}()
+								Destination:    recipientXRPLAddress,
+								Amount:         xrplOriginatedTokenXRPLAmount,
+								TicketSequence: lo.ToPtr(uint32(11)),
+							},
+						}
+						cancel()
 						return nil
 					})
 
@@ -495,23 +473,21 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.Payment{
-									TxBase: rippledata.TxBase{
-										Account:         bridgeXRPLAddress,
-										TransactionType: rippledata.PAYMENT,
-									},
-									Destination:    recipientXRPLAddress,
-									Amount:         xrplOriginatedTokenXRPLAmount,
-									TicketSequence: lo.ToPtr(uint32(11)),
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.Payment{
+								TxBase: rippledata.TxBase{
+									Account:         bridgeXRPLAddress,
+									TransactionType: rippledata.PAYMENT,
 								},
-								MetaData: rippledata.MetaData{
-									TransactionResult: failTxResult,
-								},
-							}
-							cancel()
-						}()
+								Destination:    recipientXRPLAddress,
+								Amount:         xrplOriginatedTokenXRPLAmount,
+								TicketSequence: lo.ToPtr(uint32(11)),
+							},
+							MetaData: rippledata.MetaData{
+								TransactionResult: failTxResult,
+							},
+						}
+						cancel()
 						return nil
 					})
 
@@ -540,17 +516,15 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-						go func() {
-							ch <- rippledata.TransactionWithMetaData{
-								Transaction: &rippledata.TrustSet{
-									TxBase: rippledata.TxBase{
-										Account:         bridgeXRPLAddress,
-										TransactionType: rippledata.NFTOKEN_CREATE_OFFER,
-									},
+						ch <- rippledata.TransactionWithMetaData{
+							Transaction: &rippledata.TrustSet{
+								TxBase: rippledata.TxBase{
+									Account:         bridgeXRPLAddress,
+									TransactionType: rippledata.NFTOKEN_CREATE_OFFER,
 								},
-							}
-							cancel()
-						}()
+							},
+						}
+						cancel()
 						return nil
 					})
 
@@ -567,7 +541,14 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			t.Cleanup(cancel)
 
 			ctrl := gomock.NewController(t)
+
 			logMock := logger.NewAnyLogMock(ctrl)
+
+			parallelLoggerMock := logger.NewMockParallelLogger(ctrl)
+			logMock.EXPECT().ParallelLogger(gomock.Any()).Return(parallelLoggerMock).AnyTimes()
+			parallelLoggerMock.EXPECT().Debug(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			parallelLoggerMock.EXPECT().Error(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
 			var contractClient processes.ContractClient
 			if tt.contractClientBuilder != nil {
 				contractClient = tt.contractClientBuilder(ctrl)
@@ -581,7 +562,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				tt.txScannerBuilder(ctrl, cancel),
 				contractClient,
 			)
-			require.ErrorIs(t, o.Start(ctx), context.Canceled)
+			require.NoError(t, o.Start(ctx))
 		})
 	}
 }
