@@ -1,4 +1,4 @@
-# Coreumbrdige XRPL spec.
+# Coreumbridge XRPL spec.
 
 The spec describes the technical solution of the XRPL two-way bridge.
 
@@ -63,7 +63,7 @@ Check [workflow](#register-token) for more details.
 
 ##### Max holding amount and sending precision update
 
-It is possible to update both `max holding amount` and `sending precision` for both XRPL and coreum originated tokens. The
+It is possible to update both `max holding amount` and `sending precision` for both XRPL and Coreum originated tokens. The
 owner can do it by calling the contract.
 The contract updates the `sending precision` in the token registry and removes all pending evidences with
 `sending from XRPL to coreum` type data from the evidence queue. We need it to avoid evidence inconsistency, since an
@@ -144,7 +144,7 @@ accumulated bridging fee will be distributed equally to the current relayer addr
 
 ###### Fee charging from XRPL to Coreum
 
-When a user transfers a token from the XRPL to coreum we can compute the expected received amount based on the formula:
+When a user transfers a token from the XRPL to Coreum we can compute the expected received amount based on the formula:
 
 ```text
 roundedRatAmount := roundWithSendingPrecision(sendingRatAmount)
@@ -162,7 +162,7 @@ If a token uses the transfer fee, we don't include it here because it will be in
 
 ###### Fee charging from Coreum to XRPL
 
-When a user transfers a token from the coreum to XRPL account we can compute the expected received amount based on
+When a user transfers a token from the Coreum to an XRPL account we can compute the expected received amount based on
 formula:
 
 ```text
@@ -190,7 +190,7 @@ token might be changed during the time, so the fee should be changed accordingly
 
 All accounts that can interact with the contract or multi-signing account are registered on the contract. And can be
 rotated using the key rotation workflow. The workflow is triggered by the owner. The owner provides
-the new relayer coreum addresses, XRPL public keys and signing/evidence threshold.
+the new relayer Coreum addresses, XRPL public keys and signing/evidence threshold.
 It is possible to start the keys rotation workflow in case the contract is disabled, but there is not keys rotation
 in-process. That option gives and owner an ability to rotate the keys in case the contract is disabled because of the
 malicious relayer, or the malicious relayer disabled it. Check [workflow](#rotate-keys) for more details.
@@ -222,7 +222,7 @@ type. As the result some discrepancy might happen, examples:
 
 ### Issues:
 
-1. Send low and high amount to coreum and return high and low back.
+1. Send low and high amount to Coreum and return high and low back.
    1.1. XRPLUser sends 10 XRPL originated token to coreumUser (bridge account balance: 10, coreumUser balance: 10)
    1.2. XRPLUser sends 1e17 XRPL originated token to coreumUser (bridge account balance: 1e17, coreumUser balance: 1e17 + 10)
    1.3. coreumUser sends 1e17 XRPL originated token to XRPLUser (bridge account balance: 0, XRPLUser balance: 1e17)
@@ -231,7 +231,7 @@ type. As the result some discrepancy might happen, examples:
 The same issue might be in case the bridge account holds 1e20 and receive 1 XRPL originated token. The delivered amount will
 contain the 1 XRPL originated token, but the bridge balance will remain the same.
 
-2. Send coreum originated token to XRPL, mint it there, and send back.
+2. Send Coreum originated token to XRPL, mint it there, and send back.
    1.1. CoreumUser sends 1e17 Coreum originated token to XRPLUser (bridge account balance: 0, bridge contract: 1e17,
    XRPLUser balance: 1e17)
    1.2. XRPLUser mints 100 tokens on the XRPL by sending 49, 49, 2 amounts to a recipient with low balance and back.
@@ -269,8 +269,8 @@ sendingPrecision = sendingPrecision - complexityCoefficient.
 The `1e16` is the minimum amount a holder should have to produce one token on the XRPL submitting one transaction.
 
 The `totalTokenSupply` here is the total issued amount on the chain. For the XRPL chain we take simply total supply,
-but for the coreum chain we take the total supply divided by the token decimals, since the coreum chain uses the integer
-for the amounts, but XRPL float.
+but for the Coreum chain we take the total supply divided by the token decimals, since the Coreum chain uses the integer
+for the amounts, but XRPL uses float.
 
 The `complexityCoefficient` is coefficient we use to improve the `risks handling`. Without that coefficient the formula
 provides a `risks handling` when an account holding the total supply is able to produce `significant amount`
@@ -333,7 +333,7 @@ min sending amount = 0.001
 ```
 
 ```text
-token total supply on coreum XRPL: 1e11 * 1e6(decimals)
+token total supply on Coreum: 1e11 * 1e6(decimals)
 complexityCoefficient: 4
 ratio = 1e11 * 1e6(decimals)/1e6(decimals) / 1e16 = 0.00001
 sendingPrecision = 4 - complexityCoefficient = 0
