@@ -1,15 +1,31 @@
 use coreum_wasm_sdk::core::CoreumMsg;
 use cosmwasm_std::{coin, BankMsg, Coin, Response, Storage, Uint128};
 
-use crate::{error::ContractError, relayer::Relayer, state::FEES_COLLECTED};
+use crate::{
+    error::ContractError,
+    state::{CONFIG, FEES_COLLECTED},
+};
+
+pub fn amount_after_fees(
+    amount: Uint128,
+    bridging_fee: Uint128,
+    truncated_portion: Uint128,
+) -> Result<Uint128, ContractError> {
+    let fee_to_collect = bridging_fee.saturating_sub(truncated_portion);
+
+    let amount_after_fees = amount
+        .checked_sub(fee_to_collect)
+        .map_err(|_| ContractError::CannotCoverBridgingFees {})?;
+
+    Ok(amount_after_fees)
+}
 
 pub fn handle_fee_collection(
     storage: &mut dyn Storage,
-    amount: Uint128,
     bridging_fee: Uint128,
     token_denom: String,
     truncated_portion: Uint128,
-) -> Result<Uint128, ContractError> {
+) -> Result<(), ContractError> {
     // We substract the truncated portion from the bridging_fee. If truncated portion >= fee,
     // then we already paid the fees and we collect the truncated portion instead of bridging fee (because it might be bigger than the bridging fee)
     let fee_to_collect = bridging_fee.saturating_sub(truncated_portion);
@@ -19,11 +35,7 @@ pub fn handle_fee_collection(
         collect_fees(storage, coin(bridging_fee.u128(), token_denom))?;
     }
 
-    let amount_after_fees = amount
-        .checked_sub(fee_to_collect)
-        .map_err(|_| ContractError::CannotCoverBridgingFees {})?;
-
-    Ok(amount_after_fees)
+    Ok(())
 }
 
 pub fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractError> {
@@ -42,11 +54,11 @@ pub fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), Contract
     Ok(())
 }
 
-pub fn claim_relayer_fees(
+pub fn claim_fees_for_relayers(
     storage: &mut dyn Storage,
-    relayers: Vec<Relayer>,
 ) -> Result<Response<CoreumMsg>, ContractError> {
     let mut fees_collected = FEES_COLLECTED.load(storage)?;
+    let relayers = CONFIG.load(storage)?.relayers;
     let mut coins_for_each_relayer = vec![];
 
     for fee in fees_collected.iter_mut() {

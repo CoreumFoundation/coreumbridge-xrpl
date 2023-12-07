@@ -15,8 +15,8 @@ mod tests {
         error::ContractError,
         evidence::{Evidence, OperationResult, TransactionResult},
         msg::{
-            AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, InstantiateMsg,
-            PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
+            AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, FeesCollectedResponse,
+            InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
         },
         operation::{Operation, OperationType},
         relayer::{validate_xrpl_address, Relayer},
@@ -41,7 +41,8 @@ mod tests {
         pub issuer: String,
         pub currency: String,
         pub sending_precision: i32,
-        pub max_holding_amount: u128,
+        pub max_holding_amount: Uint128,
+        pub bridging_fee: Uint128,
     }
 
     #[derive(Clone)]
@@ -49,7 +50,8 @@ mod tests {
         pub denom: String,
         pub decimals: u32,
         pub sending_precision: i32,
-        pub max_holding_amount: u128,
+        pub max_holding_amount: Uint128,
+        pub bridging_fee: Uint128,
     }
 
     fn store_and_instantiate(
@@ -605,13 +607,15 @@ mod tests {
                 denom: "denom1".to_string(),
                 decimals: 6,
                 sending_precision: 6,
-                max_holding_amount: 100000,
+                max_holding_amount: Uint128::new(100000),
+                bridging_fee: Uint128::zero(),
             },
             CoreumToken {
                 denom: "denom2".to_string(),
                 decimals: 6,
                 sending_precision: 6,
-                max_holding_amount: 100000,
+                max_holding_amount: Uint128::new(100000),
+                bridging_fee: Uint128::zero(),
             },
         ];
 
@@ -623,8 +627,8 @@ mod tests {
                     denom: token.denom,
                     decimals: token.decimals,
                     sending_precision: token.sending_precision,
-                    max_holding_amount: Uint128::new(token.max_holding_amount),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: token.max_holding_amount,
+                    bridging_fee: token.bridging_fee,
                 },
                 &vec![],
                 &signer,
@@ -641,7 +645,7 @@ mod tests {
                     decimals: 6,
                     sending_precision: 6,
                     max_holding_amount: Uint128::new(1),
-                    bridging_fee: Uint128::zero(),
+                    bridging_fee: test_tokens[0].bridging_fee,
                 },
                 &vec![],
                 &signer,
@@ -665,7 +669,7 @@ mod tests {
                     decimals: 6,
                     sending_precision: -17,
                     max_holding_amount: Uint128::new(1),
-                    bridging_fee: Uint128::zero(),
+                    bridging_fee: test_tokens[0].bridging_fee,
                 },
                 &vec![],
                 &signer,
@@ -751,13 +755,15 @@ mod tests {
                 issuer: generate_xrpl_address(), // Valid issuer
                 currency: "USD".to_string(),     // Valid standard currency code
                 sending_precision: -15,
-                max_holding_amount: 100,
+                max_holding_amount: Uint128::new(100),
+                bridging_fee: Uint128::zero(),
             },
             XRPLToken {
                 issuer: generate_xrpl_address(), // Valid issuer
                 currency: "015841551A748AD2C1F76FF6ECB0CCCD00000000".to_string(), // Valid hexadecimal currency
                 sending_precision: 15,
-                max_holding_amount: 50000,
+                max_holding_amount: Uint128::new(50000),
+                bridging_fee: Uint128::zero(),
             },
         ];
 
@@ -769,8 +775,8 @@ mod tests {
                     issuer: "not_valid_issuer".to_string(),
                     currency: test_tokens[0].currency.clone(),
                     sending_precision: test_tokens[0].sending_precision.clone(),
-                    max_holding_amount: Uint128::new(test_tokens[0].max_holding_amount.clone()),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: test_tokens[0].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[0].bridging_fee,
                 },
                 &query_issue_fee(&asset_ft),
                 &signer,
@@ -786,11 +792,11 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::RegisterXRPLToken {
-                    issuer: test_tokens[1].issuer.clone(),
+                    issuer: test_tokens[0].issuer.clone(),
                     currency: test_tokens[0].currency.clone(),
                     sending_precision: -16,
-                    max_holding_amount: Uint128::new(test_tokens[0].max_holding_amount.clone()),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: test_tokens[0].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[0].bridging_fee,
                 },
                 &query_issue_fee(&asset_ft),
                 &signer,
@@ -808,11 +814,11 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::RegisterXRPLToken {
-                    issuer: test_tokens[1].issuer.clone(),
+                    issuer: test_tokens[0].issuer.clone(),
                     currency: test_tokens[0].currency.clone(),
                     sending_precision: 16,
-                    max_holding_amount: Uint128::new(test_tokens[0].max_holding_amount.clone()),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: test_tokens[0].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[0].bridging_fee,
                 },
                 &query_issue_fee(&asset_ft),
                 &signer,
@@ -833,8 +839,8 @@ mod tests {
                     issuer: test_tokens[1].issuer.clone(),
                     currency: "invalid_currency".to_string(),
                     sending_precision: test_tokens[1].sending_precision.clone(),
-                    max_holding_amount: Uint128::new(test_tokens[1].max_holding_amount.clone()),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: test_tokens[1].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[1].bridging_fee,
                 },
                 &query_issue_fee(&asset_ft),
                 &signer,
@@ -853,8 +859,8 @@ mod tests {
                     issuer: test_tokens[0].issuer.clone(),
                     currency: test_tokens[0].currency.clone(),
                     sending_precision: test_tokens[0].sending_precision.clone(),
-                    max_holding_amount: Uint128::new(test_tokens[0].max_holding_amount.clone()),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: test_tokens[0].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[0].bridging_fee,
                 },
                 &coins(20_000_000, FEE_DENOM),
                 &signer,
@@ -873,8 +879,8 @@ mod tests {
                     issuer: test_tokens[0].issuer.clone(),
                     currency: test_tokens[0].currency.clone(),
                     sending_precision: test_tokens[0].sending_precision,
-                    max_holding_amount: Uint128::new(test_tokens[0].max_holding_amount),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: test_tokens[0].max_holding_amount,
+                    bridging_fee: test_tokens[0].bridging_fee,
                 },
                 &query_issue_fee(&asset_ft),
                 &signer,
@@ -923,8 +929,8 @@ mod tests {
                     issuer: token.issuer,
                     currency: token.currency,
                     sending_precision: token.sending_precision,
-                    max_holding_amount: Uint128::new(token.max_holding_amount),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: token.max_holding_amount,
+                    bridging_fee: token.bridging_fee,
                 },
                 &query_issue_fee(&asset_ft),
                 &signer,
@@ -937,7 +943,8 @@ mod tests {
             issuer: generate_xrpl_address(), // Valid issuer
             currency: "USD".to_string(),     // Valid standard currency code
             sending_precision: -15,
-            max_holding_amount: 100,
+            max_holding_amount: Uint128::new(100),
+            bridging_fee: Uint128::zero(),
         };
 
         let last_ticket_error = wasm
@@ -947,8 +954,8 @@ mod tests {
                     issuer: extra_token.issuer,
                     currency: extra_token.currency,
                     sending_precision: extra_token.sending_precision,
-                    max_holding_amount: Uint128::new(extra_token.max_holding_amount),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: extra_token.max_holding_amount,
+                    bridging_fee: extra_token.bridging_fee,
                 },
                 &query_issue_fee(&asset_ft),
                 &signer,
@@ -984,8 +991,8 @@ mod tests {
                     issuer: test_tokens[0].issuer.clone(),
                     currency: test_tokens[0].currency.clone(),
                     sending_precision: test_tokens[0].sending_precision.clone(),
-                    max_holding_amount: Uint128::new(test_tokens[0].max_holding_amount.clone()),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: test_tokens[0].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[0].bridging_fee,
                 },
                 &query_issue_fee(&asset_ft),
                 &signer,
@@ -1084,7 +1091,8 @@ mod tests {
             issuer: generate_xrpl_address(),
             currency: "USD".to_string(),
             sending_precision: 15,
-            max_holding_amount: 50000,
+            max_holding_amount: Uint128::new(50000),
+            bridging_fee: Uint128::zero(),
         };
 
         // Set up enough tickets first to allow registering tokens.
@@ -1123,8 +1131,8 @@ mod tests {
                 issuer: test_token.issuer.clone(),
                 currency: test_token.currency.clone(),
                 sending_precision: test_token.sending_precision.clone(),
-                max_holding_amount: Uint128::new(test_token.max_holding_amount.clone()),
-                bridging_fee: Uint128::zero(),
+                max_holding_amount: test_token.max_holding_amount.clone(),
+                bridging_fee: test_token.bridging_fee,
             },
             &query_issue_fee(&asset_ft),
             signer,
@@ -1298,8 +1306,8 @@ mod tests {
                 issuer: test_token.issuer.clone(),
                 currency: test_token.currency.clone(),
                 sending_precision: test_token.sending_precision,
-                max_holding_amount: Uint128::new(test_token.max_holding_amount),
-                bridging_fee: Uint128::zero(),
+                max_holding_amount: test_token.max_holding_amount,
+                bridging_fee: test_token.bridging_fee,
             },
             &query_issue_fee(&asset_ft),
             signer,
@@ -2540,7 +2548,8 @@ mod tests {
             issuer: generate_xrpl_address(),
             currency: "TST".to_string(),
             sending_precision: 15,
-            max_holding_amount: 500000,
+            max_holding_amount: Uint128::new(500000),
+            bridging_fee: Uint128::zero(),
         };
 
         // First we need to register and activate it
@@ -2550,8 +2559,8 @@ mod tests {
                 issuer: test_token.issuer.clone(),
                 currency: test_token.currency.clone(),
                 sending_precision: test_token.sending_precision,
-                max_holding_amount: Uint128::new(test_token.max_holding_amount),
-                bridging_fee: Uint128::zero(),
+                max_holding_amount: test_token.max_holding_amount,
+                bridging_fee: test_token.bridging_fee,
             },
             &query_issue_fee(&asset_ft),
             signer,
@@ -2992,20 +3001,23 @@ mod tests {
             issuer: generate_xrpl_address(),
             currency: "TT1".to_string(),
             sending_precision: -2,
-            max_holding_amount: 200000000000000000,
+            max_holding_amount: Uint128::new(200000000000000000),
+            bridging_fee: Uint128::zero(),
         };
         let test_token2 = XRPLToken {
             issuer: generate_xrpl_address().to_string(),
             currency: "TT2".to_string(),
             sending_precision: 13,
-            max_holding_amount: 499,
+            max_holding_amount: Uint128::new(499),
+            bridging_fee: Uint128::zero(),
         };
 
         let test_token3 = XRPLToken {
             issuer: generate_xrpl_address().to_string(),
             currency: "TT3".to_string(),
             sending_precision: 0,
-            max_holding_amount: 5000000000000000,
+            max_holding_amount: Uint128::new(5000000000000000),
+            bridging_fee: Uint128::zero(),
         };
 
         // Set up enough tickets first to allow registering tokens.
@@ -3047,8 +3059,8 @@ mod tests {
                 issuer: test_token1.issuer.clone(),
                 currency: test_token1.currency.clone(),
                 sending_precision: test_token1.sending_precision.clone(),
-                max_holding_amount: Uint128::new(test_token1.max_holding_amount.clone()),
-                bridging_fee: Uint128::zero(),
+                max_holding_amount: test_token1.max_holding_amount.clone(),
+                bridging_fee: test_token1.bridging_fee,
             },
             &query_issue_fee(&asset_ft),
             &signer,
@@ -3220,8 +3232,8 @@ mod tests {
                 issuer: test_token2.issuer.clone(),
                 currency: test_token2.currency.clone(),
                 sending_precision: test_token2.sending_precision.clone(),
-                max_holding_amount: Uint128::new(test_token2.max_holding_amount.clone()),
-                bridging_fee: Uint128::zero(),
+                max_holding_amount: test_token2.max_holding_amount.clone(),
+                bridging_fee: test_token2.bridging_fee,
             },
             &query_issue_fee(&asset_ft),
             &signer,
@@ -3408,8 +3420,8 @@ mod tests {
                 issuer: test_token3.issuer.clone(),
                 currency: test_token3.currency.clone(),
                 sending_precision: test_token3.sending_precision.clone(),
-                max_holding_amount: Uint128::new(test_token3.max_holding_amount.clone()),
-                bridging_fee: Uint128::zero(),
+                max_holding_amount: test_token3.max_holding_amount.clone(),
+                bridging_fee: test_token3.bridging_fee,
             },
             &query_issue_fee(&asset_ft),
             &signer,
@@ -3730,19 +3742,22 @@ mod tests {
                 denom: denom1.to_owned(),
                 decimals: 6,
                 sending_precision: 6,
-                max_holding_amount: 3,
+                max_holding_amount: Uint128::new(3),
+                bridging_fee: Uint128::zero(),
             },
             CoreumToken {
                 denom: denom2.to_owned(),
                 decimals: 6,
                 sending_precision: 0,
-                max_holding_amount: 3990000,
+                max_holding_amount: Uint128::new(3990000),
+                bridging_fee: Uint128::zero(),
             },
             CoreumToken {
                 denom: denom3.to_owned(),
                 decimals: 6,
                 sending_precision: -6,
-                max_holding_amount: 2000000000000,
+                max_holding_amount: Uint128::new(2000000000000),
+                bridging_fee: Uint128::zero(),
             },
         ];
 
@@ -3755,8 +3770,8 @@ mod tests {
                     denom: token.denom,
                     decimals: token.decimals,
                     sending_precision: token.sending_precision,
-                    max_holding_amount: Uint128::new(token.max_holding_amount),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: token.max_holding_amount,
+                    bridging_fee: token.bridging_fee,
                 },
                 &vec![],
                 &signer,
@@ -3962,6 +3977,536 @@ mod tests {
             .unwrap();
 
         assert_eq!(request_balance.balance, "2000000000000".to_string());
+    }
+
+    #[test]
+    fn fee_collection_and_claiming() {
+        let app = CoreumTestApp::new();
+        let accounts_number = 5;
+        let accounts = app
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
+            .unwrap();
+
+        let signer = accounts.get((accounts_number - 1) as usize).unwrap();
+        let receiver = accounts.get((accounts_number - 2) as usize).unwrap();
+        let xrpl_addresses: Vec<String> = (0..3).map(|_| generate_xrpl_address()).collect();
+        let xrpl_pub_keys: Vec<String> = (0..3).map(|_| generate_xrpl_pub_key()).collect();
+
+        let mut relayer_accounts = vec![];
+        let mut relayers = vec![];
+
+        for i in 0..accounts_number - 2 {
+            relayer_accounts.push(accounts.get(i as usize).unwrap());
+            relayers.push(Relayer {
+                coreum_address: Addr::unchecked(accounts.get(i as usize).unwrap().address()),
+                xrpl_address: xrpl_addresses[i as usize].to_string(),
+                xrpl_pub_key: xrpl_pub_keys[i as usize].to_string(),
+            });
+        }
+
+        let wasm = Wasm::new(&app);
+        let asset_ft = AssetFT::new(&app);
+
+        let bridge_xrpl_address = generate_xrpl_address();
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            vec![
+                relayers[0].clone(),
+                relayers[1].clone(),
+                relayers[2].clone(),
+            ],
+            3,
+            14,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+            query_issue_fee(&asset_ft),
+            bridge_xrpl_address.to_owned(),
+        );
+
+        // Recover enough tickets
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(15),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: Some(1),
+                        ticket_sequence: None,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::TicketsAllocation {
+                            tickets: Some((1..16).collect()),
+                        },
+                    },
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        // We are going to issue 2 tokens, one XRPL originated and one Coreum originated, with different fees.
+        let test_token_xrpl = XRPLToken {
+            issuer: generate_xrpl_address(), // Valid issuer
+            currency: "USD".to_string(),     // Valid standard currency code
+            sending_precision: 10,
+            max_holding_amount: Uint128::new(5000000000000000), // 5e15
+            bridging_fee: Uint128::new(50000),                  // 5e4
+        };
+
+        let symbol = "TEST".to_string();
+        let subunit = "utest".to_string();
+        let decimals = 6;
+        let initial_amount = Uint128::new(100000000);
+        asset_ft
+            .issue(
+                MsgIssue {
+                    issuer: receiver.address(),
+                    symbol,
+                    subunit: subunit.to_owned(),
+                    precision: decimals,
+                    initial_amount: initial_amount.to_string(),
+                    description: "description".to_string(),
+                    features: vec![MINTING as i32],
+                    burn_rate: "0".to_string(),
+                    send_commission_rate: "0".to_string(),
+                    uri: "uri".to_string(),
+                    uri_hash: "uri_hash".to_string(),
+                },
+                &receiver,
+            )
+            .unwrap();
+
+        let coreum_token_denom = format!("{}-{}", subunit, receiver.address()).to_lowercase();
+
+        let test_token_coreum = CoreumToken {
+            denom: coreum_token_denom.to_owned(),
+            decimals,
+            sending_precision: 4,
+            max_holding_amount: Uint128::new(10000000000), // 1e10
+            bridging_fee: Uint128::new(300000),            // 3e5
+        };
+
+        // Register XRPL originated token and confirm trust set
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterXRPLToken {
+                issuer: test_token_xrpl.issuer.to_owned(),
+                currency: test_token_xrpl.currency.to_owned(),
+                sending_precision: test_token_xrpl.sending_precision,
+                max_holding_amount: test_token_xrpl.max_holding_amount,
+                bridging_fee: test_token_xrpl.bridging_fee,
+            },
+            &query_issue_fee(&asset_ft),
+            &signer,
+        )
+        .unwrap();
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: None,
+                        ticket_sequence: Some(1),
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::TrustSet {
+                            issuer: test_token_xrpl.issuer.to_owned(),
+                            currency: test_token_xrpl.currency.to_owned(),
+                        },
+                    },
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        let query_xrpl_tokens = wasm
+            .query::<QueryMsg, XRPLTokensResponse>(
+                &contract_addr,
+                &QueryMsg::XRPLTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let xrpl_token = query_xrpl_tokens
+            .tokens
+            .iter()
+            .find(|t| t.issuer == test_token_xrpl.issuer && t.currency == test_token_xrpl.currency)
+            .unwrap();
+
+        // Register Coreum originated token
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterCoreumToken {
+                denom: test_token_coreum.denom,
+                decimals: test_token_coreum.decimals,
+                sending_precision: test_token_coreum.sending_precision,
+                max_holding_amount: test_token_coreum.max_holding_amount,
+                bridging_fee: test_token_coreum.bridging_fee,
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let query_coreum_tokens = wasm
+            .query::<QueryMsg, CoreumTokensResponse>(
+                &contract_addr,
+                &QueryMsg::CoreumTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let coreum_token = query_coreum_tokens
+            .tokens
+            .iter()
+            .find(|t| t.denom == coreum_token_denom)
+            .unwrap();
+
+        // Let's bridge some tokens from XRPL to Coreum multiple times and verify that the fees are collected correctly in each step
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: tx_hash.to_owned(),
+                        issuer: test_token_xrpl.issuer.to_owned(),
+                        currency: test_token_xrpl.currency.to_owned(),
+                        amount: Uint128::new(1000000000050000), // 1e15 + 5e4 --> This should truncate the entire bridging fee and not take more anything else
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: xrpl_token.coreum_denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "1000000000000000".to_string());
+
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .unwrap();
+
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![coin(50000, xrpl_token.coreum_denom.to_owned())]
+        );
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: tx_hash.to_owned(),
+                        issuer: test_token_xrpl.issuer.to_owned(),
+                        currency: test_token_xrpl.currency.to_owned(),
+                        amount: Uint128::new(1000000000040000), // 1e15 + 5e4 --> This should truncate and charge extra 10000 to cover bridging fee
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: xrpl_token.coreum_denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "1999999999990000".to_string());
+
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .unwrap();
+
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![coin(100000, xrpl_token.coreum_denom.to_owned())]
+        );
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: tx_hash.to_owned(),
+                        issuer: test_token_xrpl.issuer.to_owned(),
+                        currency: test_token_xrpl.currency.to_owned(),
+                        amount: Uint128::new(1000000000000000), // 1e15 + 5e4 --> This should truncate nothing and charge the entire bridging fee (50000)
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: xrpl_token.coreum_denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "2999999999940000".to_string());
+
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .unwrap();
+
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![coin(150000, xrpl_token.coreum_denom.to_owned())]
+        );
+
+        // Let's try to bridge some tokens back from Coreum to XRPL and verify that the fees are also collected correctly
+        let xrpl_receiver_address = generate_xrpl_address();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+            },
+            &coins(1000000000020000, xrpl_token.coreum_denom.to_owned()), // This should truncate 20000 and charge 30000 extra to cover bridging fee
+            &receiver,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+        assert_eq!(
+            query_pending_operations.operations[0],
+            Operation {
+                ticket_sequence: Some(2),
+                account_sequence: None,
+                signatures: vec![],
+                operation_type: OperationType::CoreumToXRPLTransfer {
+                    issuer: test_token_xrpl.issuer.to_owned(),
+                    currency: test_token_xrpl.currency.to_owned(),
+                    amount: Uint128::new(999999999970000),
+                    sender: Addr::unchecked(receiver.address()),
+                    recipient: xrpl_receiver_address.to_owned(),
+                },
+            }
+        );
+
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .unwrap();
+
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![coin(200000, xrpl_token.coreum_denom.to_owned())]
+        );
+
+        // Now let's bridge tokens from Coreum to XRPL and verify that the fees are collected correctly in each step and accumulated with the previous ones
+
+        // Trying to send less than the bridging fees should fail
+        let bridging_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                },
+                &coins(100, coreum_token_denom.to_owned()),
+                &receiver,
+            )
+            .unwrap_err();
+
+        assert!(bridging_error.to_string().contains(
+            ContractError::CannotCoverBridgingFees {}
+                .to_string()
+                .as_str()
+        ));
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+            },
+            &coins(600010, coreum_token_denom.to_owned()), // This should truncate 10 and charge extra 299990 to cover bridging fee
+            &receiver,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 2);
+        assert_eq!(
+            query_pending_operations.operations[1],
+            Operation {
+                ticket_sequence: Some(3),
+                account_sequence: None,
+                signatures: vec![],
+                operation_type: OperationType::CoreumToXRPLTransfer {
+                    issuer: bridge_xrpl_address.to_owned(),
+                    currency: coreum_token.xrpl_currency.to_owned(),
+                    amount: Uint128::new(300010000000000),
+                    sender: Addr::unchecked(receiver.address()),
+                    recipient: xrpl_receiver_address.to_owned(),
+                },
+            }
+        );
+
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .unwrap();
+
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![
+                coin(200000, xrpl_token.coreum_denom.to_owned()),
+                coin(300000, coreum_token_denom.to_owned())
+            ]
+        );
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+            },
+            &coins(900000, coreum_token_denom.to_owned()), // This should truncate nothing and charge the entire bridging fee (300000)
+            &receiver,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 3);
+        assert_eq!(
+            query_pending_operations.operations[2],
+            Operation {
+                ticket_sequence: Some(4),
+                account_sequence: None,
+                signatures: vec![],
+                operation_type: OperationType::CoreumToXRPLTransfer {
+                    issuer: bridge_xrpl_address.to_owned(),
+                    currency: coreum_token.xrpl_currency.to_owned(),
+                    amount: Uint128::new(600000000000000),
+                    sender: Addr::unchecked(receiver.address()),
+                    recipient: xrpl_receiver_address.to_owned(),
+                },
+            }
+        );
+
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .unwrap();
+
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![
+                coin(200000, xrpl_token.coreum_denom.to_owned()),
+                coin(600000, coreum_token_denom.to_owned())
+            ]
+        );
+
+        // Let's try to send the Coreum originated token in the opposite direction (from XRPL to Coreum) and see that fees are also accumulated correctly.
+        let previous_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: coreum_token_denom.clone(),
+            })
+            .unwrap();
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: tx_hash.to_owned(),
+                        issuer: bridge_xrpl_address.to_owned(),
+                        currency: coreum_token.xrpl_currency.to_owned(),
+                        amount: Uint128::new(650010000000000), // 650010000000000 will convert to 650010, which after truncating and charging fees will send 350010 to the receiver
+                        recipient: Addr::unchecked(receiver.address()),
+                    },
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        let new_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: receiver.address(),
+                denom: coreum_token_denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            new_balance.balance.parse::<u128>().unwrap(),
+            previous_balance
+                .balance
+                .parse::<u128>()
+                .unwrap()
+                .checked_add(350010)
+                .unwrap()
+        );
+
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .unwrap();
+        
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![
+                coin(200000, xrpl_token.coreum_denom.to_owned()),
+                coin(900000, coreum_token_denom.to_owned())
+            ]
+        );
     }
 
     #[test]
@@ -4494,7 +5039,8 @@ mod tests {
             issuer: token_issuer.to_owned(),
             currency: token_currency.to_owned(),
             sending_precision: -15,
-            max_holding_amount: 100,
+            max_holding_amount: Uint128::new(100),
+            bridging_fee: Uint128::zero(),
         };
 
         let contract_addr = store_and_instantiate(
@@ -4546,8 +5092,8 @@ mod tests {
                 issuer: token.issuer.clone(),
                 currency: token.currency.clone(),
                 sending_precision: token.sending_precision,
-                max_holding_amount: Uint128::new(token.max_holding_amount),
-                bridging_fee: Uint128::zero(),
+                max_holding_amount: token.max_holding_amount,
+                bridging_fee: token.bridging_fee,
             },
             &query_issue_fee(&asset_ft),
             &signer,
@@ -4690,13 +5236,15 @@ mod tests {
                 issuer: generate_xrpl_address(), // Valid issuer
                 currency: "USD".to_string(),     // Valid standard currency code
                 sending_precision: -15,
-                max_holding_amount: 100,
+                max_holding_amount: Uint128::new(100),
+                bridging_fee: Uint128::zero(),
             },
             XRPLToken {
                 issuer: generate_xrpl_address(), // Valid issuer
                 currency: "015841551A748AD2C1F76FF6ECB0CCCD00000000".to_string(), // Valid hexadecimal currency
                 sending_precision: 15,
-                max_holding_amount: 50000,
+                max_holding_amount: Uint128::new(50000),
+                bridging_fee: Uint128::zero(),
             },
         ];
 
@@ -4750,8 +5298,8 @@ mod tests {
                     issuer: token.issuer.clone(),
                     currency: token.currency.clone(),
                     sending_precision: token.sending_precision,
-                    max_holding_amount: Uint128::new(token.max_holding_amount),
-                    bridging_fee: Uint128::zero(),
+                    max_holding_amount: token.max_holding_amount,
+                    bridging_fee: token.bridging_fee,
                 },
                 &query_issue_fee(&asset_ft),
                 &signer,

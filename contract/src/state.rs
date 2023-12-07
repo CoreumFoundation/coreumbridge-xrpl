@@ -137,7 +137,7 @@ pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str
 pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
 // Flag to know if we are currently waiting for new_tickets to be allocated
 pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
-// Array of tokens for all fees collected that will be distributed to relayers
+// Fees collected that will be distributed to all relayers when they are claimed
 pub const FEES_COLLECTED: Item<Vec<Coin>> = Item::new(TopKey::FeesCollected.as_str());
 
 pub enum ContractActions {
