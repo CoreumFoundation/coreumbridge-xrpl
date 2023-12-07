@@ -126,58 +126,21 @@ func TestSendXRPTokenFromXRPLToCoreumAndBack(t *testing.T) {
 
 	xrplRecipientBalanceBefore := runnerEnv.Chains.XRPL.GetAccountBalance(ctx, t, xrplRecipientAddress, xrpl.XRPTokenIssuer, xrpl.XRPTokenCurrency)
 
-	_, err = runnerEnv.ContractClient.SendToXRPL(
-		ctx,
-		coreumSender,
-		xrplRecipientAddress.String(),
-		sdk.NewCoin(
-			registeredXRPToken.CoreumDenom,
-			integrationtests.ConvertStringWithDecimalsToSDKInt(
-				t,
-				"1.1",
-				xrpl.XRPCurrencyDecimals,
-			)),
-	)
-	require.NoError(t, err)
-	_, err = runnerEnv.ContractClient.SendToXRPL(
-		ctx,
-		coreumSender,
-		xrplRecipientAddress.String(),
-		sdk.NewCoin(
-			registeredXRPToken.CoreumDenom,
-			integrationtests.ConvertStringWithDecimalsToSDKInt(
-				t,
-				"0.5",
-				xrpl.XRPCurrencyDecimals,
-			)),
-	)
-	require.NoError(t, err)
-	_, err = runnerEnv.ContractClient.SendToXRPL(
-		ctx,
-		coreumSender,
-		xrplRecipientAddress.String(),
-		sdk.NewCoin(
-			registeredXRPToken.CoreumDenom,
-			integrationtests.ConvertStringWithDecimalsToSDKInt(
-				t,
-				"0.51111",
-				xrpl.XRPCurrencyDecimals,
-			)),
-	)
-	require.NoError(t, err)
-	_, err = runnerEnv.ContractClient.SendToXRPL(
-		ctx,
-		coreumSender,
-		xrplRecipientAddress.String(),
-		sdk.NewCoin(
-			registeredXRPToken.CoreumDenom,
-			integrationtests.ConvertStringWithDecimalsToSDKInt(
-				t,
-				"0.000001",
-				xrpl.XRPCurrencyDecimals,
-			)),
-	)
-	require.NoError(t, err)
+	for _, v := range []string{"1.1", "0.5", "0.51111", "0.000001"} {
+		_, err = runnerEnv.ContractClient.SendToXRPL(
+			ctx,
+			coreumSender,
+			xrplRecipientAddress.String(),
+			sdk.NewCoin(
+				registeredXRPToken.CoreumDenom,
+				integrationtests.ConvertStringWithDecimalsToSDKInt(
+					t,
+					v,
+					xrpl.XRPCurrencyDecimals,
+				)),
+		)
+		require.NoError(t, err)
+	}
 
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 
