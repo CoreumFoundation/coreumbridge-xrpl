@@ -150,4 +150,7 @@ pub enum ContractError {
         "TokenSendingPrecisionTooHigh: The sending precision can't be more than the token decimals"
     )]
     TokenSendingPrecisionTooHigh {},
+
+    #[error("InvalidOperationResult: OperationResult doesn't match a Pending Operation with the right Operation Type")]
+    InvalidOperationResult {},
 }

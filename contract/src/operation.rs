@@ -1,12 +1,13 @@
+use coreum_wasm_sdk::{assetft, core::CoreumMsg};
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Storage, Uint128};
+use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Response, Storage, Uint128};
 
 use crate::{
-    contract::build_xrpl_token_key,
+    contract::{build_xrpl_token_key, convert_amount_decimals, XRPL_TOKENS_DECIMALS},
     error::ContractError,
     evidence::TransactionResult,
     signatures::Signature,
-    state::{TokenState, PENDING_OPERATIONS, XRPL_TOKENS},
+    state::{TokenState, COREUM_TOKENS, PENDING_OPERATIONS, XRPL_TOKENS},
 };
 
 #[cw_serde]
@@ -32,6 +33,7 @@ pub enum OperationType {
         issuer: String,
         currency: String,
         amount: Uint128,
+        sender: Addr,
         recipient: String,
     },
 }
@@ -93,5 +95,83 @@ pub fn handle_trust_set_confirmation(
     }
 
     XRPL_TOKENS.save(storage, key, &token)?;
+    Ok(())
+}
+
+pub fn handle_coreum_to_xrpl_transfer_confirmation(
+    storage: &dyn Storage,
+    transaction_result: TransactionResult,
+    operation_id: u64,
+    response: &mut Response<CoreumMsg>,
+) -> Result<(), ContractError> {
+    let pending_operation = PENDING_OPERATIONS
+        .load(storage, operation_id)
+        .map_err(|_| ContractError::PendingOperationNotFound {})?;
+
+    match pending_operation.operation_type {
+        OperationType::CoreumToXRPLTransfer {
+            issuer,
+            currency,
+            amount,
+            sender,
+            ..
+        } => {
+            // We check that the token that was sent was an XRPL originated token:
+            let key = build_xrpl_token_key(issuer, currency.to_owned());
+            match XRPL_TOKENS.may_load(storage, key)? {
+                Some(xrpl_token) => {
+                    // If transaction was accepted and the token that was sent back was an XRPL originated token, we must burn the token amount
+                    if transaction_result.eq(&TransactionResult::Accepted) {
+                        let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
+                            coin: coin(amount.u128(), xrpl_token.coreum_denom),
+                        }));
+
+                        *response = response.to_owned().add_message(burn_msg);
+                    } else {
+                        // If transaction was rejected, we must send the token amount back to the user
+                        let send_msg = BankMsg::Send {
+                            to_address: sender.to_string(),
+                            amount: coins(amount.u128(), xrpl_token.coreum_denom),
+                        };
+
+                        *response = response.to_owned().add_message(send_msg);
+                    }
+                }
+                None => {
+                    // If the token sent was a Coreum originated token we only need to send back in case of rejection.
+                    if transaction_result.ne(&TransactionResult::Accepted) {
+                        match COREUM_TOKENS
+                            .idx
+                            .xrpl_currency
+                            .item(storage, currency.to_owned())?
+                            .map(|(_, ct)| ct)
+                        {
+                            Some(token) => {
+                                // We need to convert the decimals to coreum decimals
+                                let amount_to_send_back = convert_amount_decimals(
+                                    XRPL_TOKENS_DECIMALS,
+                                    token.decimals,
+                                    amount,
+                                )?;
+                                let send_msg = BankMsg::Send {
+                                    to_address: sender.to_string(),
+                                    amount: coins(amount_to_send_back.u128(), token.denom),
+                                };
+
+                                *response = response.to_owned().add_message(send_msg);
+                            }
+                            // In practice this will never happen because any token issued from the multisig address is a token that was bridged from Coreum so it will be registered.
+                            // This could theoretically happen if the multisig address on XRPL issued a token on its own and then tried to bridge it
+                            None => return Err(ContractError::TokenNotRegistered {}),
+                        };
+                    }
+                }
+            }
+        }
+
+        // We will never get into this case unless relayers misbehave (send an CoreumToXRPLTransfer operation result for a different operation type)
+        _ => return Err(ContractError::InvalidOperationResult {}),
+    }
+
     Ok(())
 }
