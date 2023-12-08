@@ -142,6 +142,7 @@ func TestReceivedXRPLToCoreumAmount(t *testing.T) {
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestReceivedCoreumToXRPLAmount(t *testing.T) {
 	t.Parallel()
 
@@ -243,6 +244,7 @@ func computeReceivedTransferAmountFromXRPLToCoreum(
 	)
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func computeReceivedTransferAmountsWithFeesFromCoreumToXRPL(
 	t *testing.T,
 	value *big.Int,
@@ -277,6 +279,7 @@ func computeReceivedTransferAmountsWithFeesFromCoreumToXRPL(
 	return receivedAmount, allocatedOnTheAccountToPayTransferFee
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func truncateRatBySendingPrecision(ratValue *big.Rat, sendingPrecision int) *big.Rat {
 	nominator := ratValue.Num()
 	denominator := ratValue.Denom()

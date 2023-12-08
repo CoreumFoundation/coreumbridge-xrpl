@@ -38,6 +38,8 @@ type XRPLTxSubmitterConfig struct {
 }
 
 // DefaultXRPLTxSubmitterConfig returns the default XRPLTxSubmitter.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func DefaultXRPLTxSubmitterConfig(bridgeXRPLAddress rippledata.Account, relayerAddress sdk.AccAddress) XRPLTxSubmitterConfig {
 	return XRPLTxSubmitterConfig{
 		BridgeXRPLAddress:    bridgeXRPLAddress,
@@ -137,6 +139,7 @@ func (s *XRPLTxSubmitter) processPendingOperations(ctx context.Context) error {
 	return nil
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (s *XRPLTxSubmitter) getBridgeSigners(ctx context.Context) (BridgeSigners, error) {
 	xrplWeights, xrplWeightsQuorum, err := s.getBridgeXRPLSignerAccountsWithWeights(ctx)
 	if err != nil {
@@ -171,6 +174,7 @@ func (s *XRPLTxSubmitter) getBridgeSigners(ctx context.Context) (BridgeSigners, 
 	}, nil
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (s *XRPLTxSubmitter) getBridgeXRPLSignerAccountsWithWeights(ctx context.Context) (map[rippledata.Account]uint16, uint32, error) {
 	accountInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeXRPLAddress)
 	if err != nil {
@@ -190,6 +194,7 @@ func (s *XRPLTxSubmitter) getBridgeXRPLSignerAccountsWithWeights(ctx context.Con
 	return accountWights, weightsQuorum, nil
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation coreum.Operation, bridgeSigners BridgeSigners) error {
 	valid, err := s.preValidateOperation(ctx, operation)
 	if err != nil {
@@ -243,6 +248,7 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation c
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 	ctx context.Context,
 	operation coreum.Operation,

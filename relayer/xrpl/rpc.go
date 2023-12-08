@@ -259,6 +259,8 @@ func (c *RPCClient) LedgerCurrent(ctx context.Context) (LedgerCurrentResult, err
 // AccountTx returns paginated account transactions.
 // Use minLedger -1 for the earliest ledger available.
 // Use maxLedger -1 for the most recent validated ledger.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *RPCClient) AccountTx(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (AccountTxResult, error) {
 	params := AccountTxRequest{
 		Account:   account,

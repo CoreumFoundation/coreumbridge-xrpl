@@ -94,6 +94,7 @@ func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.Transactio
 	return o.processIncomingTx(ctx, tx)
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	txType := tx.GetType()
 	if !tx.MetaData.TransactionResult.Success() {
@@ -187,6 +188,7 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	tickets := extractTicketSequencesFromMetaData(tx.MetaData)
 	txResult := getTransactionResult(tx)
@@ -219,6 +221,7 @@ func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(ctx 
 	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	trustSetTx, ok := tx.Transaction.(*rippledata.TrustSet)
 	if !ok {
@@ -243,6 +246,7 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.C
 	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (o *XRPLTxObserver) sendCoreumToXRPLTransferTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	paymentTx, ok := tx.Transaction.(*rippledata.Payment)
 	if !ok {
@@ -291,6 +295,8 @@ func (o *XRPLTxObserver) handleEvidenceSubmissionError(
 // Any tem code	 Final unless the protocol changes to make the transaction valid.
 // tefPAST_SEQ	 Final when another transaction with the same sequence number is included in a validated ledger.
 // tefMAX_LEDGER Final when a validated ledger has a ledger index higher than the transaction's LastLedgerSequence field, and no validated ledger includes the transaction.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func txIsFinal(tx rippledata.TransactionWithMetaData) bool {
 	txResult := tx.MetaData.TransactionResult
 	return tx.MetaData.TransactionResult.Success() ||

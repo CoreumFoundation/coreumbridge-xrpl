@@ -38,6 +38,8 @@ func ConvertXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount) (sdkmath.Int,
 
 // ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount converts the XRPL originated token amount from coreum to XRPL amount
 // based on the currency type.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int, issuerString, currencyString string) (rippledata.Amount, error) {
 	if isXRPToken(issuerString, currencyString) {
 		// format with exponent
@@ -67,6 +69,7 @@ func convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount rippledata.Amount, d
 	return sdkmath.NewIntFromBigInt(binIntAmount), nil
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount sdkmath.Int, decimals uint32, issuerString, currencyString string) (rippledata.Amount, error) {
 	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
 	floatAmount := big.NewFloat(0).SetRat(big.NewRat(0, 1).SetFrac(coreumAmount.BigInt(), tenPowerDec))

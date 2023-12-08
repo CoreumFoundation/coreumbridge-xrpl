@@ -14,6 +14,8 @@ import (
 //go:generate mockgen -destination=scanner_mocks_test.go -package=xrpl_test . RPCTxProvider
 
 // RPCTxProvider is RPC transactions provider.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 type RPCTxProvider interface {
 	LedgerCurrent(ctx context.Context) (LedgerCurrentResult, error)
 	AccountTx(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (AccountTxResult, error)
@@ -87,6 +89,7 @@ func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.Trans
 	return nil
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (s *AccountScanner) scanRecentHistory(ctx context.Context, currentLedger int64, ch chan<- rippledata.TransactionWithMetaData) {
 	// in case we don't have enough ledges for the window we start from the initla
 	minLedger := int64(0)
@@ -112,6 +115,7 @@ func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippleda
 	})
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, ch chan<- rippledata.TransactionWithMetaData) int64 {
 	if minLedger <= 0 {
 		minLedger = -1

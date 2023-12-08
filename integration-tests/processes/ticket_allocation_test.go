@@ -175,6 +175,7 @@ func TestTicketsAllocationRecoveryWithMaliciousRelayers(t *testing.T) {
 	require.Len(t, availableTickets, int(numberOfTicketsToAllocate))
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	t.Parallel()
 

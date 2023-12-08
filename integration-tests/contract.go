@@ -16,6 +16,8 @@ import (
 const compiledContractFilePath = "../../build/coreumbridge_xrpl.wasm"
 
 // DeployAndInstantiateContract deploys and instantiates the contract.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func DeployAndInstantiateContract(
 	ctx context.Context,
 	t *testing.T,

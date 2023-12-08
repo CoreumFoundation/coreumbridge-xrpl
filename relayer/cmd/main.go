@@ -100,6 +100,7 @@ func StartCmd(ctx context.Context) *cobra.Command {
 	return cmd
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func addKeyringFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().String(flags.FlagKeyringBackend, flags.DefaultKeyringBackend, "Select keyring's backend (os|file|kwallet|pass|test)")
 	cmd.PersistentFlags().String(flags.FlagKeyringDir, defaultKeyringDir, "The client Keyring directory; if omitted, the default 'home' directory will be used")

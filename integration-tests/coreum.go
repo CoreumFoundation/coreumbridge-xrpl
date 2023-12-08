@@ -27,6 +27,8 @@ type CoreumChain struct {
 }
 
 // NewCoreumChain returns new instance of the coreum chain.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func NewCoreumChain(cfg CoreumChainConfig) (CoreumChain, error) {
 	queryCtx, queryCtxCancel := context.WithTimeout(context.Background(), getTestContextConfig().TimeoutConfig.RequestTimeout)
 	defer queryCtxCancel()

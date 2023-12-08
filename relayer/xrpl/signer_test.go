@@ -14,6 +14,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	t.Parallel()
 
@@ -92,6 +93,7 @@ func TestPrivKeyTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	require.True(t, valid)
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func buildPaymentTx(recipientAccount *rippledata.Account, xrpAmount *rippledata.Amount, signerAcc rippledata.Account) rippledata.Payment {
 	return rippledata.Payment{
 		Destination: *recipientAccount,

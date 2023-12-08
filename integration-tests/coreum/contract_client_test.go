@@ -45,6 +45,7 @@ var (
 	xrpMaxHoldingAmount        = sdkmath.NewInt(10000000000000000)
 )
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestDeployAndInstantiateContract(t *testing.T) {
 	t.Parallel()
 
@@ -276,6 +277,7 @@ func TestRegisterCoreumToken(t *testing.T) {
 	require.Equal(t, amountToSend.String(), receiveAmount.Value.String())
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestRegisterXRPLToken(t *testing.T) {
 	t.Parallel()
 
@@ -474,6 +476,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 	require.Equal(t, amountToSend.String(), balanceRes.Balance.Amount.String())
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 	t.Parallel()
 
@@ -592,7 +595,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
 }
 
-//nolint:tparallel // the test is parallel, but test cases are not
+//nolint:lll, tparallel // TODO(dzmitryhil) linter length limit
 func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t *testing.T) {
 	t.Parallel()
 
@@ -756,6 +759,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 	t.Parallel()
 
@@ -870,7 +874,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 	require.Equal(t, coinToSend.Amount.Sub(sdkmath.NewInt(4)).String(), contractBalanceRes.Balance.Amount.String())
 }
 
-//nolint:tparallel // the test is parallel, but test cases are not
+//nolint:lll, tparallel // TODO(dzmitryhil) linter length limit
 func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t *testing.T) {
 	t.Parallel()
 
@@ -1074,7 +1078,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 	}
 }
 
-//nolint:tparallel // the test is parallel, but test cases are not
+//nolint:lll, tparallel // TODO(dzmitryhil) linter length limit
 func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(t *testing.T) {
 	t.Parallel()
 
@@ -1260,6 +1264,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestRecoverTickets(t *testing.T) {
 	t.Parallel()
 
@@ -1540,6 +1545,7 @@ func TestRecoverTickets(t *testing.T) {
 	require.True(t, coreum.IsStillHaveAvailableTicketsError(err), err)
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	t.Parallel()
 
@@ -1673,7 +1679,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	require.True(t, coreum.IsLastTicketReservedError(err))
 }
 
-//nolint:tparallel // the test is parallel, but test cases are not
+//nolint:lll, tparallel // TODO(dzmitryhil) linter length limit
 func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t *testing.T) {
 	t.Parallel()
 
@@ -1830,6 +1836,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	t.Parallel()
 
@@ -2030,7 +2037,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	require.True(t, coreum.IsLastTicketReservedError(err))
 }
 
-//nolint:tparallel // the test is parallel, but test cases are not
+//nolint:lll, tparallel // TODO(dzmitryhil) linter length limit
 func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionAndDecimals(t *testing.T) {
 	t.Parallel()
 
@@ -2203,6 +2210,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestRecoverXRPLTokeRegistration(t *testing.T) {
 	t.Parallel()
 
@@ -2353,6 +2361,7 @@ func TestRecoverXRPLTokeRegistration(t *testing.T) {
 	require.Equal(t, coreum.TokenStateEnabled, registeredXRPLToken.State)
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func recoverTickets(
 	ctx context.Context,
 	t *testing.T,
@@ -2387,6 +2396,7 @@ func recoverTickets(
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func activateXRPLToken(
 	ctx context.Context,
 	t *testing.T,
@@ -2441,6 +2451,7 @@ func activateXRPLToken(
 	require.Equal(t, coreum.TokenStateEnabled, registeredToken.State)
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func sendFromXRPLToCoreum(
 	ctx context.Context,
 	t *testing.T,
@@ -2472,6 +2483,7 @@ func sendFromXRPLToCoreum(
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func sendFromCoreumToXRPL(
 	ctx context.Context,
 	t *testing.T,
@@ -2511,6 +2523,7 @@ func sendFromCoreumToXRPL(
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func genRelayers(ctx context.Context, t *testing.T, chains integrationtests.Chains, relayersCount int) []coreum.Relayer {
 	relayers := make([]coreum.Relayer, 0)
 

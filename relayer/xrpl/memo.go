@@ -22,6 +22,8 @@ type BridgeMemo struct {
 }
 
 // DecodeCoreumRecipientFromMemo decodes the coreum recipient from memo or returns nil in case the memo is not as expected.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func DecodeCoreumRecipientFromMemo(memos rippledata.Memos) sdk.AccAddress {
 	var bridgeMemo BridgeMemo
 	for _, memo := range memos {

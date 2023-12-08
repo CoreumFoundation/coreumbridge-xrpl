@@ -236,6 +236,7 @@ type registerCoreumTokenRequest struct {
 	Decimals         uint32      `json:"decimals"`
 	SendingPrecision int32       `json:"sending_precision"`
 	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
+	BridgingFee      sdkmath.Int `json:"bridging_fee"`
 }
 
 type registerXRPLTokenRequest struct {
@@ -243,6 +244,7 @@ type registerXRPLTokenRequest struct {
 	Currency         string      `json:"currency"`
 	SendingPrecision int32       `json:"sending_precision"`
 	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
+	BridgingFee      sdkmath.Int `json:"bridging_fee"`
 }
 
 type saveEvidenceRequest struct {
@@ -279,6 +281,7 @@ type xrplTransactionEvidenceTrustSetOperationResult struct {
 
 type xrplTransactionEvidenceCoreumToXRPLTransferOperationResult struct{}
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 type xrplTransactionEvidenceOperationResult struct {
 	TicketsAllocation    *xrplTransactionEvidenceTicketsAllocationOperationResult    `json:"tickets_allocation,omitempty"`
 	TrustSet             *xrplTransactionEvidenceTrustSetOperationResult             `json:"trust_set,omitempty"`
@@ -370,6 +373,8 @@ func NewContractClient(cfg ContractClientConfig, log logger.Logger, clientCtx cl
 }
 
 // DeployAndInstantiate instantiates the contract.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.AccAddress, byteCode []byte, config InstantiationConfig) (sdk.AccAddress, error) {
 	msgStoreCode := &wasmtypes.MsgStoreCode{
 		Sender:       sender.String(),
@@ -458,6 +463,8 @@ func (c *ContractClient) IsInitialized() bool {
 // ******************** Execute ********************
 
 // TransferOwnership executes `update_ownership` method with transfer action.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) TransferOwnership(ctx context.Context, sender, newOwner sdk.AccAddress) (*sdk.TxResponse, error) {
 	req := transferOwnershipRequest{}
 	req.TransferOwnership.NewOwner = newOwner
@@ -489,6 +496,8 @@ func (c *ContractClient) AcceptOwnership(ctx context.Context, sender sdk.AccAddr
 }
 
 // RegisterCoreumToken executes `register_coreum_token` method.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.AccAddress, denom string, decimals uint32, sendingPrecision int32, maxHoldingAmount sdkmath.Int) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]registerCoreumTokenRequest{
@@ -497,6 +506,7 @@ func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.Acc
 				Decimals:         decimals,
 				SendingPrecision: sendingPrecision,
 				MaxHoldingAmount: maxHoldingAmount,
+				BridgingFee:      sdkmath.NewInt(0),
 			},
 		},
 	})
@@ -508,6 +518,8 @@ func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.Acc
 }
 
 // RegisterXRPLToken executes `register_xrpl_token` method.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAddress, issuer, currency string, sendingPrecision int32, maxHoldingAmount sdkmath.Int) (*sdk.TxResponse, error) {
 	fee, err := c.queryAssetFTIssueFee(ctx)
 	if err != nil {
@@ -521,6 +533,7 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 				Currency:         currency,
 				SendingPrecision: sendingPrecision,
 				MaxHoldingAmount: maxHoldingAmount,
+				BridgingFee:      sdkmath.NewInt(0),
 			},
 		},
 		Funds: sdk.NewCoins(fee),
@@ -533,6 +546,8 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 }
 
 // SendXRPLToCoreumTransferEvidence sends an Evidence of an accepted XRPL to coreum transfer transaction.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
@@ -552,6 +567,8 @@ func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, s
 }
 
 // SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of an accepted or rejected ticket allocation transaction.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTicketsAllocationEvidence) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
@@ -578,6 +595,8 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx 
 }
 
 // SendXRPLTrustSetTransactionResultEvidence sends an Evidence of an accepted or rejected trust set transaction.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTrustSetEvidence) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
@@ -605,6 +624,8 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(ctx context.C
 }
 
 // SendCoreumToXRPLTransferTransactionResultEvidence sends an Evidence of an accepted or rejected coreum to XRPL transfer transaction.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultCoreumToXRPLTransferEvidence) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
@@ -629,6 +650,8 @@ func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(ctx c
 }
 
 // RecoverTickets executes `recover_tickets` method.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) RecoverTickets(ctx context.Context, sender sdk.AccAddress, accountSequence uint32, numberOfTickets *uint32) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]recoverTicketsRequest{
@@ -646,6 +669,8 @@ func (c *ContractClient) RecoverTickets(ctx context.Context, sender sdk.AccAddre
 }
 
 // SaveSignature executes `save_signature` method.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) SaveSignature(ctx context.Context, sender sdk.AccAddress, operationID uint32, signature string) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]saveSignatureRequest{
@@ -663,6 +688,8 @@ func (c *ContractClient) SaveSignature(ctx context.Context, sender sdk.AccAddres
 }
 
 // SendToXRPL executes `send_to_xrpl` method.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) SendToXRPL(ctx context.Context, sender sdk.AccAddress, recipient string, amount sdk.Coin) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]sendToXRPLRequest{
@@ -680,6 +707,8 @@ func (c *ContractClient) SendToXRPL(ctx context.Context, sender sdk.AccAddress, 
 }
 
 // RecoverXRPLTokenRegistration executes `recover_xrpl_token_registration` method.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) RecoverXRPLTokenRegistration(ctx context.Context, sender sdk.AccAddress, issuer, currency string) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]recoverXRPLTokenRegistrationRequest{
@@ -725,6 +754,8 @@ func (c *ContractClient) GetContractOwnership(ctx context.Context) (ContractOwne
 }
 
 // GetXRPLTokenByIssuerAndCurrency returns a XRPL registered token by issuer and currency or error.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) GetXRPLTokenByIssuerAndCurrency(ctx context.Context, issuer, currency string) (XRPLToken, error) {
 	tokens, err := c.GetXRPLTokens(ctx)
 	if err != nil {
@@ -818,6 +849,7 @@ func (c *ContractClient) GetAvailableTickets(ctx context.Context) ([]uint32, err
 	return response.Tickets, nil
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) getPaginatedXRPLTokens(ctx context.Context, offset *uint64, limit *uint32) ([]XRPLToken, error) {
 	var response xrplTokensResponse
 	err := c.query(ctx, map[QueryMethod]pagingRequest{
@@ -833,6 +865,7 @@ func (c *ContractClient) getPaginatedXRPLTokens(ctx context.Context, offset *uin
 	return response.Tokens, nil
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) getPaginatedCoreumTokens(ctx context.Context, offset *uint64, limit *uint32) ([]CoreumToken, error) {
 	var response coreumTokensResponse
 	err := c.query(ctx, map[QueryMethod]pagingRequest{
@@ -857,6 +890,7 @@ func (c *ContractClient) queryAssetFTIssueFee(ctx context.Context) (sdk.Coin, er
 	return assetFtParamsRes.Params.IssueFee, nil
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, requests ...execRequest) (*sdk.TxResponse, error) {
 	if c.cfg.ContractAddress == nil {
 		return nil, errors.New("failed to execute with empty contract address")
@@ -887,6 +921,7 @@ func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, req
 	return res, nil
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c *ContractClient) query(ctx context.Context, request, response any) error {
 	if c.cfg.ContractAddress == nil {
 		return errors.New("failed to execute with empty contract address")

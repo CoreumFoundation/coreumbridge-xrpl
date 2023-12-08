@@ -24,6 +24,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 	t.Parallel()
 
@@ -87,6 +88,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 	require.Equal(t, "5000000000", balance.Value.String())
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithMaliciousRelayer(t *testing.T) {
 	t.Parallel()
 
@@ -140,6 +142,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithMaliciousRelayer(t *testing.
 	require.Equal(t, "2500000000", balance.Value.String())
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithTicketsReallocation(t *testing.T) {
 	t.Parallel()
 
@@ -210,6 +213,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithTicketsReallocation(t *testi
 	require.Equal(t, totalSent.Quo(sdkmath.NewIntWithDecimal(1, XRPLTokenDecimals)).String(), balance.Value.String())
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAmount(t *testing.T) {
 	t.Parallel()
 
@@ -307,6 +311,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipient, sdk.NewCoin(registeredXRPLHexCurrencyToken.CoreumDenom, integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9.9", XRPLTokenDecimals)))
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestRecoverXRPLOriginatedTokenRegistrationAndSendFromXRPLToCoreumAndBack(t *testing.T) {
 	t.Parallel()
 
@@ -381,6 +386,7 @@ func TestRecoverXRPLOriginatedTokenRegistrationAndSendFromXRPLToCoreumAndBack(t 
 	require.Equal(t, valueToSendFromXRPLtoCoreum.String(), balance.Value.String())
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAndPartialAmount(t *testing.T) {
 	t.Parallel()
 
@@ -504,6 +510,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	runnerEnv.AwaitCoreumBalance(ctx, t, chains.Coreum, coreumRecipientAddress, sdk.NewCoin(registeredCoreumOriginatedToken.Denom, integrationtests.ConvertStringWithDecimalsToSDKInt(t, "100011.01", int64(tokenDecimals))))
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t *testing.T) {
 	t.Parallel()
 

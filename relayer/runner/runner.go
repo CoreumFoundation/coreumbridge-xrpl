@@ -214,7 +214,7 @@ type Runner struct {
 
 // NewRunner return new runner from the config.
 //
-//nolint:funlen // the func contains sequential object initialisation
+//nolint:lll, funlen // TODO(dzmitryhil) linter length limit, the func contains sequential object initialisation
 func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring) (*Runner, error) {
 	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig(cfg.LoggingConfig))
 	if err != nil {

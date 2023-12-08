@@ -10,6 +10,8 @@ import (
 )
 
 // BuildTicketCreateTxForMultiSigning builds TicketCreate transaction operation from the contract operation.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.TicketCreate, error) {
 	tx := rippledata.TicketCreate{
 		TxBase: rippledata.TxBase{
@@ -36,6 +38,8 @@ func BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress rippledata.Account, op
 }
 
 // BuildTrustSetTxForMultiSigning builds TrustSet transaction operation from the contract operation.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func BuildTrustSetTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.TrustSet, error) {
 	trustSetType := operation.OperationType.TrustSet
 	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
@@ -67,6 +71,8 @@ func BuildTrustSetTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operat
 }
 
 // BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning builds Payment transaction for XRPL originated token from the contract operation.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.Payment, error) {
 	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
 	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
@@ -87,6 +93,8 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(bridge
 }
 
 // BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning builds Payment transaction for coreum originated token from the contract operation.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
@@ -109,6 +117,7 @@ func BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(
 	return &tx, nil
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func buildPaymentTx(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,

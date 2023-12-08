@@ -144,6 +144,7 @@ func sendMultipleTxs(
 	return writtenTxHashes
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func validateTxsHashesInChannel(ctx context.Context, t *testing.T, writtenTxHashes map[string]struct{}, txsCh chan rippledata.TransactionWithMetaData) {
 	scanCtx, scanCtxCancel := context.WithTimeout(ctx, time.Minute)
 	defer scanCtxCancel()
@@ -169,6 +170,7 @@ func validateTxsHashesInChannel(ctx context.Context, t *testing.T, writtenTxHash
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func getTxHashesFromChannel(ctx context.Context, t *testing.T, txsCh chan rippledata.TransactionWithMetaData, count int) map[string]struct{} {
 	scanCtx, scanCtxCancel := context.WithTimeout(ctx, time.Minute)
 	defer scanCtxCancel()

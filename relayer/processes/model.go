@@ -13,6 +13,8 @@ import (
 //go:generate mockgen -destination=model_mocks_test.go -package=processes_test . ContractClient,XRPLAccountTxScanner,XRPLRPCClient,XRPLTxSigner
 
 // ContractClient is the interface for the contract client.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 type ContractClient interface {
 	IsInitialized() bool
 	SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evidence coreum.XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error)

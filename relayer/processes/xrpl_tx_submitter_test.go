@@ -16,7 +16,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-//nolint:tparallel // the test is parallel, but test cases are not
+//nolint:lll, tparallel // the test is parallel, but test cases are not
 func TestXRPLTxSubmitter_Start(t *testing.T) {
 	t.Parallel()
 

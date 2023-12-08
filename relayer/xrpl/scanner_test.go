@@ -18,6 +18,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func TestAccountScanner_ScanTxs(t *testing.T) {
 	t.Parallel()
 
@@ -185,6 +186,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 	}
 }
 
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func readTxHashesFromChannels(ctx context.Context, t *testing.T, txsCh chan rippledata.TransactionWithMetaData, count int) map[string]struct{} {
 	gotTxHashes := make(map[string]struct{})
 	for {

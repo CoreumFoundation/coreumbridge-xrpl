@@ -158,11 +158,15 @@ func (c XRPLChain) ActivateAccount(ctx context.Context, t *testing.T, acc ripple
 }
 
 // FundAccountForTicketAllocation funds the provided account with the amount required for the ticket allocation.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c XRPLChain) FundAccountForTicketAllocation(ctx context.Context, t *testing.T, acc rippledata.Account, ticketsNumber uint32) {
 	c.FundAccount(ctx, t, acc, xrplReservePerTicket*float64(ticketsNumber))
 }
 
 // FundAccountForSignerListSet funds the provided account with the amount required for the multi-signing set.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c XRPLChain) FundAccountForSignerListSet(ctx context.Context, t *testing.T, acc rippledata.Account, singersCount int) {
 	c.FundAccount(ctx, t, acc, xrplReservePerSigner*float64(singersCount))
 }
@@ -195,6 +199,8 @@ func (c XRPLChain) FundAccount(ctx context.Context, t *testing.T, acc rippledata
 }
 
 // AutoFillSignAndSubmitTx autofills the transaction and submits it.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c XRPLChain) AutoFillSignAndSubmitTx(ctx context.Context, t *testing.T, tx rippledata.Transaction, acc rippledata.Account) error {
 	t.Helper()
 
@@ -212,6 +218,8 @@ func (c XRPLChain) Multisign(t *testing.T, tx rippledata.MultiSignable, acc ripp
 }
 
 // SignAndSubmitTx signs the transaction from the signer and submits it.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c XRPLChain) SignAndSubmitTx(ctx context.Context, t *testing.T, tx rippledata.Transaction, acc rippledata.Account) error {
 	t.Helper()
 
@@ -268,6 +276,8 @@ func (c XRPLChain) SubmitTx(ctx context.Context, t *testing.T, tx rippledata.Tra
 }
 
 // GetAccountBalance returns account balance for the provided issuer and currency.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c XRPLChain) GetAccountBalance(ctx context.Context, t *testing.T, account, issuer rippledata.Account, currency rippledata.Currency) rippledata.Amount {
 	balance, ok := c.GetAccountBalances(ctx, t, account)[fmt.Sprintf("%s/%s", currency.String(), issuer.String())]
 	if !ok {
@@ -282,6 +292,8 @@ func (c XRPLChain) GetAccountBalance(ctx context.Context, t *testing.T, account,
 }
 
 // GetAccountBalances returns account balances.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c XRPLChain) GetAccountBalances(ctx context.Context, t *testing.T, acc rippledata.Account) map[string]rippledata.Amount {
 	t.Helper()
 
@@ -309,6 +321,8 @@ func (c XRPLChain) GetAccountBalances(ctx context.Context, t *testing.T, acc rip
 }
 
 // AwaitLedger awaits for ledger index.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (c XRPLChain) AwaitLedger(ctx context.Context, t *testing.T, ledgerIndex int64) {
 	t.Helper()
 

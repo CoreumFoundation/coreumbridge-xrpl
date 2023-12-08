@@ -234,6 +234,8 @@ func (r *RunnerEnv) AwaitState(ctx context.Context, t *testing.T, stateChecker f
 }
 
 // AllocateTickets allocate initial tickets amount.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (r *RunnerEnv) AllocateTickets(
 	ctx context.Context,
 	t *testing.T,
@@ -254,6 +256,8 @@ func (r *RunnerEnv) AllocateTickets(
 }
 
 // RegisterXRPLOriginatedToken registers XRPL currency and awaits for the trust set ot be set.
+//
+//nolint:lll // TODO(dzmitryhil) linter length limit
 func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 	ctx context.Context,
 	t *testing.T,
