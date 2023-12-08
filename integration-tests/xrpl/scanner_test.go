@@ -174,8 +174,7 @@ func validateTxsHashesInChannel(ctx context.Context, writtenTxHashes map[string]
 		case tx := <-txsCh:
 			// validate that we have all sent hashed and no duplicated
 			hash := tx.GetHash().String()
-			_, found := expectedHashes[hash]
-			if !found {
+			if _, found := expectedHashes[hash]; !found {
 				return errors.Errorf("not found expected tx hash:%s", hash)
 			}
 

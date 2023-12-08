@@ -168,8 +168,7 @@ func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, 
 				select {
 				case <-ctx.Done():
 					return lastLedger
-				default:
-					ch <- *tx
+				case ch <- *tx:
 				}
 			}
 		}

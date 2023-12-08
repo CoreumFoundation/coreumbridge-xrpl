@@ -68,7 +68,7 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 			defer close(txCh)
 			return o.txScanner.ScanTxs(ctx, txCh)
 		})
-		spawn("tx-processor", parallel.Continue, func(ctx context.Context) error {
+		spawn("tx-processor", parallel.Fail, func(ctx context.Context) error {
 			for tx := range txCh {
 				if err := o.processTx(ctx, tx); err != nil {
 					if errors.Is(err, context.Canceled) {
@@ -78,7 +78,7 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 					}
 				}
 			}
-			return nil
+			return errors.WithStack(ctx.Err())
 		})
 
 		return nil
