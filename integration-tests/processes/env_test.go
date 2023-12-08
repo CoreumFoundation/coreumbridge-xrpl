@@ -28,8 +28,6 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-const XRPLTokenDecimals = 15
-
 // RunnerEnvConfig is runner environment config.
 type RunnerEnvConfig struct {
 	AwaitTimeout                time.Duration
