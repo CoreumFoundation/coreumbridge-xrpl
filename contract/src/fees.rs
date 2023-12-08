@@ -69,7 +69,10 @@ pub fn claim_fees_for_relayers(
             .checked_div(relayers.len() as u128)
             .unwrap();
 
-        coins_for_each_relayer.push(coin(amount_for_each_relayer, fee.denom.to_owned()));
+        // If the amount is 0, we don't send it to the relayers
+        if amount_for_each_relayer != 0 {
+            coins_for_each_relayer.push(coin(amount_for_each_relayer, fee.denom.to_owned()));
+        }
 
         // We substract the amount we are sending to the relayers from the total amount collected
         // We can't simply remove it from the array because there might be small amounts left due to truncation when dividing
@@ -93,7 +96,7 @@ pub fn claim_fees_for_relayers(
     }
 
     // Last thing we do is to clean the fees collected array removing the coins that have 0 amount
-    // We need to do this step because if we keep them we will divide by 0 the next time we are iterating over the fees.
+    // We need to do this step to avoid the posibility of iterating over them next claim
     fees_collected.retain(|c| !c.amount.is_zero());
     FEES_COLLECTED.save(storage, &fees_collected)?;
 

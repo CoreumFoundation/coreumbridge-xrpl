@@ -4193,7 +4193,7 @@ mod tests {
                         tx_hash: tx_hash.to_owned(),
                         issuer: test_token_xrpl.issuer.to_owned(),
                         currency: test_token_xrpl.currency.to_owned(),
-                        amount: Uint128::new(1000000000050000), // 1e15 + 5e4 --> This should truncate the entire bridging fee and not take more anything else
+                        amount: Uint128::new(1000000000050000), // 1e15 + 5e4 --> This should truncate the entire bridging fee and not take anything else
                         recipient: Addr::unchecked(receiver.address()),
                     },
                 },
@@ -4499,7 +4499,7 @@ mod tests {
         let query_fees_collected = wasm
             .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
             .unwrap();
-        
+
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
@@ -4507,6 +4507,81 @@ mod tests {
                 coin(900000, coreum_token_denom.to_owned())
             ]
         );
+
+        // Let's test the claiming
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimFees {},
+            &[],
+            relayer_accounts[0],
+        )
+        .unwrap();
+
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .unwrap();
+
+        // Since we have 3 relayers, it should have claimed 1/3 of the fees for each one of them
+        // For the first coin 20000%3 = 2, so it should have left 2 tokens in the fees array
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![coin(2, xrpl_token.coreum_denom.to_owned()),]
+        );
+
+        // Let's check the balances of the relayers
+        for relayer in relayer_accounts.iter() {
+            let request_balance_token1 = asset_ft
+                .query_balance(&QueryBalanceRequest {
+                    account: relayer.address(),
+                    denom: xrpl_token.coreum_denom.to_owned(),
+                })
+                .unwrap();
+            let request_balance_token2 = asset_ft
+                .query_balance(&QueryBalanceRequest {
+                    account: relayer.address(),
+                    denom: coreum_token_denom.to_owned(),
+                })
+                .unwrap();
+
+            assert_eq!(request_balance_token1.balance, "66666".to_string()); // 200000 / 3 = 66666
+            assert_eq!(request_balance_token2.balance, "300000".to_string()); // 900000 / 3 = 300000
+        }
+
+        // If we try to claim again, nothing will change
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimFees {},
+            &[],
+            relayer_accounts[0],
+        )
+        .unwrap();
+
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .unwrap();
+
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![coin(2, xrpl_token.coreum_denom.to_owned()),]
+        );
+
+        for relayer in relayer_accounts.iter() {
+            let request_balance_token1 = asset_ft
+                .query_balance(&QueryBalanceRequest {
+                    account: relayer.address(),
+                    denom: xrpl_token.coreum_denom.to_owned(),
+                })
+                .unwrap();
+            let request_balance_token2 = asset_ft
+                .query_balance(&QueryBalanceRequest {
+                    account: relayer.address(),
+                    denom: coreum_token_denom.to_owned(),
+                })
+                .unwrap();
+
+            assert_eq!(request_balance_token1.balance, "66666".to_string()); // 200000 / 3 = 66666
+            assert_eq!(request_balance_token2.balance, "300000".to_string()); // 900000 / 3 = 300000
+        }
     }
 
     #[test]
