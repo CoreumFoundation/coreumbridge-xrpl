@@ -20,6 +20,20 @@ make build-relayer
 make build-relayer-docker
 ```
 
+## Init relayer
+
+### Init relayer default config
+
+The relayer uses `relayer.yaml` for its work. The file contains all required setting which can be adjusted.
+To init the default config call.
+
+```bash
+./coreumbridge-xrpl-relayer init
+```
+
+The command will generate the default `relayer.yaml` config in the `$HOME/.coreumbridge-xrpl-relayer`.
+Optionally you can provide `--home` to set different home directory.
+
 ## Run relayer in docker
 
 If relayer docker image is not built, build it.
