@@ -33,8 +33,9 @@ import (
 )
 
 const (
-	configVersion  = "v1"
-	configFileName = "relayer.yaml"
+	configVersion = "v1"
+	// ConfigFileName is file name used for the relayer config.
+	ConfigFileName = "relayer.yaml"
 
 	defaultCoreumChainID = coreumchainconstant.ChainIDMain
 )
@@ -360,6 +361,11 @@ func InitConfig(homePath string, cfg Config) error {
 		return errors.Errorf("failed to initi config, file already exists, path:%s", path)
 	}
 
+	err := os.MkdirAll(homePath, 0o700)
+	if err != nil {
+		return errors.Errorf("failed to create dirs by path:%s", path)
+	}
+
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create config file, path:%s", path)
@@ -398,7 +404,7 @@ func ReadConfig(homePath string) (Config, error) {
 }
 
 func buildFilePath(homePath string) string {
-	return filepath.Join(homePath, configFileName)
+	return filepath.Join(homePath, ConfigFileName)
 }
 
 func getGRPCClientConn(grpcURL string) (*grpc.ClientConn, error) {
