@@ -39,15 +39,9 @@ Check [register-token workflow](#register-token) for more details.
 
 ##### XRP token registration
 
-<<<<<<< HEAD
-The XRP token is registered in the token registry during the contract instantiation. That token uses the constant issuer
-`rrrrrrrrrrrrrrrrrrrrrho` and currency `XRP` set in the contract as default values. That token can be enabled or disabled by the owner similar to other
-tokens. Similar to XRPL originated tokens, the XRP token has the `sending precision` and `max holding amount` which we set
-=======
 The XRP token is registered in the token registry on the contract instantiation. That token use the constant issuer
 `rrrrrrrrrrrrrrrrrrrrrhoLvTp` and currency `XRP` token. That token can be enabled or disabled by the owner similar to other
 tokens. Similar to XRPL originated tokens the XRP token has the `sending precision` and `max holding amount` which we set
->>>>>>> master
 to default values on the contact instantiation.
 The XRP token has a bit of a different nature than other tokens. That token doesn't need approval (TrustSet) to be
 received and is used by the multi-signing account to pay fees. Since the balance for fees and received balance are not
