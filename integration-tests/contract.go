@@ -37,7 +37,11 @@ func DeployAndInstantiateContract(
 		Amount: issueFee.Amount.AddRaw(1_000_000),
 	})
 
-	contractClient := coreum.NewContractClient(coreum.DefaultContractClientConfig(sdk.AccAddress(nil)), chains.Log, chains.Coreum.ClientContext)
+	contractClient := coreum.NewContractClient(
+		coreum.DefaultContractClientConfig(sdk.AccAddress(nil)),
+		chains.Log,
+		chains.Coreum.ClientContext,
+	)
 	instantiationCfg := coreum.InstantiationConfig{
 		Owner:                       owner,
 		Admin:                       owner,
