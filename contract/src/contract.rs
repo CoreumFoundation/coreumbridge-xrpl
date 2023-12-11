@@ -60,6 +60,7 @@ const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
 const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
 const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 =
     10u128.pow(16 - XRP_DEFAULT_SENDING_PRECISION as u32 + XRP_DECIMALS);
+// TODO(keyleu): Update the value of the fee for XRP when we know it.
 const XRP_DEFAULT_FEE: Uint128 = Uint128::zero();
 
 pub const MAX_TICKETS: u32 = 250;
@@ -423,14 +424,15 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 };
 
                 // Here we simply truncate because the Coreum tokens corresponding to XRPL originated tokens have the same decimals as their corresponding Coreum tokens
-                let (amount_truncated, truncated_portion) =
+                let (amount_truncated, remainder) =
                     truncate_amount(token.sending_precision, decimals, amount)?;
 
                 // We calculate the amount to send after applying the bridging fees for that token
                 let amount_to_send =
-                    amount_after_fees(amount_truncated, token.bridging_fee, truncated_portion)?;
+                    amount_after_fees(amount_truncated, token.bridging_fee, remainder)?;
 
-                if amount_to_send
+                if amount_truncated
+                    .checked_add(remainder)?
                     .checked_add(
                         deps.querier
                             .query_supply(token.coreum_denom.to_owned())?
@@ -442,19 +444,25 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 }
 
                 if threshold_reached {
-                    handle_fee_collection(
+                    let fee_collected = handle_fee_collection(
                         deps.storage,
                         token.bridging_fee,
                         token.coreum_denom.to_owned(),
-                        truncated_portion,
+                        remainder,
                     )?;
 
-                    let mint_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
-                        coin: coin(amount_to_send.u128(), token.coreum_denom),
-                        recipient: Some(recipient.to_string()),
+                    let mint_msg_fees = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
+                        coin: coin(fee_collected.u128(), token.coreum_denom.to_owned()),
+                        recipient: None,
                     }));
 
-                    response = response.add_message(mint_msg)
+                    let mint_msg_for_recipient =
+                        CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
+                            coin: coin(amount_to_send.u128(), token.coreum_denom),
+                            recipient: Some(recipient.to_string()),
+                        }));
+
+                    response = response.add_messages([mint_msg_fees, mint_msg_for_recipient])
                 }
             } else {
                 // We check that the token is registered and enabled
@@ -481,7 +489,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     XRPL_TOKENS_DECIMALS,
                     token.decimals,
                     amount,
-                    token.bridging_fee
+                    token.bridging_fee,
                 )?;
 
                 if threshold_reached {
@@ -1000,8 +1008,8 @@ fn truncate_amount(
 
     let truncated_amount =
         amount_to_send.checked_mul(Uint128::new(10u128.pow(exponent.unsigned_abs())))?;
-    let truncated = amount.checked_sub(truncated_amount)?;
-    Ok((truncated_amount, truncated))
+    let remainder = amount.checked_sub(truncated_amount)?;
+    Ok((truncated_amount, remainder))
 }
 
 // Function used to convert the amount received from XRPL with XRPL decimals to the Coreum amount with Coreum decimals
@@ -1032,13 +1040,13 @@ fn convert_and_truncate_amount(
     bridging_fee: Uint128,
 ) -> Result<(Uint128, Uint128), ContractError> {
     let converted_amount = convert_amount_decimals(from_decimals, to_decimals, amount)?;
-    // We save the truncated portion as well to deduct it from the bridging fees
-    let (truncated_amount, truncated_portion) =
+    // We save the remainder as well to deduct it from the bridging fees
+    let (truncated_amount, remainder) =
         truncate_amount(sending_precision, to_decimals, converted_amount)?;
 
-    let amount_after_fees = amount_after_fees(truncated_amount, bridging_fee, truncated_portion)?;
-    
-    Ok((amount_after_fees, truncated_portion))
+    let amount_after_fees = amount_after_fees(truncated_amount, bridging_fee, remainder)?;
+
+    Ok((amount_after_fees, remainder))
 }
 
 // Helper function to combine the truncation and conversion of amounts after substracting fees.
@@ -1049,14 +1057,14 @@ fn truncate_and_convert_amount(
     amount: Uint128,
     bridging_fee: Uint128,
 ) -> Result<(Uint128, Uint128), ContractError> {
-    // We save the truncated portion as well to deduct it from the bridging fees
-    let (truncated_amount, truncated_portion) =
+    // We save the remainder as well to deduct it from the bridging fees
+    let (truncated_amount, remainder) =
         truncate_amount(sending_precision, from_decimals, amount)?;
 
-    let amount_after_fees = amount_after_fees(truncated_amount, bridging_fee, truncated_portion)?;
+    let amount_after_fees = amount_after_fees(truncated_amount, bridging_fee, remainder)?;
 
     let converted_amount = convert_amount_decimals(from_decimals, to_decimals, amount_after_fees)?;
-    Ok((converted_amount, truncated_portion))
+    Ok((converted_amount, remainder))
 }
 
 fn is_token_xrp(issuer: String, currency: String) -> bool {

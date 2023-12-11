@@ -25,17 +25,18 @@ pub fn handle_fee_collection(
     bridging_fee: Uint128,
     token_denom: String,
     truncated_portion: Uint128,
-) -> Result<(), ContractError> {
+) -> Result<Uint128, ContractError> {
     // We substract the truncated portion from the bridging_fee. If truncated portion >= fee,
     // then we already paid the fees and we collect the truncated portion instead of bridging fee (because it might be bigger than the bridging fee)
     let fee_to_collect = bridging_fee.saturating_sub(truncated_portion);
-    if fee_to_collect.is_zero() {
-        collect_fees(storage, coin(truncated_portion.u128(), token_denom))?;
+    let fee_collected = if fee_to_collect.is_zero() {
+        truncated_portion
     } else {
-        collect_fees(storage, coin(bridging_fee.u128(), token_denom))?;
-    }
-
-    Ok(())
+        bridging_fee
+    };
+    
+    collect_fees(storage, coin(fee_collected.u128(), token_denom))?;
+    Ok(fee_collected)
 }
 
 pub fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractError> {

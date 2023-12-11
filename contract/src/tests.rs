@@ -3143,7 +3143,7 @@ mod tests {
                     tx_hash: generate_hash(),
                     issuer: test_token1.issuer.clone(),
                     currency: test_token1.currency.clone(),
-                    // Sending more than 199999999999999999 will truncate to 100000000000000000 and send it to the user
+                    // Sending more than 199999999999999999 will truncate to 100000000000000000 and send it to the user and keep the remainder in the contract as fees to collect.
                     amount: Uint128::new(199999999999999999),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -3162,34 +3162,7 @@ mod tests {
 
         assert_eq!(request_balance.balance, "100000000000000000".to_string());
 
-        // Sending it again should work too because we will not have passed maximum holding amount
-        wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::SaveEvidence {
-                evidence: Evidence::XRPLToCoreumTransfer {
-                    tx_hash: generate_hash(),
-                    issuer: test_token1.issuer.clone(),
-                    currency: test_token1.currency.clone(),
-                    // Let's try sending 199999999999999999 that will be truncated to 100000000000000000 and send it to the user
-                    amount: Uint128::new(199999999999999999),
-                    recipient: Addr::unchecked(receiver.address()),
-                },
-            },
-            &[],
-            &signer,
-        )
-        .unwrap();
-
-        let request_balance = asset_ft
-            .query_balance(&QueryBalanceRequest {
-                account: receiver.address(),
-                denom: denom.clone(),
-            })
-            .unwrap();
-
-        assert_eq!(request_balance.balance, "200000000000000000".to_string());
-
-        // Sending it a 3rd time will fail because will pass the maximum holding amount.
+        // Sending anything again should not work because we already sent the maximum amount possible including the fees in the contract.
         let maximum_amount_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -3198,8 +3171,7 @@ mod tests {
                         tx_hash: generate_hash(),
                         issuer: test_token1.issuer.clone(),
                         currency: test_token1.currency.clone(),
-                        // Let's try sending 199999999999999999 that will be truncated to 100000000000000000 and send it to the user
-                        amount: Uint128::new(199999999999999999),
+                        amount: Uint128::new(100000000000000000),
                         recipient: Addr::unchecked(receiver.address()),
                     },
                 },
@@ -3216,12 +3188,13 @@ mod tests {
 
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
-                account: receiver.address(),
+                account: contract_addr.to_owned(),
                 denom: denom.clone(),
             })
             .unwrap();
 
-        assert_eq!(request_balance.balance, "200000000000000000".to_string());
+        // Fees collected
+        assert_eq!(request_balance.balance, "99999999999999999".to_string());
 
         // Test positive sending precisions
 
@@ -3340,7 +3313,7 @@ mod tests {
                     tx_hash: generate_hash(),
                     issuer: test_token2.issuer.clone(),
                     currency: test_token2.currency.clone(),
-                    // Sending 299 should truncate the amount to 200
+                    // Sending 299 should truncate the amount to 200 and keep the 99 in the contract as fees to collect
                     amount: Uint128::new(299),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -3359,7 +3332,7 @@ mod tests {
 
         assert_eq!(request_balance.balance, "200".to_string());
 
-        // Sending it again should truncate the amount to 200 again and should pass
+        // Sending 200 should work because we will reach exactly the maximum bridged amount.
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -3367,8 +3340,7 @@ mod tests {
                     tx_hash: generate_hash(),
                     issuer: test_token2.issuer.clone(),
                     currency: test_token2.currency.clone(),
-                    // Sending 299 should truncate the amount to 200
-                    amount: Uint128::new(299),
+                    amount: Uint128::new(200),
                     recipient: Addr::unchecked(receiver.address()),
                 },
             },
@@ -3386,7 +3358,16 @@ mod tests {
 
         assert_eq!(request_balance.balance, "400".to_string());
 
-        // Sending 199 should truncate to 100 and since maximum is 499, it should fail
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "99".to_string());
+
+        // Sending anything again should fail because we passed the maximum bridged amount
         let maximum_amount_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -3395,7 +3376,6 @@ mod tests {
                         tx_hash: generate_hash(),
                         issuer: test_token2.issuer.clone(),
                         currency: test_token2.currency.clone(),
-                        // Sending 199 should truncate to 100 and since it's over the maximum it should fail
                         amount: Uint128::new(199),
                         recipient: Addr::unchecked(receiver.address()),
                     },
@@ -3528,7 +3508,7 @@ mod tests {
                     tx_hash: generate_hash(),
                     issuer: test_token3.issuer.clone(),
                     currency: test_token3.currency.clone(),
-                    // Sending 1111111111111111 should truncate the amount to 1000000000000000
+                    // Sending 1111111111111111 should truncate the amount to 1000000000000000 and keep 111111111111111 as fees to collect
                     amount: Uint128::new(1111111111111111),
                     recipient: Addr::unchecked(receiver.address()),
                 },
@@ -3554,8 +3534,8 @@ mod tests {
                     tx_hash: generate_hash(),
                     issuer: test_token3.issuer.clone(),
                     currency: test_token3.currency.clone(),
-                    // Sending 4111111111111111 should truncate the amount to 4000000000000000 and should pass because maximum is 5000000000000000
-                    amount: Uint128::new(4111111111111111),
+                    // Sending 3111111111111111 should truncate the amount to 3000000000000000 and keep another 111111111111111 as fees to collect
+                    amount: Uint128::new(3111111111111111),
                     recipient: Addr::unchecked(receiver.address()),
                 },
             },
@@ -3571,7 +3551,16 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(request_balance.balance, "5000000000000000".to_string());
+        assert_eq!(request_balance.balance, "4000000000000000".to_string());
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "222222222222222".to_string());
 
         let maximum_amount_error = wasm
             .execute::<ExecuteMsg>(
@@ -4295,6 +4284,15 @@ mod tests {
             vec![coin(150000, xrpl_token.coreum_denom.to_owned())]
         );
 
+        // Check that contract holds those tokens.
+        let query_contract_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: xrpl_token.coreum_denom.to_owned(),
+            })
+            .unwrap();
+        assert_eq!(query_contract_balance.balance, "150000".to_string());
+
         // Let's try to bridge some tokens back from Coreum to XRPL and verify that the fees are also collected correctly
         let xrpl_receiver_address = generate_xrpl_address();
         wasm.execute::<ExecuteMsg>(
@@ -4330,6 +4328,26 @@ mod tests {
                 },
             }
         );
+
+        // Confirm operation to clear tokens from contract
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: query_pending_operations.operations[0].account_sequence,
+                        ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    },
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
 
         let query_fees_collected = wasm
             .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
@@ -4377,9 +4395,9 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(query_pending_operations.operations.len(), 2);
+        assert_eq!(query_pending_operations.operations.len(), 1);
         assert_eq!(
-            query_pending_operations.operations[1],
+            query_pending_operations.operations[0],
             Operation {
                 ticket_sequence: Some(3),
                 account_sequence: None,
@@ -4406,6 +4424,26 @@ mod tests {
             ]
         );
 
+        // Confirm operation
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: query_pending_operations.operations[0].account_sequence,
+                        ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    },
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
+
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -4423,9 +4461,9 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(query_pending_operations.operations.len(), 3);
+        assert_eq!(query_pending_operations.operations.len(), 1);
         assert_eq!(
-            query_pending_operations.operations[2],
+            query_pending_operations.operations[0],
             Operation {
                 ticket_sequence: Some(4),
                 account_sequence: None,
@@ -4451,6 +4489,26 @@ mod tests {
                 coin(600000, coreum_token_denom.to_owned())
             ]
         );
+
+        // Confirm operation
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: query_pending_operations.operations[0].account_sequence,
+                        ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    },
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
 
         // Let's try to send the Coreum originated token in the opposite direction (from XRPL to Coreum) and see that fees are also accumulated correctly.
         let previous_balance = asset_ft
@@ -4564,7 +4622,7 @@ mod tests {
             query_fees_collected.fees_collected,
             vec![coin(2, xrpl_token.coreum_denom.to_owned()),]
         );
-
+        // Check that relayers balance hasn't changed.
         for relayer in relayer_accounts.iter() {
             let request_balance_token1 = asset_ft
                 .query_balance(&QueryBalanceRequest {
@@ -4582,6 +4640,28 @@ mod tests {
             assert_eq!(request_balance_token1.balance, "66666".to_string()); // 200000 / 3 = 66666
             assert_eq!(request_balance_token2.balance, "300000".to_string()); // 900000 / 3 = 300000
         }
+
+        // Check that final balance in the contract matches with those fees
+        let query_contract_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: xrpl_token.coreum_denom.to_owned(),
+            })
+            .unwrap();
+        assert_eq!(query_contract_balance.balance, "2".to_string());
+
+        let query_contract_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: coreum_token_denom.to_owned(),
+            })
+            .unwrap();
+
+        // Amount that the user can still bridge back (he has on XRPL) from the token he has sent
+        // Sent: 300010 + 600000 (after applying fees)
+        // Sent back: 650010
+        // Result: 300010 + 600000 - 650010 = 250000
+        assert_eq!(query_contract_balance.balance, "250000".to_string());
     }
 
     #[test]
