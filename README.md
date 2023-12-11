@@ -114,7 +114,7 @@ If you don't have the contract bytecode download it.
 ./coreumbridge-xrpl-relayer bootstrap-bridge bootstraping.yaml --key-name bridge-account
 ```
 
-Once the command is executed get the bridge address from the output and share among the relayers to update in 
+Once the command is executed get the bridge contract address from the output and share among the relayers to update in 
 the relayers config.
 
 #### Remove the bridge-account key
@@ -133,7 +133,7 @@ If relayer docker image is not built, build it.
 docker run -it --name coreumbridge-xrpl-relayer -v ${PWD}/keys:/keys coreumbridge-xrpl-relayer:local start --keyring-dir /keys
 ```
 
-It is expected that at that time the relayer is initialized and it's keys are generated and accounts are funded.
+It is expected that at that time the relayer is initialized and its keys are generated and accounts are funded.
 
 ### Restart running instance
 

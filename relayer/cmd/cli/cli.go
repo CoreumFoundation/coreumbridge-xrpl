@@ -373,7 +373,7 @@ func addKeyringFlags(cmd *cobra.Command) {
 	)
 	cmd.PersistentFlags().String(
 		flags.FlagKeyringDir,
-		DefaultHomeDir, "The client Keyring directory; if omitted, the default 'home' directory will be used",)
+		DefaultHomeDir, "The client Keyring directory; if omitted, the default 'home' directory will be used")
 }
 
 func addKeyNameFlag(cmd *cobra.Command) {

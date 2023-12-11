@@ -60,7 +60,7 @@ type RunnerEnv struct {
 	ContractClient       *coreum.ContractClient
 	Chains               integrationtests.Chains
 	ContractOwner        sdk.AccAddress
-	BridgeClient      *bridgeclient.BridgeClient
+	BridgeClient         *bridgeclient.BridgeClient
 	RunnersParallelGroup *parallel.Group
 	Runners              []*runner.Runner
 }
@@ -162,7 +162,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		ContractClient:       contractClient,
 		Chains:               chains,
 		ContractOwner:        contractOwner,
-		BridgeClient:      bridgeClient,
+		BridgeClient:         bridgeClient,
 		RunnersParallelGroup: parallel.NewGroup(ctx),
 		Runners:              runners,
 	}
