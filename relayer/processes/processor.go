@@ -2,10 +2,11 @@ package processes
 
 import (
 	"context"
-	"sync"
+	"runtime/debug"
 
 	"github.com/pkg/errors"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/tracing"
 )
@@ -47,46 +48,45 @@ func (p *Processor) StartProcesses(ctx context.Context, processes ...ProcessWith
 		}
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(processes))
-	for _, process := range processes {
-		go func(process ProcessWithOptions) {
-			// set process name to the context
-			ctx = tracing.WithTracingProcess(ctx, process.Name)
-			defer wg.Done()
-			defer func() {
-				if r := recover(); r != nil {
-					p.log.Error(ctx, "Received panic during the process execution", logger.Error(errors.Errorf("%s", r)))
-					if !process.IsRestartableOnError {
-						p.log.Warn(ctx, "The process is not auto-restartable on error")
-						return
-					}
-					p.log.Info(ctx, "Restarting process after the panic")
-					p.startProcessWithRestartOnError(ctx, process)
-				}
-			}()
-			p.startProcessWithRestartOnError(ctx, process)
-		}(process)
-	}
-	wg.Wait()
-
-	return nil
+	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+		for i := range processes {
+			process := processes[i]
+			spawn(process.Name, parallel.Continue, func(ctx context.Context) error {
+				ctx = tracing.WithTracingProcess(ctx, process.Name)
+				return p.startProcessWithRestartOnError(ctx, process)
+			})
+		}
+		return nil
+	}, parallel.WithGroupLogger(p.log.ParallelLogger(ctx)))
 }
 
-func (p *Processor) startProcessWithRestartOnError(ctx context.Context, process ProcessWithOptions) {
+func (p *Processor) startProcessWithRestartOnError(ctx context.Context, process ProcessWithOptions) error {
 	for {
-		if err := process.Process.Start(ctx); err != nil {
+		// start process and handle the panic
+		err := func() (err error) {
+			defer func() {
+				if p := recover(); p != nil {
+					err = errors.Wrapf(
+						parallel.ErrPanic{Value: p, Stack: debug.Stack()},
+						"handled panic on process:%s", process.Name,
+					)
+				}
+			}()
+			return process.Process.Start(ctx)
+		}()
+		// restart the process is it is restartable
+		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return
+				return nil
 			}
 			p.log.Error(ctx, "Received unexpected error from the process", logger.Error(err))
 			if !process.IsRestartableOnError {
 				p.log.Warn(ctx, "The process is not auto-restartable on error")
-				break
+				return err
 			}
 			p.log.Info(ctx, "Restarting process after the error")
 		} else {
-			return
+			return nil
 		}
 	}
 }

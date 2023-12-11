@@ -9,6 +9,7 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/tracing"
@@ -61,24 +62,26 @@ func (o *XRPLTxObserver) Init(ctx context.Context) error {
 // Start starts the process.
 func (o *XRPLTxObserver) Start(ctx context.Context) error {
 	txCh := make(chan rippledata.TransactionWithMetaData)
-	if err := o.txScanner.ScanTxs(ctx, txCh); err != nil {
-		return err
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return errors.WithStack(ctx.Err())
-		case tx := <-txCh:
-			if err := o.processTx(ctx, tx); err != nil {
-				if errors.Is(err, context.Canceled) {
-					o.log.Warn(ctx, "Context canceled during the XRPL tx processing", logger.StringField("error", err.Error()))
-				} else {
-					o.log.Error(ctx, "Failed to process XRPL tx", logger.Error(err))
+	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+		spawn("tx-scanner", parallel.Continue, func(ctx context.Context) error {
+			defer close(txCh)
+			return o.txScanner.ScanTxs(ctx, txCh)
+		})
+		spawn("tx-processor", parallel.Fail, func(ctx context.Context) error {
+			for tx := range txCh {
+				if err := o.processTx(ctx, tx); err != nil {
+					if errors.Is(err, context.Canceled) {
+						o.log.Warn(ctx, "Context canceled during the XRPL tx processing", logger.StringField("error", err.Error()))
+					} else {
+						return errors.Wrapf(err, "failed to process XRPL tx, txHash:%s", tx.GetHash().String())
+					}
 				}
 			}
-		}
-	}
+			return errors.WithStack(ctx.Err())
+		})
+
+		return nil
+	}, parallel.WithGroupLogger(o.log.ParallelLogger(ctx)))
 }
 
 func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {

@@ -31,7 +31,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 
 	envCfg := DefaultRunnerEnvConfig()
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
-	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	runnerEnv.StartAllRunnerProcesses()
 	runnerEnv.AllocateTickets(ctx, t, uint32(200))
 
 	coreumSender := chains.Coreum.GenAccount()
@@ -138,7 +138,7 @@ func TestSendXRPTokenFromXRPLToCoreumAndBack(t *testing.T) {
 
 	envCfg := DefaultRunnerEnvConfig()
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
-	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	runnerEnv.StartAllRunnerProcesses()
 	runnerEnv.AllocateTickets(ctx, t, uint32(200))
 
 	coreumSender := chains.Coreum.GenAccount()
@@ -220,7 +220,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithMaliciousRelayer(t *testing.
 	envCfg := DefaultRunnerEnvConfig()
 	envCfg.MaliciousRelayerNumber = 1
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
-	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	runnerEnv.StartAllRunnerProcesses()
 	runnerEnv.AllocateTickets(ctx, t, uint32(200))
 
 	coreumSender := chains.Coreum.GenAccount()
@@ -302,7 +302,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithTicketsReallocation(t *testi
 	envCfg := DefaultRunnerEnvConfig()
 	envCfg.UsedTicketSequenceThreshold = 3
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
-	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	runnerEnv.StartAllRunnerProcesses()
 	runnerEnv.AllocateTickets(ctx, t, uint32(5))
 	sendingCount := 10
 
@@ -430,7 +430,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 	})
 
 	// start relayers
-	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	runnerEnv.StartAllRunnerProcesses()
 	// recover tickets so we can register tokens
 	runnerEnv.AllocateTickets(ctx, t, 200)
 
@@ -561,7 +561,7 @@ func TestRecoverXRPLOriginatedTokenRegistrationAndSendFromXRPLToCoreumAndBack(t 
 
 	envCfg := DefaultRunnerEnvConfig()
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
-	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	runnerEnv.StartAllRunnerProcesses()
 	runnerEnv.AllocateTickets(ctx, t, uint32(200))
 
 	coreumSender := chains.Coreum.GenAccount()
@@ -712,7 +712,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
 
 	// start relayers
-	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	runnerEnv.StartAllRunnerProcesses()
 	// recover tickets so we can register tokens
 	runnerEnv.AllocateTickets(ctx, t, 200)
 
@@ -883,7 +883,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
 
 	// start relayers
-	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	runnerEnv.StartAllRunnerProcesses()
 	// recover tickets so we can register tokens
 	runnerEnv.AllocateTickets(ctx, t, 200)
 
