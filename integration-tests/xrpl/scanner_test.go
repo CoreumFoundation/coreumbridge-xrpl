@@ -144,7 +144,9 @@ func sendMultipleTxs(
 	return writtenTxHashes
 }
 
-func validateTxsHashesInChannel(ctx context.Context, t *testing.T, writtenTxHashes map[string]struct{}, txsCh chan rippledata.TransactionWithMetaData) {
+func validateTxsHashesInChannel(
+	ctx context.Context, t *testing.T, writtenTxHashes map[string]struct{}, txsCh chan rippledata.TransactionWithMetaData,
+) {
 	scanCtx, scanCtxCancel := context.WithTimeout(ctx, time.Minute)
 	defer scanCtxCancel()
 	// copy the original map
@@ -169,7 +171,9 @@ func validateTxsHashesInChannel(ctx context.Context, t *testing.T, writtenTxHash
 	}
 }
 
-func getTxHashesFromChannel(ctx context.Context, t *testing.T, txsCh chan rippledata.TransactionWithMetaData, count int) map[string]struct{} {
+func getTxHashesFromChannel(
+	ctx context.Context, t *testing.T, txsCh chan rippledata.TransactionWithMetaData, count int,
+) map[string]struct{} {
 	scanCtx, scanCtxCancel := context.WithTimeout(ctx, time.Minute)
 	defer scanCtxCancel()
 	txHashes := make(map[string]struct{}, count)

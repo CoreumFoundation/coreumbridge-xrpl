@@ -31,6 +31,7 @@ type Chains struct {
 	Log    logger.Logger
 }
 
+//nolint:lll // breaking down cli flags will make it less readable.
 func init() {
 	flag.StringVar(&coreumCfg.GRPCAddress, "coreum-grpc-address", "localhost:9090", "GRPC address of cored node started by coreum")
 	flag.StringVar(&coreumCfg.FundingMnemonic, "coreum-funding-mnemonic", "sad hobby filter tray ordinary gap half web cat hard call mystery describe member round trend friend beyond such clap frozen segment fan mistake", "Funding coreum account mnemonic required by tests")
