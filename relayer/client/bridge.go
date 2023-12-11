@@ -28,7 +28,12 @@ const (
 
 // ContractClient is the interface for the contract client.
 type ContractClient interface {
-	DeployAndInstantiate(ctx context.Context, sender sdk.AccAddress, byteCode []byte, config coreum.InstantiationConfig) (sdk.AccAddress, error)
+	DeployAndInstantiate(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		byteCode []byte,
+		config coreum.InstantiationConfig,
+	) (sdk.AccAddress, error)
 	GetContractConfig(ctx context.Context) (coreum.ContractConfig, error)
 }
 
@@ -129,42 +134,9 @@ func (b *BridgeClient) Bootstrap(
 		}
 	}
 	// validate the config and fill required objects
-	coreumAuthClient := authtypes.NewQueryClient(b.clientCtx)
-	relayers := make([]coreum.Relayer, 0, len(cfg.Relayers))
-	xrplSignerEntries := make([]rippledata.SignerEntry, 0)
-	for _, relayer := range cfg.Relayers {
-		if _, err := coreumAuthClient.Account(ctx, &authtypes.QueryAccountRequest{
-			Address: relayer.CoreumAddress,
-		}); err != nil {
-			return nil, errors.Wrapf(err, "failed to get coreum account by address:%s", relayer.CoreumAddress)
-		}
-		xrplAddress, err := rippledata.NewAccountFromAddress(relayer.XRPLAddress)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to convert XRPL address string to rippledata.Account, address:%s", relayer.XRPLAddress)
-		}
-		xrplAccInfo, err := b.xrplRPCClient.AccountInfo(ctx, *xrplAddress)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get XRPL account by address:%s", xrplAddress.String())
-		}
-
-		if xrplAccInfo.AccountData.Balance.Float() < xrpl.ReserveToActivateAccount {
-			return nil, errors.Errorf("insufficient XRPL relayer account balance, required:%f, current:%f", xrpl.ReserveToActivateAccount, xrplAccInfo.AccountData.Balance.Float())
-		}
-		relayerCoreumAddress, err := sdk.AccAddressFromBech32(relayer.CoreumAddress)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse relayerCoreumAddress:%s", relayer.CoreumAddress)
-		}
-		relayers = append(relayers, coreum.Relayer{
-			CoreumAddress: relayerCoreumAddress,
-			XRPLAddress:   relayer.XRPLAddress,
-			XRPLPubKey:    relayer.XRPLPubKey,
-		})
-		xrplSignerEntries = append(xrplSignerEntries, rippledata.SignerEntry{
-			SignerEntry: rippledata.SignerEntryItem{
-				Account:      xrplAddress,
-				SignerWeight: lo.ToPtr(uint16(1)),
-			},
-		})
+	relayers, xrplSignerEntries, err := b.buildRelayersFromBootstrappingConfig(ctx, cfg)
+	if err != nil {
+		return nil, err
 	}
 	// prepare deployment config
 	contactByteCode, err := os.ReadFile(cfg.ContractByteCodePath)
@@ -181,7 +153,12 @@ func (b *BridgeClient) Bootstrap(
 	}
 	trustSetLimitAmount, ok := sdkmath.NewIntFromString(cfg.TrustSetLimitAmount)
 	if !ok {
-		return nil, errors.Wrapf(err, "failed to convert trustSetLimitAmount to sdkmth.Int, trustSetLimitAmount:%s", trustSetLimitAmount)
+		return nil,
+			errors.Wrapf(
+				err,
+				"failed to convert trustSetLimitAmount to sdkmth.Int, trustSetLimitAmount:%s",
+				trustSetLimitAmount,
+			)
 	}
 	instantiationCfg := coreum.InstantiationConfig{
 		Owner:                       owner,
@@ -207,6 +184,57 @@ func (b *BridgeClient) Bootstrap(
 	return contractAddress, nil
 }
 
+func (b *BridgeClient) buildRelayersFromBootstrappingConfig(
+	ctx context.Context,
+	cfg BootstrappingConfig,
+) ([]coreum.Relayer, []rippledata.SignerEntry, error) {
+	coreumAuthClient := authtypes.NewQueryClient(b.clientCtx)
+	relayers := make([]coreum.Relayer, 0, len(cfg.Relayers))
+	xrplSignerEntries := make([]rippledata.SignerEntry, 0)
+	for _, relayer := range cfg.Relayers {
+		if _, err := coreumAuthClient.Account(ctx, &authtypes.QueryAccountRequest{
+			Address: relayer.CoreumAddress,
+		}); err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to get coreum account by address:%s", relayer.CoreumAddress)
+		}
+		xrplAddress, err := rippledata.NewAccountFromAddress(relayer.XRPLAddress)
+		if err != nil {
+			return nil, nil, errors.Wrapf(
+				err,
+				"failed to convert XRPL address string to rippledata.Account, address:%s",
+				relayer.XRPLAddress,
+			)
+		}
+		xrplAccInfo, err := b.xrplRPCClient.AccountInfo(ctx, *xrplAddress)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to get XRPL account by address:%s", xrplAddress.String())
+		}
+		if xrplAccInfo.AccountData.Balance.Float() < xrpl.ReserveToActivateAccount {
+			return nil, nil, errors.Errorf(
+				"insufficient XRPL relayer account balance, required:%f, current:%f",
+				xrpl.ReserveToActivateAccount, xrplAccInfo.AccountData.Balance.Float(),
+			)
+		}
+		relayerCoreumAddress, err := sdk.AccAddressFromBech32(relayer.CoreumAddress)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to parse relayerCoreumAddress:%s", relayer.CoreumAddress)
+		}
+		relayers = append(relayers, coreum.Relayer{
+			CoreumAddress: relayerCoreumAddress,
+			XRPLAddress:   relayer.XRPLAddress,
+			XRPLPubKey:    relayer.XRPLPubKey,
+		})
+		xrplSignerEntries = append(xrplSignerEntries, rippledata.SignerEntry{
+			SignerEntry: rippledata.SignerEntryItem{
+				Account:      xrplAddress,
+				SignerWeight: lo.ToPtr(uint16(1)),
+			},
+		})
+	}
+
+	return relayers, xrplSignerEntries, nil
+}
+
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(
 	ctx context.Context,
 	relayersCount int,
@@ -229,7 +257,10 @@ func (b *BridgeClient) validateXRPLBridgeAccountBalance(
 		logger.Float64Field("balance", xrplBridgeAccountBalance.Float()),
 	)
 	if xrplBridgeAccountBalance.Float() < requiredXRPLBalance {
-		return errors.Errorf("insufficient XRPL bridge account balance, required:%f, current:%f", requiredXRPLBalance, xrplBridgeAccountBalance.Float())
+		return errors.Errorf(
+			"insufficient XRPL bridge account balance, required:%f, current:%f",
+			requiredXRPLBalance, xrplBridgeAccountBalance.Float(),
+		)
 	}
 
 	return nil
@@ -330,7 +361,11 @@ func ReadBootstrappingConfig(filePath string) (BootstrappingConfig, error) {
 	return config, nil
 }
 
-func (b *BridgeClient) autoFillSignSubmitAndAwaitXRPLTx(ctx context.Context, tx rippledata.Transaction, signerKeyName string) error {
+func (b *BridgeClient) autoFillSignSubmitAndAwaitXRPLTx(
+	ctx context.Context,
+	tx rippledata.Transaction,
+	signerKeyName string,
+) error {
 	sender, err := b.xrplTxSigner.Account(signerKeyName)
 	if err != nil {
 		return err

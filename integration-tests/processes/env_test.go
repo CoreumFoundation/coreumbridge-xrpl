@@ -87,7 +87,11 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.AddRaw(1_000_000),
 	})
 
-	contractClient := coreum.NewContractClient(coreum.DefaultContractClientConfig(sdk.AccAddress(nil)), chains.Log, chains.Coreum.ClientContext)
+	contractClient := coreum.NewContractClient(
+		coreum.DefaultContractClientConfig(sdk.AccAddress(nil)),
+		chains.Log,
+		chains.Coreum.ClientContext,
+	)
 	xrplTxSigner := xrpl.NewKeyringTxSigner(chains.XRPL.GetSignerKeyring())
 	bridgeClient := bridgeclient.NewBridgeClient(
 		chains.Log,
