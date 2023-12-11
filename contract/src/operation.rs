@@ -143,7 +143,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                         match COREUM_TOKENS
                             .idx
                             .xrpl_currency
-                            .item(storage, currency.to_owned())?
+                            .item(storage, currency)?
                             .map(|(_, ct)| ct)
                         {
                             Some(token) => {

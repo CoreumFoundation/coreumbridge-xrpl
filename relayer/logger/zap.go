@@ -26,7 +26,8 @@ var _ ParallelLogger = &ParallelZapLogger{}
 
 // ParallelZapLogger is parallel zap logger.
 type ParallelZapLogger struct {
-	ctx    context.Context //nolint:containedctx // the design depends on the parallel logger design where the ctx is set similar
+	//nolint:containedctx // the design depends on the parallel logger design where the ctx is set similar
+	ctx    context.Context
 	zapLog *ZapLogger
 }
 

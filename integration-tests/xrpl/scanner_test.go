@@ -114,11 +114,12 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 		spawn("scan", parallel.Continue, func(ctx context.Context) error {
 			return scanner.ScanTxs(ctx, txsCh)
 		})
-		spawn("write", parallel.Continue, func(ctx context.Context) error {
+		// write and exist
+		spawn("write", parallel.Exit, func(ctx context.Context) error {
 			writtenTxHashes = sendMultipleTxs(ctx, t, chains.XRPL, txsCount, senderAcc, recipientAcc)
 			return nil
 		})
-		spawn("wait", parallel.Exit, func(ctx context.Context) error {
+		spawn("wait", parallel.Continue, func(ctx context.Context) error {
 			t.Logf("Waiting for %d transactions to be scanned by the scanner", txsCount)
 			for tx := range txsCh {
 				receivedTxHashes[tx.GetHash().String()] = struct{}{}

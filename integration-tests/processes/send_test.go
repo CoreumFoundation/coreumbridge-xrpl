@@ -138,7 +138,7 @@ func TestSendXRPTokenFromXRPLToCoreumAndBack(t *testing.T) {
 
 	envCfg := DefaultRunnerEnvConfig()
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
-	runnerEnv.StartAllRunnerProcesses(ctx, t)
+	runnerEnv.StartAllRunnerProcesses()
 	runnerEnv.AllocateTickets(ctx, t, uint32(200))
 
 	coreumSender := chains.Coreum.GenAccount()

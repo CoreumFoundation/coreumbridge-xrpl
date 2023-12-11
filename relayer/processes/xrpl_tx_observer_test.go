@@ -556,7 +556,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				tt.txScannerBuilder(ctrl, cancel),
 				contractClient,
 			)
-			require.NoError(t, o.Start(ctx))
+			require.ErrorIs(t, o.Start(ctx), context.Canceled)
 		})
 	}
 }
