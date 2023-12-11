@@ -115,11 +115,11 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 			return scanner.ScanTxs(ctx, txsCh)
 		})
 		// write and exist
-		spawn("write", parallel.Exit, func(ctx context.Context) error {
+		spawn("write", parallel.Continue, func(ctx context.Context) error {
 			writtenTxHashes = sendMultipleTxs(ctx, t, chains.XRPL, txsCount, senderAcc, recipientAcc)
 			return nil
 		})
-		spawn("wait", parallel.Continue, func(ctx context.Context) error {
+		spawn("wait", parallel.Exit, func(ctx context.Context) error {
 			t.Logf("Waiting for %d transactions to be scanned by the scanner", txsCount)
 			for tx := range txsCh {
 				receivedTxHashes[tx.GetHash().String()] = struct{}{}
@@ -153,7 +153,14 @@ func sendMultipleTxs(
 				TransactionType: rippledata.PAYMENT,
 			},
 		}
-		require.NoError(t, xrplChain.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
+
+		err = xrplChain.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc)
+		if errors.Is(err, context.Canceled) {
+			// we add the hash here since we cancel the context once we read it
+			writtenTxHashes[xrpPaymentTx.Hash.String()] = struct{}{}
+			return writtenTxHashes
+		}
+		require.NoError(t, err)
 		writtenTxHashes[xrpPaymentTx.Hash.String()] = struct{}{}
 	}
 	t.Logf("Successfully sent %d transactions", len(writtenTxHashes))
