@@ -1,5 +1,8 @@
 package xrpl
 
+import rippledata "github.com/rubblelabs/ripple/data"
+
+// Error codes.
 const (
 	// TecPathDryTxResult defines that provided paths did not have enough liquidity to send anything at all.
 	//	This could mean that the source and destination accounts are not linked by trust lines.
@@ -19,4 +22,17 @@ const (
 	TecTxResultPrefix = "tec"
 	// TemTxResultPrefix is `tem` prefix for tx result.
 	TemTxResultPrefix = "tem"
+)
+
+const (
+	// XRPLIssuedTokenDecimals is XRPL decimals used on the coreum.
+	XRPLIssuedTokenDecimals = 15
+	// XRPCurrencyDecimals is XRP decimals used on the coreum.
+	XRPCurrencyDecimals = 6
+)
+
+// XRP token constants.
+var (
+	XRPTokenIssuer   = rippledata.Account{}
+	XRPTokenCurrency = rippledata.Currency{}
 )

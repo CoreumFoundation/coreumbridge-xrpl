@@ -199,13 +199,21 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	numberOfXRPLTokensToRegister := envCfg.UsedTicketSequenceThreshold + 1
 	// fund owner to cover asset FT issuance fees
 	chains.Coreum.FundAccountWithOptions(ctx, t, runnerEnv.ContractOwner, coreumintegration.BalancesOptions{
-		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(int64(numberOfXRPLTokensToRegister)).MulRaw(2),
+		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.
+			MulRaw(int64(numberOfXRPLTokensToRegister)).MulRaw(2),
 	})
 
 	for i := 0; i < numberOfXRPLTokensToRegister; i++ {
 		registeredXRPLCurrency, err := rippledata.NewCurrency(fmt.Sprintf("CR%d", i))
 		require.NoError(t, err)
-		runnerEnv.RegisterXRPLOriginatedToken(ctx, t, xrplCurrencyIssuerAcc, registeredXRPLCurrency, int32(6), integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30))
+		runnerEnv.RegisterXRPLOriginatedToken(
+			ctx,
+			t,
+			xrplCurrencyIssuerAcc,
+			registeredXRPLCurrency,
+			int32(6),
+			integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		)
 	}
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 
@@ -219,7 +227,14 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	for i := 0; i < numberOfXRPLTokensToRegister; i++ {
 		registeredXRPLCurrency, err := rippledata.NewCurrency(fmt.Sprintf("DR%d", i))
 		require.NoError(t, err)
-		runnerEnv.RegisterXRPLOriginatedToken(ctx, t, xrplCurrencyIssuerAcc, registeredXRPLCurrency, int32(6), integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30))
+		runnerEnv.RegisterXRPLOriginatedToken(
+			ctx,
+			t,
+			xrplCurrencyIssuerAcc,
+			registeredXRPLCurrency,
+			int32(6),
+			integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		)
 	}
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 	availableTicketsAfterSecondReallocation, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)

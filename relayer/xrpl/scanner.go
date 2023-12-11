@@ -17,7 +17,12 @@ import (
 // RPCTxProvider is RPC transactions provider.
 type RPCTxProvider interface {
 	LedgerCurrent(ctx context.Context) (LedgerCurrentResult, error)
-	AccountTx(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (AccountTxResult, error)
+	AccountTx(
+		ctx context.Context,
+		account rippledata.Account,
+		minLedger, maxLedger int64,
+		marker map[string]any,
+	) (AccountTxResult, error)
 }
 
 // AccountScannerConfig is the AccountScanner config.
@@ -97,7 +102,11 @@ func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.Trans
 	}, parallel.WithGroupLogger(s.log.ParallelLogger(ctx)))
 }
 
-func (s *AccountScanner) scanRecentHistory(ctx context.Context, currentLedger int64, ch chan<- rippledata.TransactionWithMetaData) {
+func (s *AccountScanner) scanRecentHistory(
+	ctx context.Context,
+	currentLedger int64,
+	ch chan<- rippledata.TransactionWithMetaData,
+) {
 	// in case we don't have enough ledges for the window we start from the initla
 	minLedger := int64(0)
 	if currentLedger > s.cfg.RecentScanWindow {
@@ -122,7 +131,11 @@ func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippleda
 	})
 }
 
-func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, ch chan<- rippledata.TransactionWithMetaData) int64 {
+func (s *AccountScanner) scanTransactions(
+	ctx context.Context,
+	minLedger int64,
+	ch chan<- rippledata.TransactionWithMetaData,
+) int64 {
 	if minLedger <= 0 {
 		minLedger = -1
 	}
@@ -149,7 +162,11 @@ func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, 
 				return lastLedger
 			}
 			// this panic is unexpected
-			panic(errors.Wrapf(err, "unexpected error received for the get account transactions with retry, err:%s", err.Error()))
+			panic(errors.Wrapf(
+				err,
+				"unexpected error received for the get account transactions with retry, err:%s",
+				err.Error(),
+			))
 		}
 		// we accept the transaction from the validated ledger only
 		if accountTxResult.Validated {

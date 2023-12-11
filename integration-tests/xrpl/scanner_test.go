@@ -159,7 +159,9 @@ func sendMultipleTxs(
 	return writtenTxHashes
 }
 
-func validateTxsHashesInChannel(ctx context.Context, writtenTxHashes map[string]struct{}, txsCh chan rippledata.TransactionWithMetaData) error {
+func validateTxsHashesInChannel(
+	ctx context.Context, writtenTxHashes map[string]struct{}, txsCh chan rippledata.TransactionWithMetaData,
+) error {
 	scanCtx, scanCtxCancel := context.WithTimeout(ctx, time.Minute)
 	defer scanCtxCancel()
 	// copy the original map

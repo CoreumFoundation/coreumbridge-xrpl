@@ -38,7 +38,10 @@ type XRPLTxSubmitterConfig struct {
 }
 
 // DefaultXRPLTxSubmitterConfig returns the default XRPLTxSubmitter.
-func DefaultXRPLTxSubmitterConfig(bridgeXRPLAddress rippledata.Account, relayerAddress sdk.AccAddress) XRPLTxSubmitterConfig {
+func DefaultXRPLTxSubmitterConfig(
+	bridgeXRPLAddress rippledata.Account,
+	relayerAddress sdk.AccAddress,
+) XRPLTxSubmitterConfig {
 	return XRPLTxSubmitterConfig{
 		BridgeXRPLAddress:    bridgeXRPLAddress,
 		RelayerCoreumAddress: relayerAddress,
@@ -152,11 +155,20 @@ func (s *XRPLTxSubmitter) getBridgeSigners(ctx context.Context) (BridgeSigners, 
 	for _, relayer := range contractConfig.Relayers {
 		xrplAcc, err := rippledata.NewAccountFromAddress(relayer.XRPLAddress)
 		if err != nil {
-			return BridgeSigners{}, errors.Wrapf(err, "failed to covert XRPL relayer address to Account type, address:%s", relayer.XRPLAddress)
+			return BridgeSigners{}, errors.Wrapf(
+				err,
+				"failed to covert XRPL relayer address to Account type, address:%s",
+				relayer.XRPLAddress,
+			)
 		}
 		var accPubKey rippledata.PublicKey
 		if err := accPubKey.UnmarshalText([]byte(relayer.XRPLPubKey)); err != nil {
-			return BridgeSigners{}, errors.Wrapf(err, "failed to unmarshal XRPL relayer pubkey, address:%s, pubKey:%s", relayer.XRPLAddress, relayer.XRPLPubKey)
+			return BridgeSigners{}, errors.Wrapf(
+				err,
+				"failed to unmarshal XRPL relayer pubkey, address:%s, pubKey:%s",
+				relayer.XRPLAddress,
+				relayer.XRPLPubKey,
+			)
 		}
 
 		xrplPubKeys[*xrplAcc] = accPubKey
@@ -171,7 +183,9 @@ func (s *XRPLTxSubmitter) getBridgeSigners(ctx context.Context) (BridgeSigners, 
 	}, nil
 }
 
-func (s *XRPLTxSubmitter) getBridgeXRPLSignerAccountsWithWeights(ctx context.Context) (map[rippledata.Account]uint16, uint32, error) {
+func (s *XRPLTxSubmitter) getBridgeXRPLSignerAccountsWithWeights(
+	ctx context.Context,
+) (map[rippledata.Account]uint16, uint32, error) {
 	accountInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeXRPLAddress)
 	if err != nil {
 		return nil, 0, err
@@ -190,7 +204,11 @@ func (s *XRPLTxSubmitter) getBridgeXRPLSignerAccountsWithWeights(ctx context.Con
 	return accountWights, weightsQuorum, nil
 }
 
-func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation coreum.Operation, bridgeSigners BridgeSigners) error {
+func (s *XRPLTxSubmitter) signOrSubmitOperation(
+	ctx context.Context,
+	operation coreum.Operation,
+	bridgeSigners BridgeSigners,
+) error {
 	valid, err := s.preValidateOperation(ctx, operation)
 	if err != nil {
 		return err
@@ -222,6 +240,7 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation c
 		s.log.Debug(ctx, "Transaction has been already submitted", logger.StringField("txHash", tx.GetHash().String()))
 		return nil
 	case xrpl.TecPathDryTxResult:
+		//nolint:lll // breaking down the log line will make it less readable.
 		s.log.Info(
 			ctx,
 			"The transaction has been sent, but will be reverted since the provided path does not have enough liquidity or the receipt doesn't link by trust lines.",
@@ -235,7 +254,11 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(ctx context.Context, operation c
 		return nil
 	case xrpl.TecInsufficientReserveTxResult:
 		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
-		s.log.Error(ctx, "Insufficient reserve to complete the operation", logger.StringField("txHash", tx.GetHash().String()))
+		s.log.Error(
+			ctx,
+			"Insufficient reserve to complete the operation",
+			logger.StringField("txHash", tx.GetHash().String()),
+		)
 		return nil
 	default:
 		// TODO(dzmitryhil) handle the case when the keys are rotated but the bridgeSigners are from the previous state
@@ -259,7 +282,11 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		}
 		xrplPubKey, ok := bridgeSigners.XRPLPubKeys[xrplAcc]
 		if !ok {
-			s.log.Warn(ctx, "Found XRPL signer address without pub key in the contract", logger.StringField("xrplAddress", xrplAcc.String()))
+			s.log.Warn(
+				ctx,
+				"Found XRPL signer address without pub key in the contract",
+				logger.StringField("xrplAddress", xrplAcc.String()),
+			)
 			continue
 		}
 		xrplAccWeight, ok := bridgeSigners.XRPLWeights[xrplAcc]
@@ -285,7 +312,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 				SigningPubKey: &xrplPubKey,
 			},
 		}
-		tx, err := s.buildXRPLTxFromOperation(ctx, operation)
+		tx, err := s.buildXRPLTxFromOperation(operation)
 		if err != nil {
 			return nil, false, err
 		}
@@ -294,7 +321,12 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		}
 		isValid, _, err := rippledata.CheckMultiSignature(tx)
 		if err != nil {
-			s.log.Warn(ctx, "failed to check transaction signature, err:%s, signer:%+v", logger.Error(err), logger.AnyField("signer", txSigner))
+			s.log.Warn(
+				ctx,
+				"failed to check transaction signature, err:%s, signer:%+v",
+				logger.Error(err),
+				logger.AnyField("signer", txSigner),
+			)
 			continue
 		}
 		if !isValid {
@@ -319,7 +351,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		return nil, false, nil
 	}
 	// build tx one more time to be sure that it is not affected
-	tx, err := s.buildXRPLTxFromOperation(ctx, operation)
+	tx, err := s.buildXRPLTxFromOperation(operation)
 	if err != nil {
 		return nil, false, err
 	}
@@ -385,7 +417,7 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 }
 
 func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation coreum.Operation) error {
-	tx, err := s.buildXRPLTxFromOperation(ctx, operation)
+	tx, err := s.buildXRPLTxFromOperation(operation)
 	if err != nil {
 		return err
 	}
@@ -409,22 +441,13 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 	return errors.Wrap(err, "failed to register transaction signature")
 }
 
-func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(ctx context.Context, operation coreum.Operation) (MultiSignableTransaction, error) {
+func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (MultiSignableTransaction, error) {
 	switch {
 	case isAllocateTicketsOperation(operation):
 		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	case isTrustSetOperation(operation):
 		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	case isCoreumToXRPLTransfer(operation):
-		// for the coreum originated tokens we need to fetch token decimals, but for the XRPL they are static
-		operationType := operation.OperationType.CoreumToXRPLTransfer
-		if s.cfg.BridgeXRPLAddress.String() == operationType.Issuer {
-			coreumToken, err := s.contractClient.GetCoreumTokenByXRPLCurrency(ctx, operationType.Currency)
-			if err != nil {
-				return nil, errors.Wrapf(err, "faild to get XRPL token for the coreum to XRPL transfer")
-			}
-			return BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation, coreumToken.Decimals)
-		}
 		return BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	default:
 		return nil, errors.Errorf("failed to process operation, unable to determine operation type, operation:%+v", operation)

@@ -102,3 +102,12 @@ fn reserve_ticket(storage: &mut dyn Storage) -> Result<u64, ContractError> {
     AVAILABLE_TICKETS.save(storage, &available_tickets)?;
     Ok(ticket_to_update)
 }
+
+// Return a ticket to available tickets array
+pub fn return_ticket(storage: &mut dyn Storage, ticket: u64) -> Result<(), ContractError> {
+    let mut available_tickets = AVAILABLE_TICKETS.load(storage)?;
+    available_tickets.push_front(ticket);
+    AVAILABLE_TICKETS.save(storage, &available_tickets)?;
+
+    Ok(())
+}

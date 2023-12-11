@@ -116,7 +116,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 						TxHash:    rippledata.Hash256{}.String(),
 						Issuer:    xrplOriginatedTokenXRPLAmount.Issuer.String(),
 						Currency:  xrplOriginatedTokenXRPLAmount.Currency.String(),
-						Amount:    sdkmath.NewIntWithDecimal(999, processes.XRPLIssuedCurrencyDecimals),
+						Amount:    sdkmath.NewIntWithDecimal(999, xrpl.XRPLIssuedTokenDecimals),
 						Recipient: coreumRecipientAddress,
 					},
 				).Return(nil, nil)
@@ -141,12 +141,6 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				contractClientMock := NewMockContractClient(ctrl)
 				stringCurrency := xrpl.ConvertCurrencyToString(xrplOriginatedTokenXRPLAmount.Currency)
 
-				tokenDecimals := uint32(10)
-				contractClientMock.EXPECT().GetCoreumTokenByXRPLCurrency(gomock.Any(), stringCurrency).
-					Return(coreum.CoreumToken{
-						Decimals: tokenDecimals,
-					}, nil)
-
 				contractClientMock.EXPECT().SendXRPLToCoreumTransferEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -154,7 +148,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 						TxHash:    rippledata.Hash256{}.String(),
 						Issuer:    bridgeXRPLAddress.String(),
 						Currency:  stringCurrency,
-						Amount:    sdkmath.NewIntWithDecimal(999, int(tokenDecimals)),
+						Amount:    sdkmath.NewIntWithDecimal(999, xrpl.XRPLIssuedTokenDecimals),
 						Recipient: coreumRecipientAddress,
 					},
 				).Return(nil, nil)

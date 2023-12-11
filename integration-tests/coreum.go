@@ -28,7 +28,10 @@ type CoreumChain struct {
 
 // NewCoreumChain returns new instance of the coreum chain.
 func NewCoreumChain(cfg CoreumChainConfig) (CoreumChain, error) {
-	queryCtx, queryCtxCancel := context.WithTimeout(context.Background(), getTestContextConfig().TimeoutConfig.RequestTimeout)
+	queryCtx, queryCtxCancel := context.WithTimeout(
+		context.Background(),
+		getTestContextConfig().TimeoutConfig.RequestTimeout,
+	)
 	defer queryCtxCancel()
 
 	coreumGRPCClient := integration.DialGRPCClient(cfg.GRPCAddress)
@@ -37,7 +40,9 @@ func NewCoreumChain(cfg CoreumChainConfig) (CoreumChain, error) {
 	coreumClientCtx := client.NewContext(getTestContextConfig(), app.ModuleBasics).
 		WithGRPCClient(coreumGRPCClient)
 
-	coreumFeemodelParamsRes, err := feemodeltypes.NewQueryClient(coreumClientCtx).Params(queryCtx, &feemodeltypes.QueryParamsRequest{})
+	coreumFeemodelParamsRes, err := feemodeltypes.
+		NewQueryClient(coreumClientCtx).
+		Params(queryCtx, &feemodeltypes.QueryParamsRequest{})
 	if err != nil {
 		return CoreumChain{}, errors.WithStack(err)
 	}

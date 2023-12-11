@@ -1,8 +1,6 @@
 package processes
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 
@@ -10,7 +8,10 @@ import (
 )
 
 // BuildTicketCreateTxForMultiSigning builds TicketCreate transaction operation from the contract operation.
-func BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.TicketCreate, error) {
+func BuildTicketCreateTxForMultiSigning(
+	bridgeXRPLAddress rippledata.Account,
+	operation coreum.Operation,
+) (*rippledata.TicketCreate, error) {
 	tx := rippledata.TicketCreate{
 		TxBase: rippledata.TxBase{
 			Account:         bridgeXRPLAddress,
@@ -36,7 +37,10 @@ func BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress rippledata.Account, op
 }
 
 // BuildTrustSetTxForMultiSigning builds TrustSet transaction operation from the contract operation.
-func BuildTrustSetTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.TrustSet, error) {
+func BuildTrustSetTxForMultiSigning(
+	bridgeXRPLAddress rippledata.Account,
+	operation coreum.Operation,
+) (*rippledata.TrustSet, error) {
 	trustSetType := operation.OperationType.TrustSet
 	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
 		trustSetType.TrustSetLimitAmount,
@@ -66,8 +70,12 @@ func BuildTrustSetTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operat
 	return &tx, nil
 }
 
-// BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning builds Payment transaction for XRPL originated token from the contract operation.
-func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAddress rippledata.Account, operation coreum.Operation) (*rippledata.Payment, error) {
+// BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning builds Payment transaction for
+// XRPL originated token from the contract operation.
+func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
+	bridgeXRPLAddress rippledata.Account,
+	operation coreum.Operation,
+) (*rippledata.Payment, error) {
 	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
 	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
 		coreumToXRPLTransferOperationType.Amount,
@@ -86,16 +94,15 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(bridge
 	return &tx, nil
 }
 
-// BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning builds Payment transaction for coreum originated token from the contract operation.
+// BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning builds Payment transaction for coreum
+// originated token from the contract operation.
 func BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
-	decimals uint32,
 ) (*rippledata.Payment, error) {
 	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
-	value, err := ConvertCoreumOriginatedTokenCoreumAmountToXRPLAmount(
+	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
 		coreumToXRPLTransferOperationType.Amount,
-		decimals,
 		coreumToXRPLTransferOperationType.Issuer,
 		coreumToXRPLTransferOperationType.Currency,
 	)
@@ -118,7 +125,11 @@ func buildPaymentTx(
 ) (rippledata.Payment, error) {
 	recipient, err := rippledata.NewAccountFromAddress(operation.OperationType.CoreumToXRPLTransfer.Recipient)
 	if err != nil {
-		return rippledata.Payment{}, errors.Wrap(err, fmt.Sprintf("failed to convert XRPL recipient to rippledata.Account, recipient:%s", operation.OperationType.CoreumToXRPLTransfer.Recipient))
+		return rippledata.Payment{}, errors.Wrapf(
+			err,
+			"failed to convert XRPL recipient to rippledata.Account, recipient:%s",
+			operation.OperationType.CoreumToXRPLTransfer.Recipient,
+		)
 	}
 	tx := rippledata.Payment{
 		Destination: *recipient,
