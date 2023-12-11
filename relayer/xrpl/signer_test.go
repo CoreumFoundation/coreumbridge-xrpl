@@ -14,6 +14,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
+//nolint:lll // test contains mnemonics and long hashes.
 func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	t.Parallel()
 
@@ -92,7 +93,11 @@ func TestPrivKeyTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	require.True(t, valid)
 }
 
-func buildPaymentTx(recipientAccount *rippledata.Account, xrpAmount *rippledata.Amount, signerAcc rippledata.Account) rippledata.Payment {
+func buildPaymentTx(
+	recipientAccount *rippledata.Account,
+	xrpAmount *rippledata.Amount,
+	signerAcc rippledata.Account,
+) rippledata.Payment {
 	return rippledata.Payment{
 		Destination: *recipientAccount,
 		Amount:      *xrpAmount,

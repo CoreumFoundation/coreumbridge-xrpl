@@ -222,7 +222,11 @@ func TestReceivedCoreumToXRPLAmount(t *testing.T) {
 
 			require.Equal(t, tt.wantReceivedValue.String(), receivedValue.String())
 			if tt.wantAllocatedOnTheAccountToPayTransferFee != nil {
-				require.Equal(t, tt.wantAllocatedOnTheAccountToPayTransferFee.String(), allocatedOnTheAccountToPayTransferFee.String())
+				require.Equal(
+					t,
+					tt.wantAllocatedOnTheAccountToPayTransferFee.String(),
+					allocatedOnTheAccountToPayTransferFee.String(),
+				)
 			}
 		})
 	}
@@ -255,7 +259,9 @@ func computeReceivedTransferAmountsWithFeesFromCoreumToXRPL(
 	valueRat := big.NewRat(0, 1).SetFrac(value, tenPowerDec)
 	transferFeeRate := big.NewRat(0, 1).SetFrac(big.NewInt(transferRate), big.NewInt(TransferRateDenominator))
 	// value - ((value * transfer fee rate) - val)
-	allocatedOnTheAccountToPayTransferFeeRat := big.NewRat(0, 1).Sub(big.NewRat(0, 1).Mul(valueRat, transferFeeRate), valueRat)
+	allocatedOnTheAccountToPayTransferFeeRat := big.
+		NewRat(0, 1).
+		Sub(big.NewRat(0, 1).Mul(valueRat, transferFeeRate), valueRat)
 	ratValueWithoutTransferFee := big.NewRat(0, 1).Sub(valueRat, allocatedOnTheAccountToPayTransferFeeRat)
 
 	bridgingFeeRat := big.NewRat(0, 1).SetFrac(bridgingFee, tenPowerDec)
@@ -271,7 +277,10 @@ func computeReceivedTransferAmountsWithFeesFromCoreumToXRPL(
 	}
 	receivedAmount, err := rippledata.NewValue((&big.Float{}).SetRat(receivedAmountRat).Text('f', prec), false)
 	require.NoError(t, err)
-	allocatedOnTheAccountToPayTransferFee, err := rippledata.NewValue((&big.Float{}).SetRat(allocatedOnTheAccountToPayTransferFeeRat).Text('f', prec), false)
+	allocatedOnTheAccountToPayTransferFee, err := rippledata.NewValue(
+		(&big.Float{}).SetRat(allocatedOnTheAccountToPayTransferFeeRat).Text('f', prec),
+		false,
+	)
 	require.NoError(t, err)
 
 	return receivedAmount, allocatedOnTheAccountToPayTransferFee
@@ -285,7 +294,8 @@ func truncateRatBySendingPrecision(ratValue *big.Rat, sendingPrecision int) *big
 	switch {
 	case sendingPrecision > 0:
 		tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(sendingPrecision)), nil)
-		// (nominator / (denominator / 1e(sendingPrecision)) * (denominator / 1e(sendingPrecision)) with denominator equal original
+		// (nominator / (denominator / 1e(sendingPrecision)) * (denominator / 1e(sendingPrecision))
+		// with denominator equal original
 		subDenominator := big.NewInt(0).Quo(denominator, tenPowerDec)
 		if subDenominator.Cmp(big.NewInt(0)) == 1 {
 			updatedNominator := big.NewInt(0).Mul(

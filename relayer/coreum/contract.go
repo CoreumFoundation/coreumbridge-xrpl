@@ -281,6 +281,7 @@ type xrplTransactionEvidenceTrustSetOperationResult struct {
 
 type xrplTransactionEvidenceCoreumToXRPLTransferOperationResult struct{}
 
+//nolint:lll // breaking this down will make it less readable.
 type xrplTransactionEvidenceOperationResult struct {
 	TicketsAllocation    *xrplTransactionEvidenceTicketsAllocationOperationResult    `json:"tickets_allocation,omitempty"`
 	TrustSet             *xrplTransactionEvidenceTrustSetOperationResult             `json:"trust_set,omitempty"`
@@ -372,7 +373,12 @@ func NewContractClient(cfg ContractClientConfig, log logger.Logger, clientCtx cl
 }
 
 // DeployAndInstantiate instantiates the contract.
-func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.AccAddress, byteCode []byte, config InstantiationConfig) (sdk.AccAddress, error) {
+func (c *ContractClient) DeployAndInstantiate(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	byteCode []byte,
+	config InstantiationConfig,
+) (sdk.AccAddress, error) {
 	msgStoreCode := &wasmtypes.MsgStoreCode{
 		Sender:       sender.String(),
 		WASMByteCode: byteCode,
@@ -422,7 +428,9 @@ func (c *ContractClient) DeployAndInstantiate(ctx context.Context, sender sdk.Ac
 		return nil, errors.Wrap(err, "failed to deploy bytecode")
 	}
 
-	contractAddr, err := event.FindStringEventAttribute(res.Events, wasmtypes.EventTypeInstantiate, wasmtypes.AttributeKeyContractAddr)
+	contractAddr, err := event.FindStringEventAttribute(
+		res.Events, wasmtypes.EventTypeInstantiate, wasmtypes.AttributeKeyContractAddr,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find contract address in the tx result")
 	}
@@ -460,7 +468,9 @@ func (c *ContractClient) IsInitialized() bool {
 // ******************** Execute ********************
 
 // TransferOwnership executes `update_ownership` method with transfer action.
-func (c *ContractClient) TransferOwnership(ctx context.Context, sender, newOwner sdk.AccAddress) (*sdk.TxResponse, error) {
+func (c *ContractClient) TransferOwnership(
+	ctx context.Context, sender, newOwner sdk.AccAddress,
+) (*sdk.TxResponse, error) {
 	req := transferOwnershipRequest{}
 	req.TransferOwnership.NewOwner = newOwner
 
@@ -491,7 +501,14 @@ func (c *ContractClient) AcceptOwnership(ctx context.Context, sender sdk.AccAddr
 }
 
 // RegisterCoreumToken executes `register_coreum_token` method.
-func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.AccAddress, denom string, decimals uint32, sendingPrecision int32, maxHoldingAmount sdkmath.Int) (*sdk.TxResponse, error) {
+func (c *ContractClient) RegisterCoreumToken(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	denom string,
+	decimals uint32,
+	sendingPrecision int32,
+	maxHoldingAmount sdkmath.Int,
+) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]registerCoreumTokenRequest{
 			ExecMethodRegisterCoreumToken: {
@@ -511,7 +528,13 @@ func (c *ContractClient) RegisterCoreumToken(ctx context.Context, sender sdk.Acc
 }
 
 // RegisterXRPLToken executes `register_xrpl_token` method.
-func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAddress, issuer, currency string, sendingPrecision int32, maxHoldingAmount sdkmath.Int) (*sdk.TxResponse, error) {
+func (c *ContractClient) RegisterXRPLToken(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	issuer, currency string,
+	sendingPrecision int32,
+	maxHoldingAmount sdkmath.Int,
+) (*sdk.TxResponse, error) {
 	fee, err := c.queryAssetFTIssueFee(ctx)
 	if err != nil {
 		return nil, err
@@ -537,7 +560,11 @@ func (c *ContractClient) RegisterXRPLToken(ctx context.Context, sender sdk.AccAd
 }
 
 // SendXRPLToCoreumTransferEvidence sends an Evidence of an accepted XRPL to coreum transfer transaction.
-func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLToCoreumTransferEvidence) (*sdk.TxResponse, error) {
+func (c *ContractClient) SendXRPLToCoreumTransferEvidence(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	evd XRPLToCoreumTransferEvidence,
+) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
 			XRPLToCoreumTransfer: &evd,
@@ -555,8 +582,13 @@ func (c *ContractClient) SendXRPLToCoreumTransferEvidence(ctx context.Context, s
 	return txRes, nil
 }
 
-// SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of an accepted or rejected ticket allocation transaction.
-func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTicketsAllocationEvidence) (*sdk.TxResponse, error) {
+// SendXRPLTicketsAllocationTransactionResultEvidence sends an Evidence of an accepted
+// or rejected ticket allocation transaction.
+func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	evd XRPLTransactionResultTicketsAllocationEvidence,
+) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
@@ -582,7 +614,11 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(ctx 
 }
 
 // SendXRPLTrustSetTransactionResultEvidence sends an Evidence of an accepted or rejected trust set transaction.
-func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultTrustSetEvidence) (*sdk.TxResponse, error) {
+func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	evd XRPLTransactionResultTrustSetEvidence,
+) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
@@ -608,8 +644,13 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(ctx context.C
 	return txRes, nil
 }
 
-// SendCoreumToXRPLTransferTransactionResultEvidence sends an Evidence of an accepted or rejected coreum to XRPL transfer transaction.
-func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(ctx context.Context, sender sdk.AccAddress, evd XRPLTransactionResultCoreumToXRPLTransferEvidence) (*sdk.TxResponse, error) {
+// SendCoreumToXRPLTransferTransactionResultEvidence sends an Evidence of an accepted or
+// rejected coreum to XRPL transfer transaction.
+func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	evd XRPLTransactionResultCoreumToXRPLTransferEvidence,
+) (*sdk.TxResponse, error) {
 	req := saveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
@@ -633,7 +674,12 @@ func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(ctx c
 }
 
 // RecoverTickets executes `recover_tickets` method.
-func (c *ContractClient) RecoverTickets(ctx context.Context, sender sdk.AccAddress, accountSequence uint32, numberOfTickets *uint32) (*sdk.TxResponse, error) {
+func (c *ContractClient) RecoverTickets(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	accountSequence uint32,
+	numberOfTickets *uint32,
+) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]recoverTicketsRequest{
 			ExecMethodRecoverTickets: {
@@ -650,7 +696,12 @@ func (c *ContractClient) RecoverTickets(ctx context.Context, sender sdk.AccAddre
 }
 
 // SaveSignature executes `save_signature` method.
-func (c *ContractClient) SaveSignature(ctx context.Context, sender sdk.AccAddress, operationID uint32, signature string) (*sdk.TxResponse, error) {
+func (c *ContractClient) SaveSignature(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	operationID uint32,
+	signature string,
+) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]saveSignatureRequest{
 			ExecMethodSaveSignature: {
@@ -667,7 +718,12 @@ func (c *ContractClient) SaveSignature(ctx context.Context, sender sdk.AccAddres
 }
 
 // SendToXRPL executes `send_to_xrpl` method.
-func (c *ContractClient) SendToXRPL(ctx context.Context, sender sdk.AccAddress, recipient string, amount sdk.Coin) (*sdk.TxResponse, error) {
+func (c *ContractClient) SendToXRPL(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	recipient string,
+	amount sdk.Coin,
+) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]sendToXRPLRequest{
 			ExecSendToXRPL: {
@@ -684,7 +740,11 @@ func (c *ContractClient) SendToXRPL(ctx context.Context, sender sdk.AccAddress, 
 }
 
 // RecoverXRPLTokenRegistration executes `recover_xrpl_token_registration` method.
-func (c *ContractClient) RecoverXRPLTokenRegistration(ctx context.Context, sender sdk.AccAddress, issuer, currency string) (*sdk.TxResponse, error) {
+func (c *ContractClient) RecoverXRPLTokenRegistration(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	issuer, currency string,
+) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]recoverXRPLTokenRegistrationRequest{
 			ExecRecoveryXRPLTokenRegistration: {
@@ -729,7 +789,10 @@ func (c *ContractClient) GetContractOwnership(ctx context.Context) (ContractOwne
 }
 
 // GetXRPLTokenByIssuerAndCurrency returns a XRPL registered token by issuer and currency or error.
-func (c *ContractClient) GetXRPLTokenByIssuerAndCurrency(ctx context.Context, issuer, currency string) (XRPLToken, error) {
+func (c *ContractClient) GetXRPLTokenByIssuerAndCurrency(
+	ctx context.Context,
+	issuer, currency string,
+) (XRPLToken, error) {
 	tokens, err := c.GetXRPLTokens(ctx)
 	if err != nil {
 		return XRPLToken{}, err
@@ -740,7 +803,10 @@ func (c *ContractClient) GetXRPLTokenByIssuerAndCurrency(ctx context.Context, is
 		}
 	}
 
-	return XRPLToken{}, errors.Errorf("token not found in the registered tokens list, issuer:%s, currency:%s", issuer, currency)
+	return XRPLToken{}, errors.Errorf(
+		"token not found in the registered tokens list, issuer:%s, currency:%s",
+		issuer, currency,
+	)
 }
 
 // GetXRPLTokens returns a list of all XRPL tokens.
@@ -822,7 +888,11 @@ func (c *ContractClient) GetAvailableTickets(ctx context.Context) ([]uint32, err
 	return response.Tickets, nil
 }
 
-func (c *ContractClient) getPaginatedXRPLTokens(ctx context.Context, offset *uint64, limit *uint32) ([]XRPLToken, error) {
+func (c *ContractClient) getPaginatedXRPLTokens(
+	ctx context.Context,
+	offset *uint64,
+	limit *uint32,
+) ([]XRPLToken, error) {
 	var response xrplTokensResponse
 	err := c.query(ctx, map[QueryMethod]pagingRequest{
 		QueryMethodXRPLTokens: {
@@ -837,7 +907,11 @@ func (c *ContractClient) getPaginatedXRPLTokens(ctx context.Context, offset *uin
 	return response.Tokens, nil
 }
 
-func (c *ContractClient) getPaginatedCoreumTokens(ctx context.Context, offset *uint64, limit *uint32) ([]CoreumToken, error) {
+func (c *ContractClient) getPaginatedCoreumTokens(
+	ctx context.Context,
+	offset *uint64,
+	limit *uint32,
+) ([]CoreumToken, error) {
 	var response coreumTokensResponse
 	err := c.query(ctx, map[QueryMethod]pagingRequest{
 		QueryMethodCoreumTokens: {
@@ -861,7 +935,11 @@ func (c *ContractClient) queryAssetFTIssueFee(ctx context.Context) (sdk.Coin, er
 	return assetFtParamsRes.Params.IssueFee, nil
 }
 
-func (c *ContractClient) execute(ctx context.Context, sender sdk.AccAddress, requests ...execRequest) (*sdk.TxResponse, error) {
+func (c *ContractClient) execute(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	requests ...execRequest,
+) (*sdk.TxResponse, error) {
 	if c.cfg.ContractAddress == nil {
 		return nil, errors.New("failed to execute with empty contract address")
 	}
@@ -913,7 +991,12 @@ func (c *ContractClient) query(ctx context.Context, request, response any) error
 
 	c.log.Debug(ctx, "Query is succeeded", logger.StringField("data", string(resp.Data)))
 	if err := json.Unmarshal(resp.Data, response); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal wasm contract response, request:%s, response:%s", string(payload), string(resp.Data))
+		return errors.Wrapf(
+			err,
+			"failed to unmarshal wasm contract response, request:%s, response:%s",
+			string(payload),
+			string(resp.Data),
+		)
 	}
 
 	return nil

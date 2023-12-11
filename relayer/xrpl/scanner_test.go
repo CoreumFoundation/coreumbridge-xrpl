@@ -46,7 +46,12 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 				mockedProvider := NewMockRPCTxProvider(ctrl)
 				callNumber := 0
 				mockedProvider.EXPECT().AccountTx(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (xrpl.AccountTxResult, error) {
+					func(
+						ctx context.Context,
+						account rippledata.Account,
+						minLedger, maxLedger int64,
+						marker map[string]any,
+					) (xrpl.AccountTxResult, error) {
 						callNumber++
 						switch callNumber {
 						case 1:
@@ -99,7 +104,12 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 
 				callNumber := 0
 				mockedProvider.EXPECT().AccountTx(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (xrpl.AccountTxResult, error) {
+					func(
+						ctx context.Context,
+						account rippledata.Account,
+						minLedger, maxLedger int64,
+						marker map[string]any,
+					) (xrpl.AccountTxResult, error) {
 						callNumber++
 						switch callNumber {
 						case 1:
@@ -185,7 +195,12 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 	}
 }
 
-func readTxHashesFromChannels(ctx context.Context, t *testing.T, txsCh chan rippledata.TransactionWithMetaData, count int) map[string]struct{} {
+func readTxHashesFromChannels(
+	ctx context.Context,
+	t *testing.T,
+	txsCh chan rippledata.TransactionWithMetaData,
+	count int,
+) map[string]struct{} {
 	gotTxHashes := make(map[string]struct{})
 	for {
 		select {
