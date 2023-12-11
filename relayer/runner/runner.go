@@ -26,6 +26,7 @@ import (
 	coreumchainclient "github.com/CoreumFoundation/coreum/v3/pkg/client"
 	coreumchainconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
 	coreumchainconstant "github.com/CoreumFoundation/coreum/v3/pkg/config/constant"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
@@ -36,8 +37,8 @@ const (
 	configVersion = "v1"
 	// ConfigFileName is file name used for the relayer config.
 	ConfigFileName = "relayer.yaml"
-
-	defaultCoreumChainID = coreumchainconstant.ChainIDMain
+	// DefaultCoreumChainID is default chain id.
+	DefaultCoreumChainID = coreumchainconstant.ChainIDMain
 )
 
 // ******************** Config ********************
@@ -144,7 +145,7 @@ func DefaultConfig() Config {
 		LoggingConfig: LoggingConfig(logger.DefaultZapLoggerConfig()),
 		XRPL: XRPLConfig{
 			// empty be default
-			MultiSignerKeyName: "",
+			MultiSignerKeyName: "xrpl-relayer",
 			HTTPClient:         HTTPClientConfig(toolshttp.DefaultClientConfig()),
 			RPC: XRPLRPCConfig{
 				// empty be default
@@ -162,14 +163,13 @@ func DefaultConfig() Config {
 		},
 
 		Coreum: CoreumConfig{
-			// empty be default
-			RelayerKeyName: "",
+			RelayerKeyName: "coreum-relayer",
 			GRPC: CoreumGRPCConfig{
 				// empty be default
 				URL: "",
 			},
 			Network: CoreumNetworkConfig{
-				ChainID: string(defaultCoreumChainID),
+				ChainID: string(DefaultCoreumChainID),
 			},
 			Contract: CoreumContractConfig{
 				// empty be default
@@ -209,6 +209,8 @@ type Runner struct {
 	CoreumContractClient     *coreum.ContractClient
 	CoreumChainNetworkConfig coreumchainconfig.NetworkConfig
 
+	BridgeClient *client.BridgeClient
+
 	Processes Processes
 	Processor *processes.Processor
 }
@@ -217,11 +219,15 @@ type Runner struct {
 //
 //nolint:funlen // the func contains sequential object initialisation
 func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring) (*Runner, error) {
+	rnr := &Runner{}
 	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig(cfg.LoggingConfig))
 	if err != nil {
 		return nil, err
 	}
+	rnr.Log = zapLogger
+
 	retryableXRPLRPCHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.XRPL.HTTPClient))
+	rnr.RetryableHTTPClient = &retryableXRPLRPCHTTPClient
 
 	var contractAddress sdk.AccAddress
 	if cfg.Coreum.Contract.ContractAddress != "" {
@@ -254,13 +260,13 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring) (*Runner, er
 		clientContext = clientContext.WithGRPCClient(grpcClient)
 	}
 
-	var coreumChainNetworkConfig coreumchainconfig.NetworkConfig
 	if cfg.Coreum.Network.ChainID != "" {
-		coreumChainNetworkConfig, err = coreumchainconfig.NetworkConfigByChainID(coreumchainconstant.ChainID(cfg.Coreum.Network.ChainID))
+		coreumChainNetworkConfig, err := coreumchainconfig.NetworkConfigByChainID(coreumchainconstant.ChainID(cfg.Coreum.Network.ChainID))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to set get correum network config for the chainID, chainID:%s", cfg.Coreum.Network.ChainID)
 		}
 		clientContext = clientContext.WithChainID(cfg.Coreum.Network.ChainID)
+		rnr.CoreumChainNetworkConfig = coreumChainNetworkConfig
 	}
 
 	var relayerAddress sdk.AccAddress
@@ -274,79 +280,78 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring) (*Runner, er
 			return nil, errors.Wrapf(err, "failed to get address from keyring key recodr, key name:%s", cfg.Coreum.RelayerKeyName)
 		}
 	}
-	contractClient := coreum.NewContractClient(contractClientCfg, zapLogger, clientContext)
 
-	contractConfig, err := contractClient.GetContractConfig(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get contract config for the runner intialization")
-	}
+	contractClient := coreum.NewContractClient(contractClientCfg, zapLogger, clientContext)
+	rnr.CoreumContractClient = contractClient
 
 	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
 	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, zapLogger, retryableXRPLRPCHTTPClient)
-	bridgeXRPLAddress, err := rippledata.NewAccountFromAddress(contractConfig.BridgeXRPLAddress)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get xrpl account from string, string:%s", contractConfig.BridgeXRPLAddress)
-	}
-	xrplScanner := xrpl.NewAccountScanner(xrpl.AccountScannerConfig{
-		Account:           *bridgeXRPLAddress,
-		RecentScanEnabled: cfg.XRPL.Scanner.RecentScanEnabled,
-		RecentScanWindow:  cfg.XRPL.Scanner.RecentScanWindow,
-		RepeatRecentScan:  cfg.XRPL.Scanner.RepeatRecentScan,
-		FullScanEnabled:   cfg.XRPL.Scanner.FullScanEnabled,
-		RepeatFullScan:    cfg.XRPL.Scanner.RepeatFullScan,
-		RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
-	}, zapLogger, xrplRPCClient)
+	rnr.XRPLRPCClient = xrplRPCClient
 
 	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
 	if kr != nil {
 		xrplKeyringTxSigner = xrpl.NewKeyringTxSigner(kr)
 	}
+	bridgeClient := client.NewBridgeClient(zapLogger, clientContext, contractClient, xrplRPCClient, xrplKeyringTxSigner)
+	rnr.BridgeClient = bridgeClient
 
-	processor := processes.NewProcessor(zapLogger)
-	runnerProcesses := Processes{
-		XRPLTxObserver: processes.ProcessWithOptions{
-			Process: processes.NewXRPLTxObserver(
-				processes.XRPLTxObserverConfig{
-					BridgeXRPLAddress:    *bridgeXRPLAddress,
-					RelayerCoreumAddress: relayerAddress,
-				},
-				zapLogger,
-				xrplScanner,
-				contractClient,
-			),
-			Name:                 "xrpl_tx_observer",
-			IsRestartableOnError: true,
-		},
-		XRPLTxSubmitter: processes.ProcessWithOptions{
-			Process: processes.NewXRPLTxSubmitter(
-				processes.XRPLTxSubmitterConfig{
-					BridgeXRPLAddress:    *bridgeXRPLAddress,
-					RelayerCoreumAddress: relayerAddress,
-					XRPLTxSignerKeyName:  cfg.XRPL.MultiSignerKeyName,
-					RepeatRecentScan:     true,
-					RepeatDelay:          cfg.Processes.XRPLTxSubmitter.RepeatDelay,
-				},
-				zapLogger,
-				contractClient,
-				xrplRPCClient,
-				xrplKeyringTxSigner,
-			),
-			Name:                 "xrpl_tx_submitter",
-			IsRestartableOnError: true,
-		},
+	if cfg.Coreum.Contract.ContractAddress != "" {
+		contractConfig, err := contractClient.GetContractConfig(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get contract config for the runner intialization")
+		}
+
+		bridgeXRPLAddress, err := rippledata.NewAccountFromAddress(contractConfig.BridgeXRPLAddress)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get xrpl account from string, string:%s", contractConfig.BridgeXRPLAddress)
+		}
+		xrplScanner := xrpl.NewAccountScanner(xrpl.AccountScannerConfig{
+			Account:           *bridgeXRPLAddress,
+			RecentScanEnabled: cfg.XRPL.Scanner.RecentScanEnabled,
+			RecentScanWindow:  cfg.XRPL.Scanner.RecentScanWindow,
+			RepeatRecentScan:  cfg.XRPL.Scanner.RepeatRecentScan,
+			FullScanEnabled:   cfg.XRPL.Scanner.FullScanEnabled,
+			RepeatFullScan:    cfg.XRPL.Scanner.RepeatFullScan,
+			RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
+		}, zapLogger, xrplRPCClient)
+		rnr.XRPLAccountScanner = xrplScanner
+
+		rnr.Processor = processes.NewProcessor(zapLogger)
+		rnr.Processes = Processes{
+			XRPLTxObserver: processes.ProcessWithOptions{
+				Process: processes.NewXRPLTxObserver(
+					processes.XRPLTxObserverConfig{
+						BridgeXRPLAddress:    *bridgeXRPLAddress,
+						RelayerCoreumAddress: relayerAddress,
+					},
+					zapLogger,
+					xrplScanner,
+					contractClient,
+				),
+				Name:                 "xrpl_tx_observer",
+				IsRestartableOnError: true,
+			},
+			XRPLTxSubmitter: processes.ProcessWithOptions{
+				Process: processes.NewXRPLTxSubmitter(
+					processes.XRPLTxSubmitterConfig{
+						BridgeXRPLAddress:    *bridgeXRPLAddress,
+						RelayerCoreumAddress: relayerAddress,
+						XRPLTxSignerKeyName:  cfg.XRPL.MultiSignerKeyName,
+						RepeatRecentScan:     true,
+						RepeatDelay:          cfg.Processes.XRPLTxSubmitter.RepeatDelay,
+					},
+					zapLogger,
+					contractClient,
+					xrplRPCClient,
+					xrplKeyringTxSigner,
+				),
+				Name:                 "xrpl_tx_submitter",
+				IsRestartableOnError: true,
+			},
+		}
 	}
 
-	return &Runner{
-		Log:                      zapLogger,
-		RetryableHTTPClient:      &retryableXRPLRPCHTTPClient,
-		XRPLRPCClient:            xrplRPCClient,
-		XRPLAccountScanner:       xrplScanner,
-		CoreumContractClient:     contractClient,
-		CoreumChainNetworkConfig: coreumChainNetworkConfig,
-
-		Processes: runnerProcesses,
-		Processor: processor,
-	}, nil
+	return rnr, nil
 }
 
 // SetCoreumSDKConfig cosmos sdk config for the set coreum network.

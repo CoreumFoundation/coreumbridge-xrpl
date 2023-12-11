@@ -43,7 +43,7 @@ logging:
     level: info
     format: console
 xrpl:
-    multi_signer_key_name: ""
+    multi_signer_key_name: xrpl-relayer
     http_client:
         request_timeout: 5s
         do_timeout: 30s
@@ -59,7 +59,7 @@ xrpl:
         repeat_full_scan: true
         retry_delay: 10s
 coreum:
-    relayer_key_name: ""
+    relayer_key_name: coreum-relayer
     grpc:
         url: ""
     network:

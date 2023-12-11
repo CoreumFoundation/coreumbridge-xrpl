@@ -129,7 +129,7 @@ func (s *KeyringTxSigner) GetKeyring() keyring.Keyring {
 func (s *KeyringTxSigner) extractXRPLPrivKey(keyName string) (xrplPrivKey, error) {
 	key, err := s.kr.Key(keyName)
 	if err != nil {
-		return xrplPrivKey{}, errors.Wrapf(err, "failed to get key xrpl from the keyring, key name:%s", keyName)
+		return xrplPrivKey{}, errors.Wrapf(err, "failed to get key from the keyring, key name:%s", keyName)
 	}
 	rl := key.GetLocal()
 	if rl.PrivKey == nil {

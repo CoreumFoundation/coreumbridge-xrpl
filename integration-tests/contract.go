@@ -13,7 +13,8 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 )
 
-const compiledContractFilePath = "../../build/coreumbridge_xrpl.wasm"
+// CompiledContractFilePath is bridge contract file path.
+const CompiledContractFilePath = "../../build/coreumbridge_xrpl.wasm"
 
 // DeployAndInstantiateContract deploys and instantiates the contract.
 func DeployAndInstantiateContract(
@@ -58,7 +59,7 @@ func DeployAndInstantiateContract(
 func readBuiltContract(t *testing.T) []byte {
 	t.Helper()
 
-	body, err := os.ReadFile(compiledContractFilePath)
+	body, err := os.ReadFile(CompiledContractFilePath)
 	require.NoError(t, err)
 
 	return body

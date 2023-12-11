@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
@@ -315,4 +317,52 @@ func (c *RPCClient) callRPC(ctx context.Context, method string, params, result a
 	}
 
 	return nil
+}
+
+// AutoFillTx add seq number and fee for the transaction.
+func (c *RPCClient) AutoFillTx(ctx context.Context, tx rippledata.Transaction, sender rippledata.Account) error {
+	accInfo, err := c.AccountInfo(ctx, sender)
+	if err != nil {
+		return err
+	}
+	// update base settings
+	base := tx.GetBase()
+	fee, err := GetTxFee(tx)
+	if err != nil {
+		return err
+	}
+	base.Fee = fee
+	base.Account = sender
+	base.Sequence = *accInfo.AccountData.Sequence
+
+	return nil
+}
+
+// SubmitAndAwaitSuccess submits tx a waits for its result, if result is not success returns an error.
+func (c *RPCClient) SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Transaction) error {
+	c.log.Info(ctx, "Submitting transaction", logger.StringField("txHash", tx.GetHash().String()))
+	// submit the transaction
+	res, err := c.Submit(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if !res.EngineResult.Success() {
+		return errors.Errorf("the tx submition is failed, %+v", res)
+	}
+
+	retryCtx, retryCtxCancel := context.WithTimeout(ctx, time.Minute)
+	defer retryCtxCancel()
+	c.log.Info(ctx, "Transaction is submitted waiting for tx to be accepted", logger.StringField("txHash", tx.GetHash().String()))
+	return retry.Do(retryCtx, 250*time.Millisecond, func() error {
+		reqCtx, reqCtxCancel := context.WithTimeout(ctx, 3*time.Second)
+		defer reqCtxCancel()
+		txRes, err := c.Tx(reqCtx, *tx.GetHash())
+		if err != nil {
+			return retry.Retryable(err)
+		}
+		if !txRes.Validated {
+			return retry.Retryable(errors.Errorf("transaction is not validated"))
+		}
+		return nil
+	})
 }
