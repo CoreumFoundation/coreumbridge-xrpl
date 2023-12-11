@@ -31,23 +31,35 @@ func ConvertXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount) (sdkmath.Int,
 	return convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount, xrpl.XRPLIssuedTokenDecimals)
 }
 
-// ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount converts the XRPL originated token amount from coreum to XRPL amount
-// based on the currency type.
-func ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(coreumAmount sdkmath.Int, issuerString, currencyString string) (rippledata.Amount, error) {
+// ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount converts the XRPL originated token amount from
+// coreum to XRPL amount based on the currency type.
+func ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+	coreumAmount sdkmath.Int,
+	issuerString,
+	currencyString string,
+) (rippledata.Amount, error) {
 	if isXRPToken(issuerString, currencyString) {
 		// format with exponent
 		amountString := big.NewFloat(0).SetInt(coreumAmount.BigInt()).Text('g', XRPLAmountPrec)
 		// we don't use the decimals for the XRP values since the `NewValue` function will do it automatically
 		xrplValue, err := rippledata.NewValue(amountString, true)
 		if err != nil {
-			return rippledata.Amount{}, errors.Wrapf(err, "failed to convert amount string to ripple.Value, amount stirng: %s", amountString)
+			return rippledata.Amount{}, errors.Wrapf(
+				err,
+				"failed to convert amount string to ripple.Value, amount stirng: %s",
+				amountString,
+			)
 		}
 		return rippledata.Amount{
 			Value: xrplValue,
 		}, nil
 	}
 
-	return convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount, xrpl.XRPLIssuedTokenDecimals, issuerString, currencyString)
+	return convertCoreumAmountToXRPLAmountWithDecimals(
+		coreumAmount,
+		xrpl.XRPLIssuedTokenDecimals,
+		issuerString, currencyString,
+	)
 }
 
 func convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount rippledata.Amount, decimals uint32) (sdkmath.Int, error) {
@@ -62,22 +74,43 @@ func convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount rippledata.Amount, d
 	return sdkmath.NewIntFromBigInt(binIntAmount), nil
 }
 
-func convertCoreumAmountToXRPLAmountWithDecimals(coreumAmount sdkmath.Int, decimals uint32, issuerString, currencyString string) (rippledata.Amount, error) {
+func convertCoreumAmountToXRPLAmountWithDecimals(
+	coreumAmount sdkmath.Int,
+	decimals uint32,
+	issuerString, currencyString string,
+) (rippledata.Amount, error) {
 	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
 	floatAmount := big.NewFloat(0).SetRat(big.NewRat(0, 1).SetFrac(coreumAmount.BigInt(), tenPowerDec))
 	// format with exponent
-	amountString := fmt.Sprintf("%s/%s/%s", floatAmount.Text('g', XRPLAmountPrec), currencyString, issuerString)
+	amountString := fmt.Sprintf(
+		"%s/%s/%s",
+		floatAmount.Text('g', XRPLAmountPrec),
+		currencyString,
+		issuerString,
+	)
 	xrplValue, err := rippledata.NewValue(amountString, false)
 	if err != nil {
-		return rippledata.Amount{}, errors.Wrapf(err, "failed to convert amount string to ripple.Value, amount stirng: %s", amountString)
+		return rippledata.Amount{}, errors.Wrapf(
+			err,
+			"failed to convert amount string to ripple.Value, amount stirng: %s",
+			amountString,
+		)
 	}
 	currency, err := rippledata.NewCurrency(currencyString)
 	if err != nil {
-		return rippledata.Amount{}, errors.Wrapf(err, "failed to convert currency to ripple.Currency, currency: %s", currencyString)
+		return rippledata.Amount{}, errors.Wrapf(
+			err,
+			"failed to convert currency to ripple.Currency, currency: %s",
+			currencyString,
+		)
 	}
 	issuer, err := rippledata.NewAccountFromAddress(issuerString)
 	if err != nil {
-		return rippledata.Amount{}, errors.Wrapf(err, "failed to convert issuer to ripple.Account, issuer: %s", issuerString)
+		return rippledata.Amount{}, errors.Wrapf(
+			err,
+			"failed to convert issuer to ripple.Account, issuer: %s",
+			issuerString,
+		)
 	}
 
 	return rippledata.Amount{

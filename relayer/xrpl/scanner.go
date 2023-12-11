@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
@@ -16,7 +17,12 @@ import (
 // RPCTxProvider is RPC transactions provider.
 type RPCTxProvider interface {
 	LedgerCurrent(ctx context.Context) (LedgerCurrentResult, error)
-	AccountTx(ctx context.Context, account rippledata.Account, minLedger, maxLedger int64, marker map[string]any) (AccountTxResult, error)
+	AccountTx(
+		ctx context.Context,
+		account rippledata.Account,
+		minLedger, maxLedger int64,
+		marker map[string]any,
+	) (AccountTxResult, error)
 }
 
 // AccountScannerConfig is the AccountScanner config.
@@ -67,27 +73,40 @@ func NewAccountScanner(cfg AccountScannerConfig, log logger.Logger, rpcTxProvide
 // ScanTxs subscribes on rpc account transactions and continuously scans the recent and historical transactions.
 func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
 	s.log.Info(ctx, "Subscribing xrpl scanner", logger.AnyField("config", s.cfg))
-	if s.cfg.RecentScanEnabled {
-		currentLedgerRes, err := s.rpcTxProvider.LedgerCurrent(ctx)
-		if err != nil {
-			return err
-		}
-		currentLedger := currentLedgerRes.LedgerCurrentIndex
-		go s.scanRecentHistory(ctx, currentLedger, ch)
-	}
-
-	if s.cfg.FullScanEnabled {
-		go s.scanFullHistory(ctx, ch)
-	}
 
 	if !s.cfg.RecentScanEnabled && !s.cfg.FullScanEnabled {
 		return errors.Errorf("both recent and full scans are disabled")
 	}
 
-	return nil
+	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+		if s.cfg.RecentScanEnabled {
+			currentLedgerRes, err := s.rpcTxProvider.LedgerCurrent(ctx)
+			if err != nil {
+				return err
+			}
+			currentLedger := currentLedgerRes.LedgerCurrentIndex
+			spawn("recent-history-scanner", parallel.Continue, func(ctx context.Context) error {
+				s.scanRecentHistory(ctx, currentLedger, ch)
+				return nil
+			})
+		}
+
+		if s.cfg.FullScanEnabled {
+			spawn("full-history-scanner", parallel.Continue, func(ctx context.Context) error {
+				s.scanFullHistory(ctx, ch)
+				return nil
+			})
+		}
+
+		return nil
+	}, parallel.WithGroupLogger(s.log.ParallelLogger(ctx)))
 }
 
-func (s *AccountScanner) scanRecentHistory(ctx context.Context, currentLedger int64, ch chan<- rippledata.TransactionWithMetaData) {
+func (s *AccountScanner) scanRecentHistory(
+	ctx context.Context,
+	currentLedger int64,
+	ch chan<- rippledata.TransactionWithMetaData,
+) {
 	// in case we don't have enough ledges for the window we start from the initla
 	minLedger := int64(0)
 	if currentLedger > s.cfg.RecentScanWindow {
@@ -112,7 +131,11 @@ func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippleda
 	})
 }
 
-func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, ch chan<- rippledata.TransactionWithMetaData) int64 {
+func (s *AccountScanner) scanTransactions(
+	ctx context.Context,
+	minLedger int64,
+	ch chan<- rippledata.TransactionWithMetaData,
+) int64 {
 	if minLedger <= 0 {
 		minLedger = -1
 	}
@@ -139,7 +162,11 @@ func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, 
 				return lastLedger
 			}
 			// this panic is unexpected
-			panic(errors.Wrapf(err, "unexpected error received for the get account transactions with retry, err:%s", err.Error()))
+			panic(errors.Wrapf(
+				err,
+				"unexpected error received for the get account transactions with retry, err:%s",
+				err.Error(),
+			))
 		}
 		// we accept the transaction from the validated ledger only
 		if accountTxResult.Validated {
@@ -155,7 +182,11 @@ func (s *AccountScanner) scanTransactions(ctx context.Context, minLedger int64, 
 				if tx == nil {
 					continue
 				}
-				ch <- *tx
+				select {
+				case <-ctx.Done():
+					return lastLedger
+				case ch <- *tx:
+				}
 			}
 		}
 		if len(accountTxResult.Marker) == 0 {

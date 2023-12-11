@@ -92,6 +92,7 @@ func TestProcessor_StartProcesses(t *testing.T) {
 				}
 			},
 			logErrorsCount: 1,
+			wantErr:        true,
 		},
 		{
 			name: "singe_process_with_error_restartable",
@@ -157,6 +158,7 @@ func TestProcessor_StartProcesses(t *testing.T) {
 				}
 			},
 			logErrorsCount: 1,
+			wantErr:        true,
 		},
 		{
 			name: "singe_process_with_panic_restartable",
@@ -234,6 +236,12 @@ func TestProcessor_StartProcesses(t *testing.T) {
 
 			ctrl := gomock.NewController(t)
 			logMock := logger.NewAnyLogMock(ctrl)
+
+			parallelLoggerMock := logger.NewMockParallelLogger(ctrl)
+			logMock.EXPECT().ParallelLogger(gomock.Any()).Return(parallelLoggerMock).AnyTimes()
+			parallelLoggerMock.EXPECT().Debug(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			parallelLoggerMock.EXPECT().Error(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
 			if tt.logErrorsCount > 0 {
 				logMock.EXPECT().Error(gomock.Any(), gomock.Any(), gomock.Any()).Times(tt.logErrorsCount)
 			}

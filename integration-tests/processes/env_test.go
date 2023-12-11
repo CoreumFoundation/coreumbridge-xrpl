@@ -5,7 +5,8 @@ package processes_test
 
 import (
 	"context"
-	"sync"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
 	coreumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
@@ -53,19 +55,19 @@ func DefaultRunnerEnvConfig() RunnerEnvConfig {
 
 // RunnerEnv is runner environment used for the integration tests.
 type RunnerEnv struct {
-	Cfg               RunnerEnvConfig
-	bridgeXRPLAddress rippledata.Account
-	ContractClient    *coreum.ContractClient
-	Chains            integrationtests.Chains
-	ContractOwner     sdk.AccAddress
+	Cfg                  RunnerEnvConfig
+	bridgeXRPLAddress    rippledata.Account
+	ContractClient       *coreum.ContractClient
+	Chains               integrationtests.Chains
+	ContractOwner        sdk.AccAddress
 	BridgeClient      *bridgeclient.BridgeClient
-	Runners           []*runner.Runner
-	ProcessErrorsMu   sync.RWMutex
-	ProcessErrors     []error
+	RunnersParallelGroup *parallel.Group
+	Runners              []*runner.Runner
 }
 
 // NewRunnerEnv returns new instance of the RunnerEnv.
 func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains integrationtests.Chains) *RunnerEnv {
+	ctx, cancel := context.WithCancel(ctx)
 	relayerCoreumAddresses := genCoreumRelayers(
 		ctx,
 		t,
@@ -155,58 +157,46 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	}
 
 	runnerEnv := &RunnerEnv{
-		Cfg:               cfg,
-		bridgeXRPLAddress: bridgeXRPLAddress,
-		ContractClient:    contractClient,
-		Chains:            chains,
-		ContractOwner:     contractOwner,
+		Cfg:                  cfg,
+		bridgeXRPLAddress:    bridgeXRPLAddress,
+		ContractClient:       contractClient,
+		Chains:               chains,
+		ContractOwner:        contractOwner,
 		BridgeClient:      bridgeClient,
-		Runners:           runners,
-		ProcessErrorsMu:   sync.RWMutex{},
-		ProcessErrors:     make([]error, 0),
+		RunnersParallelGroup: parallel.NewGroup(ctx),
+		Runners:              runners,
 	}
 	t.Cleanup(func() {
-		runnerEnv.RequireNoErrors(t)
+		// we can cancel the context now and wait for the runner to stop gracefully
+		cancel()
+		err := runnerEnv.RunnersParallelGroup.Wait()
+		if err == nil || errors.Is(err, context.Canceled) {
+			return
+		}
+		// the client replies with that error in if the context is canceled at the time of the request,
+		// and the error is in the internal package, so we can't check the type
+		if strings.Contains(err.Error(), "context canceled") {
+			return
+		}
+
+		require.NoError(t, err, "Found unexpected runner process errors after the execution")
 	})
 
 	return runnerEnv
 }
 
 // StartAllRunnerProcesses starts all relayer processes.
-func (r *RunnerEnv) StartAllRunnerProcesses(ctx context.Context, t *testing.T) {
-	errCh := make(chan error, len(r.Runners))
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				if !errors.Is(ctx.Err(), context.Canceled) {
-					r.ProcessErrorsMu.Lock()
-					r.ProcessErrors = append(r.ProcessErrors, ctx.Err())
-					r.ProcessErrorsMu.Unlock()
-				}
-				return
-			case err := <-errCh:
-				r.ProcessErrorsMu.Lock()
-				r.ProcessErrors = append(r.ProcessErrors, err)
-				r.ProcessErrorsMu.Unlock()
-			}
-		}
-	}()
-
-	for _, relayerRunner := range r.Runners {
-		go func(relayerRunner *runner.Runner) {
+func (r *RunnerEnv) StartAllRunnerProcesses() {
+	for i := range r.Runners {
+		relayerRunner := r.Runners[i]
+		r.RunnersParallelGroup.Spawn(fmt.Sprintf("runner-%d", i), parallel.Exit, func(ctx context.Context) error {
 			// disable restart on error to handler unexpected errors
 			xrplTxObserverProcess := relayerRunner.Processes.XRPLTxObserver
 			xrplTxObserverProcess.IsRestartableOnError = false
 			xrplTxSubmitterProcess := relayerRunner.Processes.XRPLTxSubmitter
 			xrplTxSubmitterProcess.IsRestartableOnError = false
-
-			err := relayerRunner.Processor.StartProcesses(ctx, xrplTxObserverProcess, xrplTxSubmitterProcess)
-			if err != nil && !errors.Is(err, context.Canceled) {
-				t.Logf("Unexpected error on process start:%s", err)
-				errCh <- err
-			}
-		}(relayerRunner)
+			return relayerRunner.Processor.StartProcesses(ctx, xrplTxObserverProcess, xrplTxSubmitterProcess)
+		})
 	}
 }
 
@@ -263,7 +253,9 @@ func (r *RunnerEnv) AllocateTickets(
 	require.NoError(t, err)
 
 	r.Chains.XRPL.FundAccountForTicketAllocation(ctx, t, r.bridgeXRPLAddress, numberOfTicketsToAllocate)
-	_, err = r.ContractClient.RecoverTickets(ctx, r.ContractOwner, *bridgeXRPLAccountInfo.AccountData.Sequence, &numberOfTicketsToAllocate)
+	_, err = r.ContractClient.RecoverTickets(
+		ctx, r.ContractOwner, *bridgeXRPLAccountInfo.AccountData.Sequence, &numberOfTicketsToAllocate,
+	)
 	require.NoError(t, err)
 
 	require.NoError(t, err)
@@ -285,22 +277,24 @@ func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 	r.Chains.Coreum.FundAccountWithOptions(ctx, t, r.ContractOwner, coreumintegration.BalancesOptions{
 		Amount: r.Chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount,
 	})
-	_, err := r.ContractClient.RegisterXRPLToken(ctx, r.ContractOwner, issuer.String(), xrpl.ConvertCurrencyToString(currency), sendingPrecision, maxHoldingAmount)
+	_, err := r.ContractClient.RegisterXRPLToken(
+		ctx,
+		r.ContractOwner,
+		issuer.String(),
+		xrpl.ConvertCurrencyToString(currency),
+		sendingPrecision,
+		maxHoldingAmount,
+	)
 	require.NoError(t, err)
 	// await for the trust set
 	r.AwaitNoPendingOperations(ctx, t)
-	registeredXRPLToken, err := r.ContractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer.String(), xrpl.ConvertCurrencyToString(currency))
+	registeredXRPLToken, err := r.ContractClient.GetXRPLTokenByIssuerAndCurrency(
+		ctx, issuer.String(), xrpl.ConvertCurrencyToString(currency),
+	)
 	require.NoError(t, err)
 	require.Equal(t, coreum.TokenStateEnabled, registeredXRPLToken.State)
 
 	return registeredXRPLToken
-}
-
-// RequireNoErrors check whether the runner err received runner errors.
-func (r *RunnerEnv) RequireNoErrors(t *testing.T) {
-	r.ProcessErrorsMu.RLock()
-	defer r.ProcessErrorsMu.RUnlock()
-	require.Empty(t, r.ProcessErrors, "Found unexpected process errors after the execution")
 }
 
 // SendXRPLPaymentTx sends Payment transaction.
