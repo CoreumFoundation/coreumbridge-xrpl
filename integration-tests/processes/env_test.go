@@ -241,7 +241,9 @@ func (r *RunnerEnv) AllocateTickets(
 	require.NoError(t, err)
 
 	r.Chains.XRPL.FundAccountForTicketAllocation(ctx, t, r.bridgeXRPLAddress, numberOfTicketsToAllocate)
-	_, err = r.ContractClient.RecoverTickets(ctx, r.ContractOwner, *bridgeXRPLAccountInfo.AccountData.Sequence, &numberOfTicketsToAllocate)
+	_, err = r.ContractClient.RecoverTickets(
+		ctx, r.ContractOwner, *bridgeXRPLAccountInfo.AccountData.Sequence, &numberOfTicketsToAllocate,
+	)
 	require.NoError(t, err)
 
 	require.NoError(t, err)
@@ -263,11 +265,20 @@ func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 	r.Chains.Coreum.FundAccountWithOptions(ctx, t, r.ContractOwner, coreumintegration.BalancesOptions{
 		Amount: r.Chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount,
 	})
-	_, err := r.ContractClient.RegisterXRPLToken(ctx, r.ContractOwner, issuer.String(), xrpl.ConvertCurrencyToString(currency), sendingPrecision, maxHoldingAmount)
+	_, err := r.ContractClient.RegisterXRPLToken(
+		ctx,
+		r.ContractOwner,
+		issuer.String(),
+		xrpl.ConvertCurrencyToString(currency),
+		sendingPrecision,
+		maxHoldingAmount,
+	)
 	require.NoError(t, err)
 	// await for the trust set
 	r.AwaitNoPendingOperations(ctx, t)
-	registeredXRPLToken, err := r.ContractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer.String(), xrpl.ConvertCurrencyToString(currency))
+	registeredXRPLToken, err := r.ContractClient.GetXRPLTokenByIssuerAndCurrency(
+		ctx, issuer.String(), xrpl.ConvertCurrencyToString(currency),
+	)
 	require.NoError(t, err)
 	require.Equal(t, coreum.TokenStateEnabled, registeredXRPLToken.State)
 

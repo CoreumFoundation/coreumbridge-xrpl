@@ -160,7 +160,11 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	}
 
 	if coreum.IsAssetFTWhitelistedLimitExceededError(err) {
-		o.log.Info(ctx, "The evidence saving is failed because of the asset FT rules, the evidence is skipped", logger.AnyField("evidence", evidence))
+		o.log.Info(
+			ctx,
+			"The evidence saving is failed because of the asset FT rules, the evidence is skipped",
+			logger.AnyField("evidence", evidence),
+		)
 		return nil
 	}
 
@@ -187,7 +191,10 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 	}
 }
 
-func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(
+	ctx context.Context,
+	tx rippledata.TransactionWithMetaData,
+) error {
 	tickets := extractTicketSequencesFromMetaData(tx.MetaData)
 	txResult := getTransactionResult(tx)
 	if txResult == coreum.TransactionResultRejected {
@@ -219,7 +226,10 @@ func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(ctx 
 	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(
+	ctx context.Context,
+	tx rippledata.TransactionWithMetaData,
+) error {
 	trustSetTx, ok := tx.Transaction.(*rippledata.TrustSet)
 	if !ok {
 		return errors.Errorf("failed to cast tx to TrustSet, data:%+v", tx)
@@ -243,7 +253,10 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(ctx context.C
 	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLTxObserver) sendCoreumToXRPLTransferTransactionResultEvidence(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+func (o *XRPLTxObserver) sendCoreumToXRPLTransferTransactionResultEvidence(
+	ctx context.Context,
+	tx rippledata.TransactionWithMetaData,
+) error {
 	paymentTx, ok := tx.Transaction.(*rippledata.Payment)
 	if !ok {
 		return errors.Errorf("failed to cast tx to Payment, data:%+v", tx)
@@ -290,7 +303,8 @@ func (o *XRPLTxObserver) handleEvidenceSubmissionError(
 // Any tec code	 Final when included in a validated ledger.
 // Any tem code	 Final unless the protocol changes to make the transaction valid.
 // tefPAST_SEQ	 Final when another transaction with the same sequence number is included in a validated ledger.
-// tefMAX_LEDGER Final when a validated ledger has a ledger index higher than the transaction's LastLedgerSequence field, and no validated ledger includes the transaction.
+// tefMAX_LEDGER Final when a validated ledger has a ledger index higher than the transaction's LastLedgerSequence
+// field, and no validated ledger includes the transaction.
 func txIsFinal(tx rippledata.TransactionWithMetaData) bool {
 	txResult := tx.MetaData.TransactionResult
 	return tx.MetaData.TransactionResult.Success() ||

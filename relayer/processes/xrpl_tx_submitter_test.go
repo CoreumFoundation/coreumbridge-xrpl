@@ -30,7 +30,9 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 	allocateTicketsOperation,
 		allocateTicketOperationWithUnexpectedSeqNumber,
 		allocateTicketOperationWithSignatures,
-		allocateTicketOperationValidSigners := buildAllocateTicketsTestData(t, xrplTxSigners, bridgeXRPLAddress, contractRelayers)
+		allocateTicketOperationValidSigners := buildAllocateTicketsTestData(
+		t, xrplTxSigners, bridgeXRPLAddress, contractRelayers,
+	)
 
 	// ********** TrustSet **********
 
@@ -42,7 +44,9 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 
 	coreumToXRPLTokenTransferOperation,
 		coreumToXRPLTokenTransferOperationWithSignatures,
-		coreumToXRPLTokenTransferOperationValidSigners := buildCoreumToXRPLTokenTransferTestData(t, xrplTxSigners, bridgeXRPLAddress, contractRelayers)
+		coreumToXRPLTokenTransferOperationValidSigners := buildCoreumToXRPLTokenTransferTestData(
+		t, xrplTxSigners, bridgeXRPLAddress, contractRelayers,
+	)
 
 	tests := []struct {
 		name                  string
@@ -62,17 +66,28 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "register_signature_for_create_ticket_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
-				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{allocateTicketsOperation}, nil)
+				contractClientMock.EXPECT().
+					GetPendingOperations(gomock.Any()).
+					Return([]coreum.Operation{allocateTicketsOperation}, nil)
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
-				contractClientMock.EXPECT().SaveSignature(gomock.Any(), contractRelayers[0].CoreumAddress, allocateTicketsOperation.AccountSequence, allocateTicketOperationValidSigners[0].Signer.TxnSignature.String())
+				contractClientMock.EXPECT().SaveSignature(
+					gomock.Any(),
+					contractRelayers[0].CoreumAddress,
+					allocateTicketsOperation.AccountSequence,
+					allocateTicketOperationValidSigners[0].Signer.TxnSignature.String(),
+				)
 				return contractClientMock
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
 				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
 				// 2 times one for the signatures and one more for the seq number
-				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), bridgeXRPLAddress).Return(bridgeXRPLSignerAccountWithSigners, nil).Times(2)
+				xrplRPCClientMock.
+					EXPECT().
+					AccountInfo(gomock.Any(), bridgeXRPLAddress).
+					Return(bridgeXRPLSignerAccountWithSigners, nil).
+					Times(2)
 				return xrplRPCClientMock
 			},
 			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
@@ -88,7 +103,10 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "submit_create_ticket_tx_with_filtered_signature",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
-				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{allocateTicketOperationWithSignatures}, nil)
+				contractClientMock.
+					EXPECT().
+					GetPendingOperations(gomock.Any()).
+					Return([]coreum.Operation{allocateTicketOperationWithSignatures}, nil)
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
@@ -96,18 +114,26 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
 				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
-				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), bridgeXRPLAddress).Return(bridgeXRPLSignerAccountWithSigners, nil)
-				expectedTx, err := processes.BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress, allocateTicketOperationWithSignatures)
+				xrplRPCClientMock.
+					EXPECT().
+					AccountInfo(gomock.Any(), bridgeXRPLAddress).
+					Return(bridgeXRPLSignerAccountWithSigners, nil)
+				expectedTx, err := processes.BuildTicketCreateTxForMultiSigning(
+					bridgeXRPLAddress, allocateTicketOperationWithSignatures,
+				)
 				require.NoError(t, err)
 				require.NoError(t, rippledata.SetSigners(expectedTx, allocateTicketOperationValidSigners...))
-				xrplRPCClientMock.EXPECT().Submit(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error) {
-					_, expectedTxRaw, err := rippledata.Raw(expectedTx)
-					require.NoError(t, err)
-					_, txRaw, err := rippledata.Raw(tx)
-					require.NoError(t, err)
-					require.Equal(t, expectedTxRaw, txRaw)
-					return xrpl.SubmitResult{}, nil
-				})
+				xrplRPCClientMock.
+					EXPECT().
+					Submit(gomock.Any(), gomock.Any()).
+					Do(func(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error) {
+						_, expectedTxRaw, err := rippledata.Raw(expectedTx)
+						require.NoError(t, err)
+						_, txRaw, err := rippledata.Raw(tx)
+						require.NoError(t, err)
+						require.Equal(t, expectedTxRaw, txRaw)
+						return xrpl.SubmitResult{}, nil
+					})
 
 				return xrplRPCClientMock
 			},
@@ -116,22 +142,32 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "register_invalid_create_ticket_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
-				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{allocateTicketOperationWithUnexpectedSeqNumber}, nil)
+				contractClientMock.
+					EXPECT().
+					GetPendingOperations(gomock.Any()).
+					Return([]coreum.Operation{allocateTicketOperationWithUnexpectedSeqNumber}, nil)
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
-				contractClientMock.EXPECT().SendXRPLTicketsAllocationTransactionResultEvidence(gomock.Any(), contractRelayers[0].CoreumAddress, coreum.XRPLTransactionResultTicketsAllocationEvidence{
-					XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-						AccountSequence:   &allocateTicketOperationWithUnexpectedSeqNumber.AccountSequence,
-						TransactionResult: coreum.TransactionResultInvalid,
-					},
-				})
+				contractClientMock.EXPECT().SendXRPLTicketsAllocationTransactionResultEvidence(
+					gomock.Any(),
+					contractRelayers[0].CoreumAddress,
+					coreum.XRPLTransactionResultTicketsAllocationEvidence{
+						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+							AccountSequence:   &allocateTicketOperationWithUnexpectedSeqNumber.AccountSequence,
+							TransactionResult: coreum.TransactionResultInvalid,
+						},
+					})
 				return contractClientMock
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
 				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
 				// 2 times one for the signatures and one more for the seq number
-				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), bridgeXRPLAddress).Return(bridgeXRPLSignerAccountWithSigners, nil).Times(2)
+				xrplRPCClientMock.
+					EXPECT().
+					AccountInfo(gomock.Any(), bridgeXRPLAddress).
+					Return(bridgeXRPLSignerAccountWithSigners, nil).
+					Times(2)
 				return xrplRPCClientMock
 			},
 		},
@@ -143,12 +179,20 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
-				contractClientMock.EXPECT().SaveSignature(gomock.Any(), contractRelayers[0].CoreumAddress, trustSetOperation.TicketSequence, trustSetOperationValidSigners[0].Signer.TxnSignature.String())
+				contractClientMock.EXPECT().SaveSignature(
+					gomock.Any(),
+					contractRelayers[0].CoreumAddress,
+					trustSetOperation.TicketSequence,
+					trustSetOperationValidSigners[0].Signer.TxnSignature.String(),
+				)
 				return contractClientMock
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
 				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
-				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), bridgeXRPLAddress).Return(bridgeXRPLSignerAccountWithSigners, nil)
+				xrplRPCClientMock.
+					EXPECT().
+					AccountInfo(gomock.Any(), bridgeXRPLAddress).
+					Return(bridgeXRPLSignerAccountWithSigners, nil)
 				return xrplRPCClientMock
 			},
 			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
@@ -164,7 +208,10 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "submit_trust_set_tx_with_filtered_signature",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
-				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{trustSetOperationWithSignatures}, nil)
+				contractClientMock.
+					EXPECT().
+					GetPendingOperations(gomock.Any()).
+					Return([]coreum.Operation{trustSetOperationWithSignatures}, nil)
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
@@ -172,18 +219,24 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
 				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
-				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), bridgeXRPLAddress).Return(bridgeXRPLSignerAccountWithSigners, nil)
+				xrplRPCClientMock.
+					EXPECT().
+					AccountInfo(gomock.Any(), bridgeXRPLAddress).
+					Return(bridgeXRPLSignerAccountWithSigners, nil)
 				expectedTx, err := processes.BuildTrustSetTxForMultiSigning(bridgeXRPLAddress, trustSetOperationWithSignatures)
 				require.NoError(t, err)
 				require.NoError(t, rippledata.SetSigners(expectedTx, trustSetOperationValidSigners...))
-				xrplRPCClientMock.EXPECT().Submit(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error) {
-					_, expectedTxRaw, err := rippledata.Raw(expectedTx)
-					require.NoError(t, err)
-					_, txRaw, err := rippledata.Raw(tx)
-					require.NoError(t, err)
-					require.Equal(t, expectedTxRaw, txRaw)
-					return xrpl.SubmitResult{}, nil
-				})
+				xrplRPCClientMock.
+					EXPECT().
+					Submit(gomock.Any(), gomock.Any()).
+					Do(func(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error) {
+						_, expectedTxRaw, err := rippledata.Raw(expectedTx)
+						require.NoError(t, err)
+						_, txRaw, err := rippledata.Raw(tx)
+						require.NoError(t, err)
+						require.Equal(t, expectedTxRaw, txRaw)
+						return xrpl.SubmitResult{}, nil
+					})
 
 				return xrplRPCClientMock
 			},
@@ -192,23 +245,39 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "register_signature_for_coreum_to_XRPL_token_transfer_payment_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
-				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{coreumToXRPLTokenTransferOperation}, nil)
+				contractClientMock.
+					EXPECT().
+					GetPendingOperations(gomock.Any()).
+					Return([]coreum.Operation{coreumToXRPLTokenTransferOperation}, nil)
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
-				contractClientMock.EXPECT().SaveSignature(gomock.Any(), contractRelayers[0].CoreumAddress, coreumToXRPLTokenTransferOperation.TicketSequence, coreumToXRPLTokenTransferOperationValidSigners[0].Signer.TxnSignature.String())
+				contractClientMock.EXPECT().SaveSignature(
+					gomock.Any(),
+					contractRelayers[0].CoreumAddress,
+					coreumToXRPLTokenTransferOperation.TicketSequence,
+					coreumToXRPLTokenTransferOperationValidSigners[0].Signer.TxnSignature.String(),
+				)
 				return contractClientMock
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
 				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
-				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), bridgeXRPLAddress).Return(bridgeXRPLSignerAccountWithSigners, nil)
+				xrplRPCClientMock.
+					EXPECT().
+					AccountInfo(gomock.Any(), bridgeXRPLAddress).
+					Return(bridgeXRPLSignerAccountWithSigners, nil)
 				return xrplRPCClientMock
 			},
 			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
 				xrplTxSignerMock := NewMockXRPLTxSigner(ctrl)
-				tx, err := processes.BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAddress, coreumToXRPLTokenTransferOperation)
+				tx, err := processes.BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
+					bridgeXRPLAddress, coreumToXRPLTokenTransferOperation,
+				)
 				require.NoError(t, err)
-				xrplTxSignerMock.EXPECT().MultiSign(tx, xrplTxSignerKeyName).Return(coreumToXRPLTokenTransferOperationValidSigners[0], nil)
+				xrplTxSignerMock.
+					EXPECT().
+					MultiSign(tx, xrplTxSignerKeyName).
+					Return(coreumToXRPLTokenTransferOperationValidSigners[0], nil)
 
 				return xrplTxSignerMock
 			},
@@ -217,7 +286,10 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "submit_coreum_to_XRPL_token_transfer_payment_tx_with_filtered_signature",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
-				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{coreumToXRPLTokenTransferOperationWithSignatures}, nil)
+				contractClientMock.
+					EXPECT().
+					GetPendingOperations(gomock.Any()).
+					Return([]coreum.Operation{coreumToXRPLTokenTransferOperationWithSignatures}, nil)
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
 				}, nil)
@@ -225,18 +297,24 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
 				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
-				xrplRPCClientMock.EXPECT().AccountInfo(gomock.Any(), bridgeXRPLAddress).Return(bridgeXRPLSignerAccountWithSigners, nil)
-				expectedTx, err := processes.BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAddress, coreumToXRPLTokenTransferOperationWithSignatures)
+				xrplRPCClientMock.
+					EXPECT().
+					AccountInfo(gomock.Any(), bridgeXRPLAddress).
+					Return(bridgeXRPLSignerAccountWithSigners, nil)
+				expectedTx, err := processes.BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
+					bridgeXRPLAddress, coreumToXRPLTokenTransferOperationWithSignatures,
+				)
 				require.NoError(t, err)
 				require.NoError(t, rippledata.SetSigners(expectedTx, coreumToXRPLTokenTransferOperationValidSigners...))
-				xrplRPCClientMock.EXPECT().Submit(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error) {
-					_, expectedTxRaw, err := rippledata.Raw(expectedTx)
-					require.NoError(t, err)
-					_, txRaw, err := rippledata.Raw(tx)
-					require.NoError(t, err)
-					require.Equal(t, expectedTxRaw, txRaw)
-					return xrpl.SubmitResult{}, nil
-				})
+				xrplRPCClientMock.EXPECT().Submit(gomock.Any(), gomock.Any()).Do(
+					func(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error) {
+						_, expectedTxRaw, err := rippledata.Raw(expectedTx)
+						require.NoError(t, err)
+						_, txRaw, err := rippledata.Raw(tx)
+						require.NoError(t, err)
+						require.Equal(t, expectedTxRaw, txRaw)
+						return xrpl.SubmitResult{}, nil
+					})
 
 				return xrplRPCClientMock
 			},

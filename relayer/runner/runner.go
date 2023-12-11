@@ -227,7 +227,11 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring) (*Runner, er
 	if cfg.Coreum.Contract.ContractAddress != "" {
 		contractAddress, err = sdk.AccAddressFromBech32(cfg.Coreum.Contract.ContractAddress)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to decode contract address to sdk.AccAddress, address:%s", cfg.Coreum.Contract.ContractAddress)
+			return nil, errors.Wrapf(
+				err,
+				"failed to decode contract address to sdk.AccAddress, address:%s",
+				cfg.Coreum.Contract.ContractAddress,
+			)
 		}
 	}
 	contractClientCfg := coreum.ContractClientConfig{
@@ -256,9 +260,15 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring) (*Runner, er
 
 	var coreumChainNetworkConfig coreumchainconfig.NetworkConfig
 	if cfg.Coreum.Network.ChainID != "" {
-		coreumChainNetworkConfig, err = coreumchainconfig.NetworkConfigByChainID(coreumchainconstant.ChainID(cfg.Coreum.Network.ChainID))
+		coreumChainNetworkConfig, err = coreumchainconfig.NetworkConfigByChainID(
+			coreumchainconstant.ChainID(cfg.Coreum.Network.ChainID),
+		)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to set get correum network config for the chainID, chainID:%s", cfg.Coreum.Network.ChainID)
+			return nil, errors.Wrapf(
+				err,
+				"failed to set get correum network config for the chainID, chainID:%s",
+				cfg.Coreum.Network.ChainID,
+			)
 		}
 		clientContext = clientContext.WithChainID(cfg.Coreum.Network.ChainID)
 	}
@@ -271,7 +281,11 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring) (*Runner, er
 		}
 		relayerAddress, err = keyRecord.GetAddress()
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get address from keyring key recodr, key name:%s", cfg.Coreum.RelayerKeyName)
+			return nil, errors.Wrapf(
+				err,
+				"failed to get address from keyring key recodr, key name:%s",
+				cfg.Coreum.RelayerKeyName,
+			)
 		}
 	}
 	contractClient := coreum.NewContractClient(contractClientCfg, zapLogger, clientContext)
