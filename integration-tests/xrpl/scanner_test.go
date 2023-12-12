@@ -114,7 +114,7 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 		spawn("scan", parallel.Continue, func(ctx context.Context) error {
 			return scanner.ScanTxs(ctx, txsCh)
 		})
-		// write and exist
+		// write and exit
 		spawn("write", parallel.Continue, func(ctx context.Context) error {
 			writtenTxHashes = sendMultipleTxs(ctx, t, chains.XRPL, txsCount, senderAcc, recipientAcc)
 			return nil

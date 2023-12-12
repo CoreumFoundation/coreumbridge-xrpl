@@ -36,8 +36,8 @@ export XRPL_RPC_URL={XRPL RPC URL}
 
 ```bash
 ./coreumbridge-xrpl-relayer init --coreum-chain-id $COREUM_CHAIN_ID --coreum-grpc-url $COREUM_GRPC_URL  --xrpl-rpc-url $XRPL_RPC_URL
-./coreumbridge-xrpl-relayer keys add coreum-relayer
-./coreumbridge-xrpl-relayer keys add xrpl-relayer
+./coreumbridge-xrpl-relayer keys add coreum-relayer --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+./coreumbridge-xrpl-relayer keys add xrpl-relayer --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 The `coreum-relayer` and `xrpl-relayer` are key names set by default in the `relayer.yaml`. If for some reason you want
@@ -46,7 +46,7 @@ to update them, then updated them in the `relayer.yaml` as well.
 #### Extract data for the contract deployment
 
 ```bash
-./coreumbridge-xrpl-relayer relayer-keys-info
+./coreumbridge-xrpl-relayer relayer-keys-info --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 Output example:
@@ -65,13 +65,13 @@ deployer.
 #### Generate new key which will be used for the bridge bootstrapping
 
 ```bash
-./coreumbridge-xrpl-relayer keys add bridge-account
+./coreumbridge-xrpl-relayer keys add bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 #### Fund the Coreum account
 
 ```bash
-./coreumbridge-xrpl-relayer keys show -a bridge-account
+./coreumbridge-xrpl-relayer keys show -a bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 Get the Coreum address from the output and fund it on the Coreum side.
@@ -81,7 +81,7 @@ The balance should cover the token issuance fee and fee for the deployment trans
 
 ```bash
 export RELAYERS_COUNT={Relayes count to be used}
-./coreumbridge-xrpl-relayer bootstrap-bridge bootstraping.yaml --key-name bridge-account --init-only --relayers-count $RELAYERS_COUNT
+./coreumbridge-xrpl-relayer bootstrap-bridge bootstraping.yaml --key-name bridge-account --init-only --relayers-count $RELAYERS_COUNT --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 The output will print the XRPL bridge address and min XRPL bridge account balance. Fund it and proceed to the nex step.
@@ -111,16 +111,16 @@ If you don't have the contract bytecode download it.
 #### Run the bootstrapping
 
 ```bash
-./coreumbridge-xrpl-relayer bootstrap-bridge bootstraping.yaml --key-name bridge-account
+./coreumbridge-xrpl-relayer bootstrap-bridge bootstraping.yaml --key-name bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
-Once the command is executed get the bridge contract address from the output and share among the relayers to update in 
+Once the command is executed get the bridge contract address from the output and share among the relayers to update in
 the relayers config.
 
 #### Remove the bridge-account key
 
 ```bash
-./coreumbridge-xrpl-relayer keys delete bridge-account
+./coreumbridge-xrpl-relayer keys delete bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 ## Run relayer in docker
@@ -129,10 +129,19 @@ If relayer docker image is not built, build it.
 
 ### Run relayer
 
+### Run relayer
+
 ```bash
-docker run -it --name coreumbridge-xrpl-relayer -v ${PWD}/keys:/keys coreumbridge-xrpl-relayer:local start --keyring-dir /keys
+docker run -dit --name coreumbridge-xrpl-relayer \
+  -v $HOME/.coreumbridge-xrpl-relayer:/.coreumbridge-xrpl-relayer \
+  coreumbridge-xrpl-relayer:local start \
+  --keyring-dir /.coreumbridge-xrpl-relayer/keys \
+  --home /.coreumbridge-xrpl-relayer
+  
+docker attach coreumbridge-xrpl-relayer  
 ```
 
+Once you are attached, press any key and enter the keyring password.
 It is expected that at that time the relayer is initialized and its keys are generated and accounts are funded.
 
 ### Restart running instance
