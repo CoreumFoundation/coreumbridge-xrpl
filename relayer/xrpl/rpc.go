@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
@@ -291,10 +292,10 @@ func (c *RPCClient) callRPC(ctx context.Context, method string, params, result a
 			params,
 		},
 	}
-	c.log.Debug(ctx, "Executing XRPL RPC request", logger.AnyField("request", request))
+	c.log.Debug(ctx, "Executing XRPL RPC request", zap.Any("request", request))
 
 	err := c.httpClient.DoJSON(ctx, http.MethodPost, c.cfg.URL, request, func(resBytes []byte) error {
-		c.log.Debug(ctx, "Received XRPL RPC result", logger.StringField("result", string(resBytes)))
+		c.log.Debug(ctx, "Received XRPL RPC result", zap.String("result", string(resBytes)))
 		errResponse := rpcResponse{
 			Result: &RPCError{},
 		}
@@ -345,7 +346,7 @@ func (c *RPCClient) AutoFillTx(ctx context.Context, tx rippledata.Transaction, s
 
 // SubmitAndAwaitSuccess submits tx a waits for its result, if result is not success returns an error.
 func (c *RPCClient) SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Transaction) error {
-	c.log.Info(ctx, "Submitting transaction", logger.StringField("txHash", tx.GetHash().String()))
+	c.log.Info(ctx, "Submitting transaction", zap.String("txHash", tx.GetHash().String()))
 	// submit the transaction
 	res, err := c.Submit(ctx, tx)
 	if err != nil {
@@ -360,7 +361,7 @@ func (c *RPCClient) SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Tra
 	c.log.Info(
 		ctx,
 		"Transaction is submitted waiting for tx to be accepted",
-		logger.StringField("txHash", tx.GetHash().String()),
+		zap.String("txHash", tx.GetHash().String()),
 	)
 	return retry.Do(retryCtx, 250*time.Millisecond, func() error {
 		reqCtx, reqCtxCancel := context.WithTimeout(ctx, 3*time.Second)
