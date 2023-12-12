@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Uint128};
+use cosmwasm_std::{Addr, Coin, Uint128};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[allow(unused_imports)]
@@ -29,6 +29,7 @@ pub enum ExecuteMsg {
         decimals: u32,
         sending_precision: i32,
         max_holding_amount: Uint128,
+        bridging_fee: Uint128,
     },
     #[serde(rename = "register_xrpl_token")]
     RegisterXRPLToken {
@@ -36,6 +37,7 @@ pub enum ExecuteMsg {
         currency: String,
         sending_precision: i32,
         max_holding_amount: Uint128,
+        bridging_fee: Uint128,
     },
     RecoverTickets {
         account_sequence: u64,
@@ -57,6 +59,8 @@ pub enum ExecuteMsg {
     SendToXRPL {
         recipient: String,
     },
+    // Any relayer can claim fees at any point in time. They will be distributed proportionally among all of them.
+    ClaimFees {},
 }
 
 #[cw_ownable_query]
@@ -80,6 +84,8 @@ pub enum QueryMsg {
     PendingOperations {},
     #[returns(AvailableTicketsResponse)]
     AvailableTickets {},
+    #[returns(FeesCollectedResponse)]
+    FeesCollected {},
 }
 
 #[cw_serde]
@@ -100,4 +106,9 @@ pub struct PendingOperationsResponse {
 #[cw_serde]
 pub struct AvailableTicketsResponse {
     pub tickets: Vec<u64>,
+}
+
+#[cw_serde]
+pub struct FeesCollectedResponse {
+    pub fees_collected: Vec<Coin>,
 }

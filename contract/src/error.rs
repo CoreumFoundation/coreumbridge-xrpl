@@ -153,4 +153,7 @@ pub enum ContractError {
 
     #[error("InvalidOperationResult: OperationResult doesn't match a Pending Operation with the right Operation Type")]
     InvalidOperationResult {},
+
+    #[error("CannotCoverBridgingFees: The amount sent is not enough to cover the bridging fees")]
+    CannotCoverBridgingFees {},
 }
