@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
 	"github.com/CoreumFoundation/coreum/v3/pkg/client"
@@ -125,8 +126,8 @@ func (b *BridgeClient) Bootstrap(
 	b.log.Info(
 		ctx,
 		"XRPL account details",
-		logger.StringField("keyName", bridgeAccountKeyName),
-		logger.StringField("xrplAddress", xrplBridgeAccount.String()),
+		zap.String("keyName", bridgeAccountKeyName),
+		zap.String("xrplAddress", xrplBridgeAccount.String()),
 	)
 	if !cfg.SkipXRPLBalanceValidation {
 		if err = b.validateXRPLBridgeAccountBalance(ctx, len(cfg.Relayers), xrplBridgeAccount); err != nil {
@@ -169,9 +170,9 @@ func (b *BridgeClient) Bootstrap(
 		TrustSetLimitAmount:         trustSetLimitAmount,
 		BridgeXRPLAddress:           xrplBridgeAccount.String(),
 	}
-	b.log.Info(ctx, "Deploying contract", logger.AnyField("settings", instantiationCfg))
+	b.log.Info(ctx, "Deploying contract", zap.Any("settings", instantiationCfg))
 	contractAddress, err := b.contractClient.DeployAndInstantiate(ctx, senderAddress, contactByteCode, instantiationCfg)
-	b.log.Info(ctx, "Contract is deployed successfully", logger.StringField("address", contractAddress.String()))
+	b.log.Info(ctx, "Contract is deployed successfully", zap.String("address", contractAddress.String()))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deploy contract")
 	}
@@ -180,7 +181,7 @@ func (b *BridgeClient) Bootstrap(
 		return nil, err
 	}
 
-	b.log.Info(ctx, "The XRPL bridge account is ready", logger.StringField("address", xrplBridgeAccount.String()))
+	b.log.Info(ctx, "The XRPL bridge account is ready", zap.String("address", xrplBridgeAccount.String()))
 	return contractAddress, nil
 }
 
@@ -244,7 +245,7 @@ func (b *BridgeClient) validateXRPLBridgeAccountBalance(
 	b.log.Info(
 		ctx,
 		"Compute required XRPL bridge account balance to init the account",
-		logger.Float64Field("requiredBalance", requiredXRPLBalance),
+		zap.Float64("requiredBalance", requiredXRPLBalance),
 	)
 	xrplBridgeAccountInfo, err := b.xrplRPCClient.AccountInfo(ctx, xrplBridgeAccount)
 	if err != nil {
@@ -254,7 +255,7 @@ func (b *BridgeClient) validateXRPLBridgeAccountBalance(
 	b.log.Info(
 		ctx,
 		"Got XRPL bridge account balance",
-		logger.Float64Field("balance", xrplBridgeAccountBalance.Float()),
+		zap.Float64("balance", xrplBridgeAccountBalance.Float()),
 	)
 	if xrplBridgeAccountBalance.Float() < requiredXRPLBalance {
 		return errors.Errorf(
