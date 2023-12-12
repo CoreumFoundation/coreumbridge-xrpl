@@ -151,6 +151,8 @@ pub enum ContractActions {
     SaveSignature,
     SendToXRPL,
     ClaimFees,
+    UpdateXRPLToken,
+    UpdateCoreumToken,
 }
 
 impl ContractActions {
@@ -166,6 +168,8 @@ impl ContractActions {
             ContractActions::SaveSignature => "save_signature",
             ContractActions::SendToXRPL => "send_to_xrpl",
             ContractActions::ClaimFees => "claim_fees",
+            ContractActions::UpdateXRPLToken => "update_xrpl_token",
+            ContractActions::UpdateCoreumToken => "update_coreum_token",
         }
     }
 }

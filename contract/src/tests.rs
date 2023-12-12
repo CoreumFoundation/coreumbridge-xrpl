@@ -12,6 +12,7 @@ mod tests {
     use sha2::{Digest, Sha256};
 
     use crate::{
+        contract::{XRP_CURRENCY, XRP_ISSUER},
         error::ContractError,
         evidence::{Evidence, OperationResult, TransactionResult},
         msg::{
@@ -28,8 +29,6 @@ mod tests {
     const XRP_SYMBOL: &str = "XRP";
     const XRP_SUBUNIT: &str = "drop";
     const XRPL_DENOM_PREFIX: &str = "xrpl";
-    const XRP_CURRENCY: &str = "XRP";
-    const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
     const TRUST_SET_LIMIT_AMOUNT: u128 = 1000000000000000000; // 1e18
     const XRP_DECIMALS: u32 = 6;
     const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
@@ -5724,6 +5723,396 @@ mod tests {
     }
 
     #[test]
+    fn token_update() {
+        let app = CoreumTestApp::new();
+        let accounts_number = 3;
+        let accounts = app
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
+            .unwrap();
+
+        let signer = accounts.get((accounts_number - 1) as usize).unwrap();
+        let xrpl_addresses: Vec<String> = (0..2).map(|_| generate_xrpl_address()).collect();
+        let xrpl_pub_keys: Vec<String> = (0..2).map(|_| generate_xrpl_pub_key()).collect();
+
+        let mut relayer_accounts = vec![];
+        let mut relayers = vec![];
+
+        for i in 0..accounts_number - 1 {
+            relayer_accounts.push(accounts.get(i as usize).unwrap());
+            relayers.push(Relayer {
+                coreum_address: Addr::unchecked(accounts.get(i as usize).unwrap().address()),
+                xrpl_address: xrpl_addresses[i as usize].to_string(),
+                xrpl_pub_key: xrpl_pub_keys[i as usize].to_string(),
+            });
+        }
+
+        let wasm = Wasm::new(&app);
+        let asset_ft = AssetFT::new(&app);
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            vec![relayers[0].clone(), relayers[1].clone()],
+            2,
+            4,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+            query_issue_fee(&asset_ft),
+            generate_xrpl_address(),
+        );
+
+        // Recover enough tickets for testing
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(5),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: Some(1),
+                        ticket_sequence: None,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::TicketsAllocation {
+                            tickets: Some((1..6).collect()),
+                        },
+                    },
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        // Register one XRPL token and one Coreum token
+        let xrpl_token = XRPLToken {
+            issuer: generate_xrpl_address(),
+            currency: "USD".to_string(),
+            sending_precision: 15,
+            max_holding_amount: Uint128::new(1000000000),
+            bridging_fee: Uint128::zero(),
+        };
+
+        let subunit = "utest".to_string();
+        asset_ft
+            .issue(
+                MsgIssue {
+                    issuer: signer.address(),
+                    symbol: "TEST".to_string(),
+                    subunit: subunit.to_owned(),
+                    precision: 6,
+                    initial_amount: "100000000".to_string(),
+                    description: "description".to_string(),
+                    features: vec![MINTING as i32],
+                    burn_rate: "0".to_string(),
+                    send_commission_rate: "0".to_string(),
+                    uri: "uri".to_string(),
+                    uri_hash: "uri_hash".to_string(),
+                },
+                &signer,
+            )
+            .unwrap();
+
+        let coreum_token_denom = format!("{}-{}", subunit, signer.address()).to_lowercase();
+
+        let coreum_token = CoreumToken {
+            denom: coreum_token_denom.to_owned(),
+            decimals: 6,
+            sending_precision: 6,
+            max_holding_amount: Uint128::new(1000000000),
+            bridging_fee: Uint128::zero(),
+        };
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterXRPLToken {
+                issuer: xrpl_token.issuer.clone(),
+                currency: xrpl_token.currency.clone(),
+                sending_precision: xrpl_token.sending_precision,
+                max_holding_amount: xrpl_token.max_holding_amount,
+                bridging_fee: xrpl_token.bridging_fee,
+            },
+            &query_issue_fee(&asset_ft),
+            &signer,
+        )
+        .unwrap();
+
+        let query_xrpl_tokens = wasm
+            .query::<QueryMsg, XRPLTokensResponse>(
+                &contract_addr,
+                &QueryMsg::XRPLTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let xrpl_token_denom = query_xrpl_tokens
+            .tokens
+            .iter()
+            .find(|t| t.issuer == xrpl_token.issuer && t.currency == xrpl_token.currency)
+            .unwrap()
+            .coreum_denom
+            .clone();
+
+        // If we try to update the status of a token that is in processing state, it should fail
+        let update_status_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateXRPLToken {
+                    issuer: xrpl_token.issuer.to_owned(),
+                    currency: xrpl_token.currency.to_owned(),
+                    status: Some(TokenState::Disabled),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(update_status_error.to_string().contains(
+            ContractError::TokenStatusNotUpdatable {}
+                .to_string()
+                .as_str()
+        ));
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: None,
+                        ticket_sequence: Some(1),
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::TrustSet {
+                            issuer: xrpl_token.issuer.to_owned(),
+                            currency: xrpl_token.currency.to_owned(),
+                        },
+                    },
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        // We will try to send one evidence with the token enabled and the other one with the token disabled, which should fail.
+        let tx_hash = generate_hash();
+        // First evidence should succeed
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: tx_hash.to_owned(),
+                    issuer: xrpl_token.issuer.clone(),
+                    currency: xrpl_token.currency.clone(),
+                    amount: Uint128::one(),
+                    recipient: Addr::unchecked(signer.address()),
+                },
+            },
+            &[],
+            relayer_accounts[0],
+        )
+        .unwrap();
+
+        // Disable the token
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateXRPLToken {
+                issuer: xrpl_token.issuer.to_owned(),
+                currency: xrpl_token.currency.to_owned(),
+                status: Some(TokenState::Disabled),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // If we send second evidence it should fail because token is disabled
+        let disabled_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: tx_hash.to_owned(),
+                        issuer: xrpl_token.issuer.clone(),
+                        currency: xrpl_token.currency.clone(),
+                        amount: Uint128::one(),
+                        recipient: Addr::unchecked(signer.address()),
+                    },
+                },
+                &[],
+                relayer_accounts[1],
+            )
+            .unwrap_err();
+
+        assert!(disabled_error
+            .to_string()
+            .contains(ContractError::XRPLTokenNotEnabled {}.to_string().as_str()));
+
+        // If we try to change the status to something that is not disabled or enabled it should fail
+        let update_status_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateXRPLToken {
+                    issuer: xrpl_token.issuer.to_owned(),
+                    currency: xrpl_token.currency.to_owned(),
+                    status: Some(TokenState::Inactive),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(update_status_error.to_string().contains(
+            ContractError::InvalidTokenStatusUpdate {}
+                .to_string()
+                .as_str()
+        ));
+
+        // If we try to change the status back to enabled and send the evidence, the balance should be sent to the receiver.
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateXRPLToken {
+                issuer: xrpl_token.issuer.to_owned(),
+                currency: xrpl_token.currency.to_owned(),
+                status: Some(TokenState::Enabled),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: tx_hash.to_owned(),
+                    issuer: xrpl_token.issuer.clone(),
+                    currency: xrpl_token.currency.clone(),
+                    amount: Uint128::one(),
+                    recipient: Addr::unchecked(signer.address()),
+                },
+            },
+            &[],
+            relayer_accounts[1],
+        )
+        .unwrap();
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: signer.address(),
+                denom: xrpl_token_denom.clone(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "1".to_string());
+
+        // If we disable again and we try to send the token back it will fail
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateXRPLToken {
+                issuer: xrpl_token.issuer.to_owned(),
+                currency: xrpl_token.currency.to_owned(),
+                status: Some(TokenState::Disabled),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let send_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: generate_xrpl_address(),
+                },
+                &coins(1, xrpl_token_denom.to_owned()),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(send_error
+            .to_string()
+            .contains(ContractError::XRPLTokenNotEnabled {}.to_string().as_str()));
+
+        // Register the Coreum Token
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterCoreumToken {
+                denom: coreum_token_denom.to_owned(),
+                decimals: coreum_token.decimals,
+                sending_precision: coreum_token.sending_precision,
+                max_holding_amount: coreum_token.max_holding_amount,
+                bridging_fee: coreum_token.bridging_fee,
+            },
+            &query_issue_fee(&asset_ft),
+            &signer,
+        )
+        .unwrap();
+
+        // If we try to change the status to something that is not disabled or enabled it should fail
+        let update_status_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &&ExecuteMsg::UpdateCoreumToken {
+                    denom: coreum_token_denom.to_owned(),
+                    status: Some(TokenState::Processing),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(update_status_error.to_string().contains(
+            ContractError::InvalidTokenStatusUpdate {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Disable the Coreum Token
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &&ExecuteMsg::UpdateCoreumToken {
+                denom: coreum_token_denom.to_owned(),
+                status: Some(TokenState::Disabled),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // If we try to send now it will fail because the token is disabled
+        let send_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: generate_xrpl_address(),
+                },
+                &coins(1, coreum_token_denom.to_owned()),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(send_error.to_string().contains(
+            ContractError::CoreumOriginatedTokenDisabled {}
+                .to_string()
+                .as_str()
+        ));
+    }
+
+    #[test]
     fn invalid_transaction_evidences() {
         let app = CoreumTestApp::new();
         let signer = app
@@ -5752,7 +6141,7 @@ mod tests {
 
         let tx_hash = generate_hash();
         let account_sequence = 1;
-        let tickets = vec![1, 2, 3, 4, 5];
+        let tickets: Vec<u64> = (1..6).collect();
 
         let invalid_evidences_input = vec![
             Evidence::XRPLTransactionResult {

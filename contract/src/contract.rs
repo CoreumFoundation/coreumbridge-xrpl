@@ -23,6 +23,7 @@ use crate::{
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
     },
+    token::{build_xrpl_token_key, is_token_xrp, update_token_status},
 };
 
 use coreum_wasm_sdk::{
@@ -53,8 +54,8 @@ const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
 pub const XRPL_TOKENS_DECIMALS: u32 = 15;
 
-const XRP_CURRENCY: &str = "XRP";
-const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
+pub const XRP_CURRENCY: &str = "XRP";
+pub const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
 
 // Initial values for the XRP token that can be modified afterwards.
 const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
@@ -215,6 +216,14 @@ pub fn execute(
         } => save_signature(deps.into_empty(), info.sender, operation_id, signature),
         ExecuteMsg::SendToXRPL { recipient } => {
             send_to_xrpl(deps.into_empty(), env, info, recipient)
+        }
+        ExecuteMsg::UpdateXRPLToken {
+            issuer,
+            currency,
+            status,
+        } => update_xrpl_token(deps.into_empty(), info.sender, issuer, currency, status),
+        ExecuteMsg::UpdateCoreumToken { denom, status } => {
+            update_coreum_token(deps.into_empty(), info.sender, denom, status)
         }
         ExecuteMsg::ClaimFees {} => claim_fees(deps.into_empty(), info.sender),
     }
@@ -844,6 +853,52 @@ fn send_to_xrpl(
         .add_attribute("coin", funds.to_string()))
 }
 
+fn update_xrpl_token(
+    deps: DepsMut,
+    sender: Addr,
+    issuer: String,
+    currency: String,
+    status: Option<TokenState>,
+) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
+
+    let mut token = XRPL_TOKENS
+        .load(deps.storage, key.to_owned())
+        .map_err(|_| ContractError::TokenNotRegistered {})?;
+
+    update_token_status(&mut token.state, status)?;
+
+    XRPL_TOKENS.save(deps.storage, key, &token)?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::UpdateXRPLToken.as_str())
+        .add_attribute("issuer", issuer)
+        .add_attribute("currency", currency))
+}
+
+fn update_coreum_token(
+    deps: DepsMut,
+    sender: Addr,
+    denom: String,
+    status: Option<TokenState>,
+) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    let mut token = COREUM_TOKENS
+        .load(deps.storage, denom.to_owned())
+        .map_err(|_| ContractError::TokenNotRegistered {})?;
+
+    update_token_status(&mut token.state, status)?;
+
+    COREUM_TOKENS.save(deps.storage, denom.to_owned(), &token)?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::UpdateCoreumToken.as_str())
+        .add_attribute("denom", denom))
+}
+
 fn claim_fees(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
     assert_relayer(deps.as_ref(), sender.clone())?;
 
@@ -951,13 +1006,6 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
     Ok(())
 }
 
-pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
-    // Issuer+currency is the key we use to find an XRPL
-    let mut key = issuer;
-    key.push_str(currency.as_str());
-    key
-}
-
 pub fn validate_xrpl_issuer_and_currency(
     issuer: String,
     currency: String,
@@ -1058,17 +1106,12 @@ fn truncate_and_convert_amount(
     bridging_fee: Uint128,
 ) -> Result<(Uint128, Uint128), ContractError> {
     // We save the remainder as well to deduct it from the bridging fees
-    let (truncated_amount, remainder) =
-        truncate_amount(sending_precision, from_decimals, amount)?;
+    let (truncated_amount, remainder) = truncate_amount(sending_precision, from_decimals, amount)?;
 
     let amount_after_fees = amount_after_fees(truncated_amount, bridging_fee, remainder)?;
 
     let converted_amount = convert_amount_decimals(from_decimals, to_decimals, amount_after_fees)?;
     Ok((converted_amount, remainder))
-}
-
-fn is_token_xrp(issuer: String, currency: String) -> bool {
-    issuer == XRP_ISSUER && currency == XRP_CURRENCY
 }
 
 fn convert_currency_to_xrpl_hexadecimal(currency: String) -> String {

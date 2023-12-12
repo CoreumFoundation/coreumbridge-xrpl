@@ -156,4 +156,10 @@ pub enum ContractError {
 
     #[error("CannotCoverBridgingFees: The amount sent is not enough to cover the bridging fees")]
     CannotCoverBridgingFees {},
+
+    #[error("TokenStatusNotUpdatable: Only Inactive or Disabled tokens' state can be updated")]
+    TokenStatusNotUpdatable {},
+
+    #[error("InvalidTokenStatusUpdate: A token status can only be updated to enabled or disabled")]
+    InvalidTokenStatusUpdate {},
 }
