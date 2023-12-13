@@ -67,7 +67,7 @@ type BootstrappingConfig struct {
 	UsedTicketSequenceThreshold int                          `yaml:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         string                       `yaml:"trust_set_limit_amount"`
 	ContractByteCodePath        string                       `yaml:"contract_bytecode_path"`
-	SkipXRPLBalanceValidation   bool                         `yaml:"skip_xrpl_balance_validation"`
+	SkipXRPLBalanceValidation   bool                         `yaml:"-"`
 }
 
 // DefaultBootstrappingConfig returns default BootstrappingConfig.

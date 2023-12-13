@@ -37,6 +37,5 @@ evidence_threshold: 0
 used_ticket_sequence_threshold: 150
 trust_set_limit_amount: "100000000000000000000000000000000000"
 contract_bytecode_path: ""
-skip_xrpl_balance_validation: false
 `
 }
