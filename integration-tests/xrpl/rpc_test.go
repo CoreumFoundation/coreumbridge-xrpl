@@ -70,9 +70,9 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	t.Logf("Recipinet account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
+	t.Logf("Recipient account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
 	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooPaymentTx, issuerAcc))
-	t.Logf("Recipinet account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
+	t.Logf("Recipient account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
 }
 
 func TestMultisigPayment(t *testing.T) {
@@ -149,12 +149,12 @@ func TestMultisigPayment(t *testing.T) {
 	require.NotEqual(t, xrpPaymentTxTwoSigners.Hash.String(), xrpPaymentTxThreeSigners.Hash.String())
 
 	t.Logf(
-		"Recipinet account balance before: %s",
+		"Recipient account balance before: %s",
 		chains.XRPL.GetAccountBalances(ctx, t, xrpPaymentTxTwoSigners.Destination),
 	)
 	require.NoError(t, chains.XRPL.RPCClient().SubmitAndAwaitSuccess(ctx, &xrpPaymentTxTwoSigners))
 	t.Logf(
-		"Recipinet account balance after: %s",
+		"Recipient account balance after: %s",
 		chains.XRPL.GetAccountBalances(ctx, t, xrpPaymentTxTwoSigners.Destination),
 	)
 
@@ -226,9 +226,9 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	xrpPaymentTx.TxBase.Sequence = 0
 	xrpPaymentTx.TicketSequence = createdTickets[0].TicketSequence
 
-	t.Logf("Recipinet account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
+	t.Logf("Recipient account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
 	require.NoError(t, chains.XRPL.SignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc))
-	t.Logf("Recipinet account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
+	t.Logf("Recipient account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
 
 	// try to use tickets for the transactions without the trust-line
 	const newFooCurrencyCode = "NFO"
@@ -488,9 +488,9 @@ func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 	xrpPaymentTx = buildXrpPaymentTxForMultiSigning(ctx, t, chains.XRPL, multisigAccToDisable, signer1Acc)
 	require.NoError(t, rippledata.SetSigners(&xrpPaymentTx, signer1, signer2))
 
-	t.Logf("Recipinet account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, xrpPaymentTx.Destination))
+	t.Logf("Recipient account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, xrpPaymentTx.Destination))
 	require.NoError(t, chains.XRPL.RPCClient().SubmitAndAwaitSuccess(ctx, &xrpPaymentTx))
-	t.Logf("Recipinet account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, xrpPaymentTx.Destination))
+	t.Logf("Recipient account balance after: %s", chains.XRPL.GetAccountBalances(ctx, t, xrpPaymentTx.Destination))
 }
 
 func TestCreateAndUseUsedTicketAndSequencesWithMultisigning(t *testing.T) {

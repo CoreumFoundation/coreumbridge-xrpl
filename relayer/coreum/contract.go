@@ -236,6 +236,7 @@ type registerCoreumTokenRequest struct {
 	Decimals         uint32      `json:"decimals"`
 	SendingPrecision int32       `json:"sending_precision"`
 	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
+	BridgingFee      sdkmath.Int `json:"bridging_fee"`
 }
 
 type registerXRPLTokenRequest struct {
@@ -243,6 +244,7 @@ type registerXRPLTokenRequest struct {
 	Currency         string      `json:"currency"`
 	SendingPrecision int32       `json:"sending_precision"`
 	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
+	BridgingFee      sdkmath.Int `json:"bridging_fee"`
 }
 
 type saveEvidenceRequest struct {
@@ -514,6 +516,7 @@ func (c *ContractClient) RegisterCoreumToken(
 				Decimals:         decimals,
 				SendingPrecision: sendingPrecision,
 				MaxHoldingAmount: maxHoldingAmount,
+				BridgingFee:      sdkmath.NewInt(0),
 			},
 		},
 	})
@@ -544,6 +547,7 @@ func (c *ContractClient) RegisterXRPLToken(
 				Currency:         currency,
 				SendingPrecision: sendingPrecision,
 				MaxHoldingAmount: maxHoldingAmount,
+				BridgingFee:      sdkmath.NewInt(0),
 			},
 		},
 		Funds: sdk.NewCoins(fee),

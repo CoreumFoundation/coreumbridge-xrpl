@@ -1,6 +1,7 @@
 pub mod contract;
 pub mod error;
 pub mod evidence;
+pub mod fees;
 pub mod msg;
 pub mod operation;
 pub mod relayer;
