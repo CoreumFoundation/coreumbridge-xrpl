@@ -1,4 +1,4 @@
-package processes
+package xrpl
 
 import (
 	"github.com/pkg/errors"

@@ -20,35 +20,129 @@ make build-relayer
 make build-relayer-docker
 ```
 
-## Init relayer
+## Bootstrap the bridge
 
-### Init relayer default config
+### Init relayer (for each relayer)
 
-The relayer uses `relayer.yaml` for its work. The file contains all required setting which can be adjusted.
-To init the default config call.
+#### Set env variables used in the following instruction
 
 ```bash
-./coreumbridge-xrpl-relayer init
+export COREUM_CHAIN_ID={Coreum chain id}
+export COREUM_GRPC_URL={Coreum GRPC URL}
+export XRPL_RPC_URL={XRPL RPC URL}
 ```
 
-The command will generate the default `relayer.yaml` config in the `$HOME/.coreumbridge-xrpl-relayer`.
-Optionally you can provide `--home` to set different home directory.
+#### Init the config and generate the relayer keys
+
+```bash
+./coreumbridge-xrpl-relayer init --coreum-chain-id $COREUM_CHAIN_ID --coreum-grpc-url $COREUM_GRPC_URL  --xrpl-rpc-url $XRPL_RPC_URL
+./coreumbridge-xrpl-relayer keys add coreum-relayer --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+./coreumbridge-xrpl-relayer keys add xrpl-relayer --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+The `coreum-relayer` and `xrpl-relayer` are key names set by default in the `relayer.yaml`. If for some reason you want
+to update them, then updated them in the `relayer.yaml` as well.
+
+#### Extract data for the contract deployment
+
+```bash
+./coreumbridge-xrpl-relayer relayer-keys-info --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+Output example:
+
+```bash
+2023-12-10T18:04:55.235+0300    info    cli/cli.go:205  Key info        {"coreumAddress": "core1dukhz42p4qxkrtxg8ap7nj6wn3f2lqjqwf8gny", "xrplAddress": "r3YU6MLbmnxnLwCrRQYBAbaXmBR1RgK5mu", "xrplPubKey": "02ED720F8BF89D333CF7C4EAC763DA6EB7051895924DEB33AD34E87A624FE6B8F0"}
+```
+
+The output contains the `coreumAddress`, `xrplAddress` and `xrplPubKey` used for the contract deployment.
+Create the account with the `coreumAddress` by sending some tokens to in on the Coreum chain and XRPL account with the
+`xrplAddress` by sending 10XRP tokens and to it. Once the accounts are created share the keys info with contract
+deployer.
+
+### Run bootstrapping
+
+#### Generate new key which will be used for the bridge bootstrapping
+
+```bash
+./coreumbridge-xrpl-relayer keys add bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+#### Fund the Coreum account
+
+```bash
+./coreumbridge-xrpl-relayer keys show -a bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+Get the Coreum address from the output and fund it on the Coreum side.
+The balance should cover the token issuance fee and fee for the deployment transaction.
+
+#### Generate config template
+
+```bash
+export RELAYERS_COUNT={Relayes count to be used}
+./coreumbridge-xrpl-relayer bootstrap-bridge bootstraping.yaml --key-name bridge-account --init-only --relayers-count $RELAYERS_COUNT --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+The output will print the XRPL bridge address and min XRPL bridge account balance. Fund it and proceed to the nex step.
+
+#### Modify the `bootstraping.yaml` config
+
+Collect the config from the relayer and modify the bootstrapping config.
+
+Config example:
+
+```yaml
+owner: ""
+admin: ""
+relayers:
+  - coreum_address: ""
+    xrpl_address: ""
+    xrpl_pub_key: ""
+evidence_threshold: 0
+used_ticket_sequence_threshold: 150
+trust_set_limit_amount: "100000000000000000000000000000000000"
+contract_bytecode_path: ""
+skip_xrpl_balance_validation: false
+```
+
+If you don't have the contract bytecode download it.
+
+#### Run the bootstrapping
+
+```bash
+./coreumbridge-xrpl-relayer bootstrap-bridge bootstraping.yaml --key-name bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+Once the command is executed get the bridge contract address from the output and share among the relayers to update in
+the relayers config.
+
+#### Remove the bridge-account key
+
+```bash
+./coreumbridge-xrpl-relayer keys delete bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
 
 ## Run relayer in docker
 
 If relayer docker image is not built, build it.
 
-### Add relayer key
-
-```bash
-docker run --rm -it -v ${PWD}/keys:/keys coreumbridge-xrpl-relayer:local keys add coreumbridge-xrpl-relayer --keyring-dir /keys
-```
+### Run relayer
 
 ### Run relayer
 
 ```bash
-docker run -it --name coreumbridge-xrpl-relayer -v ${PWD}/keys:/keys coreumbridge-xrpl-relayer:local start --keyring-dir /keys
+docker run -dit --name coreumbridge-xrpl-relayer \
+  -v $HOME/.coreumbridge-xrpl-relayer:/.coreumbridge-xrpl-relayer \
+  coreumbridge-xrpl-relayer:local start \
+  --keyring-dir /.coreumbridge-xrpl-relayer/keys \
+  --home /.coreumbridge-xrpl-relayer
+  
+docker attach coreumbridge-xrpl-relayer  
 ```
+
+Once you are attached, press any key and enter the keyring password.
+It is expected that at that time the relayer is initialized and its keys are generated and accounts are funded.
 
 ### Restart running instance
 
