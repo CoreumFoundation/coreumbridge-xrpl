@@ -5872,7 +5872,7 @@ mod tests {
                 &ExecuteMsg::UpdateXRPLToken {
                     issuer: xrpl_token.issuer.to_owned(),
                     currency: xrpl_token.currency.to_owned(),
-                    status: Some(TokenState::Disabled),
+                    state: Some(TokenState::Disabled),
                 },
                 &vec![],
                 &signer,
@@ -5880,7 +5880,7 @@ mod tests {
             .unwrap_err();
 
         assert!(update_status_error.to_string().contains(
-            ContractError::TokenStatusNotUpdatable {}
+            ContractError::TokenStateNotUpdatable {}
                 .to_string()
                 .as_str()
         ));
@@ -5932,7 +5932,7 @@ mod tests {
             &ExecuteMsg::UpdateXRPLToken {
                 issuer: xrpl_token.issuer.to_owned(),
                 currency: xrpl_token.currency.to_owned(),
-                status: Some(TokenState::Disabled),
+                state: Some(TokenState::Disabled),
             },
             &vec![],
             &signer,
@@ -5968,7 +5968,7 @@ mod tests {
                 &ExecuteMsg::UpdateXRPLToken {
                     issuer: xrpl_token.issuer.to_owned(),
                     currency: xrpl_token.currency.to_owned(),
-                    status: Some(TokenState::Inactive),
+                    state: Some(TokenState::Inactive),
                 },
                 &vec![],
                 &signer,
@@ -5976,7 +5976,7 @@ mod tests {
             .unwrap_err();
 
         assert!(update_status_error.to_string().contains(
-            ContractError::InvalidTokenStatusUpdate {}
+            ContractError::InvalidTokenStateUpdate {}
                 .to_string()
                 .as_str()
         ));
@@ -5987,7 +5987,7 @@ mod tests {
             &ExecuteMsg::UpdateXRPLToken {
                 issuer: xrpl_token.issuer.to_owned(),
                 currency: xrpl_token.currency.to_owned(),
-                status: Some(TokenState::Enabled),
+                state: Some(TokenState::Enabled),
             },
             &vec![],
             &signer,
@@ -6025,7 +6025,7 @@ mod tests {
             &ExecuteMsg::UpdateXRPLToken {
                 issuer: xrpl_token.issuer.to_owned(),
                 currency: xrpl_token.currency.to_owned(),
-                status: Some(TokenState::Disabled),
+                state: Some(TokenState::Disabled),
             },
             &vec![],
             &signer,
@@ -6066,9 +6066,9 @@ mod tests {
         let update_status_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &&ExecuteMsg::UpdateCoreumToken {
+                &ExecuteMsg::UpdateCoreumToken {
                     denom: coreum_token_denom.to_owned(),
-                    status: Some(TokenState::Processing),
+                    state: Some(TokenState::Processing),
                 },
                 &vec![],
                 &signer,
@@ -6076,7 +6076,7 @@ mod tests {
             .unwrap_err();
 
         assert!(update_status_error.to_string().contains(
-            ContractError::InvalidTokenStatusUpdate {}
+            ContractError::InvalidTokenStateUpdate {}
                 .to_string()
                 .as_str()
         ));
@@ -6086,7 +6086,7 @@ mod tests {
             &contract_addr,
             &&ExecuteMsg::UpdateCoreumToken {
                 denom: coreum_token_denom.to_owned(),
-                status: Some(TokenState::Disabled),
+                state: Some(TokenState::Disabled),
             },
             &vec![],
             &signer,

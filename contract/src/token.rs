@@ -18,19 +18,19 @@ pub fn is_token_xrp(issuer: String, currency: String) -> bool {
 }
 
 // Helper function to update the status of a token
-pub fn update_token_status(
-    status: &mut TokenState,
-    new_status: Option<TokenState>,
+pub fn update_token_state(
+    state: &mut TokenState,
+    new_state: Option<TokenState>,
 ) -> Result<(), ContractError> {
-    if let Some(new_status) = new_status {
-        if (*status).eq(&TokenState::Inactive) || (*status).eq(&TokenState::Processing) {
-            return Err(ContractError::TokenStatusNotUpdatable {});
+    if let Some(new_state) = new_state {
+        if (*state).eq(&TokenState::Inactive) || (*state).eq(&TokenState::Processing) {
+            return Err(ContractError::TokenStateNotUpdatable {});
         }
-        if new_status.eq(&TokenState::Inactive) || new_status.eq(&TokenState::Processing) {
-            return Err(ContractError::InvalidTokenStatusUpdate {});
+        if new_state.eq(&TokenState::Inactive) || new_state.eq(&TokenState::Processing) {
+            return Err(ContractError::InvalidTokenStateUpdate {});
         }
 
-        *status = new_status;
+        *state = new_state;
     }
 
     Ok(())

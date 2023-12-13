@@ -23,7 +23,7 @@ use crate::{
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
     },
-    token::{build_xrpl_token_key, is_token_xrp, update_token_status},
+    token::{build_xrpl_token_key, is_token_xrp, update_token_state},
 };
 
 use coreum_wasm_sdk::{
@@ -220,10 +220,10 @@ pub fn execute(
         ExecuteMsg::UpdateXRPLToken {
             issuer,
             currency,
-            status,
-        } => update_xrpl_token(deps.into_empty(), info.sender, issuer, currency, status),
-        ExecuteMsg::UpdateCoreumToken { denom, status } => {
-            update_coreum_token(deps.into_empty(), info.sender, denom, status)
+            state,
+        } => update_xrpl_token(deps.into_empty(), info.sender, issuer, currency, state),
+        ExecuteMsg::UpdateCoreumToken { denom, state } => {
+            update_coreum_token(deps.into_empty(), info.sender, denom, state)
         }
         ExecuteMsg::ClaimFees {} => claim_fees(deps.into_empty(), info.sender),
     }
@@ -858,7 +858,7 @@ fn update_xrpl_token(
     sender: Addr,
     issuer: String,
     currency: String,
-    status: Option<TokenState>,
+    state: Option<TokenState>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -868,7 +868,7 @@ fn update_xrpl_token(
         .load(deps.storage, key.to_owned())
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
-    update_token_status(&mut token.state, status)?;
+    update_token_state(&mut token.state, state)?;
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
@@ -882,7 +882,7 @@ fn update_coreum_token(
     deps: DepsMut,
     sender: Addr,
     denom: String,
-    status: Option<TokenState>,
+    state: Option<TokenState>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -890,7 +890,7 @@ fn update_coreum_token(
         .load(deps.storage, denom.to_owned())
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
-    update_token_status(&mut token.state, status)?;
+    update_token_state(&mut token.state, state)?;
 
     COREUM_TOKENS.save(deps.storage, denom.to_owned(), &token)?;
 

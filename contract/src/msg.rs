@@ -59,16 +59,19 @@ pub enum ExecuteMsg {
     SendToXRPL {
         recipient: String,
     },
-    // All fields that can be updatable for tokens will be updated with these messages.
+    // All fields that can be updatable for XRPL originated tokens will be updated with this message
+    // They are all optional, so any fields that have to be updated can be included in the message.
     #[serde(rename = "update_xrpl_token")]
     UpdateXRPLToken {
         issuer: String,
         currency: String,
-        status: Option<TokenState>,
+        state: Option<TokenState>,
     },
+    // All fields that can be updatable for Coreum tokens will be updated with this message.
+    // They are all optional, so any fields that have to be updated can be included in the message.
     UpdateCoreumToken {
         denom: String,
-        status: Option<TokenState>,
+        state: Option<TokenState>,
     },
     // Any relayer can claim fees at any point in time. They will be distributed proportionally among all of them.
     ClaimFees {},
