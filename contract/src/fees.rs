@@ -26,17 +26,19 @@ pub fn amount_after_transfer_fees(
     let mut transfer_fee = Uint128::zero();
 
     if let Some(rate) = transfer_rate {
-        // First we get the rate from the XRPL transfer rate value
+        // The formula to calculate how much we can send is the following: amount_to_send = amount / (1 + fee_percentage)
+        // Where, for 5% fee for example, fee_percentage is 0.05 and for 100% fee fee_percentage is 1.
+        // To calculate the right amounts, first we get the rate from the XRPL transfer rate value
         // For example, if our transfer rate is 2% (1020000000), we will get 2% by doing 1020000000 - 1000000000 = 20000000
-        // Afterwards we just need to multiply by the rate and divide by 1000000000 to get the network fees we need to pay
-        // Example: amount = 1000000000000000 (1e15), transfer rate = 1020000000 (2%)
-        // Result:  transfer_fee = 1000000000000000 * 20000000 / 1000000000 = 2e12
+        // and then dividing this by 1000000000 to get the percentage (0.02)
+        // Afterwards we just need to apply the formula to get the amount to send (rounded down) and substract from the initial amount to get the fee that is applied.
         let rate_value = rate.checked_sub(XRPL_MIN_TRANSFER_RATE)?;
-        // Create the percentage from the rate value so that we can multiply by the amount and get the transfer fee
         let rate_percentage = Decimal::from_ratio(rate_value, XRPL_MIN_TRANSFER_RATE);
-        transfer_fee = amount_after_transfer_fees.mul_ceil(rate_percentage);
 
-        amount_after_transfer_fees = amount_after_transfer_fees.checked_sub(transfer_fee)?;
+        let denominator = Decimal::one().checked_add(rate_percentage)?;
+
+        amount_after_transfer_fees = amount.div_floor(denominator);
+        transfer_fee = amount.checked_sub(amount_after_transfer_fees)?;
     }
 
     Ok((amount_after_transfer_fees, transfer_fee))
@@ -47,16 +49,9 @@ pub fn handle_fee_collection(
     bridging_fee: Uint128,
     token_denom: String,
     truncated_portion: Uint128,
-    transfer_fee: Option<Uint128>,
 ) -> Result<Uint128, ContractError> {
     // We add the bridging fee we charged and the truncated portion after all fees were charged
-    let mut fee_collected = bridging_fee.checked_add(truncated_portion)?;
-
-    // Add the transfer fee to the fee collected
-    // This only applies to XRPL originated tokens with a transfer rate
-    if let Some(fee) = transfer_fee {
-        fee_collected = fee_collected.checked_add(fee)?;
-    }
+    let fee_collected = bridging_fee.checked_add(truncated_portion)?;
 
     collect_fees(storage, coin(fee_collected.u128(), token_denom))?;
     Ok(fee_collected)

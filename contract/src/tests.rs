@@ -4956,9 +4956,10 @@ mod tests {
                 .to_string()
                 .as_str()
         ));
-
-        // If we send back 100000000050001, we will collect 50000 of bridging fee and 0.0000001% of 100000000000001 which is 100000.000000001
-        // This amount rounded up is 100001. So in the end we are sending 99999999900000 (100000000000001 - 100001) and 150001 is collected as fees
+        // If we send back 100000000050001, we will collect 50000 of bridging fee which returns 100000000000001
+        // Since the transfer fee is 0.0000001%. The formula we will apply is:
+        // amount_to_send = 100000000000001 / (1+0.000000001) = 99999999900001.00009999.... -> which after rounding down is 99999999900001 (nothing is getting truncated)
+        // The rest, 100000000000001 - 99999999000001 = 1000000 will be burnt
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -4976,7 +4977,7 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(200001, token1_denom.to_owned()),
+                coin(100000, token1_denom.to_owned()),
                 coin(50000, token2_denom.to_owned()),
                 coin(50000, token3_denom.to_owned()),
             ]
@@ -4998,16 +4999,18 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: test_tokens[0].issuer.to_owned(),
                     currency: test_tokens[0].currency.to_owned(),
-                    amount: Uint128::new(99999999900000),
+                    amount: Uint128::new(99999999900001),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
                 }
             }
         );
 
-        // If we send 100000000000001 of the token with 49.9999999% fee, we will apply 49.9999999% of 99999999950001 which is 49999999875000.500049999
-        // and after rounding up is 49999999875001. So in the end we have 50000000075000 (99999999950001 - 49999999875001) and since precision is 10
-        // we are truncating 75000 extra so in the end we are collecting 50000000000001 (49999999925001 + 75000) as fees
+        // If we send back 100000000050001, we will collect 50000 of bridging fee first which returns 99999999950001
+        // since the transfer fee is 49.9999999%. The formula we will apply is:
+        // amount_to_send = 99999999950001 / (1+0.499999999) = 66666666677778.444451.... -> which after rounding down is 66666666677778
+        // After truncating (because sending precision is 10, we will get 66666666600000 as amount to send and 77778 extra collected as fees)
+        // The rest, 99999999950001 - 66666666600000 = 33333333350001 will be burnt
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -5025,8 +5028,8 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(200001, token1_denom.to_owned()),
-                coin(50000000050001, token2_denom.to_owned()),
+                coin(100000, token1_denom.to_owned()),
+                coin(177778, token2_denom.to_owned()),
                 coin(50000, token3_denom.to_owned()),
             ]
         );
@@ -5047,15 +5050,18 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: test_tokens[1].issuer.to_owned(),
                     currency: test_tokens[1].currency.to_owned(),
-                    amount: Uint128::new(50000000000000),
+                    amount: Uint128::new(66666666600000),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
                 }
             }
         );
 
-        // For any tokens that has 100% fees, they can't be sent back because there's nothing to send back to XRPL
-        let transfer_error = wasm.execute::<ExecuteMsg>(
+        // If we send back 100000000000001, we will collect 50000 of bridging fee first which returns 100000000000001
+        // since the transfer fee is 100%. The formula we will apply is:
+        // amount_to_send = 100000000000001 / (1+1) = 50000000000000.5 -> which after rounding down is 50000000000000
+        // The rest, 100000000000001 - 50000000000000 = 50000000000001 will be burnt
+        wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: receiver.to_owned(),
@@ -5063,13 +5069,43 @@ mod tests {
             &coins(100000000050001, token3_denom.to_owned()),
             &signer,
         )
-        .unwrap_err();
+        .unwrap();
 
-        assert!(transfer_error.to_string().contains(
-            ContractError::AmountSentIsZeroAfterTruncation {}
-                .to_string()
-                .as_str()
-        ));
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .unwrap();
+
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![
+                coin(100000, token1_denom.to_owned()),
+                coin(177778, token2_denom.to_owned()),
+                coin(100000, token3_denom.to_owned()),
+            ]
+        );
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(
+            query_pending_operations.operations[2],
+            Operation {
+                ticket_sequence: Some(6),
+                account_sequence: None,
+                signatures: vec![],
+                operation_type: OperationType::CoreumToXRPLTransfer {
+                    issuer: test_tokens[2].issuer.to_owned(),
+                    currency: test_tokens[2].currency.to_owned(),
+                    amount: Uint128::new(50000000000000),
+                    sender: Addr::unchecked(signer.address()),
+                    recipient: receiver.to_owned(),
+                }
+            }
+        );
 
         // Let's collect the fees to check that they are substracted correcly
         wasm.execute::<ExecuteMsg>(
@@ -5084,14 +5120,34 @@ mod tests {
             .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
             .unwrap();
 
-        // Remainder left -- token 3 will be removed because everything is collected by relayers
-        assert_eq!(
-            query_fees_collected.fees_collected,
-            vec![
-                coin(1, token1_denom.to_owned()),
-                coin(1, token2_denom.to_owned()),
-            ]
-        );
+        // Nothing will be left
+        assert!(query_fees_collected.fees_collected.is_empty());
+
+        // Check relayer balances
+        for relayer in relayer_accounts.iter() {
+            let request_balance_token1 = asset_ft
+                .query_balance(&QueryBalanceRequest {
+                    account: relayer.address(),
+                    denom: token1_denom.to_owned(),
+                })
+                .unwrap();
+            let request_balance_token2 = asset_ft
+                .query_balance(&QueryBalanceRequest {
+                    account: relayer.address(),
+                    denom: token2_denom.to_owned(),
+                })
+                .unwrap();
+            let request_balance_token3 = asset_ft
+                .query_balance(&QueryBalanceRequest {
+                    account: relayer.address(),
+                    denom: token3_denom.to_owned(),
+                })
+                .unwrap();
+
+            assert_eq!(request_balance_token1.balance, "50000".to_string()); // 100000 / 2 = 50000
+            assert_eq!(request_balance_token2.balance, "88889".to_string()); // 177778 / 2 = 88889
+            assert_eq!(request_balance_token3.balance, "50000".to_string()); // 100000 / 2 = 50000
+        }
     }
 
     #[test]

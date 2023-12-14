@@ -471,7 +471,6 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                         token.bridging_fee,
                         token.coreum_denom.to_owned(),
                         remainder,
-                        None,
                     )?;
 
                     let mint_msg_fees = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
@@ -521,7 +520,6 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                         token.bridging_fee,
                         token.denom.to_owned(),
                         truncated_portion,
-                        None,
                     )?;
 
                     let send_msg = BankMsg::Send {
@@ -769,6 +767,7 @@ fn send_to_xrpl(
     let truncated_portion;
     let issuer;
     let currency;
+    let mut response = Response::new();
     // We check if the token we are sending is an XRPL originated token or not
     match XRPL_TOKENS
         .idx
@@ -804,12 +803,19 @@ fn send_to_xrpl(
                 amount_after_transfer_fees,
             )?;
 
+            //Transfer fees must be burnt from the contract
+            if !transfer_fee.is_zero() {
+                let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
+                    coin: coin(transfer_fee.u128(), xrpl_token.coreum_denom.to_owned()),
+                }));
+                response = response.add_message(burn_msg);
+            }
+
             handle_fee_collection(
                 deps.storage,
                 xrpl_token.bridging_fee,
                 xrpl_token.coreum_denom,
                 truncated_portion,
-                Some(transfer_fee),
             )?;
         }
 
@@ -845,7 +851,6 @@ fn send_to_xrpl(
                 coreum_token.bridging_fee,
                 coreum_token.denom.to_owned(),
                 truncated_portion,
-                None,
             )?;
 
             // For Coreum originated tokens we need to check that we are not going over max bridge amount.
@@ -875,7 +880,7 @@ fn send_to_xrpl(
         },
     )?;
 
-    Ok(Response::new()
+    Ok(response
         .add_attribute("action", ContractActions::SendToXRPL.as_str())
         .add_attribute("sender", info.sender)
         .add_attribute("recipient", recipient)
