@@ -10,12 +10,9 @@ use crate::{
 pub fn amount_after_bridge_fees(
     amount: Uint128,
     bridging_fee: Uint128,
-    truncated_portion: Uint128,
 ) -> Result<Uint128, ContractError> {
-    let fee_to_collect = bridging_fee.saturating_sub(truncated_portion);
-
     let amount_after_bridge_fees = amount
-        .checked_sub(fee_to_collect)
+        .checked_sub(bridging_fee)
         .map_err(|_| ContractError::CannotCoverBridgingFees {})?;
 
     Ok(amount_after_bridge_fees)
@@ -52,14 +49,8 @@ pub fn handle_fee_collection(
     truncated_portion: Uint128,
     transfer_fee: Option<Uint128>,
 ) -> Result<Uint128, ContractError> {
-    // We substract the truncated portion from the bridging_fee. If truncated portion >= fee,
-    // then we already paid the fees and we collect the truncated portion instead of bridging fee (because it might be bigger than the bridging fee)
-    let fee_to_collect = bridging_fee.saturating_sub(truncated_portion);
-    let mut fee_collected = if fee_to_collect.is_zero() {
-        truncated_portion
-    } else {
-        bridging_fee
-    };
+    // We add the bridging fee we charged and the truncated portion after all fees were charged
+    let mut fee_collected = bridging_fee.checked_add(truncated_portion)?;
 
     // Add the transfer fee to the fee collected
     // This only applies to XRPL originated tokens with a transfer rate

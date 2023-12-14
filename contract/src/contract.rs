@@ -446,16 +446,15 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     false => XRPL_TOKENS_DECIMALS,
                 };
 
-                // Here we simply truncate because the Coreum tokens corresponding to XRPL originated tokens have the same decimals as their corresponding Coreum tokens
-                let (amount_truncated, remainder) =
-                    truncate_amount(token.sending_precision, decimals, amount)?;
-
                 // We calculate the amount to send after applying the bridging fees for that token
-                let amount_to_send =
-                    amount_after_bridge_fees(amount_truncated, token.bridging_fee, remainder)?;
+                let amount_after_bridge_fees =
+                    amount_after_bridge_fees(amount, token.bridging_fee)?;
 
-                if amount_truncated
-                    .checked_add(remainder)?
+                // Here we simply truncate because the Coreum tokens corresponding to XRPL originated tokens have the same decimals as their corresponding Coreum tokens
+                let (amount_to_send, remainder) =
+                    truncate_amount(token.sending_precision, decimals, amount_after_bridge_fees)?;
+
+                if amount
                     .checked_add(
                         deps.querier
                             .query_supply(token.coreum_denom.to_owned())?
@@ -767,7 +766,7 @@ fn send_to_xrpl(
 
     let decimals;
     let amount_to_send;
-    let transfer_fee;
+    let truncated_portion;
     let issuer;
     let currency;
     // We check if the token we are sending is an XRPL originated token or not
@@ -790,20 +789,20 @@ fn send_to_xrpl(
                 false => XRPL_TOKENS_DECIMALS,
             };
 
-            // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
-            let (amount_truncated, truncated_portion) =
-                truncate_amount(xrpl_token.sending_precision, decimals, funds.amount)?;
-
             // We calculate the amount after applying the bridging fees for that token
-            let amount_after_bridge_fees = amount_after_bridge_fees(
-                amount_truncated,
-                xrpl_token.bridging_fee,
-                truncated_portion,
-            )?;
+            let amount_after_bridge_fees =
+                amount_after_bridge_fees(funds.amount, xrpl_token.bridging_fee)?;
 
             // We calculate the amount to send after applying the transfer rate (if any)
-            (amount_to_send, transfer_fee) =
+            let (amount_after_transfer_fees, transfer_fee) =
                 amount_after_transfer_fees(amount_after_bridge_fees, xrpl_token.transfer_rate)?;
+
+            // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
+            (amount_to_send, truncated_portion) = truncate_amount(
+                xrpl_token.sending_precision,
+                decimals,
+                amount_after_transfer_fees,
+            )?;
 
             handle_fee_collection(
                 deps.storage,
@@ -861,24 +860,20 @@ fn send_to_xrpl(
         }
     }
 
-    // If the amount to send is 0 because there is nothing left after applying transfer fees
-    // we don't need to send anything to XRPL
-    if !amount_to_send.is_zero() {
-        // Get a ticket and store the pending operation
-        let ticket = allocate_ticket(deps.storage)?;
-        create_pending_operation(
-            deps.storage,
-            Some(ticket),
-            None,
-            OperationType::CoreumToXRPLTransfer {
-                issuer,
-                currency,
-                amount: amount_to_send,
-                sender: info.sender.to_owned(),
-                recipient: recipient.to_owned(),
-            },
-        )?;
-    }
+    // Get a ticket and store the pending operation
+    let ticket = allocate_ticket(deps.storage)?;
+    create_pending_operation(
+        deps.storage,
+        Some(ticket),
+        None,
+        OperationType::CoreumToXRPLTransfer {
+            issuer,
+            currency,
+            amount: amount_to_send,
+            sender: info.sender.to_owned(),
+            recipient: recipient.to_owned(),
+        },
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::SendToXRPL.as_str())
@@ -1094,13 +1089,14 @@ fn convert_and_truncate_amount(
     bridging_fee: Uint128,
 ) -> Result<(Uint128, Uint128), ContractError> {
     let converted_amount = convert_amount_decimals(from_decimals, to_decimals, amount)?;
-    // We save the remainder as well to deduct it from the bridging fees
+
+    let amount_after_fees = amount_after_bridge_fees(converted_amount, bridging_fee)?;
+
+    // We save the remainder as well to add it to the fee collection
     let (truncated_amount, remainder) =
-        truncate_amount(sending_precision, to_decimals, converted_amount)?;
+        truncate_amount(sending_precision, to_decimals, amount_after_fees)?;
 
-    let amount_after_fees = amount_after_bridge_fees(truncated_amount, bridging_fee, remainder)?;
-
-    Ok((amount_after_fees, remainder))
+    Ok((truncated_amount, remainder))
 }
 
 // Helper function to combine the truncation and conversion of amounts after substracting fees.
@@ -1111,12 +1107,14 @@ fn truncate_and_convert_amount(
     amount: Uint128,
     bridging_fee: Uint128,
 ) -> Result<(Uint128, Uint128), ContractError> {
-    // We save the remainder as well to deduct it from the bridging fees
-    let (truncated_amount, remainder) = truncate_amount(sending_precision, from_decimals, amount)?;
+    // We calculate fees first and truncate afterwards because of XRPL not supporting values like 1e17 + 1
+    let amount_after_fees = amount_after_bridge_fees(amount, bridging_fee)?;
 
-    let amount_after_fees = amount_after_bridge_fees(truncated_amount, bridging_fee, remainder)?;
+    // We save the remainder as well to add it to fee collection
+    let (truncated_amount, remainder) =
+        truncate_amount(sending_precision, from_decimals, amount_after_fees)?;
 
-    let converted_amount = convert_amount_decimals(from_decimals, to_decimals, amount_after_fees)?;
+    let converted_amount = convert_amount_decimals(from_decimals, to_decimals, truncated_amount)?;
     Ok((converted_amount, remainder))
 }
 

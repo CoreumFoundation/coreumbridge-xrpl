@@ -4230,7 +4230,7 @@ mod tests {
                         tx_hash: tx_hash.to_owned(),
                         issuer: test_token_xrpl.issuer.to_owned(),
                         currency: test_token_xrpl.currency.to_owned(),
-                        amount: Uint128::new(1000000000050000), // 1e15 + 5e4 --> This should truncate the entire bridging fee and not take anything else
+                        amount: Uint128::new(1000000000050000), // 1e15 + 5e4 --> This should take the bridging fee (5e4) and truncate nothing
                         recipient: Addr::unchecked(receiver.address()),
                     },
                 },
@@ -4267,7 +4267,7 @@ mod tests {
                         tx_hash: tx_hash.to_owned(),
                         issuer: test_token_xrpl.issuer.to_owned(),
                         currency: test_token_xrpl.currency.to_owned(),
-                        amount: Uint128::new(1000000000040000), // 1e15 + 5e4 --> This should truncate and charge extra 10000 to cover bridging fee
+                        amount: Uint128::new(1000000000040000), // 1e15 + 4e4 --> This should take the bridging fee -> 1999999999990000 and truncate -> 1999999999900000
                         recipient: Addr::unchecked(receiver.address()),
                     },
                 },
@@ -4284,7 +4284,7 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(request_balance.balance, "1999999999990000".to_string());
+        assert_eq!(request_balance.balance, "1999999999900000".to_string());
 
         let query_fees_collected = wasm
             .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
@@ -4292,7 +4292,7 @@ mod tests {
 
         assert_eq!(
             query_fees_collected.fees_collected,
-            vec![coin(100000, xrpl_token.coreum_denom.to_owned())]
+            vec![coin(190000, xrpl_token.coreum_denom.to_owned())]
         );
 
         let tx_hash = generate_hash();
@@ -4304,7 +4304,7 @@ mod tests {
                         tx_hash: tx_hash.to_owned(),
                         issuer: test_token_xrpl.issuer.to_owned(),
                         currency: test_token_xrpl.currency.to_owned(),
-                        amount: Uint128::new(1000000000000000), // 1e15 + 5e4 --> This should truncate nothing and charge the entire bridging fee (50000)
+                        amount: Uint128::new(1000000000000000), // 1e15 --> This should charge bridging fee -> 1999999999950000 and truncate -> 1999999999900000
                         recipient: Addr::unchecked(receiver.address()),
                     },
                 },
@@ -4321,7 +4321,7 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(request_balance.balance, "2999999999940000".to_string());
+        assert_eq!(request_balance.balance, "2999999999800000".to_string());
 
         let query_fees_collected = wasm
             .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
@@ -4329,7 +4329,7 @@ mod tests {
 
         assert_eq!(
             query_fees_collected.fees_collected,
-            vec![coin(150000, xrpl_token.coreum_denom.to_owned())]
+            vec![coin(290000, xrpl_token.coreum_denom.to_owned())]
         );
 
         // Check that contract holds those tokens.
@@ -4339,7 +4339,7 @@ mod tests {
                 denom: xrpl_token.coreum_denom.to_owned(),
             })
             .unwrap();
-        assert_eq!(query_contract_balance.balance, "150000".to_string());
+        assert_eq!(query_contract_balance.balance, "290000".to_string());
 
         // Let's try to bridge some tokens back from Coreum to XRPL and verify that the fees are also collected correctly
         let xrpl_receiver_address = generate_xrpl_address();
@@ -4348,7 +4348,7 @@ mod tests {
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
             },
-            &coins(1000000000020000, xrpl_token.coreum_denom.to_owned()), // This should truncate 20000 and charge 30000 extra to cover bridging fee
+            &coins(1000000000020000, xrpl_token.coreum_denom.to_owned()), // This should charge the bridging fee -> 999999999970000 and then truncate the rest -> 999999999900000
             &receiver,
         )
         .unwrap();
@@ -4370,7 +4370,7 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: test_token_xrpl.issuer.to_owned(),
                     currency: test_token_xrpl.currency.to_owned(),
-                    amount: Uint128::new(999999999970000),
+                    amount: Uint128::new(999999999900000),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -4403,7 +4403,7 @@ mod tests {
 
         assert_eq!(
             query_fees_collected.fees_collected,
-            vec![coin(200000, xrpl_token.coreum_denom.to_owned())]
+            vec![coin(410000, xrpl_token.coreum_denom.to_owned())]
         );
 
         // Now let's bridge tokens from Coreum to XRPL and verify that the fees are collected correctly in each step and accumulated with the previous ones
@@ -4431,7 +4431,7 @@ mod tests {
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
             },
-            &coins(600010, coreum_token_denom.to_owned()), // This should truncate 10 and charge extra 299990 to cover bridging fee
+            &coins(600010, coreum_token_denom.to_owned()), // This should charge briding fee -> 300010 and then truncate the rest -> 300000
             &receiver,
         )
         .unwrap();
@@ -4453,7 +4453,7 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: bridge_xrpl_address.to_owned(),
                     currency: coreum_token.xrpl_currency.to_owned(),
-                    amount: Uint128::new(300010000000000),
+                    amount: Uint128::new(300000000000000),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -4467,8 +4467,8 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(200000, xrpl_token.coreum_denom.to_owned()),
-                coin(300000, coreum_token_denom.to_owned())
+                coin(410000, xrpl_token.coreum_denom.to_owned()),
+                coin(300010, coreum_token_denom.to_owned())
             ]
         );
 
@@ -4497,7 +4497,7 @@ mod tests {
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
             },
-            &coins(900000, coreum_token_denom.to_owned()), // This should truncate nothing and charge the entire bridging fee (300000)
+            &coins(900000, coreum_token_denom.to_owned()), // This charge the entire bridging fee (300000) and truncate nothing
             &receiver,
         )
         .unwrap();
@@ -4533,8 +4533,8 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(200000, xrpl_token.coreum_denom.to_owned()),
-                coin(600000, coreum_token_denom.to_owned())
+                coin(410000, xrpl_token.coreum_denom.to_owned()),
+                coin(600010, coreum_token_denom.to_owned())
             ]
         );
 
@@ -4575,7 +4575,7 @@ mod tests {
                         tx_hash: tx_hash.to_owned(),
                         issuer: bridge_xrpl_address.to_owned(),
                         currency: coreum_token.xrpl_currency.to_owned(),
-                        amount: Uint128::new(650010000000000), // 650010000000000 will convert to 650010, which after truncating and charging fees will send 350010 to the receiver
+                        amount: Uint128::new(650010000000000), // 650010000000000 will convert to 650010, which after charging fees and truncating will send 350000 to the receiver
                         recipient: Addr::unchecked(receiver.address()),
                     },
                 },
@@ -4598,7 +4598,7 @@ mod tests {
                 .balance
                 .parse::<u128>()
                 .unwrap()
-                .checked_add(350010)
+                .checked_add(350000)
                 .unwrap()
         );
 
@@ -4609,8 +4609,8 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(200000, xrpl_token.coreum_denom.to_owned()),
-                coin(900000, coreum_token_denom.to_owned())
+                coin(410000, xrpl_token.coreum_denom.to_owned()),
+                coin(900020, coreum_token_denom.to_owned())
             ]
         );
 
@@ -4628,10 +4628,13 @@ mod tests {
             .unwrap();
 
         // Since we have 3 relayers, it should have claimed 1/3 of the fees for each one of them
-        // For the first coin 20000%3 = 2, so it should have left 2 tokens in the fees array
+        // For both coins, it should leave 2 in the array
         assert_eq!(
             query_fees_collected.fees_collected,
-            vec![coin(2, xrpl_token.coreum_denom.to_owned()),]
+            vec![
+                coin(2, xrpl_token.coreum_denom.to_owned()),
+                coin(2, coreum_token_denom.clone())
+            ]
         );
 
         // Let's check the balances of the relayers
@@ -4649,8 +4652,8 @@ mod tests {
                 })
                 .unwrap();
 
-            assert_eq!(request_balance_token1.balance, "66666".to_string()); // 200000 / 3 = 66666
-            assert_eq!(request_balance_token2.balance, "300000".to_string()); // 900000 / 3 = 300000
+            assert_eq!(request_balance_token1.balance, "136666".to_string()); // 410000 / 3 = 136666
+            assert_eq!(request_balance_token2.balance, "300006".to_string()); // 900020 / 3 = 300006
         }
 
         // If we try to claim again, nothing will change
@@ -4668,7 +4671,10 @@ mod tests {
 
         assert_eq!(
             query_fees_collected.fees_collected,
-            vec![coin(2, xrpl_token.coreum_denom.to_owned()),]
+            vec![
+                coin(2, xrpl_token.coreum_denom.to_owned()),
+                coin(2, coreum_token_denom.to_owned())
+            ]
         );
         // Check that relayers balance hasn't changed.
         for relayer in relayer_accounts.iter() {
@@ -4685,8 +4691,8 @@ mod tests {
                 })
                 .unwrap();
 
-            assert_eq!(request_balance_token1.balance, "66666".to_string()); // 200000 / 3 = 66666
-            assert_eq!(request_balance_token2.balance, "300000".to_string()); // 900000 / 3 = 300000
+            assert_eq!(request_balance_token1.balance, "136666".to_string()); // 410000 / 3 = 136666
+            assert_eq!(request_balance_token2.balance, "300006".to_string()); // 900020 / 3 = 300006
         }
 
         // Check that final balance in the contract matches with those fees
@@ -4706,10 +4712,11 @@ mod tests {
             .unwrap();
 
         // Amount that the user can still bridge back (he has on XRPL) from the token he has sent
-        // Sent: 300010 + 600000 (after applying fees)
+        // Sent: 300000 + 600000 (after applying fees and truncating)
         // Sent back: 650010
-        // Result: 300010 + 600000 - 650010 = 250000
-        assert_eq!(query_contract_balance.balance, "250000".to_string());
+        // Result: 300000 + 600000 - 650010 = 249990
+        // + 2 tokens that have not been claimed yet because the relayers can't claim them = 249992
+        assert_eq!(query_contract_balance.balance, "249992".to_string());
     }
 
     #[test]
@@ -4798,7 +4805,7 @@ mod tests {
             XRPLToken {
                 issuer: generate_xrpl_address(), // Valid issuer
                 currency: "TT2".to_string(),     // Valid standard currency code
-                sending_precision: 15,
+                sending_precision: 10,
                 max_holding_amount: Uint128::new(150000000000000000),
                 bridging_fee: Uint128::new(50000),
                 transfer_rate: Some(Uint128::new(1499999999)), // 49.9999999%
@@ -4931,39 +4938,24 @@ mod tests {
         // Now we can test sending back tokens from Coreum to XRPL and see that the network fees are collected correctly
 
         // If we send 50001, there will be 1 left after covering bridge fee, and since we round up after applying transfer fees,
-        // there will be nothing to send to XRPL. So we won't have a pending operations and collect the entire amount as fee.
+        // there will be nothing to send to XRPL. Therefore we can't send anything back to XRPL and this will error.
         let receiver = generate_xrpl_address();
-        wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::SendToXRPL {
-                recipient: receiver.to_owned(),
-            },
-            &coins(50001, token1_denom.to_owned()),
-            &signer,
-        )
-        .unwrap();
-
-        let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
-            .unwrap();
-
-        assert_eq!(
-            query_fees_collected.fees_collected,
-            vec![
-                coin(100001, token1_denom.to_owned()),
-                coin(50000, token2_denom.to_owned()),
-                coin(50000, token3_denom.to_owned()),
-            ]
-        );
-
-        let query_pending_operations = wasm
-            .query::<QueryMsg, PendingOperationsResponse>(
+        let transfer_error = wasm
+            .execute::<ExecuteMsg>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &ExecuteMsg::SendToXRPL {
+                    recipient: receiver.to_owned(),
+                },
+                &coins(50001, token1_denom.to_owned()),
+                &signer,
             )
-            .unwrap();
+            .unwrap_err();
 
-        assert!(query_pending_operations.operations.is_empty());
+        assert!(transfer_error.to_string().contains(
+            ContractError::AmountSentIsZeroAfterTruncation {}
+                .to_string()
+                .as_str()
+        ));
 
         // If we send back 100000000050001, we will collect 50000 of bridging fee and 0.0000001% of 100000000000001 which is 100000.000000001
         // This amount rounded up is 100001. So in the end we are sending 99999999900000 (100000000000001 - 100001) and 150001 is collected as fees
@@ -4984,7 +4976,7 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(250002, token1_denom.to_owned()),
+                coin(200001, token1_denom.to_owned()),
                 coin(50000, token2_denom.to_owned()),
                 coin(50000, token3_denom.to_owned()),
             ]
@@ -5014,8 +5006,8 @@ mod tests {
         );
 
         // If we send 100000000000001 of the token with 49.9999999% fee, we will apply 49.9999999% of 99999999950001 which is 49999999875000.500049999
-        // and after rounding up is 49999999875001. So in the end we are sending 50000000075000 (99999999950001 - 49999999875001)
-        // and collecting 49999999925001 as fees
+        // and after rounding up is 49999999875001. So in the end we have 50000000075000 (99999999950001 - 49999999875001) and since precision is 10
+        // we are truncating 75000 extra so in the end we are collecting 50000000000001 (49999999925001 + 75000) as fees
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -5033,8 +5025,8 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(250002, token1_denom.to_owned()),
-                coin(49999999975001, token2_denom.to_owned()),
+                coin(200001, token1_denom.to_owned()),
+                coin(50000000050001, token2_denom.to_owned()),
                 coin(50000, token3_denom.to_owned()),
             ]
         );
@@ -5055,15 +5047,15 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: test_tokens[1].issuer.to_owned(),
                     currency: test_tokens[1].currency.to_owned(),
-                    amount: Uint128::new(50000000075000),
+                    amount: Uint128::new(50000000000000),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
                 }
             }
         );
 
-        // For any tokens that send back with 100% fees, everything will be collected and nothing will be sent back
-        wasm.execute::<ExecuteMsg>(
+        // For any tokens that has 100% fees, they can't be sent back because there's nothing to send back to XRPL
+        let transfer_error = wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: receiver.to_owned(),
@@ -5071,30 +5063,13 @@ mod tests {
             &coins(100000000050001, token3_denom.to_owned()),
             &signer,
         )
-        .unwrap();
+        .unwrap_err();
 
-        let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
-            .unwrap();
-
-        assert_eq!(
-            query_fees_collected.fees_collected,
-            vec![
-                coin(250002, token1_denom.to_owned()),
-                coin(49999999975001, token2_denom.to_owned()),
-                coin(100000000100001, token3_denom.to_owned()),
-            ]
-        );
-
-        let query_pending_operations = wasm
-            .query::<QueryMsg, PendingOperationsResponse>(
-                &contract_addr,
-                &QueryMsg::PendingOperations {},
-            )
-            .unwrap();
-
-        // No new operation added
-        assert_eq!(query_pending_operations.operations.len(), 2);
+        assert!(transfer_error.to_string().contains(
+            ContractError::AmountSentIsZeroAfterTruncation {}
+                .to_string()
+                .as_str()
+        ));
 
         // Let's collect the fees to check that they are substracted correcly
         wasm.execute::<ExecuteMsg>(
@@ -5109,12 +5084,12 @@ mod tests {
             .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
             .unwrap();
 
-        // Remainder left
+        // Remainder left -- token 3 will be removed because everything is collected by relayers
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
+                coin(1, token1_denom.to_owned()),
                 coin(1, token2_denom.to_owned()),
-                coin(1, token3_denom.to_owned()),
             ]
         );
     }
