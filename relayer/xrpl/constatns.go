@@ -24,6 +24,13 @@ const (
 	TemTxResultPrefix = "tem"
 )
 
+// Reserves.
+var (
+	ReserveToActivateAccount = float64(10)
+	ReservePerTicket         = float64(2)
+	ReservePerSigner         = float64(2)
+)
+
 const (
 	// XRPLIssuedTokenDecimals is XRPL decimals used on the coreum.
 	XRPLIssuedTokenDecimals = 15

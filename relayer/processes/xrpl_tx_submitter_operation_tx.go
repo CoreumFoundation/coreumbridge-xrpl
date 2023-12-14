@@ -5,6 +5,7 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 // BuildTicketCreateTxForMultiSigning builds TicketCreate transaction operation from the contract operation.
@@ -27,7 +28,7 @@ func BuildTicketCreateTxForMultiSigning(
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	fee, err := GetTxFee(&tx)
+	fee, err := xrpl.GetTxFee(&tx)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +62,7 @@ func BuildTrustSetTxForMultiSigning(
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	fee, err := GetTxFee(&tx)
+	fee, err := xrpl.GetTxFee(&tx)
 	if err != nil {
 		return nil, err
 	}
@@ -73,30 +74,6 @@ func BuildTrustSetTxForMultiSigning(
 // BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning builds Payment transaction for
 // XRPL originated token from the contract operation.
 func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
-	bridgeXRPLAddress rippledata.Account,
-	operation coreum.Operation,
-) (*rippledata.Payment, error) {
-	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
-	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
-		coreumToXRPLTransferOperationType.Amount,
-		coreumToXRPLTransferOperationType.Issuer,
-		coreumToXRPLTransferOperationType.Currency,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := buildPaymentTx(bridgeXRPLAddress, operation, value)
-	if err != nil {
-		return nil, err
-	}
-
-	return &tx, nil
-}
-
-// BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning builds Payment transaction for coreum
-// originated token from the contract operation.
-func BuildCoreumToXRPLCoreumOriginatedTokenTransferPaymentTxForMultiSigning(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
 ) (*rippledata.Payment, error) {
@@ -143,7 +120,7 @@ func buildPaymentTx(
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	fee, err := GetTxFee(&tx)
+	fee, err := xrpl.GetTxFee(&tx)
 	if err != nil {
 		return rippledata.Payment{}, err
 	}
