@@ -140,7 +140,7 @@ rate which is a percentage. That fee will be used to send the locked tokens back
 Both fees will be taken from the amount a user sends.
 The bridging fees are distributed across the relayer addresses after the execution of the sending, and locked until a relayer manually requests it. After such a request the
 accumulated bridging fee will be distributed equally to the current relayer addresses.
-The transfer fee (if applied) is burnt once we create the pending operation to send the tokens back to the user on XRPL.
+The transfer fee (if applied) is burnt/sent back once we receive the evidences that the operation was successful/rejected on the XRPL.
 
 ###### Fee charging from XRPL to Coreum
 
@@ -175,8 +175,8 @@ receivedIntAmount = amountAfterRounding * 1e(15-tokenDecimalsInCoreum)
 ```
 
 The `transferRate` will only be applied for XRPL originated tokens that are being bridged back and that have a `transferRate` set.
-The `transferFees` in the formula above are burnt after each transaction, while the rounding remainder of the sending precision operation
-is included in the fees for the relayers.
+The `transferFees` in the formula above are burnt after the confirmation of each transaction, while the rounding remainder of the sending precision operation
+is included in the fees for the relayers at the moment of sending.
 The contract receives the `send-to-XRPL` request for a user, executes the formula and checks, if after the calculation
 the `receivedIntAmount = 0` or `amount + currentBridgedAmount > max allowed bridged value` (only applied for Coreum originated tokens) returns an error. 
 If all validation pass, the contract creates a sending operation with receivedIntAmount, and relayers fees.
