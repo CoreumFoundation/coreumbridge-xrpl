@@ -51,7 +51,14 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	}
 	cmd.AddCommand(keyringCmd)
 	cmd.AddCommand(cli.XRPLKeyInfoCmd())
-	cmd.AddCommand(cli.BootstrapBridge())
+	cmd.AddCommand(cli.BootstrapBridgeCmd())
+	cmd.AddCommand(cli.GetContractConfig())
+	cmd.AddCommand(cli.RecoverTicketsCmd())
+	cmd.AddCommand(cli.RegisterCoreumTokenCmd())
+	cmd.AddCommand(cli.RegisterXRPLTokenCmd())
+	cmd.AddCommand(cli.GetTokens())
+	cmd.AddCommand(cli.SendFromCoreumToXRPLCmd())
+	cmd.AddCommand(cli.SendFromXRPLToCoreumCmd())
 
 	return cmd, nil
 }
