@@ -13,9 +13,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 
-	"github.com/CoreumFoundation/coreum/v3/pkg/client"
-	"github.com/CoreumFoundation/coreum/v3/testutil/event"
-	assetfttypes "github.com/CoreumFoundation/coreum/v3/x/asset/ft/types"
+	"github.com/CoreumFoundation/coreum/v4/pkg/client"
+	"github.com/CoreumFoundation/coreum/v4/testutil/event"
+	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 

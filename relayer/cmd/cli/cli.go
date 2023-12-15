@@ -11,8 +11,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/CoreumFoundation/coreum/v3/pkg/config"
-	"github.com/CoreumFoundation/coreum/v3/pkg/config/constant"
+	"github.com/CoreumFoundation/coreum/v4/pkg/config"
+	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"

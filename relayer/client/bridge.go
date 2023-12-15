@@ -15,7 +15,7 @@ import (
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 
-	"github.com/CoreumFoundation/coreum/v3/pkg/client"
+	"github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
