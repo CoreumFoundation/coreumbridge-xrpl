@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -71,7 +72,7 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 			for tx := range txCh {
 				if err := o.processTx(ctx, tx); err != nil {
 					if errors.Is(err, context.Canceled) {
-						o.log.Warn(ctx, "Context canceled during the XRPL tx processing", logger.StringField("error", err.Error()))
+						o.log.Warn(ctx, "Context canceled during the XRPL tx processing", zap.String("error", err.Error()))
 					} else {
 						return errors.Wrapf(err, "failed to process XRPL tx, txHash:%s", tx.GetHash().String())
 					}
@@ -81,13 +82,13 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 		})
 
 		return nil
-	}, parallel.WithGroupLogger(o.log.ParallelLogger(ctx)))
+	}, parallel.WithGroupLogger(o.log))
 }
 
 func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	ctx = tracing.WithTracingXRPLTxHash(tracing.WithTracingID(ctx), tx.GetHash().String())
 	if !txIsFinal(tx) {
-		o.log.Debug(ctx, "Transaction is not final", logger.StringField("txStatus", tx.MetaData.TransactionResult.String()))
+		o.log.Debug(ctx, "Transaction is not final", zap.String("txStatus", tx.MetaData.TransactionResult.String()))
 		return nil
 	}
 	if o.cfg.BridgeXRPLAddress == tx.GetBase().Account {
@@ -103,16 +104,16 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		o.log.Debug(
 			ctx,
 			"Skipping not successful transaction",
-			logger.StringField("type", txType),
-			logger.StringField("txResult", tx.MetaData.TransactionResult.String()),
+			zap.String("type", txType),
+			zap.String("txResult", tx.MetaData.TransactionResult.String()),
 		)
 		return nil
 	}
 
-	o.log.Debug(ctx, "Start processing of XRPL incoming tx", logger.StringField("type", txType))
+	o.log.Debug(ctx, "Start processing of XRPL incoming tx", zap.String("type", txType))
 	// we process only incoming payment transactions, other transactions are ignored
 	if txType != rippledata.PAYMENT.String() {
-		o.log.Debug(ctx, "Skipping not payment transaction", logger.StringField("type", txType))
+		o.log.Debug(ctx, "Skipping not payment transaction", zap.String("type", txType))
 		return nil
 	}
 	paymentTx, ok := tx.Transaction.(*rippledata.Payment)
@@ -121,7 +122,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	}
 	coreumRecipient := xrpl.DecodeCoreumRecipientFromMemo(paymentTx.Memos)
 	if coreumRecipient == nil {
-		o.log.Info(ctx, "Bridge memo does not include expected structure", logger.AnyField("memos", paymentTx.Memos))
+		o.log.Info(ctx, "Bridge memo does not include expected structure", zap.Any("memos", paymentTx.Memos))
 		return nil
 	}
 
@@ -166,7 +167,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		o.log.Info(
 			ctx,
 			"The evidence saving is failed because of the asset FT rules, the evidence is skipped",
-			logger.AnyField("evidence", evidence),
+			zap.Any("evidence", evidence),
 		)
 		return nil
 	}
@@ -177,7 +178,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	txType := tx.GetType()
 	o.log.Debug(ctx, "Start processing of XRPL outgoing tx",
-		logger.StringField("type", txType),
+		zap.String("type", txType),
 	)
 
 	switch txType {
@@ -189,7 +190,7 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 		return o.sendCoreumToXRPLTransferTransactionResultEvidence(ctx, tx)
 	default:
 		// TODO(dzmitryhil) replace with the error once we integrate all supported types
-		o.log.Warn(ctx, "Found unsupported transaction type", logger.AnyField("tx", tx))
+		o.log.Warn(ctx, "Found unsupported transaction type", zap.Any("tx", tx))
 		return nil
 	}
 }
@@ -289,7 +290,7 @@ func (o *XRPLTxObserver) handleEvidenceSubmissionError(
 ) error {
 	if err == nil {
 		if evidence.TransactionResult != coreum.TransactionResultAccepted {
-			o.log.Warn(ctx, "Transaction was rejected", logger.StringField("txResult", tx.MetaData.TransactionResult.String()))
+			o.log.Warn(ctx, "Transaction was rejected", zap.String("txResult", tx.MetaData.TransactionResult.String()))
 		}
 		return nil
 	}
