@@ -1790,6 +1790,7 @@ mod tests {
                 issuer: bridge_xrpl_address.to_owned(),
                 currency: coreum_originated_token.xrpl_currency.to_owned(),
                 amount: amount_truncated_and_converted,
+                transfer_fee: Uint128::zero(),
                 sender: Addr::unchecked(sender.address()),
                 recipient: xrpl_receiver_address.to_owned(),
             }
@@ -2119,6 +2120,7 @@ mod tests {
                 issuer: bridge_xrpl_address.to_owned(),
                 currency: coreum_originated_token.xrpl_currency.to_owned(),
                 amount: amount_truncated_and_converted,
+                transfer_fee: Uint128::zero(),
                 sender: Addr::unchecked(sender.address()),
                 recipient: xrpl_receiver_address.to_owned(),
             }
@@ -2484,6 +2486,7 @@ mod tests {
                     issuer: XRP_ISSUER.to_owned(),
                     currency: XRP_CURRENCY.to_owned(),
                     amount: amount_to_send_back,
+                    transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -2758,6 +2761,7 @@ mod tests {
                     issuer: xrpl_originated_token.issuer.to_owned(),
                     currency: xrpl_originated_token.currency.to_owned(),
                     amount: amount_to_send_back,
+                    transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -2955,6 +2959,7 @@ mod tests {
                         .unwrap()
                         .checked_mul(Uint128::new(10u128.pow(9))) // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
                         .unwrap(),
+                    transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address,
                 },
@@ -4371,6 +4376,7 @@ mod tests {
                     issuer: test_token_xrpl.issuer.to_owned(),
                     currency: test_token_xrpl.currency.to_owned(),
                     amount: Uint128::new(999999999900000),
+                    transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -4454,6 +4460,7 @@ mod tests {
                     issuer: bridge_xrpl_address.to_owned(),
                     currency: coreum_token.xrpl_currency.to_owned(),
                     amount: Uint128::new(300000000000000),
+                    transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -4520,6 +4527,7 @@ mod tests {
                     issuer: bridge_xrpl_address.to_owned(),
                     currency: coreum_token.xrpl_currency.to_owned(),
                     amount: Uint128::new(600000000000000),
+                    transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -4959,7 +4967,7 @@ mod tests {
         // If we send back 100000000050001, we will collect 50000 of bridging fee which returns 100000000000001
         // Since the transfer fee is 0.0000001%. The formula we will apply is:
         // amount_to_send = 100000000000001 / (1+0.000000001) = 99999999900001.00009999.... -> which after rounding down is 99999999900001 (nothing is getting truncated)
-        // The rest, 100000000000001 - 99999999000001 = 1000000 will be burnt
+        // The rest, 100000000000001 - 99999999900001 = 100000 will be burnt or sent back after transaction confirmation/rejection
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -5000,17 +5008,18 @@ mod tests {
                     issuer: test_tokens[0].issuer.to_owned(),
                     currency: test_tokens[0].currency.to_owned(),
                     amount: Uint128::new(99999999900001),
+                    transfer_fee: Uint128::new(100000),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
                 }
             }
         );
 
-        // If we send back 100000000050001, we will collect 50000 of bridging fee first which returns 99999999950001
+        // If we send back 100000000000001, we will collect 50000 of bridging fee first which returns 99999999950001
         // since the transfer fee is 49.9999999%. The formula we will apply is:
         // amount_to_send = 99999999950001 / (1+0.499999999) = 66666666677778.444451.... -> which after rounding down is 66666666677778
         // After truncating (because sending precision is 10, we will get 66666666600000 as amount to send and 77778 extra collected as fees)
-        // The rest, 99999999950001 - 66666666600000 = 33333333350001 will be burnt
+        // The rest, 99999999950001 - 66666666677778 = 33333333272223 will be burnt or sent back after transaction confirmation/rejection
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -5051,16 +5060,17 @@ mod tests {
                     issuer: test_tokens[1].issuer.to_owned(),
                     currency: test_tokens[1].currency.to_owned(),
                     amount: Uint128::new(66666666600000),
+                    transfer_fee: Uint128::new(33333333272223),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
                 }
             }
         );
 
-        // If we send back 100000000000001, we will collect 50000 of bridging fee first which returns 100000000000001
+        // If we send back 100000000050001, we will collect 50000 of bridging fee first which returns 100000000000001
         // since the transfer fee is 100%. The formula we will apply is:
         // amount_to_send = 100000000000001 / (1+1) = 50000000000000.5 -> which after rounding down is 50000000000000
-        // The rest, 100000000000001 - 50000000000000 = 50000000000001 will be burnt
+        // The rest, 100000000000001 - 50000000000000 = 50000000000001 will be burnt or sent back after transaction confirmation/rejection
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -5101,6 +5111,7 @@ mod tests {
                     issuer: test_tokens[2].issuer.to_owned(),
                     currency: test_tokens[2].currency.to_owned(),
                     amount: Uint128::new(50000000000000),
+                    transfer_fee: Uint128::new(50000000000001),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
                 }
@@ -5148,6 +5159,142 @@ mod tests {
             assert_eq!(request_balance_token2.balance, "88889".to_string()); // 177778 / 2 = 88889
             assert_eq!(request_balance_token3.balance, "50000".to_string()); // 100000 / 2 = 50000
         }
+
+        // Let's confirm and reject the operations to check that tokens and transfer fees are correctly burnt/sent back
+
+        // Get balance of contract and sender before accepting
+        let sender_balance_before = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: signer.address(),
+                denom: token2_denom.to_owned(),
+            })
+            .unwrap();
+
+        let contract_balance_before = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: token2_denom.to_owned(),
+            })
+            .unwrap();
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: query_pending_operations.operations[1].account_sequence,
+                        ticket_sequence: query_pending_operations.operations[1].ticket_sequence,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    },
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        // If transaction is accepted, balance of sender should not change and balance of contract should decrease by amount sent + transfer fees
+        let sender_balance_after = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: signer.address(),
+                denom: token2_denom.to_owned(),
+            })
+            .unwrap();
+
+        let contract_balance_after = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: token2_denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(sender_balance_before.balance, sender_balance_after.balance);
+        assert_eq!(
+            contract_balance_after.balance.parse::<u128>().unwrap(),
+            contract_balance_before
+                .balance
+                .parse::<u128>()
+                .unwrap()
+                .checked_sub(66666666600000)
+                .unwrap()
+                .checked_sub(33333333272223)
+                .unwrap()
+        );
+
+        // Get balance of contract and sender before rejecting
+        let sender_balance_before = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: signer.address(),
+                denom: token3_denom.to_owned(),
+            })
+            .unwrap();
+
+        let contract_balance_before = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: token3_denom.to_owned(),
+            })
+            .unwrap();
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: query_pending_operations.operations[2].account_sequence,
+                        ticket_sequence: query_pending_operations.operations[2].ticket_sequence,
+                        transaction_result: TransactionResult::Rejected,
+                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    },
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        // If transaction is rejected, contract should send back the amount sent + transfer fees to sender
+        let sender_balance_after = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: signer.address(),
+                denom: token3_denom.to_owned(),
+            })
+            .unwrap();
+
+        let contract_balance_after = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: token3_denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            sender_balance_after.balance.parse::<u128>().unwrap(),
+            sender_balance_before
+                .balance
+                .parse::<u128>()
+                .unwrap()
+                .checked_add(50000000000000)
+                .unwrap()
+                .checked_add(50000000000001)
+                .unwrap()
+        );
+        assert_eq!(
+            contract_balance_after.balance.parse::<u128>().unwrap(),
+            contract_balance_before
+                .balance
+                .parse::<u128>()
+                .unwrap()
+                .checked_sub(50000000000000)
+                .unwrap()
+                .checked_sub(50000000000001)
+                .unwrap()
+        );
     }
 
     #[test]

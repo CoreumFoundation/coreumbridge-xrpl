@@ -506,7 +506,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 };
 
                 // We first convert the amount we receive with XRPL decimals to the corresponding decimals in Coreum and then we apply the truncation according to sending precision.
-                let (amount_to_send, truncated_portion) = convert_and_truncate_amount(
+                let (amount_to_send, remainder) = convert_and_truncate_amount(
                     token.sending_precision,
                     XRPL_TOKENS_DECIMALS,
                     token.decimals,
@@ -519,7 +519,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                         deps.storage,
                         token.bridging_fee,
                         token.denom.to_owned(),
-                        truncated_portion,
+                        remainder,
                     )?;
 
                     let send_msg = BankMsg::Send {
@@ -764,10 +764,11 @@ fn send_to_xrpl(
 
     let decimals;
     let amount_to_send;
-    let truncated_portion;
+    let amount_after_fees;
+    let mut transfer_fee = Uint128::zero();
+    let remainder;
     let issuer;
     let currency;
-    let mut response = Response::new();
     // We check if the token we are sending is an XRPL originated token or not
     match XRPL_TOKENS
         .idx
@@ -793,29 +794,21 @@ fn send_to_xrpl(
                 amount_after_bridge_fees(funds.amount, xrpl_token.bridging_fee)?;
 
             // We calculate the amount to send after applying the transfer rate (if any)
-            let (amount_after_transfer_fees, transfer_fee) =
+            (amount_after_fees, transfer_fee) =
                 amount_after_transfer_fees(amount_after_bridge_fees, xrpl_token.transfer_rate)?;
 
             // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
-            (amount_to_send, truncated_portion) = truncate_amount(
+            (amount_to_send, remainder) = truncate_amount(
                 xrpl_token.sending_precision,
                 decimals,
-                amount_after_transfer_fees,
+                amount_after_fees,
             )?;
-
-            //Transfer fees must be burnt from the contract
-            if !transfer_fee.is_zero() {
-                let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
-                    coin: coin(transfer_fee.u128(), xrpl_token.coreum_denom.to_owned()),
-                }));
-                response = response.add_message(burn_msg);
-            }
 
             handle_fee_collection(
                 deps.storage,
                 xrpl_token.bridging_fee,
                 xrpl_token.coreum_denom,
-                truncated_portion,
+                remainder,
             )?;
         }
 
@@ -837,8 +830,8 @@ fn send_to_xrpl(
 
             // Since this is a Coreum originated token with different decimals, we are first going to truncate according to sending precision and then we will convert
             // to corresponding XRPL decimals.
-            let truncated_portion;
-            (amount_to_send, truncated_portion) = truncate_and_convert_amount(
+            let remainder;
+            (amount_to_send, remainder) = truncate_and_convert_amount(
                 coreum_token.sending_precision,
                 decimals,
                 XRPL_TOKENS_DECIMALS,
@@ -850,7 +843,7 @@ fn send_to_xrpl(
                 deps.storage,
                 coreum_token.bridging_fee,
                 coreum_token.denom.to_owned(),
-                truncated_portion,
+                remainder,
             )?;
 
             // For Coreum originated tokens we need to check that we are not going over max bridge amount.
@@ -875,12 +868,13 @@ fn send_to_xrpl(
             issuer,
             currency,
             amount: amount_to_send,
+            transfer_fee,
             sender: info.sender.to_owned(),
             recipient: recipient.to_owned(),
         },
     )?;
 
-    Ok(response
+    Ok(Response::new()
         .add_attribute("action", ContractActions::SendToXRPL.as_str())
         .add_attribute("sender", info.sender)
         .add_attribute("recipient", recipient)

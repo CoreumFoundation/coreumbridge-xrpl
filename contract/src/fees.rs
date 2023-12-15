@@ -48,10 +48,10 @@ pub fn handle_fee_collection(
     storage: &mut dyn Storage,
     bridging_fee: Uint128,
     token_denom: String,
-    truncated_portion: Uint128,
+    remainder: Uint128,
 ) -> Result<Uint128, ContractError> {
     // We add the bridging fee we charged and the truncated portion after all fees were charged
-    let fee_collected = bridging_fee.checked_add(truncated_portion)?;
+    let fee_collected = bridging_fee.checked_add(remainder)?;
 
     collect_fees(storage, coin(fee_collected.u128(), token_denom))?;
     Ok(fee_collected)
