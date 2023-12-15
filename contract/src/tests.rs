@@ -4583,7 +4583,7 @@ mod tests {
                         tx_hash: tx_hash.to_owned(),
                         issuer: bridge_xrpl_address.to_owned(),
                         currency: coreum_token.xrpl_currency.to_owned(),
-                        amount: Uint128::new(650010000000000), // 650010000000000 will convert to 650010, which after charging fees and truncating will send 350000 to the receiver
+                        amount: Uint128::new(650010000000000), // 650010000000000 will convert to 650010, which after charging bridging fees (300000) and truncating (10) will send 350000 to the receiver
                         recipient: Addr::unchecked(receiver.address()),
                     },
                 },

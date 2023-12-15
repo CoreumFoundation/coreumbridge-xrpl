@@ -59,7 +59,8 @@ pub const XRPL_TOKENS_DECIMALS: u32 = 15;
 // If it is 1000000001 it means the fee will be 0.0000001%
 // If it is 1500000000 it means the fee will be 50% and so on.
 // We will use this value to calculate the fee to be applied to the amount being sent.
-pub const XRPL_MIN_TRANSFER_RATE: Uint128 = Uint128::new(1000000000);
+// For more info check https://xrpl.org/transfer-fees.html#technical-details
+pub const XRPL_ZERO_TRANSFER_RATE: Uint128 = Uint128::new(1000000000);
 
 const XRP_CURRENCY: &str = "XRP";
 const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";

@@ -2,7 +2,7 @@ use coreum_wasm_sdk::core::CoreumMsg;
 use cosmwasm_std::{coin, BankMsg, Coin, Decimal, Response, Storage, Uint128};
 
 use crate::{
-    contract::XRPL_MIN_TRANSFER_RATE,
+    contract::XRPL_ZERO_TRANSFER_RATE,
     error::ContractError,
     state::{CONFIG, FEES_COLLECTED},
 };
@@ -32,8 +32,8 @@ pub fn amount_after_transfer_fees(
         // For example, if our transfer rate is 2% (1020000000), we will get 2% by doing 1020000000 - 1000000000 = 20000000
         // and then dividing this by 1000000000 to get the percentage (0.02)
         // Afterwards we just need to apply the formula to get the amount to send (rounded down) and substract from the initial amount to get the fee that is applied.
-        let rate_value = rate.checked_sub(XRPL_MIN_TRANSFER_RATE)?;
-        let rate_percentage = Decimal::from_ratio(rate_value, XRPL_MIN_TRANSFER_RATE);
+        let rate_value = rate.checked_sub(XRPL_ZERO_TRANSFER_RATE)?;
+        let rate_percentage = Decimal::from_ratio(rate_value, XRPL_ZERO_TRANSFER_RATE);
 
         let denominator = Decimal::one().checked_add(rate_percentage)?;
 
