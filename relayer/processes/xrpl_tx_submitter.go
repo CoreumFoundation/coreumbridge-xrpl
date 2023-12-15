@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
@@ -107,7 +108,7 @@ func (s *XRPLTxSubmitter) Start(ctx context.Context) error {
 				s.log.Info(ctx, "Process repeating is disabled, process is finished")
 				return nil
 			}
-			s.log.Info(ctx, "Waiting before the next execution", logger.StringField("delay", s.cfg.RepeatDelay.String()))
+			s.log.Info(ctx, "Waiting before the next execution", zap.String("delay", s.cfg.RepeatDelay.String()))
 			select {
 			case <-ctx.Done():
 				return errors.WithStack(ctx.Err())
@@ -214,7 +215,7 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 		return err
 	}
 	if !valid {
-		s.log.Info(ctx, "Operation is invalid", logger.AnyField("operation", operation))
+		s.log.Info(ctx, "Operation is invalid", zap.Any("operation", operation))
 		return nil
 	}
 
@@ -231,33 +232,33 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 		return errors.Wrapf(err, "failed to submit transaction:%+v", tx)
 	}
 	if txRes.EngineResult.Success() {
-		s.log.Info(ctx, "Transaction has been successfully submitted", logger.StringField("txHash", tx.GetHash().String()))
+		s.log.Info(ctx, "Transaction has been successfully submitted", zap.String("txHash", tx.GetHash().String()))
 		return nil
 	}
 
 	switch txRes.EngineResult.String() {
 	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult:
-		s.log.Debug(ctx, "Transaction has been already submitted", logger.StringField("txHash", tx.GetHash().String()))
+		s.log.Debug(ctx, "Transaction has been already submitted", zap.String("txHash", tx.GetHash().String()))
 		return nil
 	case xrpl.TecPathDryTxResult:
 		//nolint:lll // breaking down the log line will make it less readable.
 		s.log.Info(
 			ctx,
 			"The transaction has been sent, but will be reverted since the provided path does not have enough liquidity or the receipt doesn't link by trust lines.",
-			logger.StringField("txHash", tx.GetHash().String()))
+			zap.String("txHash", tx.GetHash().String()))
 		return nil
 	case xrpl.TecNoDstTxResult:
 		s.log.Info(
 			ctx,
 			"The transaction has been sent, but will be reverted since account used in the transaction doesn't exist.",
-			logger.StringField("txHash", tx.GetHash().String()))
+			zap.String("txHash", tx.GetHash().String()))
 		return nil
 	case xrpl.TecInsufficientReserveTxResult:
 		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
 		s.log.Error(
 			ctx,
 			"Insufficient reserve to complete the operation",
-			logger.StringField("txHash", tx.GetHash().String()),
+			zap.String("txHash", tx.GetHash().String()),
 		)
 		return nil
 	default:
@@ -277,7 +278,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 	for _, signature := range operation.Signatures {
 		xrplAcc, ok := bridgeSigners.CoreumToXRPLAccount[signature.RelayerCoreumAddress.String()]
 		if !ok {
-			s.log.Warn(ctx, "Found unknown signer", logger.StringField("coreumAddress", signature.RelayerCoreumAddress.String()))
+			s.log.Warn(ctx, "Found unknown signer", zap.String("coreumAddress", signature.RelayerCoreumAddress.String()))
 			continue
 		}
 		xrplPubKey, ok := bridgeSigners.XRPLPubKeys[xrplAcc]
@@ -285,13 +286,13 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 			s.log.Warn(
 				ctx,
 				"Found XRPL signer address without pub key in the contract",
-				logger.StringField("xrplAddress", xrplAcc.String()),
+				zap.String("xrplAddress", xrplAcc.String()),
 			)
 			continue
 		}
 		xrplAccWeight, ok := bridgeSigners.XRPLWeights[xrplAcc]
 		if !ok {
-			s.log.Warn(ctx, "Found XRPL signer address without weight", logger.StringField("xrplAddress", xrplAcc.String()))
+			s.log.Warn(ctx, "Found XRPL signer address without weight", zap.String("xrplAddress", xrplAcc.String()))
 			continue
 		}
 		var txSignature rippledata.VariableLength
@@ -299,9 +300,9 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 			s.log.Warn(
 				ctx,
 				"Failed to unmarshal tx signature",
-				logger.Error(err),
-				logger.StringField("signature", signature.Signature),
-				logger.StringField("xrplAcc", xrplAcc.String()),
+				zap.Error(err),
+				zap.String("signature", signature.Signature),
+				zap.String("xrplAcc", xrplAcc.String()),
 			)
 			continue
 		}
@@ -324,8 +325,8 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 			s.log.Warn(
 				ctx,
 				"failed to check transaction signature, err:%s, signer:%+v",
-				logger.Error(err),
-				logger.AnyField("signer", txSigner),
+				zap.Error(err),
+				zap.Any("signer", txSigner),
 			)
 			continue
 		}
@@ -333,8 +334,8 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 			s.log.Warn(
 				ctx,
 				"Invalid tx signature",
-				logger.Error(err),
-				logger.AnyField("txSigner", txSigner),
+				zap.Error(err),
+				zap.Any("txSigner", txSigner),
 			)
 			continue
 		}
@@ -392,8 +393,8 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 	s.log.Info(
 		ctx,
 		"Invalid bridge account sequence",
-		logger.Uint32Field("expected", *bridgeXRPLAccInfo.AccountData.Sequence),
-		logger.Uint32Field("inOperation", operation.AccountSequence),
+		zap.Uint32("expected", *bridgeXRPLAccInfo.AccountData.Sequence),
+		zap.Uint32("inOperation", operation.AccountSequence),
 	)
 	evidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{

@@ -91,6 +91,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 
 	tests := []struct {
 		name                  string
+		errorsCount           int
 		txScannerBuilder      func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner
 		contractClientBuilder func(ctrl *gomock.Controller) processes.ContractClient
 	}{
@@ -537,12 +538,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
 			logMock := logger.NewAnyLogMock(ctrl)
-
-			parallelLoggerMock := logger.NewMockParallelLogger(ctrl)
-			logMock.EXPECT().ParallelLogger(gomock.Any()).Return(parallelLoggerMock).AnyTimes()
-			parallelLoggerMock.EXPECT().Debug(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-			parallelLoggerMock.EXPECT().Error(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
+			logMock.EXPECT().Error(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 			var contractClient processes.ContractClient
 			if tt.contractClientBuilder != nil {
 				contractClient = tt.contractClientBuilder(ctrl)

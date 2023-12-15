@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
@@ -53,7 +54,7 @@ func InitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log.Info(ctx, "Generating settings", logger.StringField("home", home))
+			log.Info(ctx, "Generating settings", zap.String("home", home))
 
 			chainID, err := cmd.Flags().GetString(FlagCoreumChainID)
 			if err != nil {
@@ -188,9 +189,9 @@ func XRPLKeyInfoCmd() *cobra.Command {
 			log.Info(
 				ctx,
 				"Keys info",
-				logger.StringField("coreumAddress", coreumAddress.String()),
-				logger.StringField("xrplAddress", xrplAddress.String()),
-				logger.StringField("xrplPubKey", xrplPubKey.String()),
+				zap.String("coreumAddress", coreumAddress.String()),
+				zap.String("xrplAddress", xrplAddress.String()),
+				zap.String("xrplPubKey", xrplPubKey.String()),
 			)
 
 			return nil
@@ -232,7 +233,7 @@ func BootstrapBridge() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log.Info(ctx, "XRPL bridge address", logger.AnyField("address", xrplBridgeAddress.String()))
+			log.Info(ctx, "XRPL bridge address", zap.Any("address", xrplBridgeAddress.String()))
 
 			filePath := args[0]
 			initOnly, err := cmd.Flags().GetBool(FlagInitOnly)
@@ -240,7 +241,7 @@ func BootstrapBridge() *cobra.Command {
 				return errors.Wrapf(err, "failed to get %s", FlagInitOnly)
 			}
 			if initOnly {
-				log.Info(ctx, "Initializing default bootstrapping config", logger.AnyField("path", filePath))
+				log.Info(ctx, "Initializing default bootstrapping config", zap.Any("path", filePath))
 				if err := bridgeclient.InitBootstrappingConfig(filePath); err != nil {
 					return err
 				}
@@ -250,7 +251,7 @@ func BootstrapBridge() *cobra.Command {
 				}
 				if relayersCount > 0 {
 					minXrplBridgeBalance := bridgeclient.ComputeXRPLBrideAccountBalance(relayersCount)
-					log.Info(ctx, "Computed minimum XRPL bridge balance", logger.Float64Field("balance", minXrplBridgeBalance))
+					log.Info(ctx, "Computed minimum XRPL bridge balance", zap.Float64("balance", minXrplBridgeBalance))
 				}
 
 				return nil
@@ -272,7 +273,7 @@ func BootstrapBridge() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log.Info(ctx, "Bootstrapping XRPL bridge", logger.AnyField("config", cfg))
+			log.Info(ctx, "Bootstrapping XRPL bridge", zap.Any("config", cfg))
 			log.Info(ctx, "Press any key to continue.")
 			input := bufio.NewScanner(os.Stdin)
 			input.Scan()
