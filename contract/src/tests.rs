@@ -4799,7 +4799,7 @@ mod tests {
             .unwrap();
         }
 
-        // We are going to issue 3 XRPL tokens, because network fees only apply to these tokens.
+        // We are going to issue 3 XRPL tokens, because network fees only applies to these tokens.
         // We will issue one with 0.0000001% fee, one with 49.9999999% and one with 100%
         let test_tokens = vec![
             XRPLToken {
