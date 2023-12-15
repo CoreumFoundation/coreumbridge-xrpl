@@ -20,11 +20,9 @@ make build-relayer
 make build-relayer-docker
 ```
 
-## Bootstrap the bridge
+## Init relayer
 
-### Init relayer (for each relayer)
-
-#### Set env variables used in the following instruction
+### Set env variables
 
 ```bash
 export COREUM_CHAIN_ID={Coreum chain id}
@@ -32,11 +30,25 @@ export COREUM_GRPC_URL={Coreum GRPC URL}
 export XRPL_RPC_URL={XRPL RPC URL}
 ```
 
-#### Init the config and generate the relayer keys
+#### Init the config
 
 ```bash
 ./coreumbridge-xrpl-relayer init --coreum-chain-id $COREUM_CHAIN_ID --coreum-grpc-url $COREUM_GRPC_URL  --xrpl-rpc-url $XRPL_RPC_URL
+```
+
+## Bootstrap the bridge
+
+### Init relayer (for each relayer)
+
+#### Pass the [Init relayer](#init-relayer) section.
+
+#### Generate the relayer keys
+
+```bash
+./coreumbridge-xrpl-relayer init --coreum-chain-id $COREUM_CHAIN_ID --coreum-grpc-url $COREUM_GRPC_URL  --xrpl-rpc-url $XRPL_RPC_URL
+
 ./coreumbridge-xrpl-relayer keys add coreum-relayer --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+
 ./coreumbridge-xrpl-relayer keys add xrpl-relayer --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
@@ -61,6 +73,8 @@ Create the account with the `coreumAddress` by sending some tokens to in on the 
 deployer.
 
 ### Run bootstrapping
+
+#### Pass the [Init relayer](#init-relayer) section.
 
 #### Generate new key which will be used for the bridge bootstrapping
 
@@ -123,13 +137,27 @@ the relayers config.
 ./coreumbridge-xrpl-relayer keys delete bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
-## Run relayer in docker
+#### Run all relayers
+
+Run all relayers see [Run relayer](#run-all-relayers-) section.
+
+#### Recover tickets
+
+Use [Recover tickets](#recover-tickets) instruction and recover tickets.
+
+### Run relayer
+
+#### Run relayer using binary
+
+```bash
+./coreumbridge-xrpl-relayer start --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+#### Run relayer in docker
 
 If relayer docker image is not built, build it.
 
-### Run relayer
-
-### Run relayer
+##### Run relayer
 
 ```bash
 docker run -dit --name coreumbridge-xrpl-relayer \
@@ -144,10 +172,80 @@ docker attach coreumbridge-xrpl-relayer
 Once you are attached, press any key and enter the keyring password.
 It is expected that at that time the relayer is initialized and its keys are generated and accounts are funded.
 
-### Restart running instance
+##### Restart running instance
 
 ```bash
 docker restart coreumbridge-xrpl-relayer && docker attach coreumbridge-xrpl-relayer
 ```
 
 Once you are attached, press any key and enter the keyring password.
+
+## Public CLI
+
+### Pass the [Init relayer](#init-relayer) section.
+
+Additionnaly set the bridge contract address in the `relayer.yaml`
+
+### Send from coreum to XRPL
+
+```bash 
+./coreumbridge-xrpl-relayer send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --key-name sender --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+### Send from XRPL to coreum
+
+```bash 
+./coreumbridge-xrpl-relayer send-from-xrpl-to-coreum 1000000 XRP rrrrrrrrrrrrrrrrrrrrrhoLvTp testcore1adst6w4e79tddzhcgaru2l2gms8jjep6a4caa7 --key-name sender --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+### Get contact config
+
+```bash
+./coreumbridge-xrpl-relayer contract-config
+```
+
+### Get all registered tokens
+
+```bash 
+./coreumbridge-xrpl-relayer registered-tokens
+```
+
+### Get Coreum balabces
+
+```bash 
+./coreumbridge-xrpl-relayer coreum-balances testcore1adst6w4e79tddzhcgaru2l2gms8jjep6a4caa7
+```
+
+### Get XRPL balabces
+
+```bash 
+./coreumbridge-xrpl-relayer xrpl-balances rrrrrrrrrrrrrrrrrrrrrhoLvTp
+```
+
+### Set XRPL TrustSet
+
+```bash 
+./coreumbridge-xrpl-relayer set-xrpl-trust-set 1e80 XRP rrrrrrrrrrrrrrrrrrrrrhoLvTp --key-name sender --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+#### Pass the [Init relayer](#init-relayer) section.
+
+Additionnaly set the bridge contract address in the `relayer.yaml`
+
+### Recover tickets to allow XRPL to coreum oprations
+
+```bash
+./coreumbridge-xrpl-relayer recovery-tickets --key-name owner --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+### Register Coreum token
+
+```bash
+./coreumbridge-xrpl-relayer register-coreum-token ucore 6 2 500000000000000 --key-name owner --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
+
+### Register XRPL token
+
+```bash
+./coreumbridge-xrpl-relayer register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 2 500000000000000 --key-name owner --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+```
