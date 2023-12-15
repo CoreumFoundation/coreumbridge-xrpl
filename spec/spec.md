@@ -136,7 +136,8 @@ the [workflow](#send-from-coreum-to-xrpl).
 Each token in the registry contains the fee config which consists of a bridging fee and a transfer fee. The bridging fee
 is the fee that relayers earn for the transaction relaying. That fee covers their costs and provides some profit on top.
 The transfer fee is an optional fee that is charged on XRPL on top of each transfer and is based on the transfer
-rate which is a percentage. That fee will be used to send the locked tokens back in case they are locked either on the contract or on the multi-signing address. 
+rate which is a percentage. That fee will be used to send the locked tokens back in case they are locked either on the contract or on the multi-signing address.
+For more information regarding the transfer fee check [Transfer Fees](https://xrpl.org/transfer-fees.html#technical-details).
 Both fees will be taken from the amount a user sends.
 The bridging fees are distributed across the relayer addresses after the execution of the sending, and locked until a relayer manually requests it. After such a request the
 accumulated bridging fee will be distributed equally to the current relayer addresses.

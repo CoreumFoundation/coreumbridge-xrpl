@@ -4880,6 +4880,8 @@ mod tests {
             .coreum_denom
             .clone();
 
+        let token_denoms = vec![token1_denom, token2_denom, token3_denom];
+
         // Accept TrustSet for all of them
         let mut ticket_sequence = 1;
         for token in test_tokens.iter() {
@@ -4937,9 +4939,9 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(50000, token1_denom.to_owned()),
-                coin(50000, token2_denom.to_owned()),
-                coin(50000, token3_denom.to_owned()),
+                coin(50000, token_denoms[0].to_owned()),
+                coin(50000, token_denoms[1].to_owned()),
+                coin(50000, token_denoms[2].to_owned()),
             ]
         );
 
@@ -4954,7 +4956,7 @@ mod tests {
                 &ExecuteMsg::SendToXRPL {
                     recipient: receiver.to_owned(),
                 },
-                &coins(50001, token1_denom.to_owned()),
+                &coins(50001, token_denoms[0].to_owned()),
                 &signer,
             )
             .unwrap_err();
@@ -4967,13 +4969,13 @@ mod tests {
         // If we send back 100000000050001, we will collect 50000 of bridging fee which returns 100000000000001
         // Since the transfer fee is 0.0000001%. The formula we will apply is:
         // amount_to_send = 100000000000001 / (1+0.000000001) = 99999999900001.00009999.... -> which after rounding down is 99999999900001 (nothing is getting truncated)
-        // The rest, 100000000000001 - 99999999900001 = 100000 will be burnt or sent back after transaction confirmation/rejection
+        // The rest, 100000000000001 - 99999999900001 = 100000 will be burnt or sent back after transaction confirmation/rejection (when received enough evidences from relayers)
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: receiver.to_owned(),
             },
-            &coins(100000000050001, token1_denom.to_owned()),
+            &coins(100000000050001, token_denoms[0].to_owned()),
             &signer,
         )
         .unwrap();
@@ -4985,9 +4987,9 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(100000, token1_denom.to_owned()),
-                coin(50000, token2_denom.to_owned()),
-                coin(50000, token3_denom.to_owned()),
+                coin(100000, token_denoms[0].to_owned()),
+                coin(50000, token_denoms[1].to_owned()),
+                coin(50000, token_denoms[2].to_owned()),
             ]
         );
 
@@ -5025,7 +5027,7 @@ mod tests {
             &ExecuteMsg::SendToXRPL {
                 recipient: receiver.to_owned(),
             },
-            &coins(100000000000001, token2_denom.to_owned()),
+            &coins(100000000000001, token_denoms[1].to_owned()),
             &signer,
         )
         .unwrap();
@@ -5037,9 +5039,9 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(100000, token1_denom.to_owned()),
-                coin(177778, token2_denom.to_owned()),
-                coin(50000, token3_denom.to_owned()),
+                coin(100000, token_denoms[0].to_owned()),
+                coin(177778, token_denoms[1].to_owned()),
+                coin(50000, token_denoms[2].to_owned()),
             ]
         );
 
@@ -5076,7 +5078,7 @@ mod tests {
             &ExecuteMsg::SendToXRPL {
                 recipient: receiver.to_owned(),
             },
-            &coins(100000000050001, token3_denom.to_owned()),
+            &coins(100000000050001, token_denoms[2].to_owned()),
             &signer,
         )
         .unwrap();
@@ -5088,9 +5090,9 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(100000, token1_denom.to_owned()),
-                coin(177778, token2_denom.to_owned()),
-                coin(100000, token3_denom.to_owned()),
+                coin(100000, token_denoms[0].to_owned()),
+                coin(177778, token_denoms[1].to_owned()),
+                coin(100000, token_denoms[2].to_owned()),
             ]
         );
 
@@ -5134,30 +5136,25 @@ mod tests {
         // Nothing will be left
         assert!(query_fees_collected.fees_collected.is_empty());
 
+        // These are the expected balances for all tokens after collecting fees
+        let expected_balances = [
+            "50000".to_string(), // 100000 / 2 = 50000
+            "88889".to_string(), // 177778 / 2 = 88889
+            "50000".to_string(), // 100000 / 2 = 50000
+        ];
+
         // Check relayer balances
         for relayer in relayer_accounts.iter() {
-            let request_balance_token1 = asset_ft
-                .query_balance(&QueryBalanceRequest {
-                    account: relayer.address(),
-                    denom: token1_denom.to_owned(),
-                })
-                .unwrap();
-            let request_balance_token2 = asset_ft
-                .query_balance(&QueryBalanceRequest {
-                    account: relayer.address(),
-                    denom: token2_denom.to_owned(),
-                })
-                .unwrap();
-            let request_balance_token3 = asset_ft
-                .query_balance(&QueryBalanceRequest {
-                    account: relayer.address(),
-                    denom: token3_denom.to_owned(),
-                })
-                .unwrap();
+            for (i, token_denom) in token_denoms.iter().enumerate() {
+                let request_balance = asset_ft
+                    .query_balance(&QueryBalanceRequest {
+                        account: relayer.address(),
+                        denom: token_denom.to_owned(),
+                    })
+                    .unwrap();
 
-            assert_eq!(request_balance_token1.balance, "50000".to_string()); // 100000 / 2 = 50000
-            assert_eq!(request_balance_token2.balance, "88889".to_string()); // 177778 / 2 = 88889
-            assert_eq!(request_balance_token3.balance, "50000".to_string()); // 100000 / 2 = 50000
+                assert_eq!(request_balance.balance, expected_balances[i]);
+            }
         }
 
         // Let's confirm and reject the operations to check that tokens and transfer fees are correctly burnt/sent back
@@ -5166,14 +5163,14 @@ mod tests {
         let sender_balance_before = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: signer.address(),
-                denom: token2_denom.to_owned(),
+                denom: token_denoms[1].to_owned(),
             })
             .unwrap();
 
         let contract_balance_before = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: contract_addr.to_owned(),
-                denom: token2_denom.to_owned(),
+                denom: token_denoms[1].to_owned(),
             })
             .unwrap();
 
@@ -5200,14 +5197,14 @@ mod tests {
         let sender_balance_after = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: signer.address(),
-                denom: token2_denom.to_owned(),
+                denom: token_denoms[1].to_owned(),
             })
             .unwrap();
 
         let contract_balance_after = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: contract_addr.to_owned(),
-                denom: token2_denom.to_owned(),
+                denom: token_denoms[1].to_owned(),
             })
             .unwrap();
 
@@ -5228,14 +5225,14 @@ mod tests {
         let sender_balance_before = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: signer.address(),
-                denom: token3_denom.to_owned(),
+                denom: token_denoms[2].to_owned(),
             })
             .unwrap();
 
         let contract_balance_before = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: contract_addr.to_owned(),
-                denom: token3_denom.to_owned(),
+                denom: token_denoms[2].to_owned(),
             })
             .unwrap();
 
@@ -5258,18 +5255,18 @@ mod tests {
             .unwrap();
         }
 
-        // If transaction is rejected, contract should send back the amount sent + transfer fees to sender
+        // If transaction is rejected, contract should send back the amount sent + transfer fees to sender. Bridging fees were applied during sending so these are never sent back.
         let sender_balance_after = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: signer.address(),
-                denom: token3_denom.to_owned(),
+                denom: token_denoms[2].to_owned(),
             })
             .unwrap();
 
         let contract_balance_after = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: contract_addr.to_owned(),
-                denom: token3_denom.to_owned(),
+                denom: token_denoms[2].to_owned(),
             })
             .unwrap();
 
