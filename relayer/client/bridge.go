@@ -314,23 +314,24 @@ func (b *BridgeClient) RegisterCoreumToken(
 func (b *BridgeClient) RegisterXRPLToken(
 	ctx context.Context,
 	ownerAddress sdk.AccAddress,
-	issuer, currency string,
+	issuer rippledata.Account, currency rippledata.Currency,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
 ) (coreum.XRPLToken, error) {
+	stringCurrency := xrpl.ConvertCurrencyToString(currency)
 	b.log.Info(
 		ctx,
 		"Registering XRPL token",
-		zap.String("issuer", issuer),
-		zap.String("currency", currency),
+		zap.String("issuer", issuer.String()),
+		zap.String("currency", stringCurrency),
 		zap.Int32("sendingPrecision", sendingPrecision),
 		zap.String("maxHoldingAmount", maxHoldingAmount.String()),
 	)
 	txRes, err := b.contractClient.RegisterXRPLToken(
 		ctx,
 		ownerAddress,
-		issuer,
-		currency,
+		issuer.String(),
+		stringCurrency,
 		sendingPrecision,
 		maxHoldingAmount,
 	)
@@ -338,7 +339,7 @@ func (b *BridgeClient) RegisterXRPLToken(
 		return coreum.XRPLToken{}, err
 	}
 
-	token, err := b.contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, currency)
+	token, err := b.contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer.String(), stringCurrency)
 	if err != nil {
 		return coreum.XRPLToken{}, err
 	}

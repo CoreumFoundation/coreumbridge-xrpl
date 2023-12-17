@@ -453,8 +453,16 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				return err
 			}
 
-			issuer := args[0]
-			currency := args[1]
+			issuer, err := rippledata.NewAccountFromAddress(args[0])
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[0])
+			}
+
+			currency, err := rippledata.NewCurrency(args[1])
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert currency string to rippledata.Currency: %s", args[1])
+			}
+
 			sendingPrecision, err := strconv.ParseInt(args[2], 10, 64)
 			if err != nil {
 				return errors.Wrapf(err, "invalid sendingPrecision: %s", args[2])
@@ -468,7 +476,7 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 			_, err = rnr.BridgeClient.RegisterXRPLToken(
 				ctx,
 				owner,
-				issuer,
+				*issuer,
 				currency,
 				int32(sendingPrecision),
 				maxHoldingAmount,

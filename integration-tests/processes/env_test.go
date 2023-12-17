@@ -277,8 +277,8 @@ func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 	_, err := r.BridgeClient.RegisterXRPLToken(
 		ctx,
 		r.ContractOwner,
-		issuer.String(),
-		xrpl.ConvertCurrencyToString(currency),
+		issuer,
+		currency,
 		sendingPrecision,
 		maxHoldingAmount,
 	)
