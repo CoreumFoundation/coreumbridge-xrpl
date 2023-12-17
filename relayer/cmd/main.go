@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	run.Tool("CoreumbridgeXRPLRelayer", func(ctx context.Context) error {
+	run.Tool("coreumbridge-xrpl-relayer", func(ctx context.Context) error {
 		rootCmd, err := RootCmd(ctx)
 		if err != nil {
 			return err
