@@ -1,4 +1,4 @@
-FROM golang:1.21.2-alpine3.18 as builder
+FROM --platform=$BUILDPLATFORM golang:1.21.2-alpine3.18 as builder
 
 RUN apk add --no-cache make
 
@@ -15,7 +15,7 @@ WORKDIR /code
 
 RUN make build-relayer
 
-FROM alpine:3.18
+FROM --platform=$TARGETPLATFORM  alpine:3.18
 
 COPY --from=builder /code/build/coreumbridge-xrpl-relayer /app/coreumbridge-xrpl-relayer
 
