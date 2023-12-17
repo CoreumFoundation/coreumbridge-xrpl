@@ -506,11 +506,11 @@ func RegisteredTokensCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rnr.Log.Info(ctx, "Got Coreum tokens", zap.Int("total", len(coreumTokens)))
+			rnr.Log.Info(ctx, "Coreum tokens", zap.Int("total", len(coreumTokens)))
 			for _, token := range coreumTokens {
 				rnr.Log.Info(ctx, token.Denom, zap.Any("token", token))
 			}
-			rnr.Log.Info(ctx, "Got XRPL tokens", zap.Int("total", len(coreumTokens)))
+			rnr.Log.Info(ctx, "XRPL tokens", zap.Int("total", len(xrplTokens)))
 			for _, token := range xrplTokens {
 				rnr.Log.Info(ctx, fmt.Sprintf("%s/%s", token.Currency, token.Issuer), zap.Any("token", token))
 			}
