@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/run"
-	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
-	"github.com/CoreumFoundation/coreum/v3/pkg/config"
+	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
+	"github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 )
 

@@ -9,8 +9,8 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
-	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
-	coreumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
+	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
+	coreumconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 

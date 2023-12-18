@@ -21,9 +21,9 @@ import (
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
-	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
-	coreumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
-	coreumintegration "github.com/CoreumFoundation/coreum/v3/testutil/integration"
+	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
+	coreumconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
+	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"

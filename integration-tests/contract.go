@@ -9,7 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
-	coreumintegration "github.com/CoreumFoundation/coreum/v3/testutil/integration"
+	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 )
 
