@@ -135,30 +135,32 @@ the [workflow](#send-from-coreum-to-xrpl).
 
 Each token in the registry contains the fee config which consists of a bridging fee and a transfer fee. The bridging fee
 is the fee that relayers earn for the transaction relaying. That fee covers their costs and provides some profit on top.
-The transfer fee is the fee for the tokens which charge the commission for the transfer. That fee will be used to send
-the locked tokens back in case they are locked either on the contract or on the multi-signing address. Both fees will be
-taken from the amount a user sends.
-The bridging fees are distributed across the relayer addresses
-after the execution of the sending, and locked until a relayer manually requests it. After such a request the
+The transfer fee is an optional fee that is charged on XRPL on top of each transfer and is based on the transfer
+rate which is a percentage. That fee will be used to send the locked tokens back in case they are locked either on the contract or on the multi-signing address.
+For more information regarding the transfer fee check [Transfer Fees](https://xrpl.org/transfer-fees.html#technical-details).
+Both fees will be taken from the amount a user sends.
+The bridging fees are distributed across the relayer addresses after the execution of the sending, and locked until a relayer manually requests it. After such a request the
 accumulated bridging fee will be distributed equally to the current relayer addresses.
+The transfer fee (if applied) is burnt/sent back once we receive the evidences that the operation was successful/rejected on the XRPL.
 
 ###### Fee charging from XRPL to Coreum
 
 When a user transfers a token from the XRPL to Coreum we can compute the expected received amount based on the formula:
 
 ```text
-roundedRatAmount := roundWithSendingPrecision(sendingRatAmount)
-receivedIntAmount = roundedRatAmount * 1e(tokenDecimals) - bridgingIntFee
+amountAfterBridgeFees = amount - bridgingFee
+amountAfterDecimalConversion = amountAfterBridgeFees * 1e(tokenDecimalsInCoreum-15)
+receivedIntAmount = roundWithSendingPrecision(amountAfterDecimalConversion)
 ```
 
 The `roundWithSendingPrecision` is described [here](#amount-rounding-handling) .
 
-A relayer relays the amount using the rational value (nominator/denominator) as a part of the evidence. The contract
-does a pre-validation of the value. If, after the calculation, the `receivedAmount <= 0` or
-`receivedAmount > max allowed value` returns an error. Once the evidence threshold is reached, the contract executes
-the calculation one more time, and sends the amount to the recipient. The rounding reminder left on the bridge account,
-because we don't trust the reminder after the `sending precision`.
-If a token uses the transfer fee, we don't include it here because it will be included on the sending the token back.
+A relayer relays the amount sent as a part of the evidence. The contract
+does a pre-validation of the value. If, after the calculation, the `receivedIntAmount = 0` or
+`receivedIntAmount > max allowed value` returns an error. Once the evidence threshold is reached, the contract executes
+the calculation one more time, and sends the amount to the recipient. The rounding reminder will be added to the bridge fees
+that the relayers can claim.
+If a token uses the transfer fee, it's charged when it is briged back in the opposite direction.
 
 ###### Fee charging from Coreum to XRPL
 
@@ -166,25 +168,24 @@ When a user transfers a token from the Coreum to an XRPL account we can compute 
 formula:
 
 ```text
-sendingRatValue = Rat{sendingIntAmount / 1e(tokenDecimals)}
-sendingRatValueWithoutTransferFee = sendingRatValue - (transferRatFeeRate * sendingRatValue - sendingRatValue)
-bridgingRatFee = Rat{bridgingIntFee / 1e(tokenDecimals)}
-sendingRatValueWithoutAllFees = sendingRatValueWithoutTransferFee - bridgingRatFee
-roundedRatAmount := roundWithSendingPrecision(sendingRatValueWithoutAllFees)
+amountAfterBridgeFees = amount - bridgingFee
+amountAfterTransferFees = roundedDown(amountAfterBridgeFees / (1 + transferRate))
+transferFees = amountAfterBridgeFees - amountAfterTransferFees
+amountAfterRounding = roundWithSendingPrecision(amountAfterTransferFees)
+receivedIntAmount = amountAfterRounding * 1e(15-tokenDecimalsInCoreum)
 ```
 
-We don't include the transfer rate to the bridgingFee intentionally to simplify the calculation, but it will be included
-at the step of the `offline` `bridgingFee` calculation.
-
+The `transferRate` will only be applied for XRPL originated tokens that are being bridged back and that have a `transferRate` set.
+The `transferFees` in the formula above are burnt after the confirmation of each transaction, while the rounding remainder of the sending precision operation
+is included in the fees for the relayers at the moment of sending.
 The contract receives the `send-to-XRPL` request for a user, executes the formula and checks, if after the calculation
-the `roundedRatAmount <= 0` or `roundedRatAmount > max allowed value` returns an error. If all validation pass, the
-contract creates a sending operation with roundedRatAmount, and relayers fees. The rounding reminder remains on the
-contract balance.
+the `receivedIntAmount = 0` or `amount + currentBridgedAmount > max allowed bridged value` (only applied for Coreum originated tokens) returns an error. 
+If all validation pass, the contract creates a sending operation with receivedIntAmount, and relayers fees.
 
 ###### Fee re-config
 
-The owner can change the token fees config at any time. Mostly it's required for the bridging fee since the price of the
-token might be changed during the time, so the fee should be changed accordingly.
+The owner can change a token bridging fees at any time. Since a price of a token can change, there is a possibility that
+the owner wants to adjust the bridging fee for that token.
 
 #### Keys rotation
 

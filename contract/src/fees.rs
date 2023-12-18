@@ -1,40 +1,58 @@
 use coreum_wasm_sdk::core::CoreumMsg;
-use cosmwasm_std::{coin, BankMsg, Coin, Response, Storage, Uint128};
+use cosmwasm_std::{coin, BankMsg, Coin, Decimal, Response, Storage, Uint128};
 
 use crate::{
+    contract::XRPL_ZERO_TRANSFER_RATE,
     error::ContractError,
     state::{CONFIG, FEES_COLLECTED},
 };
 
-pub fn amount_after_fees(
+pub fn amount_after_bridge_fees(
     amount: Uint128,
     bridging_fee: Uint128,
-    truncated_portion: Uint128,
 ) -> Result<Uint128, ContractError> {
-    let fee_to_collect = bridging_fee.saturating_sub(truncated_portion);
-
-    let amount_after_fees = amount
-        .checked_sub(fee_to_collect)
+    let amount_after_bridge_fees = amount
+        .checked_sub(bridging_fee)
         .map_err(|_| ContractError::CannotCoverBridgingFees {})?;
 
-    Ok(amount_after_fees)
+    Ok(amount_after_bridge_fees)
+}
+
+pub fn amount_after_transfer_fees(
+    amount: Uint128,
+    transfer_rate: Option<Uint128>,
+) -> Result<(Uint128, Uint128), ContractError> {
+    let mut amount_after_transfer_fees = amount;
+    let mut transfer_fee = Uint128::zero();
+
+    if let Some(rate) = transfer_rate {
+        // The formula to calculate how much we can send is the following: amount_to_send = amount / (1 + fee_percentage)
+        // Where, for 5% fee for example, fee_percentage is 0.05 and for 100% fee fee_percentage is 1.
+        // To calculate the right amounts, first we get the rate from the XRPL transfer rate value
+        // For example, if our transfer rate is 2% (1020000000), we will get 2% by doing 1020000000 - 1000000000 = 20000000
+        // and then dividing this by 1000000000 to get the percentage (0.02)
+        // Afterwards we just need to apply the formula to get the amount to send (rounded down) and substract from the initial amount to get the fee that is applied.
+        let rate_value = rate.checked_sub(XRPL_ZERO_TRANSFER_RATE)?;
+        let rate_percentage = Decimal::from_ratio(rate_value, XRPL_ZERO_TRANSFER_RATE);
+
+        let denominator = Decimal::one().checked_add(rate_percentage)?;
+
+        amount_after_transfer_fees = amount.div_floor(denominator);
+        transfer_fee = amount.checked_sub(amount_after_transfer_fees)?;
+    }
+
+    Ok((amount_after_transfer_fees, transfer_fee))
 }
 
 pub fn handle_fee_collection(
     storage: &mut dyn Storage,
     bridging_fee: Uint128,
     token_denom: String,
-    truncated_portion: Uint128,
+    remainder: Uint128,
 ) -> Result<Uint128, ContractError> {
-    // We substract the truncated portion from the bridging_fee. If truncated portion >= fee,
-    // then we already paid the fees and we collect the truncated portion instead of bridging fee (because it might be bigger than the bridging fee)
-    let fee_to_collect = bridging_fee.saturating_sub(truncated_portion);
-    let fee_collected = if fee_to_collect.is_zero() {
-        truncated_portion
-    } else {
-        bridging_fee
-    };
-    
+    // We add the bridging fee we charged and the truncated portion after all fees were charged
+    let fee_collected = bridging_fee.checked_add(remainder)?;
+
     collect_fees(storage, coin(fee_collected.u128(), token_denom))?;
     Ok(fee_collected)
 }

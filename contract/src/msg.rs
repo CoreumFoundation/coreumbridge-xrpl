@@ -38,6 +38,10 @@ pub enum ExecuteMsg {
         sending_precision: i32,
         max_holding_amount: Uint128,
         bridging_fee: Uint128,
+        // The Transfer Rate is an integer which represents the amount you must send for the recipient to get 1 billion units of the same token.
+        // A Transfer Rate of 1005000000 is equivalent to a transfer fee of 0.5%. The value of Transfer Rate must be more than 1000000000 ("0%" fee) or
+        // less or equal than 2000000000 (a "100%" fee). If it is not sent there will be no fee.
+        transfer_rate: Option<Uint128>,
     },
     RecoverTickets {
         account_sequence: u64,
@@ -47,6 +51,8 @@ pub enum ExecuteMsg {
     RecoverXRPLTokenRegistration {
         issuer: String,
         currency: String,
+        // If the transfer rate needs to be modified because admin sent it wrong and registration failed, it can be done here.
+        transfer_rate: Option<Uint128>,
     },
     SaveSignature {
         operation_id: u64,
