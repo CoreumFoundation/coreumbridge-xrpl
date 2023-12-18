@@ -34,7 +34,10 @@ func NewCoreumChain(cfg CoreumChainConfig) (CoreumChain, error) {
 	)
 	defer queryCtxCancel()
 
-	coreumGRPCClient := integration.DialGRPCClient(cfg.GRPCAddress)
+	coreumGRPCClient, err := integration.DialGRPCClient(cfg.GRPCAddress)
+	if err != nil {
+		return CoreumChain{}, err
+	}
 	coreumSettings := integration.QueryChainSettings(queryCtx, coreumGRPCClient)
 
 	coreumClientCtx := client.NewContext(getTestContextConfig(), app.ModuleBasics).
