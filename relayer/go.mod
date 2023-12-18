@@ -35,10 +35,9 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/coinbase/rosetta-sdk-go/types v1.0.0 // indirect
-
 require (
 	cloud.google.com/go v0.110.10 // indirect
+	github.com/coinbase/rosetta-sdk-go/types v1.0.0 // indirect
 	cloud.google.com/go/compute v1.23.3 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v1.1.5 // indirect
