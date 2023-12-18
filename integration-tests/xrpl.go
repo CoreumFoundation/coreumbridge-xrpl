@@ -18,9 +18,9 @@ import (
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/http"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
-	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
-	coreumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
-	coreumkeyring "github.com/CoreumFoundation/coreum/v3/pkg/keyring"
+	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
+	coreumconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
+	coreumkeyring "github.com/CoreumFoundation/coreum/v4/pkg/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -28,11 +28,6 @@ import (
 const (
 	// XRPCurrencyCode is XRP toke currency code on XRPL chain.
 	XRPCurrencyCode = "XRP"
-
-	xrplTxFee                    = "100"
-	xrplReserveToActivateAccount = float64(10)
-	xrplReservePerTicket         = float64(2)
-	xrplReservePerSigner         = float64(2)
 
 	ecdsaKeyType         = rippledata.ECDSA
 	faucetKeyringKeyName = "faucet"
@@ -135,7 +130,7 @@ func (c XRPLChain) GenEmptyAccount(t *testing.T) rippledata.Account {
 func (c XRPLChain) CreateAccount(ctx context.Context, t *testing.T, acc rippledata.Account, amount float64) {
 	t.Helper()
 	// amount to activate the account and some tokens on top
-	c.FundAccount(ctx, t, acc, amount+xrplReserveToActivateAccount)
+	c.FundAccount(ctx, t, acc, amount+xrpl.ReserveToActivateAccount)
 }
 
 // GetSignerKeyring returns signer keyring.
@@ -154,21 +149,21 @@ func (c XRPLChain) GetSignerPubKey(t *testing.T, acc rippledata.Account) rippled
 func (c XRPLChain) ActivateAccount(ctx context.Context, t *testing.T, acc rippledata.Account) {
 	t.Helper()
 
-	c.FundAccount(ctx, t, acc, xrplReserveToActivateAccount)
+	c.FundAccount(ctx, t, acc, xrpl.ReserveToActivateAccount)
 }
 
 // FundAccountForTicketAllocation funds the provided account with the amount required for the ticket allocation.
 func (c XRPLChain) FundAccountForTicketAllocation(
 	ctx context.Context, t *testing.T, acc rippledata.Account, ticketsNumber uint32,
 ) {
-	c.FundAccount(ctx, t, acc, xrplReservePerTicket*float64(ticketsNumber))
+	c.FundAccount(ctx, t, acc, xrpl.ReservePerTicket*float64(ticketsNumber))
 }
 
 // FundAccountForSignerListSet funds the provided account with the amount required for the multi-signing set.
 func (c XRPLChain) FundAccountForSignerListSet(
 	ctx context.Context, t *testing.T, acc rippledata.Account, singersCount int,
 ) {
-	c.FundAccount(ctx, t, acc, xrplReservePerSigner*float64(singersCount))
+	c.FundAccount(ctx, t, acc, xrpl.ReservePerSigner*float64(singersCount))
 }
 
 // FundAccount funds the provided account with the provided amount.
@@ -194,7 +189,7 @@ func (c XRPLChain) FundAccount(ctx context.Context, t *testing.T, acc rippledata
 	require.NoError(t, c.signer.Sign(&fundXrpTx, faucetKeyringKeyName))
 
 	t.Logf("Funding account, account address: %s, amount: %f", acc, amount)
-	require.NoError(t, c.SubmitTx(ctx, t, &fundXrpTx))
+	require.NoError(t, c.RPCClient().SubmitAndAwaitSuccess(ctx, &fundXrpTx))
 	t.Logf("The account %s is funded", acc)
 }
 
@@ -224,55 +219,13 @@ func (c XRPLChain) SignAndSubmitTx(
 	t.Helper()
 
 	require.NoError(t, c.signer.Sign(tx, acc.String()))
-	return c.SubmitTx(ctx, t, tx)
+	return c.RPCClient().SubmitAndAwaitSuccess(ctx, tx)
 }
 
 // AutoFillTx add seq number and fee for the transaction.
 func (c XRPLChain) AutoFillTx(ctx context.Context, t *testing.T, tx rippledata.Transaction, sender rippledata.Account) {
 	t.Helper()
-
-	accInfo, err := c.rpcClient.AccountInfo(ctx, sender)
-	require.NoError(t, err)
-	// update base settings
-	base := tx.GetBase()
-	fee, err := rippledata.NewValue(xrplTxFee, true)
-	require.NoError(t, err)
-	base.Fee = *fee
-	base.Account = sender
-	base.Sequence = *accInfo.AccountData.Sequence
-}
-
-// SubmitTx submits tx a waits for its result.
-func (c XRPLChain) SubmitTx(ctx context.Context, t *testing.T, tx rippledata.Transaction) error {
-	t.Helper()
-
-	t.Logf("Submitting transaction, hash:%s", tx.GetHash())
-	// submit the transaction
-	res, err := c.rpcClient.Submit(ctx, tx)
-	if err != nil {
-		return err
-	}
-	if !res.EngineResult.Success() {
-		return errors.Errorf("the tx submition is failed, %+v", res)
-	}
-
-	retryCtx, retryCtxCancel := context.WithTimeout(ctx, time.Minute)
-	defer retryCtxCancel()
-
-	t.Logf("Transaction is submitted waitig for hash:%s", tx.GetHash())
-	return retry.Do(retryCtx, 250*time.Millisecond, func() error {
-		reqCtx, reqCtxCancel := context.WithTimeout(ctx, 3*time.Second)
-		defer reqCtxCancel()
-		txRes, err := c.rpcClient.Tx(reqCtx, *tx.GetHash())
-		if err != nil {
-			return retry.Retryable(err)
-		}
-
-		if !txRes.Validated {
-			return retry.Retryable(errors.Errorf("transaction is not validated"))
-		}
-		return nil
-	})
+	require.NoError(t, c.rpcClient.AutoFillTx(ctx, tx, sender))
 }
 
 // GetAccountBalance returns account balance for the provided issuer and currency.

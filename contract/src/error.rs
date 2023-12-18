@@ -162,4 +162,7 @@ pub enum ContractError {
 
     #[error("InvalidTokenStateUpdate: A token state can only be updated to enabled or disabled")]
     InvalidTokenStateUpdate {},
+    
+    #[error("InvalidTransferRate: The transfer rate sent is invalid, it must be more than 1000000000 (0%) and less or equal than 2000000000 (100%)")]
+    InvalidTransferRate {},
 }

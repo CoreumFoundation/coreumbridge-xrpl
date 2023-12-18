@@ -12,10 +12,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
-	"github.com/CoreumFoundation/coreum/v3/pkg/client"
-	"github.com/CoreumFoundation/coreum/v3/testutil/event"
-	assetfttypes "github.com/CoreumFoundation/coreum/v3/x/asset/ft/types"
+	"github.com/CoreumFoundation/coreum/v4/pkg/client"
+	"github.com/CoreumFoundation/coreum/v4/testutil/event"
+	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
@@ -393,7 +394,7 @@ func (c *ContractClient) DeployAndInstantiate(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find code ID in the tx result")
 	}
-	c.log.Info(ctx, "The contract bytecode is deployed.", logger.Uint64Field("codeID", codeID))
+	c.log.Info(ctx, "The contract bytecode is deployed.", zap.Uint64("codeID", codeID))
 
 	reqPayload, err := json.Marshal(instantiateRequest{
 		Owner:                       config.Owner,
@@ -422,7 +423,7 @@ func (c *ContractClient) DeployAndInstantiate(
 		Funds: sdk.NewCoins(issuerFee),
 	}
 
-	c.log.Info(ctx, "Instantiating contract.", logger.AnyField("msg", msg))
+	c.log.Info(ctx, "Instantiating contract.", zap.Any("msg", msg))
 	res, err = client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msg)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deploy bytecode")
@@ -439,7 +440,7 @@ func (c *ContractClient) DeployAndInstantiate(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert contract address to sdk.AccAddress")
 	}
-	c.log.Info(ctx, "The contract is instantiated.", logger.StringField("address", sdkContractAddr.String()))
+	c.log.Info(ctx, "The contract is instantiated.", zap.String("address", sdkContractAddr.String()))
 
 	return sdkContractAddr, nil
 }
@@ -952,7 +953,7 @@ func (c *ContractClient) execute(
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to marshal payload, request:%+v", req.Body)
 		}
-		c.log.Debug(ctx, "Executing contract", logger.StringField("payload", string(payload)))
+		c.log.Debug(ctx, "Executing contract", zap.String("payload", string(payload)))
 		msg := &wasmtypes.MsgExecuteContract{
 			Sender:   sender.String(),
 			Contract: c.cfg.ContractAddress.String(),
@@ -978,7 +979,7 @@ func (c *ContractClient) query(ctx context.Context, request, response any) error
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal query request")
 	}
-	c.log.Debug(ctx, "Querying contract", logger.StringField("payload", string(payload)))
+	c.log.Debug(ctx, "Querying contract", zap.String("payload", string(payload)))
 
 	query := &wasmtypes.QuerySmartContractStateRequest{
 		Address:   c.cfg.ContractAddress.String(),
@@ -989,7 +990,7 @@ func (c *ContractClient) query(ctx context.Context, request, response any) error
 		return errors.Wrapf(err, "query failed, request:%+v", request)
 	}
 
-	c.log.Debug(ctx, "Query is succeeded", logger.StringField("data", string(resp.Data)))
+	c.log.Debug(ctx, "Query is succeeded", zap.String("data", string(resp.Data)))
 	if err := json.Unmarshal(resp.Data, response); err != nil {
 		return errors.Wrapf(
 			err,

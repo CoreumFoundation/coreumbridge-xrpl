@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
@@ -57,7 +58,7 @@ func (p *Processor) StartProcesses(ctx context.Context, processes ...ProcessWith
 			})
 		}
 		return nil
-	}, parallel.WithGroupLogger(p.log.ParallelLogger(ctx)))
+	}, parallel.WithGroupLogger(p.log))
 }
 
 func (p *Processor) startProcessWithRestartOnError(ctx context.Context, process ProcessWithOptions) error {
@@ -79,7 +80,7 @@ func (p *Processor) startProcessWithRestartOnError(ctx context.Context, process 
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
-			p.log.Error(ctx, "Received unexpected error from the process", logger.Error(err))
+			p.log.Error(ctx, "Received unexpected error from the process", zap.Error(err))
 			if !process.IsRestartableOnError {
 				p.log.Warn(ctx, "The process is not auto-restartable on error")
 				return err

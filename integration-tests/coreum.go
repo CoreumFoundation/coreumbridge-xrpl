@@ -6,12 +6,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/CoreumFoundation/coreum/v3/app"
-	"github.com/CoreumFoundation/coreum/v3/pkg/client"
-	"github.com/CoreumFoundation/coreum/v3/pkg/config"
-	"github.com/CoreumFoundation/coreum/v3/pkg/config/constant"
-	"github.com/CoreumFoundation/coreum/v3/testutil/integration"
-	feemodeltypes "github.com/CoreumFoundation/coreum/v3/x/feemodel/types"
+	"github.com/CoreumFoundation/coreum/v4/app"
+	"github.com/CoreumFoundation/coreum/v4/pkg/client"
+	"github.com/CoreumFoundation/coreum/v4/pkg/config"
+	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
+	"github.com/CoreumFoundation/coreum/v4/testutil/integration"
+	feemodeltypes "github.com/CoreumFoundation/coreum/v4/x/feemodel/types"
 )
 
 // CoreumChainConfig represents coreum chain config.
@@ -34,7 +34,10 @@ func NewCoreumChain(cfg CoreumChainConfig) (CoreumChain, error) {
 	)
 	defer queryCtxCancel()
 
-	coreumGRPCClient := integration.DialGRPCClient(cfg.GRPCAddress)
+	coreumGRPCClient, err := integration.DialGRPCClient(cfg.GRPCAddress)
+	if err != nil {
+		return CoreumChain{}, errors.WithStack(err)
+	}
 	coreumSettings := integration.QueryChainSettings(queryCtx, coreumGRPCClient)
 
 	coreumClientCtx := client.NewContext(getTestContextConfig(), app.ModuleBasics).

@@ -10,7 +10,7 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
-	coreumintegration "github.com/CoreumFoundation/coreum/v3/testutil/integration"
+	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 )
 
@@ -144,7 +144,7 @@ func TestTicketsAllocationRecoveryWithMaliciousRelayers(t *testing.T) {
 
 	envCfg := DefaultRunnerEnvConfig()
 	// add malicious relayers to the config
-	envCfg.RelayerNumber = 5
+	envCfg.RelayersCount = 5
 	envCfg.MaliciousRelayerNumber = 2
 	envCfg.SigningThreshold = 3
 

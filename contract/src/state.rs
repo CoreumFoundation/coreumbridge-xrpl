@@ -51,6 +51,7 @@ pub struct XRPLToken {
     pub max_holding_amount: Uint128,
     pub state: TokenState,
     pub bridging_fee: Uint128,
+    pub transfer_rate: Option<Uint128>,
 }
 
 #[cw_serde]

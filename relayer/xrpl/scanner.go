@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
@@ -72,7 +73,7 @@ func NewAccountScanner(cfg AccountScannerConfig, log logger.Logger, rpcTxProvide
 
 // ScanTxs subscribes on rpc account transactions and continuously scans the recent and historical transactions.
 func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-	s.log.Info(ctx, "Subscribing xrpl scanner", logger.AnyField("config", s.cfg))
+	s.log.Info(ctx, "Subscribing xrpl scanner", zap.Any("config", s.cfg))
 
 	if !s.cfg.RecentScanEnabled && !s.cfg.FullScanEnabled {
 		return errors.Errorf("both recent and full scans are disabled")
@@ -99,7 +100,7 @@ func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.Trans
 		}
 
 		return nil
-	}, parallel.WithGroupLogger(s.log.ParallelLogger(ctx)))
+	}, parallel.WithGroupLogger(s.log))
 }
 
 func (s *AccountScanner) scanRecentHistory(
@@ -114,12 +115,12 @@ func (s *AccountScanner) scanRecentHistory(
 	}
 
 	s.doWithRepeat(ctx, s.cfg.RepeatRecentScan, func() {
-		s.log.Info(ctx, "Scanning recent history", logger.Int64Field("minLedger", minLedger))
+		s.log.Info(ctx, "Scanning recent history", zap.Int64("minLedger", minLedger))
 		lastLedger := s.scanTransactions(ctx, minLedger, ch)
 		if lastLedger != 0 {
 			minLedger = lastLedger + 1
 		}
-		s.log.Info(ctx, "Scanning of the recent history is done", logger.Int64Field("lastLedger", lastLedger))
+		s.log.Info(ctx, "Scanning of the recent history is done", zap.Int64("lastLedger", lastLedger))
 	})
 }
 
@@ -127,7 +128,7 @@ func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippleda
 	s.doWithRepeat(ctx, s.cfg.RepeatFullScan, func() {
 		s.log.Info(ctx, "Scanning full history")
 		lastLedger := s.scanTransactions(ctx, -1, ch)
-		s.log.Info(ctx, "Scanning of full history is done", logger.Int64Field("lastLedger", lastLedger))
+		s.log.Info(ctx, "Scanning of full history is done", zap.Int64("lastLedger", lastLedger))
 	})
 }
 
@@ -210,7 +211,7 @@ func (s *AccountScanner) doWithRepeat(ctx context.Context, shouldRepeat bool, f 
 				s.log.Info(ctx, "Execution is fully stopped.")
 				return
 			}
-			s.log.Info(ctx, "Waiting before the next execution.", logger.StringField("delay", s.cfg.RetryDelay.String()))
+			s.log.Info(ctx, "Waiting before the next execution.", zap.String("delay", s.cfg.RetryDelay.String()))
 			select {
 			case <-ctx.Done():
 				return

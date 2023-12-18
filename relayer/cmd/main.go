@@ -9,14 +9,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/run"
-	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
-	"github.com/CoreumFoundation/coreum/v3/pkg/config"
+	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
+	"github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 )
 
 func main() {
 	run.Tool("CoreumbridgeXRPLRelayer", func(ctx context.Context) error {
-		rootCmd := RootCmd(ctx)
+		rootCmd, err := RootCmd(ctx)
+		if err != nil {
+			return err
+		}
 		if err := rootCmd.Execute(); err != nil && !errors.Is(err, context.Canceled) {
 			return err
 		}
@@ -26,7 +29,7 @@ func main() {
 }
 
 // RootCmd returns the root cmd.
-func RootCmd(ctx context.Context) *cobra.Command {
+func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	encodingConfig := config.NewEncodingConfig(coreumapp.ModuleBasics)
 	clientCtx := client.Context{}.
 		WithCodec(encodingConfig.Codec).
@@ -42,7 +45,13 @@ func RootCmd(ctx context.Context) *cobra.Command {
 
 	cmd.AddCommand(cli.InitCmd())
 	cmd.AddCommand(cli.StartCmd())
-	cmd.AddCommand(cli.KeyringCmd())
+	keyringCmd, err := cli.KeyringCmd()
+	if err != nil {
+		return nil, err
+	}
+	cmd.AddCommand(keyringCmd)
+	cmd.AddCommand(cli.XRPLKeyInfoCmd())
+	cmd.AddCommand(cli.BootstrapBridge())
 
-	return cmd
+	return cmd, nil
 }
