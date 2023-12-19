@@ -12,6 +12,7 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
@@ -88,8 +89,14 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 		t, valueToSendFromXRPLtoCoreum.String(), xrpl.XRPLIssuedTokenDecimals,
 	).QuoRaw(4)
 
+	coreumBankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+	coreumSenderBalanceBeforeRes, err := coreumBankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumSender.String(),
+		Denom:   registeredXRPLToken.CoreumDenom,
+	})
+	require.NoError(t, err)
+
 	// send 2 transactions without the trust set to be reverted
-	// TODO(dzmitryhil) update assertion once we add the final tx revert/recovery
 	_, err = runnerEnv.ContractClient.SendToXRPL(
 		ctx,
 		coreumSender,
@@ -105,6 +112,14 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 	)
 	require.NoError(t, err)
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
+
+	coreumSenderBalanceAfterRes, err := coreumBankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumSender.String(),
+		Denom:   registeredXRPLToken.CoreumDenom,
+	})
+	require.NoError(t, err)
+	// the tokens were returned
+	require.Equal(t, coreumSenderBalanceBeforeRes.Balance.Amount.String(), coreumSenderBalanceAfterRes.Balance.Amount.String())
 
 	// send TrustSet to be able to receive coins
 	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, xrplIssuerAddress, registeredXRPLCurrency)
@@ -726,14 +741,53 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	registeredCoreumOriginatedToken, err := runnerEnv.ContractClient.GetCoreumTokenByDenom(ctx, denom)
 	require.NoError(t, err)
 
-	// send TrustSet to be able to receive coins from the bridge
-	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)
-	require.NoError(t, err)
-	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency)
-
 	// equal to 11.1111 on XRPL, but with the sending prec 2 we expect 11.11 to be received
 	amountToSendToXRPL1 := sdkmath.NewInt(111111)
-	// TODO(dzmitryhil) update assertion once we add the final tx revert/recovery
+
+	coreumBankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+	coreumSenderBalanceBeforeRes, err := coreumBankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumSenderAddress.String(),
+		Denom:   registeredCoreumOriginatedToken.Denom,
+	})
+	require.NoError(t, err)
+
+	// send tokens and expect the operation to be rejected because of lack of the TrustSet
+	_, err = runnerEnv.ContractClient.SendToXRPL(
+		ctx,
+		coreumSenderAddress,
+		xrplRecipientAddress.String(),
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL1),
+	)
+	require.NoError(t, err)
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+
+	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)
+	require.NoError(t, err)
+
+	balance := runnerEnv.Chains.XRPL.GetAccountBalance(
+		ctx,
+		t,
+		xrplRecipientAddress,
+		runnerEnv.bridgeXRPLAddress,
+		xrplCurrency,
+	)
+	require.Equal(t, "0", balance.Value.String())
+
+	coreumSenderBalanceAfterRes, err := coreumBankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumSenderAddress.String(),
+		Denom:   registeredCoreumOriginatedToken.Denom,
+	})
+	require.NoError(t, err)
+	// the tokens were returned
+	require.Equal(t,
+		// 11 here is reminder after the sending precision truncation
+		coreumSenderBalanceBeforeRes.Balance.Amount.SubRaw(11).String(),
+		coreumSenderBalanceAfterRes.Balance.Amount.String(),
+	)
+
+	// now allow to receive
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency)
+
 	_, err = runnerEnv.ContractClient.SendToXRPL(
 		ctx,
 		coreumSenderAddress,
@@ -745,7 +799,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 
 	// check the XRPL recipient balance
-	balance := runnerEnv.Chains.XRPL.GetAccountBalance(
+	balance = runnerEnv.Chains.XRPL.GetAccountBalance(
 		ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency,
 	)
 	require.Equal(t, "11.11", balance.Value.String())
