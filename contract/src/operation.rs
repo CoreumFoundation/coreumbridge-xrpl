@@ -3,11 +3,12 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Response, Storage, Uint128};
 
 use crate::{
-    contract::{build_xrpl_token_key, convert_amount_decimals, XRPL_TOKENS_DECIMALS},
+    contract::{convert_amount_decimals, XRPL_TOKENS_DECIMALS},
     error::ContractError,
     evidence::TransactionResult,
     signatures::Signature,
     state::{TokenState, COREUM_TOKENS, PENDING_OPERATIONS, XRPL_TOKENS},
+    token::build_xrpl_token_key,
 };
 
 #[cw_serde]

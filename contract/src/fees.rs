@@ -57,7 +57,7 @@ pub fn handle_fee_collection(
     Ok(fee_collected)
 }
 
-pub fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractError> {
+fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractError> {
     // We only collect fees if there is something to collect
     // If for some reason there is a coin that we are not charging fees for, we don't collect it
     if !fee.amount.is_zero() {
