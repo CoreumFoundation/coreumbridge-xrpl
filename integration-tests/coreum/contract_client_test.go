@@ -638,8 +638,6 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidence,
 	)
 	require.True(t, coreum.IsOperationAlreadyExecutedError(err), err)
-
-	// recovery
 }
 
 //nolint:tparallel // the test is parallel, but test cases are not
@@ -1918,7 +1916,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, pendingOperations)
 
-	// recovery
+	// XRPL tx rejection recovery
 
 	// send valid amount one more time
 	coreumSenderBalanceBeforeRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
@@ -1944,7 +1942,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 		coreumSenderBalanceBeforeRes.Balance.Amount.Sub(amountToSendFromCoreumToXRPL).String(),
 		coreumSenderBalanceAfterRes.Balance.Amount.String(),
 	)
-	// assign after to before for the
+	// assign after to before for the flowing test part
 	coreumSenderBalanceBeforeRes = coreumSenderBalanceAfterRes
 
 	// reject the tx now to check that the coins will be returned back
@@ -2501,7 +2499,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, pendingOperations)
 
-	// ********** recovery **********
+	// ********** recovery of the XRPL tx rejection **********
 
 	// send valid amount one more time to reject later
 	coreumSenderBalanceBeforeRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
@@ -2527,7 +2525,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 		coreumSenderBalanceBeforeRes.Balance.Amount.Sub(amountToSendOfToken1).String(),
 		coreumSenderBalanceAfterRes.Balance.Amount.String(),
 	)
-	// assign after to before for the
+	// assign after to before for the flowing test part
 	coreumSenderBalanceBeforeRes = coreumSenderBalanceAfterRes
 
 	// reject the tx now to check that the coins will be returned back
