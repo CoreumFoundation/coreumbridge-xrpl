@@ -33,7 +33,7 @@ export XRPL_RPC_URL={XRPL RPC URL}
 #### Init the config
 
 ```bash
-./coreumbridge-xrpl-relayer init --coreum-chain-id $COREUM_CHAIN_ID --coreum-grpc-url $COREUM_GRPC_URL  --xrpl-rpc-url $XRPL_RPC_URL
+./coreumbridge-xrpl-relayer init --coreum-chain-id $COREUM_CHAIN_ID --coreum-grpc-url $COREUM_GRPC_URL --xrpl-rpc-url $XRPL_RPC_URL
 ```
 
 ## Bootstrap the bridge
@@ -45,8 +45,6 @@ export XRPL_RPC_URL={XRPL RPC URL}
 #### Generate the relayer keys
 
 ```bash
-./coreumbridge-xrpl-relayer init --coreum-chain-id $COREUM_CHAIN_ID --coreum-grpc-url $COREUM_GRPC_URL  --xrpl-rpc-url $XRPL_RPC_URL
-
 ./coreumbridge-xrpl-relayer keys add coreum-relayer --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 
 ./coreumbridge-xrpl-relayer keys add xrpl-relayer --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
@@ -64,7 +62,7 @@ to update them, then updated them in the `relayer.yaml` as well.
 Output example:
 
 ```bash
-2023-12-10T18:04:55.235+0300    info    cli/cli.go:205  Key info        {"coreumAddress": "core1dukhz42p4qxkrtxg8ap7nj6wn3f2lqjqwf8gny", "xrplAddress": "r3YU6MLbmnxnLwCrRQYBAbaXmBR1RgK5mu", "xrplPubKey": "02ED720F8BF89D333CF7C4EAC763DA6EB7051895924DEB33AD34E87A624FE6B8F0"}
+2023-12-10T18:04:55.235+0300    info    cli/cli.go:205  Keys info        {"coreumAddress": "core1dukhz42p4qxkrtxg8ap7nj6wn3f2lqjqwf8gny", "xrplAddress": "r3YU6MLbmnxnLwCrRQYBAbaXmBR1RgK5mu", "xrplPubKey": "02ED720F8BF89D333CF7C4EAC763DA6EB7051895924DEB33AD34E87A624FE6B8F0"}
 ```
 
 The output contains the `coreumAddress`, `xrplAddress` and `xrplPubKey` used for the contract deployment.
@@ -117,7 +115,6 @@ evidence_threshold: 0
 used_ticket_sequence_threshold: 150
 trust_set_limit_amount: "100000000000000000000000000000000000"
 contract_bytecode_path: ""
-skip_xrpl_balance_validation: false
 ```
 
 If you don't have the contract bytecode download it.
@@ -139,7 +136,7 @@ the relayers config.
 
 #### Run all relayers
 
-Run all relayers see [Run relayer](#run-all-relayers-) section.
+Run all relayers see [Run relayer](#run-relayer) section.
 
 #### Recover tickets
 
@@ -184,7 +181,7 @@ Once you are attached, press any key and enter the keyring password.
 
 ### Pass the [Init relayer](#init-relayer) section.
 
-Additionnaly set the bridge contract address in the `relayer.yaml`
+Additionally, set the bridge contract address in the `relayer.yaml`
 
 ### Send from coreum to XRPL
 
@@ -210,13 +207,13 @@ Additionnaly set the bridge contract address in the `relayer.yaml`
 ./coreumbridge-xrpl-relayer registered-tokens
 ```
 
-### Get Coreum balabces
+### Get Coreum balances
 
 ```bash 
 ./coreumbridge-xrpl-relayer coreum-balances testcore1adst6w4e79tddzhcgaru2l2gms8jjep6a4caa7
 ```
 
-### Get XRPL balabces
+### Get XRPL balances
 
 ```bash 
 ./coreumbridge-xrpl-relayer xrpl-balances rrrrrrrrrrrrrrrrrrrrrhoLvTp
@@ -228,11 +225,13 @@ Additionnaly set the bridge contract address in the `relayer.yaml`
 ./coreumbridge-xrpl-relayer set-xrpl-trust-set 1e80 XRP rrrrrrrrrrrrrrrrrrrrrhoLvTp --key-name sender --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
-#### Pass the [Init relayer](#init-relayer) section.
+## Owner CLI
 
-Additionnaly set the bridge contract address in the `relayer.yaml`
+### Pass the [Init relayer](#init-relayer) section.
 
-### Recover tickets to allow XRPL to coreum oprations
+Additionally, set the bridge contract address in the `relayer.yaml`
+
+### Recover tickets to allow XRPL to coreum operations
 
 ```bash
 ./coreumbridge-xrpl-relayer recovery-tickets --key-name owner --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys

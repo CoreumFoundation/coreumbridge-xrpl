@@ -144,11 +144,11 @@ func KeyringCmd() (*cobra.Command, error) {
 	return cmd, nil
 }
 
-// XRPLKeyInfoCmd prints the XRPL key info.
+// XRPLKeyInfoCmd prints the XRPL keys info.
 func XRPLKeyInfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "relayer-keys-info",
-		Short: "Prints the coreum and XRPL relayer key info.",
+		Short: "Prints the coreum and XRPL relayer keys info.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := setCoreumConfigFromHomeFlag(cmd); err != nil {
 				return err
