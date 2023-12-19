@@ -339,7 +339,7 @@ type ContractClientConfig struct {
 func DefaultContractClientConfig(contractAddress sdk.AccAddress) ContractClientConfig {
 	return ContractClientConfig{
 		ContractAddress: contractAddress,
-		GasAdjustment:   1.3,
+		GasAdjustment:   2,
 		// 1.2
 		GasPriceAdjustment: sdk.NewDecFromInt(sdkmath.NewInt(12)).QuoInt64(10),
 		PageLimit:          250,

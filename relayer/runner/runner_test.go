@@ -67,7 +67,7 @@ coreum:
     contract:
         contract_address: ""
         gas_adjustment: 1.2
-        gas_price_adjustment: 1.3
+        gas_price_adjustment: 2
         page_limit: 250
         request_timeout: 10s
         tx_timeout: 1m0s

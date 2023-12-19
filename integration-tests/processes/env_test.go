@@ -489,10 +489,6 @@ func createDevRunner(
 
 	relayerRunnerCfg.Coreum.GRPC.URL = chains.Coreum.Config().GRPCAddress
 	relayerRunnerCfg.Coreum.Contract.ContractAddress = contractAddress.String()
-	// We use high gas adjustment since our relayers might send transactions in one block.
-	// They estimate gas based on the same state, but since transactions are executed one by one the next transaction uses
-	// the state different from the one it used for the estimation as a result the out-of-gas error might appear.
-	relayerRunnerCfg.Coreum.Contract.GasAdjustment = 2
 	relayerRunnerCfg.Coreum.Network.ChainID = chains.Coreum.ChainSettings.ChainID
 	// make operation fetcher fast
 	relayerRunnerCfg.Processes.XRPLTxSubmitter.RepeatDelay = 500 * time.Millisecond
