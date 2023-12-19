@@ -85,7 +85,7 @@ impl Evidence {
             Evidence::XRPLToCoreumTransfer { tx_hash, .. } => tx_hash.clone(),
             Evidence::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone().unwrap(),
         }
-        .to_lowercase()
+        .to_uppercase()
     }
     pub fn is_operation_valid(&self) -> bool {
         match self {

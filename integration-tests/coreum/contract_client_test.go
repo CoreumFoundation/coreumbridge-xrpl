@@ -275,7 +275,9 @@ func TestRegisterCoreumToken(t *testing.T) {
 	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &paymentTx, issuerAcc))
 	balancesAfterSend := chains.XRPL.GetAccountBalances(ctx, t, recipientAcc)
 	t.Logf("Recipient account balances after send: %s", balancesAfterSend)
-	receiveAmount, ok := balancesAfterSend[fmt.Sprintf("%s/%s", currency.String(), issuerAcc.String())]
+	receiveAmount, ok := balancesAfterSend[fmt.Sprintf("%s/%s",
+		xrpl.ConvertCurrencyToString(currency), issuerAcc.String(),
+	)]
 	require.True(t, ok)
 	require.Equal(t, amountToSend.String(), receiveAmount.Value.String())
 }
@@ -842,13 +844,13 @@ func TestSendFromXRPLToCoreumXRPToken(t *testing.T) {
 	registeredXRPToken, err := contractClient.GetXRPLTokenByIssuerAndCurrency(
 		ctx,
 		xrpl.XRPTokenIssuer.String(),
-		xrpl.XRPTokenCurrency.String(),
+		xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
 	)
 	require.NoError(t, err)
 
 	require.Equal(t, coreum.XRPLToken{
 		Issuer:           xrpl.XRPTokenIssuer.String(),
-		Currency:         xrpl.XRPTokenCurrency.String(),
+		Currency:         xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
 		CoreumDenom:      assetfttypes.BuildDenom("drop", contractClient.GetContractAddress()),
 		SendingPrecision: 6,
 		MaxHoldingAmount: sdkmath.NewInt(10000000000000000),
@@ -2135,7 +2137,7 @@ func TestSendFromCoreumToXRPLXRPToken(t *testing.T) {
 		xrpl.GenPrivKeyTxSigner().Account().String(),
 	)
 	registeredXRPToken, err := contractClient.GetXRPLTokenByIssuerAndCurrency(
-		ctx, xrpl.XRPTokenIssuer.String(), xrpl.XRPTokenCurrency.String(),
+		ctx, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
 	)
 	require.NoError(t, err)
 
@@ -3008,5 +3010,5 @@ func genXRPLTxHash(t *testing.T) string {
 	_, err := rand.Read(hash[:])
 	require.NoError(t, err)
 
-	return hash.String()
+	return strings.ToUpper(hash.String())
 }

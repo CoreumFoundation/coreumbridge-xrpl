@@ -697,6 +697,14 @@ mod tests {
         assert_eq!(query_coreum_tokens.tokens.len(), 2);
         assert_eq!(query_coreum_tokens.tokens[0].denom, test_tokens[0].denom);
         assert_eq!(query_coreum_tokens.tokens[1].denom, test_tokens[1].denom);
+        assert_eq!(
+            query_coreum_tokens.tokens[0].xrpl_currency,
+            query_coreum_tokens.tokens[0].xrpl_currency.to_uppercase()
+        );
+        assert_eq!(
+            query_coreum_tokens.tokens[1].xrpl_currency,
+            query_coreum_tokens.tokens[1].xrpl_currency.to_uppercase()
+        );
 
         // Query tokens with limit
         let query_coreum_tokens = wasm
@@ -845,6 +853,48 @@ mod tests {
                 &ExecuteMsg::RegisterXRPLToken {
                     issuer: test_tokens[1].issuer.clone(),
                     currency: "invalid_currency".to_string(),
+                    sending_precision: test_tokens[1].sending_precision.clone(),
+                    max_holding_amount: test_tokens[1].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[1].bridging_fee,
+                    transfer_rate: test_tokens[0].transfer_rate,
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(currency_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLCurrency {}.to_string().as_str()));
+
+        // Registering a token with an invalid hexadecimal currency (not uppercase) should fail
+        let currency_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[1].issuer.clone(),
+                    currency: "015841551A748AD2C1f76FF6ECB0CCCD00000000".to_string(),
+                    sending_precision: test_tokens[1].sending_precision.clone(),
+                    max_holding_amount: test_tokens[1].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[1].bridging_fee,
+                    transfer_rate: test_tokens[0].transfer_rate,
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(currency_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLCurrency {}.to_string().as_str()));
+
+        // Registering a token with an "XRP" as currency should fail
+        let currency_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[1].issuer.clone(),
+                    currency: "XRP".to_string(),
                     sending_precision: test_tokens[1].sending_precision.clone(),
                     max_holding_amount: test_tokens[1].max_holding_amount.clone(),
                     bridging_fee: test_tokens[1].bridging_fee,
