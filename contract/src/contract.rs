@@ -277,7 +277,7 @@ fn register_coreum_token(
         .to_string()
         .to_lowercase();
 
-    // Format will be the hex representation in XRPL of the string coreum<hash>
+    // Format will be the hex representation in XRPL of the string coreum<hash> in uppercase
     let xrpl_currency =
         convert_currency_to_xrpl_hexadecimal(format!("{}{}", COREUM_CURRENCY_PREFIX, hex_string));
 
@@ -1003,8 +1003,8 @@ pub fn validate_xrpl_issuer_and_currency(
     validate_xrpl_address(issuer).map_err(|_| ContractError::InvalidXRPLIssuer {})?;
 
     // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency
-    if !(currency.len() == 3 && currency.is_ascii()
-        || currency.len() == 40 && currency.chars().all(|c| c.is_ascii_hexdigit()))
+    if !(currency.len() == 3 && currency.is_ascii() && currency != "XRP"
+        || currency.len() == 40 && currency.chars().all(|c| c.is_ascii_hexdigit() && (c.is_numeric() || c.is_uppercase())))
     {
         return Err(ContractError::InvalidXRPLCurrency {});
     }
@@ -1124,5 +1124,5 @@ fn is_token_xrp(issuer: String, currency: String) -> bool {
 
 fn convert_currency_to_xrpl_hexadecimal(currency: String) -> String {
     // Fill with zeros to get the correct hex representation in XRPL of our currency.
-    format!("{:0<40}", hex::encode(currency))
+    format!("{:0<40}", hex::encode(currency)).to_uppercase()
 }
