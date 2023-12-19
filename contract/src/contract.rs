@@ -799,11 +799,8 @@ fn send_to_xrpl(
                 amount_after_transfer_fees(amount_after_bridge_fees, xrpl_token.transfer_rate)?;
 
             // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
-            (amount_to_send, remainder) = truncate_amount(
-                xrpl_token.sending_precision,
-                decimals,
-                amount_after_fees,
-            )?;
+            (amount_to_send, remainder) =
+                truncate_amount(xrpl_token.sending_precision, decimals, amount_after_fees)?;
 
             handle_fee_collection(
                 deps.storage,
@@ -1002,11 +999,26 @@ pub fn validate_xrpl_issuer_and_currency(
 ) -> Result<(), ContractError> {
     validate_xrpl_address(issuer).map_err(|_| ContractError::InvalidXRPLIssuer {})?;
 
-    // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency
-    if !(currency.len() == 3 && currency.is_ascii() && currency != "XRP"
-        || currency.len() == 40 && currency.chars().all(|c| c.is_ascii_hexdigit() && (c.is_numeric() || c.is_uppercase())))
-    {
-        return Err(ContractError::InvalidXRPLCurrency {});
+    // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency, any other scenario is invalid
+    match currency.len() {
+        3 => {
+            if !currency.is_ascii() {
+                return Err(ContractError::InvalidXRPLCurrency {});
+            }
+
+            if currency == "XRP" {
+                return Err(ContractError::InvalidXRPLCurrency {});
+            }
+        }
+        40 => {
+            if !currency
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && (c.is_numeric() || c.is_uppercase()))
+            {
+                return Err(ContractError::InvalidXRPLCurrency {});
+            }
+        }
+        _ => return Err(ContractError::InvalidXRPLCurrency {}),
     }
 
     Ok(())
