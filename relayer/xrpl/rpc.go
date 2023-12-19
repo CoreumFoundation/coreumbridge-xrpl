@@ -346,7 +346,7 @@ func (c *RPCClient) AutoFillTx(ctx context.Context, tx rippledata.Transaction, s
 
 // SubmitAndAwaitSuccess submits tx a waits for its result, if result is not success returns an error.
 func (c *RPCClient) SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Transaction) error {
-	c.log.Info(ctx, "Submitting transaction", zap.String("txHash", tx.GetHash().String()))
+	c.log.Info(ctx, "Submitting transaction", zap.String("txHash", strings.ToUpper(tx.GetHash().String())))
 	// submit the transaction
 	res, err := c.Submit(ctx, tx)
 	if err != nil {
@@ -361,7 +361,7 @@ func (c *RPCClient) SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Tra
 	c.log.Info(
 		ctx,
 		"Transaction is submitted, waiting for tx to be accepted",
-		zap.String("txHash", tx.GetHash().String()),
+		zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
 	)
 	return retry.Do(retryCtx, 250*time.Millisecond, func() error {
 		reqCtx, reqCtxCancel := context.WithTimeout(ctx, 3*time.Second)

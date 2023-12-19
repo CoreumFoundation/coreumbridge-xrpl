@@ -74,7 +74,7 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 					if errors.Is(err, context.Canceled) {
 						o.log.Warn(ctx, "Context canceled during the XRPL tx processing", zap.String("error", err.Error()))
 					} else {
-						return errors.Wrapf(err, "failed to process XRPL tx, txHash:%s", tx.GetHash().String())
+						return errors.Wrapf(err, "failed to process XRPL tx, txHash:%s", strings.ToUpper(tx.GetHash().String()))
 					}
 				}
 			}
@@ -86,7 +86,7 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 }
 
 func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
-	ctx = tracing.WithTracingXRPLTxHash(tracing.WithTracingID(ctx), tx.GetHash().String())
+	ctx = tracing.WithTracingXRPLTxHash(tracing.WithTracingID(ctx), strings.ToUpper(tx.GetHash().String()))
 	if !txIsFinal(tx) {
 		o.log.Debug(ctx, "Transaction is not final", zap.String("txStatus", tx.MetaData.TransactionResult.String()))
 		return nil
@@ -128,8 +128,6 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 
 	deliveredXRPLAmount := tx.MetaData.DeliveredAmount
 
-	stringCurrency := xrpl.ConvertCurrencyToString(deliveredXRPLAmount.Currency)
-
 	coreumAmount, err := ConvertXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
 	if err != nil {
 		return err
@@ -141,9 +139,9 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	}
 
 	evidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    paymentTx.GetHash().String(),
+		TxHash:    strings.ToUpper(paymentTx.GetHash().String()),
 		Issuer:    deliveredXRPLAmount.Issuer.String(),
-		Currency:  stringCurrency,
+		Currency:  xrpl.ConvertCurrencyToString(deliveredXRPLAmount.Currency),
 		Amount:    coreumAmount,
 		Recipient: coreumRecipient,
 	}
@@ -211,7 +209,7 @@ func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(
 	}
 	evidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            tx.GetHash().String(),
+			TxHash:            strings.ToUpper(tx.GetHash().String()),
 			TransactionResult: txResult,
 		},
 		Tickets: tickets,
@@ -245,7 +243,7 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(
 	}
 	evidence := coreum.XRPLTransactionResultTrustSetEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            tx.GetHash().String(),
+			TxHash:            strings.ToUpper(tx.GetHash().String()),
 			TransactionResult: getTransactionResult(tx),
 			TicketSequence:    trustSetTx.TicketSequence,
 		},
@@ -272,7 +270,7 @@ func (o *XRPLTxObserver) sendCoreumToXRPLTransferTransactionResultEvidence(
 	}
 	evidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            tx.GetHash().String(),
+			TxHash:            strings.ToUpper(tx.GetHash().String()),
 			TransactionResult: getTransactionResult(tx),
 			TicketSequence:    paymentTx.TicketSequence,
 		},

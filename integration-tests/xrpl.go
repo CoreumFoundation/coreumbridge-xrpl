@@ -232,7 +232,8 @@ func (c XRPLChain) AutoFillTx(ctx context.Context, t *testing.T, tx rippledata.T
 func (c XRPLChain) GetAccountBalance(
 	ctx context.Context, t *testing.T, account, issuer rippledata.Account, currency rippledata.Currency,
 ) rippledata.Amount {
-	balance, ok := c.GetAccountBalances(ctx, t, account)[fmt.Sprintf("%s/%s", currency.String(), issuer.String())]
+	balance, ok := c.GetAccountBalances(ctx, t, account)[fmt.Sprintf("%s/%s",
+		xrpl.ConvertCurrencyToString(currency), issuer.String())]
 	if !ok {
 		// equal to zero
 		return rippledata.Amount{
@@ -254,7 +255,9 @@ func (c XRPLChain) GetAccountBalances(
 
 	accInfo, err := c.rpcClient.AccountInfo(ctx, acc)
 	require.NoError(t, err)
-	amounts[fmt.Sprintf("%s/%s", xrpl.XRPTokenCurrency.String(), xrpl.XRPTokenIssuer.String())] = rippledata.Amount{
+	amounts[fmt.Sprintf(
+		"%s/%s",
+		xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), xrpl.XRPTokenIssuer.String())] = rippledata.Amount{
 		Value: accInfo.AccountData.Balance,
 	}
 	// none xrp amounts
@@ -263,7 +266,9 @@ func (c XRPLChain) GetAccountBalances(
 
 	for _, line := range accLines.Lines {
 		lineCopy := line
-		amounts[fmt.Sprintf("%s/%s", lineCopy.Currency.String(), lineCopy.Account.String())] = rippledata.Amount{
+		amounts[fmt.Sprintf(
+			"%s/%s",
+			xrpl.ConvertCurrencyToString(lineCopy.Currency), lineCopy.Account.String())] = rippledata.Amount{
 			Value:    &lineCopy.Balance.Value,
 			Currency: lineCopy.Currency,
 			Issuer:   lineCopy.Account,
