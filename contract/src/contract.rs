@@ -3,7 +3,10 @@ use std::collections::VecDeque;
 use crate::{
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
-    fees::{amount_after_fees, claim_fees_for_relayers, handle_fee_collection},
+    fees::{
+        amount_after_bridge_fees, amount_after_transfer_fees, claim_fees_for_relayers,
+        handle_fee_collection,
+    },
     msg::{
         AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, FeesCollectedResponse,
         InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
@@ -52,6 +55,12 @@ const XRP_DECIMALS: u32 = 6;
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
 pub const XRPL_TOKENS_DECIMALS: u32 = 15;
+// This is equal to 0% fee
+// If it is 1000000001 it means the fee will be 0.0000001%
+// If it is 1500000000 it means the fee will be 50% and so on.
+// We will use this value to calculate the fee to be applied to the amount being sent.
+// For more info check https://xrpl.org/transfer-fees.html#technical-details
+pub const XRPL_ZERO_TRANSFER_RATE: Uint128 = Uint128::new(1000000000);
 
 const XRP_CURRENCY: &str = "XRP";
 const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
@@ -138,6 +147,7 @@ pub fn instantiate(
         // The XRP token is enabled from the start because it doesn't need approval to be received on the XRPL side.
         state: TokenState::Enabled,
         bridging_fee: XRP_DEFAULT_FEE,
+        transfer_rate: None,
     };
 
     let key = build_xrpl_token_key(XRP_ISSUER.to_string(), XRP_CURRENCY.to_string());
@@ -184,6 +194,7 @@ pub fn execute(
             sending_precision,
             max_holding_amount,
             bridging_fee,
+            transfer_rate,
         } => register_xrpl_token(
             deps,
             env,
@@ -193,6 +204,7 @@ pub fn execute(
             sending_precision,
             max_holding_amount,
             bridging_fee,
+            transfer_rate,
         ),
         ExecuteMsg::SaveEvidence { evidence } => {
             save_evidence(deps.into_empty(), info.sender, evidence)
@@ -206,9 +218,17 @@ pub fn execute(
             account_sequence,
             number_of_tickets,
         ),
-        ExecuteMsg::RecoverXRPLTokenRegistration { issuer, currency } => {
-            recover_xrpl_token_registration(deps.into_empty(), info.sender, issuer, currency)
-        }
+        ExecuteMsg::RecoverXRPLTokenRegistration {
+            issuer,
+            currency,
+            transfer_rate,
+        } => recover_xrpl_token_registration(
+            deps.into_empty(),
+            info.sender,
+            issuer,
+            currency,
+            transfer_rate,
+        ),
         ExecuteMsg::SaveSignature {
             operation_id,
             signature,
@@ -300,12 +320,15 @@ fn register_xrpl_token(
     sending_precision: i32,
     max_holding_amount: Uint128,
     bridging_fee: Uint128,
+    transfer_rate: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
 
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
 
     validate_sending_precision(sending_precision, XRPL_TOKENS_DECIMALS)?;
+
+    validate_transfer_rate(transfer_rate)?;
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
@@ -358,6 +381,7 @@ fn register_xrpl_token(
         // Registered tokens will start in processing until TrustSet operation is accepted/rejected
         state: TokenState::Processing,
         bridging_fee,
+        transfer_rate,
     };
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
@@ -423,16 +447,15 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     false => XRPL_TOKENS_DECIMALS,
                 };
 
-                // Here we simply truncate because the Coreum tokens corresponding to XRPL originated tokens have the same decimals as their corresponding Coreum tokens
-                let (amount_truncated, remainder) =
-                    truncate_amount(token.sending_precision, decimals, amount)?;
-
                 // We calculate the amount to send after applying the bridging fees for that token
-                let amount_to_send =
-                    amount_after_fees(amount_truncated, token.bridging_fee, remainder)?;
+                let amount_after_bridge_fees =
+                    amount_after_bridge_fees(amount, token.bridging_fee)?;
 
-                if amount_truncated
-                    .checked_add(remainder)?
+                // Here we simply truncate because the Coreum tokens corresponding to XRPL originated tokens have the same decimals as their corresponding Coreum tokens
+                let (amount_to_send, remainder) =
+                    truncate_amount(token.sending_precision, decimals, amount_after_bridge_fees)?;
+
+                if amount
                     .checked_add(
                         deps.querier
                             .query_supply(token.coreum_denom.to_owned())?
@@ -484,7 +507,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 };
 
                 // We first convert the amount we receive with XRPL decimals to the corresponding decimals in Coreum and then we apply the truncation according to sending precision.
-                let (amount_to_send, truncated_portion) = convert_and_truncate_amount(
+                let (amount_to_send, remainder) = convert_and_truncate_amount(
                     token.sending_precision,
                     XRPL_TOKENS_DECIMALS,
                     token.decimals,
@@ -497,7 +520,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                         deps.storage,
                         token.bridging_fee,
                         token.denom.to_owned(),
-                        truncated_portion,
+                        remainder,
                     )?;
 
                     let send_msg = BankMsg::Send {
@@ -665,6 +688,7 @@ fn recover_xrpl_token_registration(
     sender: Addr,
     issuer: String,
     currency: String,
+    transfer_rate: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -678,6 +702,9 @@ fn recover_xrpl_token_registration(
     if token.state.ne(&TokenState::Inactive) {
         return Err(ContractError::XRPLTokenNotInactive {});
     }
+
+    // Check transfer rate is a valid value
+    validate_transfer_rate(transfer_rate)?;
 
     // Put the state back to Processing since we are going to try to activate it again.
     token.state = TokenState::Processing;
@@ -738,6 +765,9 @@ fn send_to_xrpl(
 
     let decimals;
     let amount_to_send;
+    let amount_after_fees;
+    let mut transfer_fee = Uint128::zero();
+    let remainder;
     let issuer;
     let currency;
     // We check if the token we are sending is an XRPL originated token or not
@@ -760,19 +790,26 @@ fn send_to_xrpl(
                 false => XRPL_TOKENS_DECIMALS,
             };
 
-            // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
-            let (amount_truncated, truncated_portion) =
-                truncate_amount(xrpl_token.sending_precision, decimals, funds.amount)?;
+            // We calculate the amount after applying the bridging fees for that token
+            let amount_after_bridge_fees =
+                amount_after_bridge_fees(funds.amount, xrpl_token.bridging_fee)?;
 
-            // We calculate the amount to send after applying the bridging fees for that token
-            amount_to_send =
-                amount_after_fees(amount_truncated, xrpl_token.bridging_fee, truncated_portion)?;
+            // We calculate the amount to send after applying the transfer rate (if any)
+            (amount_after_fees, transfer_fee) =
+                amount_after_transfer_fees(amount_after_bridge_fees, xrpl_token.transfer_rate)?;
+
+            // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
+            (amount_to_send, remainder) = truncate_amount(
+                xrpl_token.sending_precision,
+                decimals,
+                amount_after_fees,
+            )?;
 
             handle_fee_collection(
                 deps.storage,
                 xrpl_token.bridging_fee,
                 xrpl_token.coreum_denom,
-                truncated_portion,
+                remainder,
             )?;
         }
 
@@ -794,8 +831,8 @@ fn send_to_xrpl(
 
             // Since this is a Coreum originated token with different decimals, we are first going to truncate according to sending precision and then we will convert
             // to corresponding XRPL decimals.
-            let truncated_portion;
-            (amount_to_send, truncated_portion) = truncate_and_convert_amount(
+            let remainder;
+            (amount_to_send, remainder) = truncate_and_convert_amount(
                 coreum_token.sending_precision,
                 decimals,
                 XRPL_TOKENS_DECIMALS,
@@ -807,7 +844,7 @@ fn send_to_xrpl(
                 deps.storage,
                 coreum_token.bridging_fee,
                 coreum_token.denom.to_owned(),
-                truncated_portion,
+                remainder,
             )?;
 
             // For Coreum originated tokens we need to check that we are not going over max bridge amount.
@@ -832,6 +869,7 @@ fn send_to_xrpl(
             issuer,
             currency,
             amount: amount_to_send,
+            transfer_fee,
             sender: info.sender.to_owned(),
             recipient: recipient.to_owned(),
         },
@@ -989,6 +1027,17 @@ pub fn validate_sending_precision(
     Ok(())
 }
 
+fn validate_transfer_rate(transfer_rate: Option<Uint128>) -> Result<(), ContractError> {
+    if let Some(transfer_rate) = transfer_rate {
+        if transfer_rate.le(&Uint128::new(1000000000))
+            || transfer_rate.gt(&Uint128::new(2000000000))
+        {
+            return Err(ContractError::InvalidTransferRate {});
+        }
+    }
+    Ok(())
+}
+
 // Function used to truncate the amount to not send tokens over the sending precision.
 fn truncate_amount(
     sending_precision: i32,
@@ -1040,13 +1089,14 @@ fn convert_and_truncate_amount(
     bridging_fee: Uint128,
 ) -> Result<(Uint128, Uint128), ContractError> {
     let converted_amount = convert_amount_decimals(from_decimals, to_decimals, amount)?;
-    // We save the remainder as well to deduct it from the bridging fees
+
+    let amount_after_fees = amount_after_bridge_fees(converted_amount, bridging_fee)?;
+
+    // We save the remainder as well to add it to the fee collection
     let (truncated_amount, remainder) =
-        truncate_amount(sending_precision, to_decimals, converted_amount)?;
+        truncate_amount(sending_precision, to_decimals, amount_after_fees)?;
 
-    let amount_after_fees = amount_after_fees(truncated_amount, bridging_fee, remainder)?;
-
-    Ok((amount_after_fees, remainder))
+    Ok((truncated_amount, remainder))
 }
 
 // Helper function to combine the truncation and conversion of amounts after substracting fees.
@@ -1057,13 +1107,14 @@ fn truncate_and_convert_amount(
     amount: Uint128,
     bridging_fee: Uint128,
 ) -> Result<(Uint128, Uint128), ContractError> {
-    // We save the remainder as well to deduct it from the bridging fees
+    // We calculate fees first and truncate afterwards because of XRPL not supporting values like 1e17 + 1
+    let amount_after_fees = amount_after_bridge_fees(amount, bridging_fee)?;
+
+    // We save the remainder as well to add it to fee collection
     let (truncated_amount, remainder) =
-        truncate_amount(sending_precision, from_decimals, amount)?;
+        truncate_amount(sending_precision, from_decimals, amount_after_fees)?;
 
-    let amount_after_fees = amount_after_fees(truncated_amount, bridging_fee, remainder)?;
-
-    let converted_amount = convert_amount_decimals(from_decimals, to_decimals, amount_after_fees)?;
+    let converted_amount = convert_amount_decimals(from_decimals, to_decimals, truncated_amount)?;
     Ok((converted_amount, remainder))
 }
 

@@ -18,9 +18,9 @@ import (
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/http"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
-	coreumapp "github.com/CoreumFoundation/coreum/v3/app"
-	coreumconfig "github.com/CoreumFoundation/coreum/v3/pkg/config"
-	coreumkeyring "github.com/CoreumFoundation/coreum/v3/pkg/keyring"
+	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
+	coreumconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
+	coreumkeyring "github.com/CoreumFoundation/coreum/v4/pkg/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )

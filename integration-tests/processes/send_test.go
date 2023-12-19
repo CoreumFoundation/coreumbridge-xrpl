@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
-	"github.com/CoreumFoundation/coreum/v3/pkg/client"
-	coreumintegration "github.com/CoreumFoundation/coreum/v3/testutil/integration"
-	assetfttypes "github.com/CoreumFoundation/coreum/v3/x/asset/ft/types"
+	"github.com/CoreumFoundation/coreum/v4/pkg/client"
+	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
+	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"

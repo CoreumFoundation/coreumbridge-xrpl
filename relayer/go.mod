@@ -21,7 +21,7 @@ replace (
 require (
 	cosmossdk.io/math v1.1.2
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20231217181722-0df49f4937c2
-	github.com/CoreumFoundation/coreum/v3 v3.0.1
+	github.com/CoreumFoundation/coreum/v4 v4.0.0-20231214085313-7374d8121189
 	github.com/CosmWasm/wasmd v0.44.0
 	github.com/cosmos/cosmos-sdk v0.47.5
 	github.com/golang/mock v1.6.0
@@ -67,7 +67,7 @@ require (
 	github.com/cockroachdb/errors v1.10.0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
-	github.com/coinbase/rosetta-sdk-go v0.7.9 // indirect
+	github.com/coinbase/rosetta-sdk-go/types v1.0.0 // indirect
 	github.com/cometbft/cometbft v0.37.2 // indirect
 	github.com/cometbft/cometbft-db v0.8.0 // indirect
 	github.com/confio/ics23/go v0.9.0 // indirect
