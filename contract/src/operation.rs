@@ -126,7 +126,10 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                     // If transaction was accepted and the token that was sent back was an XRPL originated token, we must burn the token amount and transfer_fee
                     if transaction_result.eq(&TransactionResult::Accepted) {
                         let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
-                            coin: coin(amount.checked_add(transfer_fee)?.u128(), xrpl_token.coreum_denom),
+                            coin: coin(
+                                amount.checked_add(transfer_fee)?.u128(),
+                                xrpl_token.coreum_denom,
+                            ),
                         }));
 
                         *response = response.to_owned().add_message(burn_msg);
@@ -134,7 +137,10 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                         // If transaction was rejected, we must send the token amount and transfer_fee back to the user
                         let send_msg = BankMsg::Send {
                             to_address: sender.to_string(),
-                            amount: coins(amount.checked_add(transfer_fee)?.u128(), xrpl_token.coreum_denom),
+                            amount: coins(
+                                amount.checked_add(transfer_fee)?.u128(),
+                                xrpl_token.coreum_denom,
+                            ),
                         };
 
                         *response = response.to_owned().add_message(send_msg);

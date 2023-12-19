@@ -26,7 +26,7 @@ use crate::{
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
     },
-    token::{build_xrpl_token_key, is_token_xrp, update_token_state},
+    token::{build_xrpl_token_key, is_token_xrp, set_token_state},
 };
 
 use coreum_wasm_sdk::{
@@ -808,11 +808,8 @@ fn send_to_xrpl(
                 amount_after_transfer_fees(amount_after_bridge_fees, xrpl_token.transfer_rate)?;
 
             // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
-            (amount_to_send, remainder) = truncate_amount(
-                xrpl_token.sending_precision,
-                decimals,
-                amount_after_fees,
-            )?;
+            (amount_to_send, remainder) =
+                truncate_amount(xrpl_token.sending_precision, decimals, amount_after_fees)?;
 
             handle_fee_collection(
                 deps.storage,
@@ -906,7 +903,7 @@ fn update_xrpl_token(
         .load(deps.storage, key.to_owned())
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
-    update_token_state(&mut token.state, state)?;
+    set_token_state(&mut token.state, state)?;
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
@@ -928,7 +925,7 @@ fn update_coreum_token(
         .load(deps.storage, denom.to_owned())
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
-    update_token_state(&mut token.state, state)?;
+    set_token_state(&mut token.state, state)?;
 
     COREUM_TOKENS.save(deps.storage, denom.to_owned(), &token)?;
 

@@ -157,12 +157,12 @@ pub enum ContractError {
     #[error("CannotCoverBridgingFees: The amount sent is not enough to cover the bridging fees")]
     CannotCoverBridgingFees {},
 
-    #[error("TokenStateNotUpdatable: Only Inactive or Disabled tokens' state can be updated")]
-    TokenStateNotUpdatable {},
+    #[error("TokenStateIsImmutable: Current token state is immutable")]
+    TokenStateIsImmutable {},
 
-    #[error("InvalidTokenStateUpdate: A token state can only be updated to enabled or disabled")]
-    InvalidTokenStateUpdate {},
-    
+    #[error("InvalidTargetTokenState: A token state can only be updated to enabled or disabled")]
+    InvalidTargetTokenState {},
+
     #[error("InvalidTransferRate: The transfer rate sent is invalid, it must be more than 1000000000 (0%) and less or equal than 2000000000 (100%)")]
     InvalidTransferRate {},
 }

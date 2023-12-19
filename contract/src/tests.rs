@@ -6520,7 +6520,7 @@ mod tests {
             .unwrap_err();
 
         assert!(update_status_error.to_string().contains(
-            ContractError::TokenStateNotUpdatable {}
+            ContractError::TokenStateIsImmutable {}
                 .to_string()
                 .as_str()
         ));
@@ -6616,7 +6616,7 @@ mod tests {
             .unwrap_err();
 
         assert!(update_status_error.to_string().contains(
-            ContractError::InvalidTokenStateUpdate {}
+            ContractError::InvalidTargetTokenState {}
                 .to_string()
                 .as_str()
         ));
@@ -6716,7 +6716,7 @@ mod tests {
             .unwrap_err();
 
         assert!(update_status_error.to_string().contains(
-            ContractError::InvalidTokenStateUpdate {}
+            ContractError::InvalidTargetTokenState {}
                 .to_string()
                 .as_str()
         ));
