@@ -11,5 +11,5 @@ import (
 
 func TestXRP_ConstantsStringer(t *testing.T) {
 	require.Equal(t, crypto.ACCOUNT_ZERO, xrpl.XRPTokenIssuer.String())
-	require.Equal(t, "XRP", xrpl.XRPTokenCurrency.String())
+	require.Equal(t, "XRP", xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency))
 }

@@ -16,5 +16,5 @@ func ConvertCurrencyToString(currency rippledata.Currency) string {
 	hexString := hex.EncodeToString([]byte(currencyString))
 	// append tailing zeros to match the contract expectation
 	hexString += strings.Repeat("0", 40-len(hexString))
-	return hexString
+	return strings.ToUpper(hexString)
 }

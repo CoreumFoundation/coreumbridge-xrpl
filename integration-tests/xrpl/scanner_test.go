@@ -5,6 +5,7 @@ package xrpl_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -121,7 +122,7 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 		spawn("wait", parallel.Exit, func(ctx context.Context) error {
 			t.Logf("Waiting for %d transactions to be scanned by the scanner", txsCount)
 			for tx := range txsCh {
-				receivedTxHashes[tx.GetHash().String()] = struct{}{}
+				receivedTxHashes[strings.ToUpper(tx.GetHash().String())] = struct{}{}
 				if len(receivedTxHashes) == txsCount {
 					return nil
 				}
@@ -156,11 +157,11 @@ func sendMultipleTxs(
 		err = xrplChain.AutoFillSignAndSubmitTx(ctx, t, &xrpPaymentTx, senderAcc)
 		if errors.Is(err, context.Canceled) {
 			// we add the hash here since we cancel the context once we read it
-			writtenTxHashes[xrpPaymentTx.Hash.String()] = struct{}{}
+			writtenTxHashes[strings.ToUpper(xrpPaymentTx.GetHash().String())] = struct{}{}
 			return writtenTxHashes
 		}
 		require.NoError(t, err)
-		writtenTxHashes[xrpPaymentTx.Hash.String()] = struct{}{}
+		writtenTxHashes[strings.ToUpper(xrpPaymentTx.GetHash().String())] = struct{}{}
 	}
 	t.Logf("Successfully sent %d transactions", len(writtenTxHashes))
 	return writtenTxHashes
@@ -182,7 +183,7 @@ func validateTxsHashesInChannel(
 			return scanCtx.Err()
 		case tx := <-txsCh:
 			// validate that we have all sent hashed and no duplicated
-			hash := tx.GetHash().String()
+			hash := strings.ToUpper(tx.GetHash().String())
 			if _, found := expectedHashes[hash]; !found {
 				return errors.Errorf("not found expected tx hash:%s", hash)
 			}

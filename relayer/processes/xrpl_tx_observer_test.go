@@ -116,7 +116,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 					coreum.XRPLToCoreumTransferEvidence{
 						TxHash:    rippledata.Hash256{}.String(),
 						Issuer:    xrplOriginatedTokenXRPLAmount.Issuer.String(),
-						Currency:  xrplOriginatedTokenXRPLAmount.Currency.String(),
+						Currency:  xrpl.ConvertCurrencyToString(xrplOriginatedTokenXRPLAmount.Currency),
 						Amount:    sdkmath.NewIntWithDecimal(999, xrpl.XRPLIssuedTokenDecimals),
 						Recipient: coreumRecipientAddress,
 					},
