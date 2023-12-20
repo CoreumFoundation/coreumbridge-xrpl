@@ -121,13 +121,8 @@ pub enum ContractError {
     #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
     InvalidXRPLCurrency {},
 
-    #[error("XRPLTokenNotEnabled: This token must be enabled to be bridged")]
-    XRPLTokenNotEnabled {},
-
-    #[error(
-        "CoreumOriginatedTokenDisabled: This token is currently disabled and can't be bridged"
-    )]
-    CoreumOriginatedTokenDisabled {},
+    #[error("TokenNotEnabled: This token must be enabled to be bridged")]
+    TokenNotEnabled {},
 
     #[error("XRPLTokenNotInProcessing: This token must be in processing state to be enabled")]
     XRPLTokenNotInProcessing {},

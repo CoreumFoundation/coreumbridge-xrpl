@@ -448,7 +448,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     .map_err(|_| ContractError::TokenNotRegistered {})?;
 
                 if token.state.ne(&TokenState::Enabled) {
-                    return Err(ContractError::XRPLTokenNotEnabled {});
+                    return Err(ContractError::TokenNotEnabled {});
                 }
 
                 let decimals = match is_token_xrp(token.issuer, token.currency) {
@@ -506,7 +506,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                 {
                     Some(token) => {
                         if token.state.ne(&TokenState::Enabled) {
-                            return Err(ContractError::CoreumOriginatedTokenDisabled {});
+                            return Err(ContractError::TokenNotEnabled {});
                         }
                         token
                     }
@@ -789,7 +789,7 @@ fn send_to_xrpl(
         // If it's an XRPL originated token we need to check that it's enabled and if it is apply the sending precision
         Some(xrpl_token) => {
             if xrpl_token.state.ne(&TokenState::Enabled) {
-                return Err(ContractError::XRPLTokenNotEnabled {});
+                return Err(ContractError::TokenNotEnabled {});
             }
 
             issuer = xrpl_token.issuer;
@@ -826,7 +826,7 @@ fn send_to_xrpl(
                 .map_err(|_| ContractError::TokenNotRegistered {})?;
 
             if coreum_token.state.ne(&TokenState::Enabled) {
-                return Err(ContractError::CoreumOriginatedTokenDisabled {});
+                return Err(ContractError::TokenNotEnabled {});
             }
 
             let config = CONFIG.load(deps.storage)?;

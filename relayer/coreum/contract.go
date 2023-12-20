@@ -37,6 +37,8 @@ const (
 	ExecMethodSaveSignature           ExecMethod = "save_signature"
 	ExecSendToXRPL                    ExecMethod = "send_to_xrpl"
 	ExecRecoveryXRPLTokenRegistration ExecMethod = "recover_xrpl_token_registration"
+	ExecUpdateXRPLToken               ExecMethod = "update_xrpl_token"
+	ExecUpdateCoreumToken             ExecMethod = "update_coreum_token"
 )
 
 // TransactionResult is transaction result.
@@ -269,6 +271,17 @@ type sendToXRPLRequest struct {
 type recoverXRPLTokenRegistrationRequest struct {
 	Issuer   string `json:"issuer"`
 	Currency string `json:"currency"`
+}
+
+type updateXRPLTokenRequest struct {
+	Issuer   string     `json:"issuer"`
+	Currency string     `json:"currency"`
+	State    TokenState `json:"state"`
+}
+
+type updateCoreumTokenRequest struct {
+	Denom string     `json:"denom"`
+	State TokenState `json:"state"`
 }
 
 type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
@@ -761,6 +774,51 @@ func (c *ContractClient) RecoverXRPLTokenRegistration(
 	return txRes, nil
 }
 
+// UpdateXRPLToken executes `update_xrpl_token` method.
+func (c *ContractClient) UpdateXRPLToken(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	issuer, currency string,
+	state TokenState,
+) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]updateXRPLTokenRequest{
+			ExecUpdateXRPLToken: {
+				Issuer:   issuer,
+				Currency: currency,
+				State:    state,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// UpdateCoreumToken executes `update_coreum_token` method.
+func (c *ContractClient) UpdateCoreumToken(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	denom string,
+	state TokenState,
+) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]updateCoreumTokenRequest{
+			ExecUpdateCoreumToken: {
+				Denom: denom,
+				State: state,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
 // ******************** Query ********************
 
 // GetContractConfig returns contract config.
@@ -1083,9 +1141,9 @@ func IsStillHaveAvailableTicketsError(err error) bool {
 	return isError(err, "StillHaveAvailableTickets")
 }
 
-// IsXRPLTokenNotEnabledError returns true if error is `XRPLTokenNotEnabled`.
-func IsXRPLTokenNotEnabledError(err error) bool {
-	return isError(err, "XRPLTokenNotEnabled")
+// IsTokenNotEnabledError returns true if error is `TokenNotEnabled`.
+func IsTokenNotEnabledError(err error) bool {
+	return isError(err, "TokenNotEnabled")
 }
 
 // IsInvalidXRPLAddressError returns true if error is `InvalidXRPLAddress`.
@@ -1106,6 +1164,16 @@ func IsNoAvailableTicketsError(err error) bool {
 // IsXRPLTokenNotInactiveError returns true if error is `XRPLTokenNotInactive`.
 func IsXRPLTokenNotInactiveError(err error) bool {
 	return isError(err, "XRPLTokenNotInactive")
+}
+
+// IsTokenStateIsImmutableError returns true if error is `TokenStateIsImmutable`.
+func IsTokenStateIsImmutableError(err error) bool {
+	return isError(err, "TokenStateIsImmutable")
+}
+
+// IsInvalidTargetTokenStateError returns true if error is `InvalidTargetTokenState`.
+func IsInvalidTargetTokenStateError(err error) bool {
+	return isError(err, "InvalidTargetTokenState")
 }
 
 // ******************** Asset FT errors ********************
