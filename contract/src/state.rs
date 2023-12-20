@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Coin, Empty, Uint128};
+use cosmwasm_std::{Addr, Coin, Empty, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 
 use crate::{evidence::Evidences, operation::Operation, relayer::Relayer};
@@ -21,6 +21,7 @@ pub enum TopKey {
     PendingOperations = b'9',
     PendingTicketUpdate = b'a',
     FeesCollected = b'b',
+    RefundableAmounts = b'c',
 }
 
 impl TopKey {
@@ -140,6 +141,9 @@ pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOper
 pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
 // Fees collected that will be distributed to all relayers when they are claimed
 pub const FEES_COLLECTED: Item<Vec<Coin>> = Item::new(TopKey::FeesCollected.as_str());
+// Amounts for rejected/invalid transactions on XRPL for each Coreum user that they can reclaim manually.
+// It needs to be done manually because sends can fail due to tokens being frozen, address not being whitelisted...
+pub const REFUNDABLE_AMOUNTS: Map<Addr, Vec<Coin>> = Map::new(TopKey::RefundableAmounts.as_str());
 
 pub enum ContractActions {
     Instantiation,
@@ -154,6 +158,7 @@ pub enum ContractActions {
     ClaimFees,
     UpdateXRPLToken,
     UpdateCoreumToken,
+    ClaimRefundableAmounts,
 }
 
 impl ContractActions {
@@ -169,6 +174,7 @@ impl ContractActions {
             ContractActions::SaveSignature => "save_signature",
             ContractActions::SendToXRPL => "send_to_xrpl",
             ContractActions::ClaimFees => "claim_fees",
+            ContractActions::ClaimRefundableAmounts => "claim_refundable_amounts",
             ContractActions::UpdateXRPLToken => "update_xrpl_token",
             ContractActions::UpdateCoreumToken => "update_coreum_token",
         }

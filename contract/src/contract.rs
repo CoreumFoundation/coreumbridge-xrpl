@@ -9,10 +9,11 @@ use crate::{
     },
     msg::{
         AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, FeesCollectedResponse,
-        InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
+        InstantiateMsg, PendingOperationsResponse, QueryMsg, RefundableAmountsResponse,
+        XRPLTokensResponse,
     },
     operation::{
-        check_operation_exists, create_pending_operation,
+        check_and_update_refundable_amounts, check_operation_exists, create_pending_operation,
         handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation, Operation,
         OperationType,
     },
@@ -21,7 +22,7 @@ use crate::{
     state::{
         Config, ContractActions, CoreumToken, TokenState, XRPLToken, AVAILABLE_TICKETS, CONFIG,
         COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
-        USED_TICKETS_COUNTER, XRPL_TOKENS,
+        REFUNDABLE_AMOUNTS, USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
@@ -34,8 +35,8 @@ use coreum_wasm_sdk::{
     core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
-    coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env,
-    MessageInfo, Order, Response, StdResult, Uint128,
+    coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps,
+    DepsMut, Env, MessageInfo, Order, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
@@ -246,6 +247,9 @@ pub fn execute(
             update_coreum_token(deps.into_empty(), info.sender, denom, state)
         }
         ExecuteMsg::ClaimFees {} => claim_fees(deps.into_empty(), info.sender),
+        ExecuteMsg::ClaimRefundableAmounts { amounts } => {
+            claim_refundable_amounts(deps.into_empty(), info.sender, amounts)
+        }
     }
 }
 
@@ -944,6 +948,24 @@ fn claim_fees(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
         .add_attribute("sender", sender))
 }
 
+fn claim_refundable_amounts(
+    deps: DepsMut,
+    sender: Addr,
+    amounts: Vec<Coin>,
+) -> CoreumResult<ContractError> {
+    check_and_update_refundable_amounts(deps.storage, sender.to_owned(), &amounts)?;
+
+    let send_msg = BankMsg::Send {
+        to_address: sender.to_string(),
+        amount: amounts,
+    };
+
+    Ok(Response::new()
+        .add_message(send_msg)
+        .add_attribute("action", ContractActions::ClaimRefundableAmounts.as_str())
+        .add_attribute("sender", sender))
+}
+
 // ********** Queries **********
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
@@ -959,6 +981,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
         QueryMsg::FeesCollected {} => to_json_binary(&query_fees_collected(deps)?),
+        QueryMsg::RefundableAmounts { address } => {
+            to_json_binary(&query_refundable_amounts(deps, address)?)
+        }
     }
 }
 
@@ -1025,6 +1050,12 @@ fn query_fees_collected(deps: Deps) -> StdResult<FeesCollectedResponse> {
     let fees_collected = FEES_COLLECTED.load(deps.storage)?;
 
     Ok(FeesCollectedResponse { fees_collected })
+}
+
+fn query_refundable_amounts(deps: Deps, address: Addr) -> StdResult<RefundableAmountsResponse> {
+    let refundable_amounts = REFUNDABLE_AMOUNTS.load(deps.storage, address)?;
+
+    Ok(RefundableAmountsResponse { refundable_amounts })
 }
 
 // ********** Helpers **********
