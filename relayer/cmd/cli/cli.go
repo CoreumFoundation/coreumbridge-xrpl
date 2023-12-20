@@ -598,7 +598,8 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s  --key-name sender
 				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[2])
 			}
 			isNative := false
-			if xrpl.ConvertCurrencyToString(currency) == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) && issuer.String() == xrpl.XRPTokenIssuer.String() {
+			if xrpl.ConvertCurrencyToString(currency) == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
+				issuer.String() == xrpl.XRPTokenIssuer.String() {
 				isNative = true
 			}
 
@@ -687,7 +688,8 @@ func XRPLBalancesCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "failed to get XRPL account info, address:%s", acc.String())
 			}
-			balances[fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), xrpl.XRPTokenIssuer.String())] = rippledata.Amount{
+			key := fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), xrpl.XRPTokenIssuer.String())
+			balances[key] = rippledata.Amount{
 				Value: accInfo.AccountData.Balance,
 			}
 			// none xrp amounts
@@ -697,7 +699,8 @@ func XRPLBalancesCmd() *cobra.Command {
 			}
 			for _, line := range accLines.Lines {
 				lineCopy := line
-				balances[fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(lineCopy.Currency), lineCopy.Account.String())] = rippledata.Amount{
+				key := fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(lineCopy.Currency), lineCopy.Account.String())
+				balances[key] = rippledata.Amount{
 					Value:    &lineCopy.Balance.Value,
 					Currency: lineCopy.Currency,
 					Issuer:   lineCopy.Account,
@@ -745,7 +748,8 @@ $ set-xrpl-trust-set 1e80 %s %s --key-name sender
 				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[2])
 			}
 			isNative := false
-			if xrpl.ConvertCurrencyToString(currency) == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) && issuer.String() == xrpl.XRPTokenIssuer.String() {
+			if xrpl.ConvertCurrencyToString(currency) == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
+				issuer.String() == xrpl.XRPTokenIssuer.String() {
 				isNative = true
 			}
 

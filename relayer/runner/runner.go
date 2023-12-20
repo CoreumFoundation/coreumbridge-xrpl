@@ -175,8 +175,8 @@ func DefaultConfig() Config {
 			Contract: CoreumContractConfig{
 				// empty be default
 				ContractAddress:    "",
-				GasAdjustment:      defaultCoreumContactConfig.GasPriceAdjustment.MustFloat64(),
-				GasPriceAdjustment: defaultCoreumContactConfig.GasAdjustment,
+				GasAdjustment:      defaultCoreumContactConfig.GasAdjustment,
+				GasPriceAdjustment: defaultCoreumContactConfig.GasPriceAdjustment.MustFloat64(),
 				PageLimit:          defaultCoreumContactConfig.PageLimit,
 
 				RequestTimeout:       defaultClientCtxDefaultCfg.TimeoutConfig.RequestTimeout,
