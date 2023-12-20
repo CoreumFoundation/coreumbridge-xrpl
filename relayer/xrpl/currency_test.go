@@ -20,6 +20,11 @@ func TestConvertCurrencyToString(t *testing.T) {
 		want     string
 	}{
 		{
+			name:     "XRP_currency",
+			currency: xrpl.XRPTokenCurrency,
+			want:     "XRP",
+		},
+		{
 			name:     "short_currency_upper",
 			currency: mustCurrency(t, "ABC"),
 			want:     "ABC",
