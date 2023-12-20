@@ -7025,7 +7025,7 @@ mod tests {
             relayer_account,
         )
         .unwrap();
-        
+
         // Check that the sender received the correct amount (100 tokens) and contract doesn't have anything left
         // This way we confirm that contract is not affected by commission fees and burn rate
         let request_balance = asset_ft
