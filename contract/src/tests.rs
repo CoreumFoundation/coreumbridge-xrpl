@@ -1,10 +1,14 @@
 #[cfg(test)]
 mod tests {
-    use coreum_test_tube::{Account, AssetFT, CoreumTestApp, Module, SigningAccount, Wasm};
+    use coreum_test_tube::{Account, AssetFT, Bank, CoreumTestApp, Module, SigningAccount, Wasm};
+    use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
     use coreum_wasm_sdk::{
         assetft::{BURNING, IBC, MINTING},
-        types::coreum::asset::ft::v1::{
-            MsgIssue, QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
+        types::{
+            coreum::asset::ft::v1::{
+                MsgIssue, QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
+            },
+            cosmos::bank::v1beta1::MsgSend,
         },
     };
     use cosmwasm_std::{coin, coins, Addr, Coin, Uint128};
@@ -6569,11 +6573,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(update_status_error.to_string().contains(
-            ContractError::TokenStateIsImmutable {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(update_status_error
+            .to_string()
+            .contains(ContractError::TokenStateIsImmutable {}.to_string().as_str()));
 
         let tx_hash = generate_hash();
         for relayer in relayer_accounts.iter() {
@@ -6800,6 +6802,249 @@ mod tests {
                 .to_string()
                 .as_str()
         ));
+    }
+
+    #[test]
+    fn test_burning_rate_and_commission_fee_coreum_tokens() {
+        let app = CoreumTestApp::new();
+        let accounts_number = 3;
+        let accounts = app
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
+            .unwrap();
+
+        let signer = accounts.get(0).unwrap();
+        let relayer_account = accounts.get(1).unwrap();
+        let sender = accounts.get(2).unwrap();
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(relayer_account.address()),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
+        };
+
+        let xrpl_receiver_address = generate_xrpl_address();
+        let bridge_xrpl_address = generate_xrpl_address();
+
+        let wasm = Wasm::new(&app);
+        let asset_ft = AssetFT::new(&app);
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            signer,
+            Addr::unchecked(signer.address()),
+            vec![relayer.clone()],
+            1,
+            9,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+            query_issue_fee(&asset_ft),
+            bridge_xrpl_address.to_owned(),
+        );
+
+        // Add enough tickets for all our test operations
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(10),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::TicketsAllocation {
+                        tickets: Some((1..11).collect()),
+                    },
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
+        // Let's issue a token with burning and commission fees and make sure it works out of the box
+        let asset_ft = AssetFT::new(&app);
+        let symbol = "TEST".to_string();
+        let subunit = "utest".to_string();
+        let decimals = 6;
+        let initial_amount = Uint128::new(10000000000);
+        asset_ft
+            .issue(
+                MsgIssue {
+                    issuer: signer.address(),
+                    symbol,
+                    subunit: subunit.to_owned(),
+                    precision: decimals,
+                    initial_amount: initial_amount.to_string(),
+                    description: "description".to_string(),
+                    features: vec![MINTING as i32],
+                    burn_rate: "1000000000000000000".to_string(), // 1e18 = 100%
+                    send_commission_rate: "1000000000000000000".to_string(), // 1e18 = 100%
+                    uri: "uri".to_string(),
+                    uri_hash: "uri_hash".to_string(),
+                },
+                &signer,
+            )
+            .unwrap();
+
+        let denom = format!("{}-{}", subunit, signer.address()).to_lowercase();
+
+        // Let's transfer some tokens to a sender from the issuer so that we can check both rates being applied
+        let bank = Bank::new(&app);
+        bank.send(
+            MsgSend {
+                from_address: signer.address(),
+                to_address: sender.address(),
+                amount: vec![BaseCoin {
+                    amount: "100000000".to_string(),
+                    denom: denom.to_string(),
+                }],
+            },
+            &signer,
+        )
+        .unwrap();
+
+        // Check the balance
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "100000000".to_string());
+
+        // Let's try to bridge some tokens and back and check that everything works correctly
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterCoreumToken {
+                denom: denom.to_owned(),
+                decimals,
+                sending_precision: 6,
+                max_holding_amount: Uint128::new(1000000000),
+                bridging_fee: Uint128::zero(),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+            },
+            &coins(100, denom.to_owned()),
+            &sender,
+        )
+        .unwrap();
+
+        // This should have burned an extra 100 and charged 100 tokens as commission fee to the sender. Let's check just in case
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "99999700".to_string());
+
+        // Let's check that only 100 tokens are in the contract
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "100".to_string());
+
+        // Let's confirm the briding XRPL and bridge the entire amount back to Coreum
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+        assert_eq!(query_pending_operations.operations.len(), 1);
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: query_pending_operations.operations[0].account_sequence,
+                    ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
+        // Get the token information
+        let query_coreum_tokens = wasm
+            .query::<QueryMsg, CoreumTokensResponse>(
+                &contract_addr,
+                &QueryMsg::CoreumTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let coreum_originated_token = query_coreum_tokens
+            .tokens
+            .iter()
+            .find(|t| t.denom == denom)
+            .unwrap();
+
+        let amount_to_send_back = Uint128::new(100_000_000_000); // 100 utokens on Coreum are represented as 1e11 on XRPL
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: generate_hash(),
+                    issuer: bridge_xrpl_address.to_owned(),
+                    currency: coreum_originated_token.xrpl_currency.to_owned(),
+                    amount: amount_to_send_back.clone(),
+                    recipient: Addr::unchecked(sender.address()),
+                },
+            },
+            &[],
+            relayer_account,
+        )
+        .unwrap();
+        
+        // Check that the sender received the correct amount (100 tokens) and contract doesn't have anything left
+        // This way we confirm that contract is not affected by commission fees and burn rate
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "99999800".to_string());
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, "0".to_string());
     }
 
     #[test]
