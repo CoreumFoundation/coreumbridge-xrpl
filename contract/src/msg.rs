@@ -111,9 +111,7 @@ pub enum QueryMsg {
     #[returns(FeesCollectedResponse)]
     FeesCollected {},
     #[returns(RefundableAmountsResponse)]
-    RefundableAmounts {
-        address: Addr,
-    },
+    RefundableAmounts { address: Addr },
 }
 
 #[cw_serde]
