@@ -93,12 +93,12 @@ The balance should cover the token issuance fee and fee for the deployment trans
 
 ```bash
 export RELAYERS_COUNT={Relayes count to be used}
-./coreumbridge-xrpl-relayer bootstrap-bridge bootstraping.yaml --key-name bridge-account --init-only --relayers-count $RELAYERS_COUNT --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+./coreumbridge-xrpl-relayer bootstrap-bridge bootstrapping.yaml --key-name bridge-account --init-only --relayers-count $RELAYERS_COUNT --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 The output will print the XRPL bridge address and min XRPL bridge account balance. Fund it and proceed to the nex step.
 
-#### Modify the `bootstraping.yaml` config
+#### Modify the `bootstrapping.yaml` config
 
 Collect the config from the relayer and modify the bootstrapping config.
 
@@ -122,7 +122,7 @@ If you don't have the contract bytecode download it.
 #### Run the bootstrapping
 
 ```bash
-./coreumbridge-xrpl-relayer bootstrap-bridge bootstraping.yaml --key-name bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+./coreumbridge-xrpl-relayer bootstrap-bridge bootstrapping.yaml --key-name bridge-account --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 Once the command is executed get the bridge contract address from the output and share among the relayers to update in

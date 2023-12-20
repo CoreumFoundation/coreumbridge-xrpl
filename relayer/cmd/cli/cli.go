@@ -220,7 +220,7 @@ func BootstrapBridgeCmd() *cobra.Command {
 		Long: strings.TrimSpace(
 			`Sets up the XRPL bridge account with all required settings and deploys the bridge contract.
 Example:
-$ bootstrap-bridge bootstraping.yaml--key-name bridge-account
+$ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
 `,
 		),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -354,7 +354,7 @@ $ recovery-tickets --key-name owner
 			if err != nil {
 				return err
 			}
-			return rnr.BridgeClient.RecoverMaxTickets(ctx, owner, xrpl.MaxTicketsToAllocate)
+			return rnr.BridgeClient.RecoverTickets(ctx, owner, xrpl.MaxTicketsToAllocate)
 		},
 	}
 	addKeyringFlags(cmd)

@@ -222,8 +222,8 @@ func (b *BridgeClient) GetContractConfig(ctx context.Context) (coreum.ContractCo
 	return b.contractClient.GetContractConfig(ctx)
 }
 
-// RecoverMaxTickets recovers tickets allocation.
-func (b *BridgeClient) RecoverMaxTickets(
+// RecoverTickets recovers tickets allocation.
+func (b *BridgeClient) RecoverTickets(
 	ctx context.Context,
 	ownerAddress sdk.AccAddress,
 	ticketsToAllocate uint32,
