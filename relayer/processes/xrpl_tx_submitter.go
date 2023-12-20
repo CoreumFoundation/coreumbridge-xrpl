@@ -418,8 +418,8 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 	if err == nil {
 		return false, nil
 	}
-	if IsEvidenceErrorCausedByResubmission(err) {
-		s.log.Debug(ctx, "Received expected send evidence error")
+	if IsExpectedEvidenceSubmissionError(err) {
+		s.log.Debug(ctx, "Received expected evidence submitting error", zap.String("errText", err.Error()))
 		return false, nil
 	}
 
