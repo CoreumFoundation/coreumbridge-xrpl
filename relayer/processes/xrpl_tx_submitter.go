@@ -2,6 +2,7 @@ package processes
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -232,33 +233,41 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 		return errors.Wrapf(err, "failed to submit transaction:%+v", tx)
 	}
 	if txRes.EngineResult.Success() {
-		s.log.Info(ctx, "Transaction has been successfully submitted", zap.String("txHash", tx.GetHash().String()))
+		s.log.Info(
+			ctx,
+			"Transaction has been successfully submitted",
+			zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
+		)
 		return nil
 	}
 
 	switch txRes.EngineResult.String() {
 	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult:
-		s.log.Debug(ctx, "Transaction has been already submitted", zap.String("txHash", tx.GetHash().String()))
+		s.log.Debug(
+			ctx,
+			"Transaction has been already submitted",
+			zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
+		)
 		return nil
 	case xrpl.TecPathDryTxResult:
 		//nolint:lll // breaking down the log line will make it less readable.
 		s.log.Info(
 			ctx,
 			"The transaction has been sent, but will be reverted since the provided path does not have enough liquidity or the receipt doesn't link by trust lines.",
-			zap.String("txHash", tx.GetHash().String()))
+			zap.String("txHash", strings.ToUpper(tx.GetHash().String())))
 		return nil
 	case xrpl.TecNoDstTxResult:
 		s.log.Info(
 			ctx,
 			"The transaction has been sent, but will be reverted since account used in the transaction doesn't exist.",
-			zap.String("txHash", tx.GetHash().String()))
+			zap.String("txHash", strings.ToUpper(tx.GetHash().String())))
 		return nil
 	case xrpl.TecInsufficientReserveTxResult:
 		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
 		s.log.Error(
 			ctx,
 			"Insufficient reserve to complete the operation",
-			zap.String("txHash", tx.GetHash().String()),
+			zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
 		)
 		return nil
 	default:

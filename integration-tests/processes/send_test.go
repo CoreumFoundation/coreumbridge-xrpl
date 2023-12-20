@@ -168,7 +168,7 @@ func TestSendXRPTokenFromXRPLToCoreumAndBack(t *testing.T) {
 	t.Logf("XRPL sender: %s", xrplSenderAddress.String())
 
 	registeredXRPToken, err := runnerEnv.ContractClient.GetXRPLTokenByIssuerAndCurrency(
-		ctx, xrpl.XRPTokenIssuer.String(), xrpl.XRPTokenCurrency.String(),
+		ctx, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
 	)
 	require.NoError(t, err)
 
@@ -618,7 +618,7 @@ func TestRecoverXRPLOriginatedTokenRegistrationAndSendFromXRPLToCoreumAndBack(t 
 	runnerEnv.Chains.XRPL.CreateAccount(ctx, t, xrplIssuerAddress, 1)
 	// recover from owner
 	_, err = runnerEnv.ContractClient.RecoverXRPLTokenRegistration(
-		ctx, runnerEnv.ContractOwner, xrplIssuerAddress.String(), registeredXRPLCurrency.String(),
+		ctx, runnerEnv.ContractOwner, xrplIssuerAddress.String(), xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 	)
 	require.NoError(t, err)
 	runnerEnv.AwaitNoPendingOperations(ctx, t)

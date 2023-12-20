@@ -4,7 +4,7 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[allow(unused_imports)]
 use crate::state::{Config, CoreumToken, XRPLToken};
-use crate::{evidence::Evidence, operation::Operation, relayer::Relayer};
+use crate::{evidence::Evidence, operation::Operation, relayer::Relayer, state::TokenState};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -64,6 +64,20 @@ pub enum ExecuteMsg {
     #[serde(rename = "send_to_xrpl")]
     SendToXRPL {
         recipient: String,
+    },
+    // All fields that can be updatable for XRPL originated tokens will be updated with this message
+    // They are all optional, so any fields that have to be updated can be included in the message.
+    #[serde(rename = "update_xrpl_token")]
+    UpdateXRPLToken {
+        issuer: String,
+        currency: String,
+        state: Option<TokenState>,
+    },
+    // All fields that can be updatable for Coreum tokens will be updated with this message.
+    // They are all optional, so any fields that have to be updated can be included in the message.
+    UpdateCoreumToken {
+        denom: String,
+        state: Option<TokenState>,
     },
     // Any relayer can claim fees at any point in time. They will be distributed proportionally among all of them.
     ClaimFees {},

@@ -3,11 +3,12 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Response, Storage, Uint128};
 
 use crate::{
-    contract::{build_xrpl_token_key, convert_amount_decimals, XRPL_TOKENS_DECIMALS},
+    contract::{convert_amount_decimals, XRPL_TOKENS_DECIMALS},
     error::ContractError,
     evidence::TransactionResult,
     signatures::Signature,
     state::{TokenState, COREUM_TOKENS, PENDING_OPERATIONS, XRPL_TOKENS},
+    token::build_xrpl_token_key,
 };
 
 #[cw_serde]
@@ -125,7 +126,10 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                     // If transaction was accepted and the token that was sent back was an XRPL originated token, we must burn the token amount and transfer_fee
                     if transaction_result.eq(&TransactionResult::Accepted) {
                         let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
-                            coin: coin(amount.checked_add(transfer_fee)?.u128(), xrpl_token.coreum_denom),
+                            coin: coin(
+                                amount.checked_add(transfer_fee)?.u128(),
+                                xrpl_token.coreum_denom,
+                            ),
                         }));
 
                         *response = response.to_owned().add_message(burn_msg);
@@ -133,7 +137,10 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                         // If transaction was rejected, we must send the token amount and transfer_fee back to the user
                         let send_msg = BankMsg::Send {
                             to_address: sender.to_string(),
-                            amount: coins(amount.checked_add(transfer_fee)?.u128(), xrpl_token.coreum_denom),
+                            amount: coins(
+                                amount.checked_add(transfer_fee)?.u128(),
+                                xrpl_token.coreum_denom,
+                            ),
                         };
 
                         *response = response.to_owned().add_message(send_msg);

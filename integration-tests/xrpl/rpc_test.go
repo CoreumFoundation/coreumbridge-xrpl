@@ -6,6 +6,7 @@ package xrpl_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	rippledata "github.com/rubblelabs/ripple/data"
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestXRPAndIssuedTokensPayment(t *testing.T) {
@@ -146,7 +148,7 @@ func TestMultisigPayment(t *testing.T) {
 
 	// compare hashes
 	t.Logf("TwoSignersHash/ThreeSignersHash: %s/%s", xrpPaymentTxTwoSigners.Hash, xrpPaymentTxThreeSigners.Hash)
-	require.NotEqual(t, xrpPaymentTxTwoSigners.Hash.String(), xrpPaymentTxThreeSigners.Hash.String())
+	require.NotEqual(t, strings.ToUpper(xrpPaymentTxTwoSigners.GetHash().String()), xrpPaymentTxThreeSigners.Hash.String())
 
 	t.Logf(
 		"Recipient account balance before: %s",
@@ -865,8 +867,8 @@ func getBalanceAccount(
 	currency rippledata.Currency,
 ) string {
 	t.Helper()
-	issuerCurrencyKey := fmt.Sprintf("%s/%s", currency.String(), issuer.String())
-	balance, ok := xrplChain.GetAccountBalances(ctx, t, acc)[issuerCurrencyKey]
+	currencyIssuerKey := fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(currency), issuer.String())
+	balance, ok := xrplChain.GetAccountBalances(ctx, t, acc)[currencyIssuerKey]
 	if !ok {
 		return "0"
 	}

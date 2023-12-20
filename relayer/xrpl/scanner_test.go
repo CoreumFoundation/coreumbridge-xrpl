@@ -213,7 +213,7 @@ func readTxHashesFromChannels(
 		case <-ctx.Done():
 			t.Fail()
 		case tx := <-txsCh:
-			decoded, err := hex.DecodeString(strings.TrimRight(tx.GetHash().String(), "0"))
+			decoded, err := hex.DecodeString(strings.TrimRight(strings.ToUpper(tx.GetHash().String()), "0"))
 			require.NoError(t, err)
 			gotTxHashes[string(decoded)] = struct{}{}
 			if len(gotTxHashes) == count {

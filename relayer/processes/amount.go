@@ -121,5 +121,5 @@ func convertCoreumAmountToXRPLAmountWithDecimals(
 }
 
 func isXRPToken(issuer, currency string) bool {
-	return issuer == xrpl.XRPTokenIssuer.String() && currency == xrpl.XRPTokenCurrency.String()
+	return issuer == xrpl.XRPTokenIssuer.String() && currency == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency)
 }

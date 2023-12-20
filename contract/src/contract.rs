@@ -26,6 +26,7 @@ use crate::{
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
     },
+    token::{build_xrpl_token_key, is_token_xrp, set_token_state},
 };
 
 use coreum_wasm_sdk::{
@@ -62,8 +63,8 @@ pub const XRPL_TOKENS_DECIMALS: u32 = 15;
 // For more info check https://xrpl.org/transfer-fees.html#technical-details
 pub const XRPL_ZERO_TRANSFER_RATE: Uint128 = Uint128::new(1000000000);
 
-const XRP_CURRENCY: &str = "XRP";
-const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
+pub const XRP_CURRENCY: &str = "XRP";
+pub const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
 
 // Initial values for the XRP token that can be modified afterwards.
 const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
@@ -236,6 +237,14 @@ pub fn execute(
         ExecuteMsg::SendToXRPL { recipient } => {
             send_to_xrpl(deps.into_empty(), env, info, recipient)
         }
+        ExecuteMsg::UpdateXRPLToken {
+            issuer,
+            currency,
+            state,
+        } => update_xrpl_token(deps.into_empty(), info.sender, issuer, currency, state),
+        ExecuteMsg::UpdateCoreumToken { denom, state } => {
+            update_coreum_token(deps.into_empty(), info.sender, denom, state)
+        }
         ExecuteMsg::ClaimFees {} => claim_fees(deps.into_empty(), info.sender),
     }
 }
@@ -277,7 +286,7 @@ fn register_coreum_token(
         .to_string()
         .to_lowercase();
 
-    // Format will be the hex representation in XRPL of the string coreum<hash>
+    // Format will be the hex representation in XRPL of the string coreum<hash> in uppercase
     let xrpl_currency =
         convert_currency_to_xrpl_hexadecimal(format!("{}{}", COREUM_CURRENCY_PREFIX, hex_string));
 
@@ -799,11 +808,8 @@ fn send_to_xrpl(
                 amount_after_transfer_fees(amount_after_bridge_fees, xrpl_token.transfer_rate)?;
 
             // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
-            (amount_to_send, remainder) = truncate_amount(
-                xrpl_token.sending_precision,
-                decimals,
-                amount_after_fees,
-            )?;
+            (amount_to_send, remainder) =
+                truncate_amount(xrpl_token.sending_precision, decimals, amount_after_fees)?;
 
             handle_fee_collection(
                 deps.storage,
@@ -880,6 +886,52 @@ fn send_to_xrpl(
         .add_attribute("sender", info.sender)
         .add_attribute("recipient", recipient)
         .add_attribute("coin", funds.to_string()))
+}
+
+fn update_xrpl_token(
+    deps: DepsMut,
+    sender: Addr,
+    issuer: String,
+    currency: String,
+    state: Option<TokenState>,
+) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
+
+    let mut token = XRPL_TOKENS
+        .load(deps.storage, key.to_owned())
+        .map_err(|_| ContractError::TokenNotRegistered {})?;
+
+    set_token_state(&mut token.state, state)?;
+
+    XRPL_TOKENS.save(deps.storage, key, &token)?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::UpdateXRPLToken.as_str())
+        .add_attribute("issuer", issuer)
+        .add_attribute("currency", currency))
+}
+
+fn update_coreum_token(
+    deps: DepsMut,
+    sender: Addr,
+    denom: String,
+    state: Option<TokenState>,
+) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    let mut token = COREUM_TOKENS
+        .load(deps.storage, denom.to_owned())
+        .map_err(|_| ContractError::TokenNotRegistered {})?;
+
+    set_token_state(&mut token.state, state)?;
+
+    COREUM_TOKENS.save(deps.storage, denom.to_owned(), &token)?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::UpdateCoreumToken.as_str())
+        .add_attribute("denom", denom))
 }
 
 fn claim_fees(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
@@ -989,24 +1041,32 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
     Ok(())
 }
 
-pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
-    // Issuer+currency is the key we use to find an XRPL
-    let mut key = issuer;
-    key.push_str(currency.as_str());
-    key
-}
-
 pub fn validate_xrpl_issuer_and_currency(
     issuer: String,
     currency: String,
 ) -> Result<(), ContractError> {
     validate_xrpl_address(issuer).map_err(|_| ContractError::InvalidXRPLIssuer {})?;
 
-    // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency
-    if !(currency.len() == 3 && currency.is_ascii()
-        || currency.len() == 40 && currency.chars().all(|c| c.is_ascii_hexdigit()))
-    {
-        return Err(ContractError::InvalidXRPLCurrency {});
+    // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency, any other scenario is invalid
+    match currency.len() {
+        3 => {
+            if !currency.is_ascii() {
+                return Err(ContractError::InvalidXRPLCurrency {});
+            }
+
+            if currency == "XRP" {
+                return Err(ContractError::InvalidXRPLCurrency {});
+            }
+        }
+        40 => {
+            if !currency
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && (c.is_numeric() || c.is_uppercase()))
+            {
+                return Err(ContractError::InvalidXRPLCurrency {});
+            }
+        }
+        _ => return Err(ContractError::InvalidXRPLCurrency {}),
     }
 
     Ok(())
@@ -1118,11 +1178,7 @@ fn truncate_and_convert_amount(
     Ok((converted_amount, remainder))
 }
 
-fn is_token_xrp(issuer: String, currency: String) -> bool {
-    issuer == XRP_ISSUER && currency == XRP_CURRENCY
-}
-
 fn convert_currency_to_xrpl_hexadecimal(currency: String) -> String {
     // Fill with zeros to get the correct hex representation in XRPL of our currency.
-    format!("{:0<40}", hex::encode(currency))
+    format!("{:0<40}", hex::encode(currency)).to_uppercase()
 }
