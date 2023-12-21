@@ -3,7 +3,7 @@ use cosmwasm_std::{coin, Addr, Coin, Decimal, Storage, Uint128};
 use crate::{
     contract::XRPL_ZERO_TRANSFER_RATE,
     error::ContractError,
-    state::{CONFIG, FEES_COLLECTED, FEES_REMAINDER},
+    state::{CONFIG, FEES_COLLECTED, FEE_REMAINDERS},
 };
 
 pub fn amount_after_bridge_fees(
@@ -60,15 +60,10 @@ fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractErro
     // We only collect fees if there is something to collect
     // If for some reason there is a coin that we are not charging fees for, we don't collect it
     if !fee.amount.is_zero() {
-        let mut fees_remainder = FEES_REMAINDER.load(storage)?;
+        let fees_remainder = FEE_REMAINDERS.may_load(storage, fee.denom.to_owned())?;
         // We add the new fees to the possible remainders that we had before and use those amounts to allocate them to relayers
-        let total_fee = match fees_remainder.iter_mut().find(|c| c.denom == fee.denom) {
-            Some(coin) => {
-                // We get the remainder and put it back to 0
-                let total_fee = fee.amount + coin.amount;
-                coin.amount = Uint128::zero();
-                total_fee
-            }
+        let total_fee = match fees_remainder {
+            Some(fees_remainder) => fee.amount.checked_add(fees_remainder)?,
             None => fee.amount,
         };
 
@@ -102,22 +97,14 @@ fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractErro
                 .checked_mul(Uint128::new(relayers.len().try_into().unwrap()))?,
         )?;
 
-        // We save the remainder in the array of remainders
-        match fees_remainder.iter_mut().find(|c| c.denom == fee.denom) {
-            Some(coin) => coin.amount += remainder,
-            None => fees_remainder.push(coin(remainder.u128(), fee.denom)),
-        }
-
-        // Remove everything that is 0 from the fees remainders array to avoid iterating over them next time we collect fees
-        fees_remainder.retain(|c| !c.amount.is_zero());
-
-        FEES_REMAINDER.save(storage, &fees_remainder)?;
+        // We save the remainder
+        FEE_REMAINDERS.save(storage, fee.denom, &remainder)?;
     }
 
     Ok(())
 }
 
-pub fn check_and_update_relayer_fees(
+pub fn substract_relayer_fees(
     storage: &mut dyn Storage,
     sender: Addr,
     amounts: &Vec<Coin>,
@@ -132,7 +119,7 @@ pub fn check_and_update_relayer_fees(
         {
             Some(found_coin) => found_coin.amount -= coin.amount,
             None => {
-                return Err(ContractError::RelayerFeeNotClaimable {
+                return Err(ContractError::NotEnoughFeesToClaim {
                     denom: coin.denom.to_owned(),
                     amount: coin.amount,
                 })

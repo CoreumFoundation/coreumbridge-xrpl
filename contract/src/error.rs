@@ -167,9 +167,9 @@ pub enum ContractError {
     InvalidTransferRate {},
 
     #[error(
-        "RelayerFeeNotClaimable: The fee {} {} is not claimable",
+        "NotEnoughFeesToClaim: The fee {} {} is not claimable because there is are not enough fees collected",
         amount,
         denom
     )]
-    RelayerFeeNotClaimable { denom: String, amount: Uint128 },
+    NotEnoughFeesToClaim { denom: String, amount: Uint128 },
 }

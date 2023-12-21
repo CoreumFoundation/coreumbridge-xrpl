@@ -4312,7 +4312,7 @@ mod tests {
             )
             .unwrap();
 
-        // 50000 / 3 = 16666.67 ---> Which means each relayer will have 16666 to claim and 2 tokens will stay in the fee remainder array for next collection
+        // 50000 / 3 = 16666.67 ---> Which means each relayer will have 16666 to claim and 2 tokens will stay in the fee remainders for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![coin(16666, xrpl_token.coreum_denom.to_owned())]
@@ -4355,7 +4355,7 @@ mod tests {
             )
             .unwrap();
 
-        // Each relayer is getting 140000 (+2 that were in the remainder) / 3 -> 140002 / 3 = 46667 and 1 token will stay in the remainder array for next collection
+        // Each relayer is getting 140000 (+2 that were in the remainder) / 3 -> 140002 / 3 = 46667 and 1 token will stay in the remainders for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![coin(63333, xrpl_token.coreum_denom.to_owned())] // 16666 from before + 46667
@@ -4398,7 +4398,7 @@ mod tests {
             )
             .unwrap();
 
-        // Each relayer is getting 100000 (+1 from remainder) / 3 -> 100001 / 3 = 33333 and 2 token will stay in the remainder array for next collection
+        // Each relayer is getting 100000 (+1 from remainder) / 3 -> 100001 / 3 = 33333 and 2 token will stay in the remainders for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![coin(96666, xrpl_token.coreum_denom.to_owned())] // 63333 from before + 33333
@@ -4479,7 +4479,7 @@ mod tests {
             )
             .unwrap();
 
-        // Each relayer is getting 120000 (+2 from remainder) / 3 -> 120002 / 3 = 40000 and 2 token will stay in the remainder array for next collection
+        // Each relayer is getting 120000 (+2 from remainder) / 3 -> 120002 / 3 = 40000 and 2 token will stay in the remainders for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![coin(136666, xrpl_token.coreum_denom.to_owned())] // 96666 from before + 40000
@@ -4549,7 +4549,7 @@ mod tests {
             )
             .unwrap();
 
-        // Each relayer is getting 300010 / 3 -> 100003 and 1 token will stay in the remainder array for next collection
+        // Each relayer is getting 300010 / 3 -> 100003 and 1 token will stay in the remainders for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
@@ -4622,7 +4622,7 @@ mod tests {
             )
             .unwrap();
 
-        // Each relayer is getting 300000 (+1 from remainder) / 3 -> 100000 and 1 token will stay in the remainder array for next collection
+        // Each relayer is getting 300000 (+1 from remainder) / 3 -> 100000 and 1 token will stay in the remainders for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
@@ -4704,7 +4704,7 @@ mod tests {
             )
             .unwrap();
 
-        // Each relayer will be getting 300010 (+1 from the remainder) / 3 -> 300011 / 3 = 100003 and 2 tokens will stay in the remainder array for next collection
+        // Each relayer will be getting 300010 (+1 from the remainder) / 3 -> 300011 / 3 = 100003 and 2 tokens will stay in the remainders for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
@@ -4731,7 +4731,7 @@ mod tests {
             .unwrap_err();
 
         assert!(claim_error.to_string().contains(
-            ContractError::RelayerFeeNotClaimable {
+            ContractError::NotEnoughFeesToClaim {
                 denom: coreum_token_denom.to_owned(),
                 amount: Uint128::new(300007)
             }
@@ -4756,7 +4756,7 @@ mod tests {
             .unwrap_err();
 
         assert!(claim_error.to_string().contains(
-            ContractError::RelayerFeeNotClaimable {
+            ContractError::NotEnoughFeesToClaim {
                 denom: coreum_token_denom.to_owned(),
                 amount: Uint128::new(1)
             }
@@ -4789,7 +4789,7 @@ mod tests {
             )
             .unwrap();
 
-        // There should be only 1 token left in the remainder array
+        // There should be only 1 token left in the remainders
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![coin(1, coreum_token_denom.clone())]
@@ -4808,7 +4808,7 @@ mod tests {
             .unwrap_err();
 
         assert!(claim_error.to_string().contains(
-            ContractError::RelayerFeeNotClaimable {
+            ContractError::NotEnoughFeesToClaim {
                 denom: xrpl_token.coreum_denom.to_owned(),
                 amount: Uint128::new(1)
             }

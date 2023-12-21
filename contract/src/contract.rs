@@ -4,8 +4,8 @@ use crate::{
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
     fees::{
-        amount_after_bridge_fees, amount_after_transfer_fees, check_and_update_relayer_fees,
-        handle_fee_collection,
+        amount_after_bridge_fees, amount_after_transfer_fees, handle_fee_collection,
+        substract_relayer_fees,
     },
     msg::{
         AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, FeesCollectedResponse,
@@ -20,7 +20,7 @@ use crate::{
     signatures::add_signature,
     state::{
         Config, ContractActions, CoreumToken, TokenState, XRPLToken, AVAILABLE_TICKETS, CONFIG,
-        COREUM_TOKENS, FEES_COLLECTED, FEES_REMAINDER, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
+        COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
         USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
@@ -110,7 +110,6 @@ pub fn instantiate(
     USED_TICKETS_COUNTER.save(deps.storage, &0)?;
     PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
     AVAILABLE_TICKETS.save(deps.storage, &VecDeque::new())?;
-    FEES_REMAINDER.save(deps.storage, &vec![])?;
 
     let config = Config {
         relayers: msg.relayers,
@@ -937,7 +936,7 @@ fn update_coreum_token(
 fn claim_fees(deps: DepsMut, sender: Addr, amounts: Vec<Coin>) -> CoreumResult<ContractError> {
     assert_relayer(deps.as_ref(), sender.clone())?;
 
-    check_and_update_relayer_fees(deps.storage, sender.to_owned(), &amounts)?;
+    substract_relayer_fees(deps.storage, sender.to_owned(), &amounts)?;
 
     let send_msg = BankMsg::Send {
         to_address: sender.to_string(),
