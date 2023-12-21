@@ -4304,12 +4304,18 @@ mod tests {
         assert_eq!(request_balance.balance, "1000000000000000".to_string());
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // 50000 / 3 = 16666.67 ---> Which means each relayer will have 16666 to claim and 2 tokens will stay in the fee remainder array for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
-            vec![coin(50000, xrpl_token.coreum_denom.to_owned())]
+            vec![coin(16666, xrpl_token.coreum_denom.to_owned())]
         );
 
         let tx_hash = generate_hash();
@@ -4341,12 +4347,18 @@ mod tests {
         assert_eq!(request_balance.balance, "1999999999900000".to_string());
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // Each relayer is getting 140000 (+2 that were in the remainder) / 3 -> 140002 / 3 = 46667 and 1 token will stay in the remainder array for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
-            vec![coin(190000, xrpl_token.coreum_denom.to_owned())]
+            vec![coin(63333, xrpl_token.coreum_denom.to_owned())] // 16666 from before + 46667
         );
 
         let tx_hash = generate_hash();
@@ -4378,12 +4390,18 @@ mod tests {
         assert_eq!(request_balance.balance, "2999999999800000".to_string());
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // Each relayer is getting 100000 (+1 from remainder) / 3 -> 100001 / 3 = 33333 and 2 token will stay in the remainder array for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
-            vec![coin(290000, xrpl_token.coreum_denom.to_owned())]
+            vec![coin(96666, xrpl_token.coreum_denom.to_owned())] // 63333 from before + 33333
         );
 
         // Check that contract holds those tokens.
@@ -4393,7 +4411,7 @@ mod tests {
                 denom: xrpl_token.coreum_denom.to_owned(),
             })
             .unwrap();
-        assert_eq!(query_contract_balance.balance, "290000".to_string());
+        assert_eq!(query_contract_balance.balance, "290000".to_string()); // 96666 * 3 + 2 in the remainder
 
         // Let's try to bridge some tokens back from Coreum to XRPL and verify that the fees are also collected correctly
         let xrpl_receiver_address = generate_xrpl_address();
@@ -4453,12 +4471,18 @@ mod tests {
         }
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // Each relayer is getting 120000 (+2 from remainder) / 3 -> 120002 / 3 = 40000 and 2 token will stay in the remainder array for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
-            vec![coin(410000, xrpl_token.coreum_denom.to_owned())]
+            vec![coin(136666, xrpl_token.coreum_denom.to_owned())] // 96666 from before + 40000
         );
 
         // Now let's bridge tokens from Coreum to XRPL and verify that the fees are collected correctly in each step and accumulated with the previous ones
@@ -4517,14 +4541,20 @@ mod tests {
         );
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // Each relayer is getting 300010 / 3 -> 100003 and 1 token will stay in the remainder array for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(410000, xrpl_token.coreum_denom.to_owned()),
-                coin(300010, coreum_token_denom.to_owned())
+                coin(136666, xrpl_token.coreum_denom.to_owned()),
+                coin(100003, coreum_token_denom.to_owned())
             ]
         );
 
@@ -4584,14 +4614,20 @@ mod tests {
         );
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // Each relayer is getting 300000 (+1 from remainder) / 3 -> 100000 and 1 token will stay in the remainder array for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(410000, xrpl_token.coreum_denom.to_owned()),
-                coin(600010, coreum_token_denom.to_owned())
+                coin(136666, xrpl_token.coreum_denom.to_owned()),
+                coin(200003, coreum_token_denom.to_owned()) // 100003 + 100000
             ]
         );
 
@@ -4660,39 +4696,138 @@ mod tests {
         );
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // Each relayer will be getting 300010 (+1 from the remainder) / 3 -> 300011 / 3 = 100003 and 2 tokens will stay in the remainder array for next collection
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(410000, xrpl_token.coreum_denom.to_owned()),
-                coin(900020, coreum_token_denom.to_owned())
+                coin(136666, xrpl_token.coreum_denom.to_owned()),
+                coin(300006, coreum_token_denom.to_owned()) // 200003 from before + 100003
             ]
         );
 
         // Let's test the claiming
-        wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::ClaimFees {},
-            &[],
-            relayer_accounts[0],
-        )
-        .unwrap();
+
+        // If we claim more than available, it should fail
+        let claim_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ClaimFees {
+                    amounts: vec![
+                        coin(136666, xrpl_token.coreum_denom.to_owned()),
+                        coin(300007, coreum_token_denom.to_owned()), // +1
+                    ],
+                },
+                &[],
+                relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(claim_error.to_string().contains(
+            ContractError::RelayerFeeNotClaimable {
+                denom: coreum_token_denom.to_owned(),
+                amount: Uint128::new(300007)
+            }
+            .to_string()
+            .as_str()
+        ));
+
+        // If we separate token claim into two coins but ask for too much it should also fail
+        let claim_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ClaimFees {
+                    amounts: vec![
+                        coin(136666, xrpl_token.coreum_denom.to_owned()),
+                        coin(300006, coreum_token_denom.to_owned()),
+                        coin(1, coreum_token_denom.to_owned()), // Extra token claim that is too much
+                    ],
+                },
+                &[],
+                relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(claim_error.to_string().contains(
+            ContractError::RelayerFeeNotClaimable {
+                denom: coreum_token_denom.to_owned(),
+                amount: Uint128::new(1)
+            }
+            .to_string()
+            .as_str()
+        ));
+
+        // If we claim everything except 1 token, it should work
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ClaimFees {
+                    amounts: vec![
+                        coin(136666, xrpl_token.coreum_denom.to_owned()),
+                        coin(300005, coreum_token_denom.to_owned()),
+                    ],
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
-        // Since we have 3 relayers, it should have claimed 1/3 of the fees for each one of them
-        // For both coins, it should leave 2 in the array
+        // There should be only 1 token left in the remainder array
         assert_eq!(
             query_fees_collected.fees_collected,
-            vec![
-                coin(2, xrpl_token.coreum_denom.to_owned()),
-                coin(2, coreum_token_denom.clone())
-            ]
+            vec![coin(1, coreum_token_denom.clone())]
         );
+
+        // If we try to claim a token that is not in the claimable array, it should fail
+        let claim_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ClaimFees {
+                    amounts: vec![coin(1, xrpl_token.coreum_denom.to_owned())],
+                },
+                &[],
+                relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(claim_error.to_string().contains(
+            ContractError::RelayerFeeNotClaimable {
+                denom: xrpl_token.coreum_denom.to_owned(),
+                amount: Uint128::new(1)
+            }
+            .to_string()
+            .as_str()
+        ));
+
+        // Claim the token that is left to claim
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ClaimFees {
+                    amounts: vec![coin(1, coreum_token_denom.clone())],
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
 
         // Let's check the balances of the relayers
         for relayer in relayer_accounts.iter() {
@@ -4713,43 +4848,18 @@ mod tests {
             assert_eq!(request_balance_token2.balance, "300006".to_string()); // 900020 / 3 = 300006
         }
 
-        // If we try to claim again, nothing will change
-        wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::ClaimFees {},
-            &[],
-            relayer_accounts[0],
-        )
-        .unwrap();
-
-        let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
-            .unwrap();
-
-        assert_eq!(
-            query_fees_collected.fees_collected,
-            vec![
-                coin(2, xrpl_token.coreum_denom.to_owned()),
-                coin(2, coreum_token_denom.to_owned())
-            ]
-        );
-        // Check that relayers balance hasn't changed.
+        // We check that everything has been claimed
         for relayer in relayer_accounts.iter() {
-            let request_balance_token1 = asset_ft
-                .query_balance(&QueryBalanceRequest {
-                    account: relayer.address(),
-                    denom: xrpl_token.coreum_denom.to_owned(),
-                })
-                .unwrap();
-            let request_balance_token2 = asset_ft
-                .query_balance(&QueryBalanceRequest {
-                    account: relayer.address(),
-                    denom: coreum_token_denom.to_owned(),
-                })
+            let query_fees_collected = wasm
+                .query::<QueryMsg, FeesCollectedResponse>(
+                    &contract_addr,
+                    &QueryMsg::FeesCollected {
+                        relayer_address: Addr::unchecked(relayer.address()),
+                    },
+                )
                 .unwrap();
 
-            assert_eq!(request_balance_token1.balance, "136666".to_string()); // 410000 / 3 = 136666
-            assert_eq!(request_balance_token2.balance, "300006".to_string()); // 900020 / 3 = 300006
+            assert_eq!(query_fees_collected.fees_collected, vec![]);
         }
 
         // Check that final balance in the contract matches with those fees
@@ -4759,7 +4869,7 @@ mod tests {
                 denom: xrpl_token.coreum_denom.to_owned(),
             })
             .unwrap();
-        assert_eq!(query_contract_balance.balance, "2".to_string());
+        assert_eq!(query_contract_balance.balance, "2".to_string()); // What is stored in the remainder
 
         let query_contract_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
@@ -4982,15 +5092,21 @@ mod tests {
 
         // Check that contract holds bridge fees
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // 50000 / 2 relayers
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(50000, token_denoms[0].to_owned()),
-                coin(50000, token_denoms[1].to_owned()),
-                coin(50000, token_denoms[2].to_owned()),
+                coin(25000, token_denoms[0].to_owned()),
+                coin(25000, token_denoms[1].to_owned()),
+                coin(25000, token_denoms[2].to_owned()),
             ]
         );
 
@@ -5030,15 +5146,21 @@ mod tests {
         .unwrap();
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // We collected another 50000 / 2 for each relayer
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(100000, token_denoms[0].to_owned()),
-                coin(50000, token_denoms[1].to_owned()),
-                coin(50000, token_denoms[2].to_owned()),
+                coin(50000, token_denoms[0].to_owned()),
+                coin(25000, token_denoms[1].to_owned()),
+                coin(25000, token_denoms[2].to_owned()),
             ]
         );
 
@@ -5082,15 +5204,21 @@ mod tests {
         .unwrap();
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // We collected an extra 127778 / 2 = 63889  for each relayer
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(100000, token_denoms[0].to_owned()),
-                coin(177778, token_denoms[1].to_owned()),
-                coin(50000, token_denoms[2].to_owned()),
+                coin(50000, token_denoms[0].to_owned()),
+                coin(88889, token_denoms[1].to_owned()), // 25000 + 63889
+                coin(25000, token_denoms[2].to_owned()),
             ]
         );
 
@@ -5133,15 +5261,21 @@ mod tests {
         .unwrap();
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
+        // We collected an extra 50000 / 2 = 25000 for each relayer
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(100000, token_denoms[0].to_owned()),
-                coin(177778, token_denoms[1].to_owned()),
-                coin(100000, token_denoms[2].to_owned()),
+                coin(50000, token_denoms[0].to_owned()),
+                coin(88889, token_denoms[1].to_owned()),
+                coin(50000, token_denoms[2].to_owned()),
             ]
         );
 
@@ -5170,16 +5304,29 @@ mod tests {
         );
 
         // Let's collect the fees to check that they are substracted correcly
-        wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::ClaimFees {},
-            &[],
-            relayer_accounts[0],
-        )
-        .unwrap();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ClaimFees {
+                    amounts: vec![
+                        coin(50000, token_denoms[0].to_owned()),
+                        coin(88889, token_denoms[1].to_owned()),
+                        coin(50000, token_denoms[2].to_owned()),
+                    ],
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
 
         let query_fees_collected = wasm
-            .query::<QueryMsg, FeesCollectedResponse>(&contract_addr, &QueryMsg::FeesCollected {})
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
             .unwrap();
 
         // Nothing will be left
@@ -6569,11 +6716,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(update_status_error.to_string().contains(
-            ContractError::TokenStateIsImmutable {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(update_status_error
+            .to_string()
+            .contains(ContractError::TokenStateIsImmutable {}.to_string().as_str()));
 
         let tx_hash = generate_hash();
         for relayer in relayer_accounts.iter() {

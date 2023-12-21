@@ -1,10 +1,9 @@
-use coreum_wasm_sdk::core::CoreumMsg;
-use cosmwasm_std::{coin, BankMsg, Coin, Decimal, Response, Storage, Uint128};
+use cosmwasm_std::{coin, Addr, Coin, Decimal, Storage, Uint128};
 
 use crate::{
     contract::XRPL_ZERO_TRANSFER_RATE,
     error::ContractError,
-    state::{CONFIG, FEES_COLLECTED},
+    state::{CONFIG, FEES_COLLECTED, FEES_REMAINER},
 };
 
 pub fn amount_after_bridge_fees(
@@ -61,63 +60,90 @@ fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractErro
     // We only collect fees if there is something to collect
     // If for some reason there is a coin that we are not charging fees for, we don't collect it
     if !fee.amount.is_zero() {
-        let mut fees_collected = FEES_COLLECTED.load(storage)?;
-        // If we already have the coin in the fee collected array, we update the amount, if not, we add it as a new element.
-        match fees_collected.iter_mut().find(|c| c.denom == fee.denom) {
-            Some(coin) => coin.amount += fee.amount,
-            None => fees_collected.push(fee),
+        let mut fees_remainer = FEES_REMAINER.load(storage)?;
+        // We add the new fees to the possible remainers that we had before and use those amounts to allocate them to relayers
+        let total_fee = match fees_remainer.iter_mut().find(|c| c.denom == fee.denom) {
+            Some(coin) => {
+                // We get the remainder and put it back to 0
+                let total_fee = fee.amount + coin.amount;
+                coin.amount = Uint128::zero();
+                total_fee
+            }
+            None => fee.amount,
+        };
+
+        // We will divide the total fee by the number of relayers to know how much we need to send to each relayer and the remainder will be saved for the next fee collection
+        let relayers = CONFIG.load(storage)?.relayers;
+        let amount_for_each_relayer =
+            total_fee.checked_div(Uint128::new(relayers.len().try_into().unwrap()))?;
+
+        // If the amount is 0, there's nothing to send to the relayers
+        if !amount_for_each_relayer.is_zero() {
+            for relayer in relayers.iter() {
+                // We get previous relayer fees collected to update them. If it's the first time the relayer gets fees, we initialize the array
+                let mut fees_collected = FEES_COLLECTED
+                    .may_load(storage, relayer.coreum_address.to_owned())?
+                    .unwrap_or_default();
+
+                // Add fees to the relayer fees collected
+                match fees_collected.iter_mut().find(|c| c.denom == fee.denom) {
+                    Some(coin) => coin.amount += amount_for_each_relayer,
+                    None => fees_collected
+                        .push(coin(amount_for_each_relayer.u128(), fee.denom.to_owned())),
+                }
+
+                FEES_COLLECTED.save(storage, relayer.coreum_address.to_owned(), &fees_collected)?;
+            }
         }
-        FEES_COLLECTED.save(storage, &fees_collected)?;
+
+        // We get the remainder in case there is one and save it for the next fee collection
+        let remainer = total_fee.checked_sub(
+            amount_for_each_relayer
+                .checked_mul(Uint128::new(relayers.len().try_into().unwrap()))?,
+        )?;
+
+        // We save the remainer in the array of remainers
+        match fees_remainer.iter_mut().find(|c| c.denom == fee.denom) {
+            Some(coin) => coin.amount += remainer,
+            None => fees_remainer.push(coin(remainer.u128(), fee.denom)),
+        }
+
+        // Remove everything that is 0 from the fees remainers array to avoid iterating over them next time we collect fees
+        fees_remainer.retain(|c| !c.amount.is_zero());
+
+        FEES_REMAINER.save(storage, &fees_remainer)?;
     }
 
     Ok(())
 }
 
-pub fn claim_fees_for_relayers(
+pub fn check_and_update_relayer_fees(
     storage: &mut dyn Storage,
-) -> Result<Response<CoreumMsg>, ContractError> {
-    let mut fees_collected = FEES_COLLECTED.load(storage)?;
-    let relayers = CONFIG.load(storage)?.relayers;
-    let mut coins_for_each_relayer = vec![];
-
-    for fee in fees_collected.iter_mut() {
-        // For each token collected in fees, we will divide the amount by the number of relayers to know how much we need to send to each relayer
-        let amount_for_each_relayer = fee
-            .amount
-            .u128()
-            .checked_div(relayers.len() as u128)
-            .unwrap();
-
-        // If the amount is 0, we don't send it to the relayers
-        if amount_for_each_relayer != 0 {
-            coins_for_each_relayer.push(coin(amount_for_each_relayer, fee.denom.to_owned()));
+    sender: Addr,
+    amounts: &Vec<Coin>,
+) -> Result<(), ContractError> {
+    let mut fees_collected = FEES_COLLECTED.load(storage, sender.to_owned())?;
+    // We are going to check that the amounts sent to claim are available in the fees collected and if they are, substract them
+    // If they are not, we will return an error
+    for coin in amounts {
+        match fees_collected
+            .iter_mut()
+            .find(|f| f.denom == coin.denom && f.amount >= coin.amount)
+        {
+            Some(found_coin) => found_coin.amount -= coin.amount,
+            None => {
+                return Err(ContractError::RelayerFeeNotClaimable {
+                    denom: coin.denom.to_owned(),
+                    amount: coin.amount,
+                })
+            }
         }
-
-        // We substract the amount we are sending to the relayers from the total amount collected
-        // We can't simply remove it from the array because there might be small amounts left due to truncation when dividing
-        fee.amount = fee
-            .amount
-            .checked_sub(Uint128::from(
-                amount_for_each_relayer
-                    .checked_mul(relayers.len() as u128)
-                    .unwrap(),
-            ))
-            .unwrap();
     }
 
-    // We'll have 1 multi send message for each relayer
-    let mut send_messages = vec![];
-    for relayer in relayers.iter() {
-        send_messages.push(BankMsg::Send {
-            to_address: relayer.coreum_address.to_string(),
-            amount: coins_for_each_relayer.clone(),
-        });
-    }
-
-    // Last thing we do is to clean the fees collected array removing the coins that have 0 amount
-    // We need to do this step to avoid the posibility of iterating over them next claim
+    // Clean if amount is zero
     fees_collected.retain(|c| !c.amount.is_zero());
-    FEES_COLLECTED.save(storage, &fees_collected)?;
 
-    Ok(Response::new().add_messages(send_messages))
+    FEES_COLLECTED.save(storage, sender, &fees_collected)?;
+
+    Ok(())
 }

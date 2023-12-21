@@ -4,7 +4,7 @@ use crate::{
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
     fees::{
-        amount_after_bridge_fees, amount_after_transfer_fees, claim_fees_for_relayers,
+        amount_after_bridge_fees, amount_after_transfer_fees, check_and_update_relayer_fees,
         handle_fee_collection,
     },
     msg::{
@@ -20,7 +20,7 @@ use crate::{
     signatures::add_signature,
     state::{
         Config, ContractActions, CoreumToken, TokenState, XRPLToken, AVAILABLE_TICKETS, CONFIG,
-        COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
+        COREUM_TOKENS, FEES_COLLECTED, FEES_REMAINER, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
         USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
@@ -34,8 +34,8 @@ use coreum_wasm_sdk::{
     core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
-    coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env,
-    MessageInfo, Order, Response, StdResult, Uint128,
+    coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps,
+    DepsMut, Env, MessageInfo, Order, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
@@ -110,7 +110,7 @@ pub fn instantiate(
     USED_TICKETS_COUNTER.save(deps.storage, &0)?;
     PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
     AVAILABLE_TICKETS.save(deps.storage, &VecDeque::new())?;
-    FEES_COLLECTED.save(deps.storage, &vec![])?;
+    FEES_REMAINER.save(deps.storage, &vec![])?;
 
     let config = Config {
         relayers: msg.relayers,
@@ -245,7 +245,7 @@ pub fn execute(
         ExecuteMsg::UpdateCoreumToken { denom, state } => {
             update_coreum_token(deps.into_empty(), info.sender, denom, state)
         }
-        ExecuteMsg::ClaimFees {} => claim_fees(deps.into_empty(), info.sender),
+        ExecuteMsg::ClaimFees { amounts } => claim_fees(deps.into_empty(), info.sender, amounts),
     }
 }
 
@@ -934,12 +934,18 @@ fn update_coreum_token(
         .add_attribute("denom", denom))
 }
 
-fn claim_fees(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
+fn claim_fees(deps: DepsMut, sender: Addr, amounts: Vec<Coin>) -> CoreumResult<ContractError> {
     assert_relayer(deps.as_ref(), sender.clone())?;
 
-    let response = claim_fees_for_relayers(deps.storage)?;
+    check_and_update_relayer_fees(deps.storage, sender.to_owned(), &amounts)?;
 
-    Ok(response
+    let send_msg = BankMsg::Send {
+        to_address: sender.to_string(),
+        amount: amounts,
+    };
+
+    Ok(Response::new()
+        .add_message(send_msg)
         .add_attribute("action", ContractActions::ClaimFees.as_str())
         .add_attribute("sender", sender))
 }
@@ -958,7 +964,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
         QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
-        QueryMsg::FeesCollected {} => to_json_binary(&query_fees_collected(deps)?),
+        QueryMsg::FeesCollected { relayer_address } => {
+            to_json_binary(&query_fees_collected(deps, relayer_address)?)
+        }
     }
 }
 
@@ -1021,8 +1029,8 @@ fn query_available_tickets(deps: Deps) -> StdResult<AvailableTicketsResponse> {
     })
 }
 
-fn query_fees_collected(deps: Deps) -> StdResult<FeesCollectedResponse> {
-    let fees_collected = FEES_COLLECTED.load(deps.storage)?;
+fn query_fees_collected(deps: Deps, relayer_address: Addr) -> StdResult<FeesCollectedResponse> {
+    let fees_collected = FEES_COLLECTED.load(deps.storage, relayer_address)?;
 
     Ok(FeesCollectedResponse { fees_collected })
 }
