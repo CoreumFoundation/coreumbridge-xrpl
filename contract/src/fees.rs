@@ -3,7 +3,7 @@ use cosmwasm_std::{coin, Addr, Coin, Decimal, Storage, Uint128};
 use crate::{
     contract::XRPL_ZERO_TRANSFER_RATE,
     error::ContractError,
-    state::{CONFIG, FEES_COLLECTED, FEES_REMAINER},
+    state::{CONFIG, FEES_COLLECTED, FEES_REMAINDER},
 };
 
 pub fn amount_after_bridge_fees(
@@ -60,9 +60,9 @@ fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractErro
     // We only collect fees if there is something to collect
     // If for some reason there is a coin that we are not charging fees for, we don't collect it
     if !fee.amount.is_zero() {
-        let mut fees_remainer = FEES_REMAINER.load(storage)?;
-        // We add the new fees to the possible remainers that we had before and use those amounts to allocate them to relayers
-        let total_fee = match fees_remainer.iter_mut().find(|c| c.denom == fee.denom) {
+        let mut fees_remainder = FEES_REMAINDER.load(storage)?;
+        // We add the new fees to the possible remainders that we had before and use those amounts to allocate them to relayers
+        let total_fee = match fees_remainder.iter_mut().find(|c| c.denom == fee.denom) {
             Some(coin) => {
                 // We get the remainder and put it back to 0
                 let total_fee = fee.amount + coin.amount;
@@ -97,21 +97,21 @@ fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractErro
         }
 
         // We get the remainder in case there is one and save it for the next fee collection
-        let remainer = total_fee.checked_sub(
+        let remainder = total_fee.checked_sub(
             amount_for_each_relayer
                 .checked_mul(Uint128::new(relayers.len().try_into().unwrap()))?,
         )?;
 
-        // We save the remainer in the array of remainers
-        match fees_remainer.iter_mut().find(|c| c.denom == fee.denom) {
-            Some(coin) => coin.amount += remainer,
-            None => fees_remainer.push(coin(remainer.u128(), fee.denom)),
+        // We save the remainder in the array of remainders
+        match fees_remainder.iter_mut().find(|c| c.denom == fee.denom) {
+            Some(coin) => coin.amount += remainder,
+            None => fees_remainder.push(coin(remainder.u128(), fee.denom)),
         }
 
-        // Remove everything that is 0 from the fees remainers array to avoid iterating over them next time we collect fees
-        fees_remainer.retain(|c| !c.amount.is_zero());
+        // Remove everything that is 0 from the fees remainders array to avoid iterating over them next time we collect fees
+        fees_remainder.retain(|c| !c.amount.is_zero());
 
-        FEES_REMAINER.save(storage, &fees_remainer)?;
+        FEES_REMAINDER.save(storage, &fees_remainder)?;
     }
 
     Ok(())

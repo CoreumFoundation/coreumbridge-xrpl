@@ -21,7 +21,7 @@ pub enum TopKey {
     PendingOperations = b'9',
     PendingTicketUpdate = b'a',
     FeesCollected = b'b',
-    FeesRemainer = b'd',
+    FeesRemainder = b'd',
 }
 
 impl TopKey {
@@ -142,7 +142,7 @@ pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpd
 // Fees collected that will be slowly accumulated here and relayers can claim them anytime
 pub const FEES_COLLECTED: Map<Addr, Vec<Coin>> = Map::new(TopKey::FeesCollected.as_str());
 // Fees Remainer in case that we have some small amounts left after dividing fees between our relayers we will keep them here until next time we collect fees and can add them to the new amount
-pub const FEES_REMAINER: Item<Vec<Coin>> = Item::new(TopKey::FeesRemainer.as_str());
+pub const FEES_REMAINDER: Item<Vec<Coin>> = Item::new(TopKey::FeesRemainder.as_str());
 
 pub enum ContractActions {
     Instantiation,

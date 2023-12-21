@@ -20,7 +20,7 @@ use crate::{
     signatures::add_signature,
     state::{
         Config, ContractActions, CoreumToken, TokenState, XRPLToken, AVAILABLE_TICKETS, CONFIG,
-        COREUM_TOKENS, FEES_COLLECTED, FEES_REMAINER, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
+        COREUM_TOKENS, FEES_COLLECTED, FEES_REMAINDER, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
         USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
@@ -110,7 +110,7 @@ pub fn instantiate(
     USED_TICKETS_COUNTER.save(deps.storage, &0)?;
     PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
     AVAILABLE_TICKETS.save(deps.storage, &VecDeque::new())?;
-    FEES_REMAINER.save(deps.storage, &vec![])?;
+    FEES_REMAINDER.save(deps.storage, &vec![])?;
 
     let config = Config {
         relayers: msg.relayers,
