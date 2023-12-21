@@ -21,7 +21,7 @@ pub enum TopKey {
     PendingOperations = b'9',
     PendingTicketUpdate = b'a',
     FeesCollected = b'b',
-    RefundableAmounts = b'c',
+    PendingRefunds = b'c',
 }
 
 impl TopKey {
@@ -142,8 +142,8 @@ pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpd
 // Fees collected that will be distributed to all relayers when they are claimed
 pub const FEES_COLLECTED: Item<Vec<Coin>> = Item::new(TopKey::FeesCollected.as_str());
 // Amounts for rejected/invalid transactions on XRPL for each Coreum user that they can reclaim manually.
-// It needs to be done manually because sends can fail due to tokens being frozen, address not being whitelisted...
-pub const REFUNDABLE_AMOUNTS: Map<Addr, Vec<Coin>> = Map::new(TopKey::RefundableAmounts.as_str());
+// Key is the user address and value is a vector of coins that can be claimed back
+pub const PENDING_REFUNDS: Map<Addr, Vec<Coin>> = Map::new(TopKey::PendingRefunds.as_str());
 
 pub enum ContractActions {
     Instantiation,

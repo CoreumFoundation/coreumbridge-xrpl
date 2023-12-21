@@ -81,8 +81,8 @@ pub enum ExecuteMsg {
     },
     // Any relayer can claim fees at any point in time. They will be distributed proportionally among all of them.
     ClaimFees {},
-    // Claim refundable amounts. User who can claim refundable amounts due to failed transactions can do it with this message.
-    ClaimRefundableAmounts {
+    // Claim refunds. User who can claim amounts due to failed transactions can do it with this message.
+    ClaimRefunds {
         amounts: Vec<Coin>,
     },
 }
@@ -110,8 +110,8 @@ pub enum QueryMsg {
     AvailableTickets {},
     #[returns(FeesCollectedResponse)]
     FeesCollected {},
-    #[returns(RefundableAmountsResponse)]
-    RefundableAmounts { address: Addr },
+    #[returns(PendingRefundsResponse)]
+    PendingRefunds { address: Addr },
 }
 
 #[cw_serde]
@@ -140,6 +140,6 @@ pub struct FeesCollectedResponse {
 }
 
 #[cw_serde]
-pub struct RefundableAmountsResponse {
-    pub refundable_amounts: Vec<Coin>,
+pub struct PendingRefundsResponse {
+    pub pending_refunds: Vec<Coin>,
 }

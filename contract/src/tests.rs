@@ -22,7 +22,7 @@ mod tests {
         evidence::{Evidence, OperationResult, TransactionResult},
         msg::{
             AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, FeesCollectedResponse,
-            InstantiateMsg, PendingOperationsResponse, QueryMsg, RefundableAmountsResponse,
+            InstantiateMsg, PendingOperationsResponse, PendingRefundsResponse, QueryMsg,
             XRPLTokensResponse,
         },
         operation::{Operation, OperationType},
@@ -1866,7 +1866,7 @@ mod tests {
             }
         );
 
-        // Reject the operation, therefore the tokens should be stored in the refundable amounts (except for truncated amount).
+        // Reject the operation, therefore the tokens should be stored in the pending refunds (except for truncated amount).
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -1892,20 +1892,20 @@ mod tests {
             .unwrap();
         assert_eq!(request_balance.balance, amount_to_send.to_string());
 
-        // Let's verify the refundable amounts and try to claim them
-        let query_refundable_amounts = wasm
-            .query::<QueryMsg, RefundableAmountsResponse>(
+        // Let's verify the pending refunds and try to claim them
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
                 &contract_addr,
-                &QueryMsg::RefundableAmounts {
+                &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
                 },
             )
             .unwrap();
 
-        assert_eq!(query_refundable_amounts.refundable_amounts.len(), 1);
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
         // Truncated amount (1) is not refundable
         assert_eq!(
-            query_refundable_amounts.refundable_amounts[0],
+            query_pending_refunds.pending_refunds[0],
             coin(
                 amount_to_send.checked_sub(Uint128::one()).unwrap().u128(),
                 denom.to_owned()
@@ -1916,7 +1916,7 @@ mod tests {
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimRefundableAmounts {
+                &ExecuteMsg::ClaimRefunds {
                     amounts: vec![Coin {
                         denom: denom.to_owned(),
                         amount: amount_to_send,
@@ -1936,11 +1936,11 @@ mod tests {
             .as_str()
         ));
 
-        // Try to claim a token that is not in the refundable amounts should fail
+        // Try to claim a token that is not in the pending refunds should fail
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimRefundableAmounts {
+                &ExecuteMsg::ClaimRefunds {
                     amounts: vec![Coin {
                         denom: "random_denom".to_owned(),
                         amount: amount_to_send,
@@ -1964,7 +1964,7 @@ mod tests {
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimRefundableAmounts {
+                &ExecuteMsg::ClaimRefunds {
                     amounts: vec![
                         Coin {
                             denom: denom.to_owned(),
@@ -1996,7 +1996,7 @@ mod tests {
         // Let's claim one token first (1). Should succeed
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefundableAmounts {
+            &ExecuteMsg::ClaimRefunds {
                 amounts: vec![Coin {
                     denom: denom.to_owned(),
                     amount: Uint128::one(),
@@ -2007,7 +2007,7 @@ mod tests {
         )
         .unwrap();
 
-        // Verify balance of sender (to check it was correctly refunded) and verify that the amount refunded was substracted from refundable amounts
+        // Verify balance of sender (to check it was correctly refunded) and verify that the amount refunded was substracted from pending refunds
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: sender.address(),
@@ -2025,18 +2025,18 @@ mod tests {
                 .to_string()
         );
 
-        let query_refundable_amounts = wasm
-            .query::<QueryMsg, RefundableAmountsResponse>(
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
                 &contract_addr,
-                &QueryMsg::RefundableAmounts {
+                &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
                 },
             )
             .unwrap();
 
-        // We verify our refunded token is not in the refundable amounts anymore
+        // We verify our refunded token is not in the pending refunds anymore
         assert_eq!(
-            query_refundable_amounts.refundable_amounts[0],
+            query_pending_refunds.pending_refunds[0],
             coin(
                 amount_to_send.checked_sub(Uint128::new(2)).unwrap().u128(),
                 denom.to_owned()
@@ -2061,7 +2061,7 @@ mod tests {
         // Can't claim because token is frozen
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefundableAmounts {
+            &ExecuteMsg::ClaimRefunds {
                 amounts: vec![
                     Coin {
                         denom: denom.to_owned(),
@@ -2096,7 +2096,7 @@ mod tests {
         // Can claim because token is unfrozen
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefundableAmounts {
+            &ExecuteMsg::ClaimRefunds {
                 amounts: vec![
                     Coin {
                         denom: denom.to_owned(),
@@ -2113,11 +2113,11 @@ mod tests {
         )
         .unwrap();
 
-        // This last claim should have emptied the refundable amounts array and any further refund claim would fail. Let's test claiming 1 more token.
+        // This last claim should have emptied the pending refunds array and any further refund claim would fail. Let's test claiming 1 more token.
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimRefundableAmounts {
+                &ExecuteMsg::ClaimRefunds {
                     amounts: vec![Coin {
                         denom: denom.to_owned(),
                         amount: Uint128::one(),
@@ -2138,17 +2138,17 @@ mod tests {
         ));
 
         // Finally check that refundable array is empty
-        let query_refundable_amounts = wasm
-            .query::<QueryMsg, RefundableAmountsResponse>(
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
                 &contract_addr,
-                &QueryMsg::RefundableAmounts {
+                &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
                 },
             )
             .unwrap();
 
-        // We verify our refunded token is not in the refundable amounts anymore
-        assert!(query_refundable_amounts.refundable_amounts.is_empty());
+        // We verify our refunded token is not in the pending refunds anymore
+        assert!(query_pending_refunds.pending_refunds.is_empty());
 
         // Try to send again
         wasm.execute::<ExecuteMsg>(
@@ -2481,19 +2481,19 @@ mod tests {
         assert_eq!(request_balance.balance, amount_to_send.to_string());
 
         // If we query the refundable tokens that the user can claim, we should see the amount that was truncated is claimable
-        let query_refundable_amounts = wasm
-            .query::<QueryMsg, RefundableAmountsResponse>(
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
                 &contract_addr,
-                &QueryMsg::RefundableAmounts {
+                &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
                 },
             )
             .unwrap();
 
         // We verify that these tokens are refundable
-        assert_eq!(query_refundable_amounts.refundable_amounts.len(), 1);
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
         assert_eq!(
-            query_refundable_amounts.refundable_amounts[0],
+            query_pending_refunds.pending_refunds[0],
             coin(
                 amount_to_send
                     .checked_sub(Uint128::new(9999999999)) // Amount truncated is not refunded to user
@@ -2506,7 +2506,7 @@ mod tests {
         // Claim them all, should work
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefundableAmounts {
+            &ExecuteMsg::ClaimRefunds {
                 amounts: vec![Coin {
                     denom: denom.to_owned(),
                     amount: amount_to_send
@@ -2519,18 +2519,18 @@ mod tests {
         )
         .unwrap();
 
-        // Refundable amounts should now be empty
-        let query_refundable_amounts = wasm
-            .query::<QueryMsg, RefundableAmountsResponse>(
+        // pending refunds should now be empty
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
                 &contract_addr,
-                &QueryMsg::RefundableAmounts {
+                &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
                 },
             )
             .unwrap();
 
         // We verify that these tokens are refundable
-        assert_eq!(query_refundable_amounts.refundable_amounts.len(), 0);
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 0);
 
         // Try to send again
         wasm.execute::<ExecuteMsg>(
@@ -2926,7 +2926,7 @@ mod tests {
         )
         .unwrap();
 
-        // Since transaction result was Rejected, the tokens must have been sent to refundable amounts
+        // Since transaction result was Rejected, the tokens must have been sent to pending refunds
 
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
@@ -2936,19 +2936,19 @@ mod tests {
             .unwrap();
         assert_eq!(request_balance.balance, amount_to_send_back.to_string());
 
-        let query_refundable_amounts = wasm
-            .query::<QueryMsg, RefundableAmountsResponse>(
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
                 &contract_addr,
-                &QueryMsg::RefundableAmounts {
+                &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
                 },
             )
             .unwrap();
 
         // We verify that these tokens are refundable
-        assert_eq!(query_refundable_amounts.refundable_amounts.len(), 1);
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
         assert_eq!(
-            query_refundable_amounts.refundable_amounts[0],
+            query_pending_refunds.pending_refunds[0],
             coin(amount_to_send_back.u128(), denom_xrp.to_owned())
         );
 
@@ -3227,10 +3227,10 @@ mod tests {
                 .to_string()
         );
 
-        // Let's claim these refundable amounts and check that they are gone from the contract and in the senders address
+        // Let's claim these pending refunds and check that they are gone from the contract and in the senders address
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefundableAmounts {
+            &ExecuteMsg::ClaimRefunds {
                 amounts: vec![Coin {
                     denom: denom_xrp.to_owned(),
                     amount: amount_to_send_back,
@@ -3364,7 +3364,7 @@ mod tests {
             }
         );
 
-        // If we reject the operation, the tokens should be kept in refundable amounts for the sender to claim (except truncated amount)
+        // If we reject the operation, the tokens should be kept in pending refunds for the sender to claim (except truncated amount)
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -3401,7 +3401,7 @@ mod tests {
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimRefundableAmounts {
+                &ExecuteMsg::ClaimRefunds {
                     amounts: vec![Coin {
                         denom: denom.to_owned(),
                         amount: amount_to_send,
@@ -3424,7 +3424,7 @@ mod tests {
         // Claim only the refundable amount (amount to send - truncated amount) should work
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefundableAmounts {
+            &ExecuteMsg::ClaimRefunds {
                 amounts: vec![Coin {
                     denom: denom.to_owned(),
                     amount: amount_to_send.checked_sub(Uint128::one()).unwrap(),
@@ -5707,14 +5707,14 @@ mod tests {
             .unwrap();
         }
 
-        // If transaction is rejected, contract should store amount + transfer fees for sender in refundable amounts.
+        // If transaction is rejected, contract should store amount + transfer fees for sender in pending refunds.
         // Bridging fees were applied during sending so these are never sent back.
 
-        // Claim the refundable amounts
-        let query_refundable_amounts = wasm
-            .query::<QueryMsg, RefundableAmountsResponse>(
+        // Claim the pending refunds
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
                 &contract_addr,
-                &QueryMsg::RefundableAmounts {
+                &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(signer.address()),
                 },
             )
@@ -5722,8 +5722,8 @@ mod tests {
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefundableAmounts {
-                amounts: query_refundable_amounts.refundable_amounts,
+            &ExecuteMsg::ClaimRefunds {
+                amounts: query_pending_refunds.pending_refunds,
             },
             &[],
             &signer,

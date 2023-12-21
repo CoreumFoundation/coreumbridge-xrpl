@@ -7,7 +7,7 @@ use crate::{
     error::ContractError,
     evidence::TransactionResult,
     signatures::Signature,
-    state::{TokenState, COREUM_TOKENS, PENDING_OPERATIONS, REFUNDABLE_AMOUNTS, XRPL_TOKENS},
+    state::{TokenState, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS, XRPL_TOKENS},
     token::build_xrpl_token_key,
 };
 
@@ -135,7 +135,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                         *response = response.to_owned().add_message(burn_msg);
                     } else {
                         // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
-                        store_refundable_amount(
+                        store_pending_refunds(
                             storage,
                             sender,
                             coin(
@@ -162,7 +162,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                                     amount,
                                 )?;
                                 // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
-                                store_refundable_amount(
+                                store_pending_refunds(
                                     storage,
                                     sender,
                                     coin(amount_to_send_back.u128(), token.denom),
@@ -184,40 +184,37 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
     Ok(())
 }
 
-pub fn store_refundable_amount(
+pub fn store_pending_refunds(
     storage: &mut dyn Storage,
     receiver: Addr,
     coin: Coin,
 ) -> Result<(), ContractError> {
     // We get current refundable amounts for the receiver.  If it's the first time we are storing an amount for this receiver, we initialize the array.
-    let mut refundable_amounts = match REFUNDABLE_AMOUNTS.may_load(storage, receiver.to_owned())? {
-        Some(refundable_amounts) => refundable_amounts,
+    let mut pending_refunds = match PENDING_REFUNDS.may_load(storage, receiver.to_owned())? {
+        Some(pending_refunds) => pending_refunds,
         None => vec![],
     };
     // If we already have the coin in the fee collected array, we update the amount, if not, we add it as a new element.
-    match refundable_amounts
-        .iter_mut()
-        .find(|c| c.denom == coin.denom)
-    {
+    match pending_refunds.iter_mut().find(|c| c.denom == coin.denom) {
         Some(found_coin) => found_coin.amount += coin.amount,
-        None => refundable_amounts.push(coin),
+        None => pending_refunds.push(coin),
     }
 
-    REFUNDABLE_AMOUNTS.save(storage, receiver, &refundable_amounts)?;
+    PENDING_REFUNDS.save(storage, receiver, &pending_refunds)?;
 
     Ok(())
 }
 
-pub fn substract_refundable_amounts(
+pub fn substract_pending_refunds(
     storage: &mut dyn Storage,
     sender: Addr,
     amounts: &Vec<Coin>,
 ) -> Result<(), ContractError> {
-    let mut refundable_amounts = REFUNDABLE_AMOUNTS.load(storage, sender.to_owned())?;
+    let mut pending_refunds = PENDING_REFUNDS.load(storage, sender.to_owned())?;
     // We are going to check if the amounts sent to claim are available in the refundable amounts and if they are, substract the amount from the refundable amounts.
     // If they are not, we are going to cancel the claiming operation.
     for coin in amounts {
-        match refundable_amounts
+        match pending_refunds
             .iter_mut()
             .find(|f| f.denom == coin.denom && f.amount >= coin.amount)
         {
@@ -232,9 +229,9 @@ pub fn substract_refundable_amounts(
     }
 
     // Clean if amount is zero
-    refundable_amounts.retain(|c| !c.amount.is_zero());
+    pending_refunds.retain(|c| !c.amount.is_zero());
 
-    REFUNDABLE_AMOUNTS.save(storage, sender, &refundable_amounts)?;
+    PENDING_REFUNDS.save(storage, sender, &pending_refunds)?;
 
     Ok(())
 }

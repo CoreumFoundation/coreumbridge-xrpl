@@ -9,20 +9,20 @@ use crate::{
     },
     msg::{
         AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, FeesCollectedResponse,
-        InstantiateMsg, PendingOperationsResponse, QueryMsg, RefundableAmountsResponse,
+        InstantiateMsg, PendingOperationsResponse, PendingRefundsResponse, QueryMsg,
         XRPLTokensResponse,
     },
     operation::{
         check_operation_exists, create_pending_operation,
         handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation,
-        substract_refundable_amounts, Operation, OperationType,
+        substract_pending_refunds, Operation, OperationType,
     },
     relayer::{assert_relayer, validate_relayers, validate_xrpl_address},
     signatures::add_signature,
     state::{
         Config, ContractActions, CoreumToken, TokenState, XRPLToken, AVAILABLE_TICKETS, CONFIG,
-        COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS, PENDING_TICKET_UPDATE,
-        REFUNDABLE_AMOUNTS, USED_TICKETS_COUNTER, XRPL_TOKENS,
+        COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS, PENDING_REFUNDS, PENDING_TICKET_UPDATE,
+        USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
@@ -247,8 +247,8 @@ pub fn execute(
             update_coreum_token(deps.into_empty(), info.sender, denom, state)
         }
         ExecuteMsg::ClaimFees {} => claim_fees(deps.into_empty(), info.sender),
-        ExecuteMsg::ClaimRefundableAmounts { amounts } => {
-            claim_refundable_amounts(deps.into_empty(), info.sender, amounts)
+        ExecuteMsg::ClaimRefunds { amounts } => {
+            claim_pending_refunds(deps.into_empty(), info.sender, amounts)
         }
     }
 }
@@ -948,12 +948,12 @@ fn claim_fees(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
         .add_attribute("sender", sender))
 }
 
-fn claim_refundable_amounts(
+fn claim_pending_refunds(
     deps: DepsMut,
     sender: Addr,
     amounts: Vec<Coin>,
 ) -> CoreumResult<ContractError> {
-    substract_refundable_amounts(deps.storage, sender.to_owned(), &amounts)?;
+    substract_pending_refunds(deps.storage, sender.to_owned(), &amounts)?;
 
     let send_msg = BankMsg::Send {
         to_address: sender.to_string(),
@@ -981,8 +981,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
         QueryMsg::FeesCollected {} => to_json_binary(&query_fees_collected(deps)?),
-        QueryMsg::RefundableAmounts { address } => {
-            to_json_binary(&query_refundable_amounts(deps, address)?)
+        QueryMsg::PendingRefunds { address } => {
+            to_json_binary(&query_pending_refunds(deps, address)?)
         }
     }
 }
@@ -1052,10 +1052,10 @@ fn query_fees_collected(deps: Deps) -> StdResult<FeesCollectedResponse> {
     Ok(FeesCollectedResponse { fees_collected })
 }
 
-fn query_refundable_amounts(deps: Deps, address: Addr) -> StdResult<RefundableAmountsResponse> {
-    let refundable_amounts = REFUNDABLE_AMOUNTS.load(deps.storage, address)?;
+fn query_pending_refunds(deps: Deps, address: Addr) -> StdResult<PendingRefundsResponse> {
+    let pending_refunds = PENDING_REFUNDS.load(deps.storage, address)?;
 
-    Ok(RefundableAmountsResponse { refundable_amounts })
+    Ok(PendingRefundsResponse { pending_refunds })
 }
 
 // ********** Helpers **********
