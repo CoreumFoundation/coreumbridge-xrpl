@@ -167,7 +167,7 @@ pub enum ContractError {
     InvalidTransferRate {},
 
     #[error(
-        "NotEnoughFeesToClaim: The fee {} {} is not claimable because there is are not enough fees collected",
+        "NotEnoughFeesToClaim: The fee {} {} is not claimable because there are not enough fees collected",
         amount,
         denom
     )]
