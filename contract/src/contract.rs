@@ -15,7 +15,7 @@ use crate::{
     operation::{
         check_operation_exists, create_pending_operation,
         handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation,
-        substract_pending_refunds, Operation, OperationType,
+        remove_pending_refund, Operation, OperationType,
     },
     relayer::{assert_relayer, validate_relayers, validate_xrpl_address},
     signatures::add_signature,
@@ -35,8 +35,8 @@ use coreum_wasm_sdk::{
     core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
-    coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps,
-    DepsMut, Env, MessageInfo, Order, Response, StdResult, Uint128,
+    coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env,
+    MessageInfo, Order, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
@@ -208,14 +208,18 @@ pub fn execute(
             bridging_fee,
             transfer_rate,
         ),
-        ExecuteMsg::SaveEvidence { evidence } => {
-            save_evidence(deps.into_empty(), info.sender, evidence)
-        }
+        ExecuteMsg::SaveEvidence { evidence } => save_evidence(
+            deps.into_empty(),
+            env.block.time.seconds(),
+            info.sender,
+            evidence,
+        ),
         ExecuteMsg::RecoverTickets {
             account_sequence,
             number_of_tickets,
         } => recover_tickets(
             deps.into_empty(),
+            env.block.time.seconds(),
             info.sender,
             account_sequence,
             number_of_tickets,
@@ -226,6 +230,7 @@ pub fn execute(
             transfer_rate,
         } => recover_xrpl_token_registration(
             deps.into_empty(),
+            env.block.time.seconds(),
             info.sender,
             issuer,
             currency,
@@ -247,9 +252,9 @@ pub fn execute(
             update_coreum_token(deps.into_empty(), info.sender, denom, state)
         }
         ExecuteMsg::ClaimFees {} => claim_fees(deps.into_empty(), info.sender),
-        ExecuteMsg::ClaimRefunds { amounts } => {
-            claim_pending_refunds(deps.into_empty(), info.sender, amounts)
-        }
+        ExecuteMsg::ClaimRefunds {
+            pending_operation_id,
+        } => claim_pending_refund(deps.into_empty(), info.sender, pending_operation_id),
     }
 }
 
@@ -405,6 +410,7 @@ fn register_xrpl_token(
 
     create_pending_operation(
         deps.storage,
+        env.block.time.seconds(),
         Some(ticket),
         None,
         OperationType::TrustSet {
@@ -422,7 +428,12 @@ fn register_xrpl_token(
         .add_attribute("denom", denom))
 }
 
-fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResult<ContractError> {
+fn save_evidence(
+    deps: DepsMut,
+    timestamp: u64,
+    sender: Addr,
+    evidence: Evidence,
+) -> CoreumResult<ContractError> {
     evidence.validate_basic()?;
 
     assert_relayer(deps.as_ref(), sender.clone())?;
@@ -616,7 +627,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
                     // we don't have available tickets left and we will notify with an attribute.
                     // NOTE: This will only happen in the particular case of a rejected ticket allocation
                     // operation.
-                    if !register_used_ticket(deps.storage)? {
+                    if !register_used_ticket(deps.storage, timestamp)? {
                         response = response.add_attribute(
                             "adding_ticket_allocation_operation_success",
                             false.to_string(),
@@ -648,6 +659,7 @@ fn save_evidence(deps: DepsMut, sender: Addr, evidence: Evidence) -> CoreumResul
 
 fn recover_tickets(
     deps: DepsMut,
+    timestamp: u64,
     sender: Addr,
     account_sequence: u64,
     number_of_tickets: Option<u32>,
@@ -684,6 +696,7 @@ fn recover_tickets(
 
     create_pending_operation(
         deps.storage,
+        timestamp,
         None,
         Some(account_sequence),
         OperationType::AllocateTickets {
@@ -698,6 +711,7 @@ fn recover_tickets(
 
 fn recover_xrpl_token_registration(
     deps: DepsMut,
+    timestamp: u64,
     sender: Addr,
     issuer: String,
     currency: String,
@@ -729,6 +743,7 @@ fn recover_xrpl_token_registration(
 
     create_pending_operation(
         deps.storage,
+        timestamp,
         Some(ticket),
         None,
         OperationType::TrustSet {
@@ -873,6 +888,7 @@ fn send_to_xrpl(
     let ticket = allocate_ticket(deps.storage)?;
     create_pending_operation(
         deps.storage,
+        env.block.time.seconds(),
         Some(ticket),
         None,
         OperationType::CoreumToXRPLTransfer {
@@ -948,16 +964,16 @@ fn claim_fees(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
         .add_attribute("sender", sender))
 }
 
-fn claim_pending_refunds(
+fn claim_pending_refund(
     deps: DepsMut,
     sender: Addr,
-    amounts: Vec<Coin>,
+    pending_operation_id: String,
 ) -> CoreumResult<ContractError> {
-    substract_pending_refunds(deps.storage, sender.to_owned(), &amounts)?;
+    let coin = remove_pending_refund(deps.storage, sender.to_owned(), pending_operation_id)?;
 
     let send_msg = BankMsg::Send {
         to_address: sender.to_string(),
-        amount: amounts,
+        amount: vec![coin],
     };
 
     Ok(Response::new()

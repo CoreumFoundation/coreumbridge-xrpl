@@ -83,7 +83,7 @@ pub enum ExecuteMsg {
     ClaimFees {},
     // Claim refunds. User who can claim amounts due to failed transactions can do it with this message.
     ClaimRefunds {
-        amounts: Vec<Coin>,
+        pending_operation_id: String,
     },
 }
 
@@ -141,5 +141,11 @@ pub struct FeesCollectedResponse {
 
 #[cw_serde]
 pub struct PendingRefundsResponse {
-    pub pending_refunds: Vec<Coin>,
+    pub pending_refunds: Vec<PendingRefund>,
+}
+
+#[cw_serde]
+pub struct PendingRefund {
+    pub id: String,
+    pub coin: Coin,
 }

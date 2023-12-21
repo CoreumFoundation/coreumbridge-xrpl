@@ -4,7 +4,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Coin, Empty, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 
-use crate::{evidence::Evidences, operation::Operation, relayer::Relayer};
+use crate::{evidence::Evidences, msg::PendingRefund, operation::Operation, relayer::Relayer};
 
 /// Top level storage key. Values must not conflict.
 /// Each key is only one byte long to ensure we use the smallest possible storage keys.
@@ -142,8 +142,9 @@ pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpd
 // Fees collected that will be distributed to all relayers when they are claimed
 pub const FEES_COLLECTED: Item<Vec<Coin>> = Item::new(TopKey::FeesCollected.as_str());
 // Amounts for rejected/invalid transactions on XRPL for each Coreum user that they can reclaim manually.
-// Key is the user address and value is a vector of coins that can be claimed back
-pub const PENDING_REFUNDS: Map<Addr, Vec<Coin>> = Map::new(TopKey::PendingRefunds.as_str());
+// Key is the sender address and value is an array of all pending refunds he can reclaim
+pub const PENDING_REFUNDS: Map<Addr, Vec<PendingRefund>> =
+    Map::new(TopKey::PendingRefunds.as_str());
 
 pub enum ContractActions {
     Instantiation,

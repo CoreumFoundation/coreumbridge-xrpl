@@ -6,6 +6,7 @@ use crate::{
     contract::{convert_amount_decimals, XRPL_TOKENS_DECIMALS},
     error::ContractError,
     evidence::TransactionResult,
+    msg::PendingRefund,
     signatures::Signature,
     state::{TokenState, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS, XRPL_TOKENS},
     token::build_xrpl_token_key,
@@ -13,6 +14,7 @@ use crate::{
 
 #[cw_serde]
 pub struct Operation {
+    pub id: String, // We will use this unique id (block timestamp - operation_id) for users to claim their funds back per operation id instead of with amounts
     pub ticket_sequence: Option<u64>,
     pub account_sequence: Option<u64>,
     pub signatures: Vec<Signature>,
@@ -57,18 +59,20 @@ pub fn check_operation_exists(
 
 pub fn create_pending_operation(
     storage: &mut dyn Storage,
+    timestamp: u64,
     ticket_sequence: Option<u64>,
     account_sequence: Option<u64>,
     operation_type: OperationType,
 ) -> Result<(), ContractError> {
+    let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
     let operation = Operation {
+        id: format!("{}-{}", timestamp, operation_id),
         ticket_sequence,
         account_sequence,
         signatures: vec![],
         operation_type,
     };
 
-    let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
     if PENDING_OPERATIONS.has(storage, operation_id) {
         return Err(ContractError::PendingOperationAlreadyExists {});
     }
@@ -135,8 +139,9 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                         *response = response.to_owned().add_message(burn_msg);
                     } else {
                         // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
-                        store_pending_refunds(
+                        store_pending_refund(
                             storage,
+                            pending_operation.id,
                             sender,
                             coin(
                                 amount.checked_add(transfer_fee)?.u128(),
@@ -162,8 +167,9 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                                     amount,
                                 )?;
                                 // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
-                                store_pending_refunds(
+                                store_pending_refund(
                                     storage,
+                                    pending_operation.id,
                                     sender,
                                     coin(amount_to_send_back.u128(), token.denom),
                                 )?;
@@ -184,8 +190,9 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
     Ok(())
 }
 
-pub fn store_pending_refunds(
+pub fn store_pending_refund(
     storage: &mut dyn Storage,
+    pending_operation_id: String,
     receiver: Addr,
     coin: Coin,
 ) -> Result<(), ContractError> {
@@ -194,44 +201,39 @@ pub fn store_pending_refunds(
         Some(pending_refunds) => pending_refunds,
         None => vec![],
     };
-    // If we already have the coin in the fee collected array, we update the amount, if not, we add it as a new element.
-    match pending_refunds.iter_mut().find(|c| c.denom == coin.denom) {
-        Some(found_coin) => found_coin.amount += coin.amount,
-        None => pending_refunds.push(coin),
-    }
+
+    // We add the pending refund to the array
+    pending_refunds.push(PendingRefund {
+        id: pending_operation_id,
+        coin,
+    });
 
     PENDING_REFUNDS.save(storage, receiver, &pending_refunds)?;
 
     Ok(())
 }
 
-pub fn substract_pending_refunds(
+pub fn remove_pending_refund(
     storage: &mut dyn Storage,
     sender: Addr,
-    amounts: &Vec<Coin>,
-) -> Result<(), ContractError> {
+    pending_operation_id: String,
+) -> Result<Coin, ContractError> {
     let mut pending_refunds = PENDING_REFUNDS.load(storage, sender.to_owned())?;
-    // We are going to check if the amounts sent to claim are available in the refundable amounts and if they are, substract the amount from the refundable amounts.
-    // If they are not, we are going to cancel the claiming operation.
-    for coin in amounts {
-        match pending_refunds
-            .iter_mut()
-            .find(|f| f.denom == coin.denom && f.amount >= coin.amount)
-        {
-            Some(found_coin) => found_coin.amount -= coin.amount,
-            None => {
-                return Err(ContractError::AmountNotRefundable {
-                    denom: coin.denom.to_owned(),
-                    amount: coin.amount,
-                })
-            }
+    // We check that there is a pending refund for this user and this id, if there isn't we return an error
+    let coin = match pending_refunds
+        .iter()
+        .find(|refund| refund.id == pending_operation_id)
+    {
+        Some(pending_refund) => {
+            // We return the amount that we have to send back to the user
+            pending_refund.coin.to_owned()
         }
-    }
+        None => return Err(ContractError::PendingRefundNotFound {}),
+    };
 
-    // Clean if amount is zero
-    pending_refunds.retain(|c| !c.amount.is_zero());
-
+    // Remove the pending refund from the array
+    pending_refunds.retain(|refund| refund.id != pending_operation_id);
     PENDING_REFUNDS.save(storage, sender, &pending_refunds)?;
 
-    Ok(())
+    Ok(coin)
 }

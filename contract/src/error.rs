@@ -1,4 +1,4 @@
-use cosmwasm_std::{DivideByZeroError, OverflowError, StdError, Uint128};
+use cosmwasm_std::{DivideByZeroError, OverflowError, StdError};
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
@@ -167,9 +167,7 @@ pub enum ContractError {
     InvalidTransferRate {},
 
     #[error(
-        "AmountNotRefundable: The amount {} {} is not refundable",
-        amount,
-        denom
+        "PendingRefundNotFound: There is no pending refund for this user and pending operation id"
     )]
-    AmountNotRefundable { denom: String, amount: Uint128 },
+    PendingRefundNotFound {},
 }
