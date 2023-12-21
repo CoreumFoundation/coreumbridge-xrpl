@@ -231,8 +231,14 @@ pub fn remove_pending_refund(
         None => return Err(ContractError::PendingRefundNotFound {}),
     };
 
-    // Remove the pending refund from the array
-    pending_refunds.retain(|refund| refund.id != pending_operation_id);
+    // Remove the first pending refund that matches the id (for possible edge cases)
+    let position = pending_refunds
+        .iter()
+        .position(|refund| refund.id == pending_operation_id)
+        .unwrap();
+
+    pending_refunds.remove(position);
+
     PENDING_REFUNDS.save(storage, sender, &pending_refunds)?;
 
     Ok(coin)
