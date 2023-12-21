@@ -978,7 +978,7 @@ fn claim_pending_refund(
 
     Ok(Response::new()
         .add_message(send_msg)
-        .add_attribute("action", ContractActions::ClaimRefundableAmounts.as_str())
+        .add_attribute("action", ContractActions::ClaimRefunds.as_str())
         .add_attribute("sender", sender))
 }
 
