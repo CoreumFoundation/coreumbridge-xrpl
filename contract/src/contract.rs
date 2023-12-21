@@ -13,9 +13,9 @@ use crate::{
         XRPLTokensResponse,
     },
     operation::{
-        check_and_update_refundable_amounts, check_operation_exists, create_pending_operation,
-        handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation, Operation,
-        OperationType,
+        check_operation_exists, create_pending_operation,
+        handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation,
+        substract_refundable_amounts, Operation, OperationType,
     },
     relayer::{assert_relayer, validate_relayers, validate_xrpl_address},
     signatures::add_signature,
@@ -953,7 +953,7 @@ fn claim_refundable_amounts(
     sender: Addr,
     amounts: Vec<Coin>,
 ) -> CoreumResult<ContractError> {
-    check_and_update_refundable_amounts(deps.storage, sender.to_owned(), &amounts)?;
+    substract_refundable_amounts(deps.storage, sender.to_owned(), &amounts)?;
 
     let send_msg = BankMsg::Send {
         to_address: sender.to_string(),

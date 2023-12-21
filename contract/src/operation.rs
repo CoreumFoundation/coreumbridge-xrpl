@@ -208,7 +208,7 @@ pub fn store_refundable_amount(
     Ok(())
 }
 
-pub fn check_and_update_refundable_amounts(
+pub fn substract_refundable_amounts(
     storage: &mut dyn Storage,
     sender: Addr,
     amounts: &Vec<Coin>,
