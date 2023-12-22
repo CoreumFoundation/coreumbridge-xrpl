@@ -1,4 +1,4 @@
-use cosmwasm_std::{DivideByZeroError, OverflowError, StdError};
+use cosmwasm_std::{DivideByZeroError, OverflowError, StdError, Uint128};
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
@@ -165,4 +165,11 @@ pub enum ContractError {
 
     #[error("InvalidTransferRate: The transfer rate sent is invalid, it must be more than 1000000000 (0%) and less or equal than 2000000000 (100%)")]
     InvalidTransferRate {},
+
+    #[error(
+        "NotEnoughFeesToClaim: The fee {} {} is not claimable because there are not enough fees collected",
+        amount,
+        denom
+    )]
+    NotEnoughFeesToClaim { denom: String, amount: Uint128 },
 }
