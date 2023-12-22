@@ -79,11 +79,12 @@ pub enum ExecuteMsg {
         denom: String,
         state: Option<TokenState>,
     },
-    // Any relayer can claim fees at any point in time. They will be distributed proportionally among all of them.
-    ClaimFees {},
     // Claim refunds. User who can claim amounts due to failed transactions can do it with this message.
     ClaimRefunds {
         pending_operation_id: String,
+    // Any relayer can claim fees at any point in time. They need to provide what they want to claim.
+    ClaimFees {
+        amounts: Vec<Coin>,
     },
 }
 
@@ -109,7 +110,7 @@ pub enum QueryMsg {
     #[returns(AvailableTicketsResponse)]
     AvailableTickets {},
     #[returns(FeesCollectedResponse)]
-    FeesCollected {},
+    FeesCollected { relayer_address: Addr },
     #[returns(PendingRefundsResponse)]
     PendingRefunds { address: Addr },
 }

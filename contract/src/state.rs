@@ -22,6 +22,7 @@ pub enum TopKey {
     PendingTicketUpdate = b'a',
     FeesCollected = b'b',
     PendingRefunds = b'c',
+    FeeRemainders = b'd',
 }
 
 impl TopKey {
@@ -139,12 +140,15 @@ pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str
 pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
 // Flag to know if we are currently waiting for new_tickets to be allocated
 pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
-// Fees collected that will be distributed to all relayers when they are claimed
-pub const FEES_COLLECTED: Item<Vec<Coin>> = Item::new(TopKey::FeesCollected.as_str());
 // Amounts for rejected/invalid transactions on XRPL for each Coreum user that they can reclaim manually.
 // Key is the sender address and value is an array of all pending refunds he can reclaim
 pub const PENDING_REFUNDS: Map<Addr, Vec<PendingRefund>> =
     Map::new(TopKey::PendingRefunds.as_str());
+// Fees collected that will be slowly accumulated here and relayers can claim them anytime
+pub const FEES_COLLECTED: Map<Addr, Vec<Coin>> = Map::new(TopKey::FeesCollected.as_str());
+// Fees Remainders in case that we have some small amounts left after dividing fees between our relayers we will keep them here until next time we collect fees and can add them to the new amount
+// Key is Coin denom and value is Coin amount
+pub const FEE_REMAINDERS: Map<String, Uint128> = Map::new(TopKey::FeeRemainders.as_str());
 
 pub enum ContractActions {
     Instantiation,
