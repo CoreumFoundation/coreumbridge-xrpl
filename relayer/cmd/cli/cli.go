@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/keys"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -126,6 +127,10 @@ func StartCmd() *cobra.Command {
 
 // KeyringCmd returns cosmos keyring cmd inti with the correct keys home.
 func KeyringCmd() (*cobra.Command, error) {
+	// We need to set CoinType to Coreum value before initializing keys commands because keys.Commands() sets default
+	// flag value from sdk config. See github.com/cosmos/cosmos-sdk@v0.47.5/client/keys/add.go:78
+	sdk.GetConfig().SetCoinType(constant.CoinType)
+
 	// we set it for the keyring manually since it doesn't use the runner which does it for other CLI commands
 	cmd := keys.Commands(DefaultHomeDir)
 	for _, childCmd := range cmd.Commands() {
