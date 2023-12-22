@@ -4,10 +4,7 @@ mod tests {
     use coreum_wasm_sdk::types::coreum::asset::ft::v1::{MsgFreeze, MsgUnfreeze};
     use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
     use coreum_wasm_sdk::{
-        assetft::{BURNING, FREEZING, IBC, MINTING},
-    use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
-    use coreum_wasm_sdk::{
-        assetft::{BURNING, IBC, MINTING},
+        assetft::{BURNING, IBC, MINTING, FREEZING},
         types::{
             coreum::asset::ft::v1::{
                 MsgIssue, QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
