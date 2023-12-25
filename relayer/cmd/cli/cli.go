@@ -3,7 +3,7 @@ package cli
 import (
 	"bufio"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -20,9 +20,21 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-const (
+func init() {
+	userHomeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+
+	DefaultHomeDir = filepath.Join(userHomeDir, ".coreumbridge-xrpl-relayer")
+}
+
+var (
 	// DefaultHomeDir is default home for the relayer.
-	DefaultHomeDir = ".coreumbridge-xrpl-relayer"
+	DefaultHomeDir string
+)
+
+const (
 	// FlagHome is home flag.
 	FlagHome = "home"
 	// FlagKeyName is key name flag.
@@ -332,30 +344,7 @@ func getRelayerHomeRunnerConfig(cmd *cobra.Command) (runner.Config, error) {
 }
 
 func getRelayerHome(cmd *cobra.Command) (string, error) {
-	home, err := cmd.Flags().GetString(FlagHome)
-	if err != nil {
-		return "", errors.WithStack(err)
-	}
-	if home == "" || home == DefaultHomeDir {
-		home, err = getUserHomeDir(DefaultHomeDir)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return home, nil
-}
-
-func getUserHomeDir(subPath ...string) (string, error) {
-	dirname, err := os.UserHomeDir()
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get user home dir")
-	}
-	for _, item := range subPath {
-		dirname = path.Join(dirname, item)
-	}
-
-	return dirname, nil
+	return cmd.Flags().GetString(FlagHome)
 }
 
 func addHomeFlag(cmd *cobra.Command) {
