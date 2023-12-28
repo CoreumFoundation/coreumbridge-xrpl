@@ -61,9 +61,11 @@ type XRPLTxSigner interface {
 	MultiSign(tx rippledata.MultiSignable, keyName string) (rippledata.Signer, error)
 }
 
-// IsEvidenceErrorCausedByResubmission returns true is error is cause of the re-submitting of the transaction.
-func IsEvidenceErrorCausedByResubmission(err error) bool {
+// IsEvidenceErrorCausedByResubmissionOrDisabledToken returns true if the error is caused by the re-submitting
+// of the transaction or disabled token.
+func IsEvidenceErrorCausedByResubmissionOrDisabledToken(err error) bool {
 	return coreum.IsEvidenceAlreadyProvidedError(err) ||
 		coreum.IsOperationAlreadyExecutedError(err) ||
-		coreum.IsPendingOperationNotFoundError(err)
+		coreum.IsPendingOperationNotFoundError(err) ||
+		coreum.IsTokenNotEnabledError(err)
 }
