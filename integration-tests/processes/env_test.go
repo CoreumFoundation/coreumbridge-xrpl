@@ -288,6 +288,7 @@ func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 		xrpl.ConvertCurrencyToString(currency),
 		sendingPrecision,
 		maxHoldingAmount,
+		sdkmath.NewInt(0),
 	)
 	require.NoError(t, err)
 	// await for the trust set

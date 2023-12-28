@@ -442,6 +442,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		sendingPrecision,
 		maxHoldingAmount,
+		sdkmath.NewInt(0),
 	)
 	require.NoError(t, err)
 
@@ -453,6 +454,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		xrpl.ConvertCurrencyToString(registeredXRPLHexCurrency),
 		sendingPrecision,
 		maxHoldingAmount,
+		sdkmath.NewInt(0),
 	)
 	require.NoError(t, err)
 
@@ -590,6 +592,7 @@ func TestRecoverXRPLOriginatedTokenRegistrationAndSendFromXRPLToCoreumAndBack(t 
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		sdkmath.NewInt(0),
 	)
 	require.NoError(t, err)
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
@@ -720,7 +723,13 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	require.NoError(t, err)
 	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
 	_, err = runnerEnv.ContractClient.RegisterCoreumToken(
-		ctx, runnerEnv.ContractOwner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount,
+		ctx,
+		runnerEnv.ContractOwner,
+		denom,
+		tokenDecimals,
+		sendingPrecision,
+		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	registeredCoreumOriginatedToken, err := runnerEnv.ContractClient.GetCoreumTokenByDenom(ctx, denom)
@@ -891,7 +900,13 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 	require.NoError(t, err)
 	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
 	_, err = runnerEnv.ContractClient.RegisterCoreumToken(
-		ctx, runnerEnv.ContractOwner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount,
+		ctx,
+		runnerEnv.ContractOwner,
+		denom,
+		tokenDecimals,
+		sendingPrecision,
+		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	registeredCoreumOriginatedToken, err := runnerEnv.ContractClient.GetCoreumTokenByDenom(ctx, denom)

@@ -37,6 +37,7 @@ const (
 	ExecMethodSaveSignature           ExecMethod = "save_signature"
 	ExecSendToXRPL                    ExecMethod = "send_to_xrpl"
 	ExecRecoveryXRPLTokenRegistration ExecMethod = "recover_xrpl_token_registration"
+	ExecClaimFees                     ExecMethod = "claim_fees"
 )
 
 // TransactionResult is transaction result.
@@ -68,6 +69,7 @@ const (
 	QueryMethodConfig            QueryMethod = "config"
 	QueryMethodOwnership         QueryMethod = "ownership"
 	QueryMethodXRPLTokens        QueryMethod = "xrpl_tokens"
+	QueryMethodFeesCollected     QueryMethod = "fees_collected"
 	QueryMethodCoreumTokens      QueryMethod = "coreum_tokens"
 	QueryMethodPendingOperations QueryMethod = "pending_operations"
 	QueryMethodAvailableTickets  QueryMethod = "available_tickets"
@@ -271,6 +273,10 @@ type recoverXRPLTokenRegistrationRequest struct {
 	Currency string `json:"currency"`
 }
 
+type claimFeesRequest struct {
+	Amounts []sdk.Coin `json:"amounts"`
+}
+
 type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
 	Tickets []uint32 `json:"tickets"`
 }
@@ -313,6 +319,10 @@ type pendingOperationsResponse struct {
 
 type availableTicketsResponse struct {
 	Tickets []uint32 `json:"tickets"`
+}
+
+type feesCollectedResponse struct {
+	FeesCollected []sdk.Coin `json:"fees_collected"`
 }
 
 type pagingRequest struct {
@@ -509,6 +519,7 @@ func (c *ContractClient) RegisterCoreumToken(
 	decimals uint32,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
+	bridgingFee sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]registerCoreumTokenRequest{
@@ -517,7 +528,7 @@ func (c *ContractClient) RegisterCoreumToken(
 				Decimals:         decimals,
 				SendingPrecision: sendingPrecision,
 				MaxHoldingAmount: maxHoldingAmount,
-				BridgingFee:      sdkmath.NewInt(0),
+				BridgingFee:      bridgingFee,
 			},
 		},
 	})
@@ -535,6 +546,7 @@ func (c *ContractClient) RegisterXRPLToken(
 	issuer, currency string,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
+	bridgingFee sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	fee, err := c.queryAssetFTIssueFee(ctx)
 	if err != nil {
@@ -548,7 +560,7 @@ func (c *ContractClient) RegisterXRPLToken(
 				Currency:         currency,
 				SendingPrecision: sendingPrecision,
 				MaxHoldingAmount: maxHoldingAmount,
-				BridgingFee:      sdkmath.NewInt(0),
+				BridgingFee:      bridgingFee,
 			},
 		},
 		Funds: sdk.NewCoins(fee),
@@ -761,6 +773,21 @@ func (c *ContractClient) RecoverXRPLTokenRegistration(
 	return txRes, nil
 }
 
+func (c *ContractClient) ClaimFees(ctx context.Context, sender sdk.AccAddress, amounts []sdk.Coin) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]claimFeesRequest{
+			ExecClaimFees: {
+				Amounts: amounts,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
 // ******************** Query ********************
 
 // GetContractConfig returns contract config.
@@ -887,6 +914,23 @@ func (c *ContractClient) GetAvailableTickets(ctx context.Context) ([]uint32, err
 	}
 
 	return response.Tickets, nil
+}
+
+// GetFeesCollected returns collected fees for an account.
+func (c *ContractClient) GetFeesCollected(ctx context.Context, address sdk.Address) ([]sdk.Coin, error) {
+	var response feesCollectedResponse
+	err := c.query(ctx, map[QueryMethod]interface{}{
+		QueryMethodFeesCollected: struct {
+			RelayerAddress string `json:"relayer_address"`
+		}{
+			RelayerAddress: address.String(),
+		},
+	}, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.FeesCollected, nil
 }
 
 func (c *ContractClient) getPaginatedXRPLTokens(
