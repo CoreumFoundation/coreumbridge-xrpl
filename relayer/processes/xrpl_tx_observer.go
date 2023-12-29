@@ -156,8 +156,8 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		return nil
 	}
 
-	if IsEvidenceErrorCausedByResubmission(err) {
-		o.log.Debug(ctx, "Received expected send evidence error caused by re-submission")
+	if IsEvidenceErrorCausedByResubmissionOrDisabledToken(err) {
+		o.log.Debug(ctx, "Received expected send evidence error")
 		return nil
 	}
 
@@ -186,6 +186,11 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 		return o.sendXRPLTrustSetTransactionResultEvidence(ctx, tx)
 	case rippledata.PAYMENT.String():
 		return o.sendCoreumToXRPLTransferTransactionResultEvidence(ctx, tx)
+	// types which we use initially for the account set up
+	case rippledata.ACCOUNT_SET.String(),
+		rippledata.SIGNER_LIST_SET.String():
+		o.log.Debug(ctx, "Skipped expected tx type", zap.String("txType", txType), zap.Any("tx", tx))
+		return nil
 	default:
 		// TODO(dzmitryhil) replace with the error once we integrate all supported types
 		o.log.Warn(ctx, "Found unsupported transaction type", zap.Any("tx", tx))
@@ -292,7 +297,7 @@ func (o *XRPLTxObserver) handleEvidenceSubmissionError(
 		}
 		return nil
 	}
-	if IsEvidenceErrorCausedByResubmission(err) {
+	if IsEvidenceErrorCausedByResubmissionOrDisabledToken(err) {
 		o.log.Debug(ctx, "Received expected send evidence error")
 		return nil
 	}

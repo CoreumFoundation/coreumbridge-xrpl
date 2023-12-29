@@ -20,7 +20,7 @@ replace (
 )
 
 require (
-	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20231212055417-5e835e510490
+	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20231217181722-0df49f4937c2
 	github.com/CoreumFoundation/coreum/v4 v4.0.0-20231214085313-7374d8121189
 	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22

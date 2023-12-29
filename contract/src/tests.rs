@@ -1272,7 +1272,7 @@ mod tests {
 
         assert!(not_active_error
             .to_string()
-            .contains(ContractError::XRPLTokenNotEnabled {}.to_string().as_str()));
+            .contains(ContractError::TokenNotEnabled {}.to_string().as_str()));
 
         // Activate the token
         let query_pending_operations = wasm
@@ -7151,7 +7151,7 @@ mod tests {
 
         assert!(disabled_error
             .to_string()
-            .contains(ContractError::XRPLTokenNotEnabled {}.to_string().as_str()));
+            .contains(ContractError::TokenNotEnabled {}.to_string().as_str()));
 
         // If we try to change the status to something that is not disabled or enabled it should fail
         let update_status_error = wasm
@@ -7237,7 +7237,7 @@ mod tests {
 
         assert!(send_error
             .to_string()
-            .contains(ContractError::XRPLTokenNotEnabled {}.to_string().as_str()));
+            .contains(ContractError::TokenNotEnabled {}.to_string().as_str()));
 
         // Register the Coreum Token
         wasm.execute::<ExecuteMsg>(
@@ -7298,7 +7298,7 @@ mod tests {
             .unwrap_err();
 
         assert!(send_error.to_string().contains(
-            ContractError::CoreumOriginatedTokenDisabled {}
+            ContractError::TokenNotEnabled {}
                 .to_string()
                 .as_str()
         ));
