@@ -237,6 +237,7 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 			ctx,
 			"Transaction has been successfully submitted",
 			zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
+			zap.Any("tx", tx),
 		)
 		return nil
 	}
@@ -442,6 +443,12 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 		signer.Signer.TxnSignature.String(),
 	)
 	if err == nil {
+		s.log.Info(
+			ctx,
+			"Signature registered for the operation",
+			zap.String("signature", signer.Signer.TxnSignature.String()),
+			zap.Any("operation", operation),
+		)
 		return nil
 	}
 	if coreum.IsSignatureAlreadyProvidedError(err) {
