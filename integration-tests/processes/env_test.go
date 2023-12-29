@@ -253,16 +253,9 @@ func (r *RunnerEnv) AllocateTickets(
 	t *testing.T,
 	numberOfTicketsToAllocate uint32,
 ) {
-	bridgeXRPLAccountInfo, err := r.Chains.XRPL.RPCClient().AccountInfo(ctx, r.bridgeXRPLAddress)
-	require.NoError(t, err)
-
 	r.Chains.XRPL.FundAccountForTicketAllocation(ctx, t, r.bridgeXRPLAddress, numberOfTicketsToAllocate)
-	_, err = r.ContractClient.RecoverTickets(
-		ctx, r.ContractOwner, *bridgeXRPLAccountInfo.AccountData.Sequence, &numberOfTicketsToAllocate,
-	)
-	require.NoError(t, err)
+	require.NoError(t, r.BridgeClient.RecoverTickets(ctx, r.ContractOwner, numberOfTicketsToAllocate))
 
-	require.NoError(t, err)
 	r.AwaitNoPendingOperations(ctx, t)
 	availableTickets, err := r.ContractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
@@ -281,11 +274,11 @@ func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 	r.Chains.Coreum.FundAccountWithOptions(ctx, t, r.ContractOwner, coreumintegration.BalancesOptions{
 		Amount: r.Chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount,
 	})
-	_, err := r.ContractClient.RegisterXRPLToken(
+	_, err := r.BridgeClient.RegisterXRPLToken(
 		ctx,
 		r.ContractOwner,
-		issuer.String(),
-		xrpl.ConvertCurrencyToString(currency),
+		issuer,
+		currency,
 		sendingPrecision,
 		maxHoldingAmount,
 	)
@@ -299,6 +292,44 @@ func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 	require.Equal(t, coreum.TokenStateEnabled, registeredXRPLToken.State)
 
 	return registeredXRPLToken
+}
+
+// RegisterCoreumOriginatedToken registers Coreum token and reruns stored token.
+func (r *RunnerEnv) RegisterCoreumOriginatedToken(
+	ctx context.Context,
+	t *testing.T,
+	denom string,
+	decimals uint32,
+	sendingPrecision int32,
+	maxHoldingAmount sdkmath.Int,
+) coreum.CoreumToken {
+	token, err := r.BridgeClient.RegisterCoreumToken(
+		ctx, r.ContractOwner, denom, decimals, sendingPrecision, maxHoldingAmount,
+	)
+	require.NoError(t, err)
+	return token
+}
+
+// SendFromCoreumToXRPL sends tokens form Coreum to XRPL.
+func (r *RunnerEnv) SendFromCoreumToXRPL(
+	ctx context.Context,
+	t *testing.T,
+	sender sdk.AccAddress,
+	amount sdk.Coin,
+	recipient rippledata.Account,
+) {
+	require.NoError(t, r.BridgeClient.SendFromCoreumToXRPL(ctx, sender, amount, recipient))
+}
+
+// SendFromXRPLToCoreum sends tokens form XRPL to Coreum.
+func (r *RunnerEnv) SendFromXRPLToCoreum(
+	ctx context.Context,
+	t *testing.T,
+	senderKeyName string,
+	amount rippledata.Amount,
+	recipient sdk.AccAddress,
+) {
+	require.NoError(t, r.BridgeClient.SendFromXRPLToCoreum(ctx, senderKeyName, amount, recipient))
 }
 
 // SendXRPLPaymentTx sends Payment transaction.
@@ -366,17 +397,11 @@ func (r *RunnerEnv) SendXRPLMaxTrustSetTx(
 ) {
 	value, err := rippledata.NewValue("1e80", false)
 	require.NoError(t, err)
-	trustSetTx := rippledata.TrustSet{
-		LimitAmount: rippledata.Amount{
-			Value:    value,
-			Currency: currency,
-			Issuer:   issuer,
-		},
-		TxBase: rippledata.TxBase{
-			TransactionType: rippledata.TRUST_SET,
-		},
-	}
-	require.NoError(t, r.Chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &trustSetTx, account))
+	require.NoError(t, r.BridgeClient.SetXRPLTrustSet(ctx, account.String(), rippledata.Amount{
+		Value:    value,
+		Currency: currency,
+		Issuer:   issuer,
+	}))
 }
 
 func genCoreumRelayers(
@@ -462,15 +487,11 @@ func createDevRunner(
 
 	relayerRunnerCfg.Coreum.GRPC.URL = chains.Coreum.Config().GRPCAddress
 	relayerRunnerCfg.Coreum.Contract.ContractAddress = contractAddress.String()
-	// We use high gas adjustment since our relayers might send transactions in one block.
-	// They estimate gas based on the same state, but since transactions are executed one by one the next transaction uses
-	// the state different from the one it used for the estimation as a result the out-of-gas error might appear.
-	relayerRunnerCfg.Coreum.Contract.GasAdjustment = 2
 	relayerRunnerCfg.Coreum.Network.ChainID = chains.Coreum.ChainSettings.ChainID
 	// make operation fetcher fast
 	relayerRunnerCfg.Processes.XRPLTxSubmitter.RepeatDelay = 500 * time.Millisecond
 
-	relayerRunner, err := runner.NewRunner(ctx, relayerRunnerCfg, kr)
+	relayerRunner, err := runner.NewRunner(ctx, relayerRunnerCfg, kr, false)
 	require.NoError(t, err)
 	return relayerRunner
 }

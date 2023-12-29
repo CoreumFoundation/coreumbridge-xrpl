@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	run.Tool("CoreumbridgeXRPLRelayer", func(ctx context.Context) error {
+	run.Tool("coreumbridge-xrpl-relayer", func(ctx context.Context) error {
 		rootCmd, err := RootCmd(ctx)
 		if err != nil {
 			return err
@@ -51,7 +51,17 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	}
 	cmd.AddCommand(keyringCmd)
 	cmd.AddCommand(cli.XRPLKeyInfoCmd())
-	cmd.AddCommand(cli.BootstrapBridge())
+	cmd.AddCommand(cli.BootstrapBridgeCmd())
+	cmd.AddCommand(cli.ContractConfigCmd())
+	cmd.AddCommand(cli.RecoverTicketsCmd())
+	cmd.AddCommand(cli.RegisterCoreumTokenCmd())
+	cmd.AddCommand(cli.RegisterXRPLTokenCmd())
+	cmd.AddCommand(cli.RegisteredTokensCmd())
+	cmd.AddCommand(cli.SendFromCoreumToXRPLCmd())
+	cmd.AddCommand(cli.SendFromXRPLToCoreumCmd())
+	cmd.AddCommand(cli.CoreumBalancesCmd())
+	cmd.AddCommand(cli.XRPLBalancesCmd())
+	cmd.AddCommand(cli.SetXRPLTrustSet())
 
 	return cmd, nil
 }

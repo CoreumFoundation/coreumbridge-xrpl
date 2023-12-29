@@ -16,7 +16,7 @@ build-relayer:
 
 .PHONY: build-relayer-docker
 build-relayer-docker:
-	docker build -f $(RELAYER_DIR)/Dockerfile . -t coreumbridge-xrpl-relayer:local
+	docker buildx build -f $(RELAYER_DIR)/Dockerfile . -t coreumbridge-xrpl-relayer:local
 
 .PHONY: build-relayer-in-docker
 build-relayer-in-docker:
