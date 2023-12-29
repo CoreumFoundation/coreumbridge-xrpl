@@ -61,7 +61,10 @@ type XRPLTxSigner interface {
 	MultiSign(tx rippledata.MultiSignable, keyName string) (rippledata.Signer, error)
 }
 
-// IsExpectedEvidenceSubmissionError returns true is error is cause of the re-submitting of the transaction.
+// IsExpectedEvidenceSubmissionError returns true is error is a part of expected business logic e.g:
+// - error caused by tx resubmission;
+// - maximum bridged amount reached;
+// - etc.
 func IsExpectedEvidenceSubmissionError(err error) bool {
 	return coreum.IsEvidenceAlreadyProvidedError(err) ||
 		coreum.IsOperationAlreadyExecutedError(err) ||

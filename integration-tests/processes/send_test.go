@@ -602,31 +602,20 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithAmountGreaterThanMax(t *tes
 	memo, err := xrpl.EncodeCoreumRecipientToMemo(coreumRecipient)
 	require.NoError(t, err)
 
-	runnerEnv.SendXRPLPaymentTx(
-		ctx,
-		t,
-		xrplIssuerAddress,
-		runnerEnv.bridgeXRPLAddress,
+	for _, amount := range []rippledata.Amount{
 		lowAmountToSendFromXRPLtoCoreum,
-		memo,
-	)
-	// the tx will be ignored since amount is too high
-	runnerEnv.SendXRPLPaymentTx(
-		ctx,
-		t,
-		xrplIssuerAddress,
-		runnerEnv.bridgeXRPLAddress,
-		highValueAmountToSendFromXRPLtoCoreum,
-		memo,
-	)
-	runnerEnv.SendXRPLPaymentTx(
-		ctx,
-		t,
-		xrplIssuerAddress,
-		runnerEnv.bridgeXRPLAddress,
+		highValueAmountToSendFromXRPLtoCoreum, // the tx will be ignored since amount is too high
 		lowAmountToSendFromXRPLtoCoreum,
-		memo,
-	)
+	} {
+		runnerEnv.SendXRPLPaymentTx(
+			ctx,
+			t,
+			xrplIssuerAddress,
+			runnerEnv.bridgeXRPLAddress,
+			amount,
+			memo,
+		)
+	}
 
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
