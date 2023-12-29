@@ -360,7 +360,7 @@ func (c *RPCClient) SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Tra
 	defer retryCtxCancel()
 	c.log.Info(
 		ctx,
-		"Transaction is submitted waiting for tx to be accepted",
+		"Transaction is submitted, waiting for tx to be accepted",
 		zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
 	)
 	return retry.Do(retryCtx, 250*time.Millisecond, func() error {

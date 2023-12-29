@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	ticketsToAllocate    = 250
-	minBalanceToCoverFee = float64(1)
+	// the balance includes fee for the operations and some XRP on top to cover initial TrustSet txs.
+	minBalanceToCoverFeeAndTrustLines = float64(20)
 )
 
 // ContractClient is the interface for the contract client.
@@ -36,6 +36,38 @@ type ContractClient interface {
 		config coreum.InstantiationConfig,
 	) (sdk.AccAddress, error)
 	GetContractConfig(ctx context.Context) (coreum.ContractConfig, error)
+	RecoverTickets(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		accountSequence uint32,
+		numberOfTickets *uint32,
+	) (*sdk.TxResponse, error)
+	RegisterCoreumToken(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		denom string,
+		decimals uint32,
+		sendingPrecision int32,
+		maxHoldingAmount sdkmath.Int,
+	) (*sdk.TxResponse, error)
+
+	RegisterXRPLToken(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		issuer, currency string,
+		sendingPrecision int32,
+		maxHoldingAmount sdkmath.Int,
+	) (*sdk.TxResponse, error)
+	GetCoreumTokenByDenom(ctx context.Context, denom string) (coreum.CoreumToken, error)
+	GetCoreumTokens(ctx context.Context) ([]coreum.CoreumToken, error)
+	GetXRPLTokens(ctx context.Context) ([]coreum.XRPLToken, error)
+	GetXRPLTokenByIssuerAndCurrency(ctx context.Context, issuer, currency string) (coreum.XRPLToken, error)
+	SendToXRPL(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		recipient string,
+		amount sdk.Coin,
+	) (*sdk.TxResponse, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -185,6 +217,265 @@ func (b *BridgeClient) Bootstrap(
 	return contractAddress, nil
 }
 
+// GetContractConfig returns contract config.
+func (b *BridgeClient) GetContractConfig(ctx context.Context) (coreum.ContractConfig, error) {
+	return b.contractClient.GetContractConfig(ctx)
+}
+
+// RecoverTickets recovers tickets allocation.
+func (b *BridgeClient) RecoverTickets(
+	ctx context.Context,
+	ownerAddress sdk.AccAddress,
+	ticketsToAllocate uint32,
+) error {
+	b.log.Info(ctx, "Recovering tickets", zap.Uint32("numberOfTickets", xrpl.MaxTicketsToAllocate))
+	cfg, err := b.contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return err
+	}
+	bridgeXRPLAddress, err := rippledata.NewAccountFromAddress(cfg.BridgeXRPLAddress)
+	if err != nil {
+		return errors.Wrapf(
+			err,
+			"failed to convert BridgeXRPLAddress from contract to rippledata.Account, address:%s",
+			cfg.BridgeXRPLAddress,
+		)
+	}
+	b.log.Info(ctx, "Getting bridge account sequence", zap.String("address", cfg.BridgeXRPLAddress))
+	accInfo, err := b.xrplRPCClient.AccountInfo(ctx, *bridgeXRPLAddress)
+	if err != nil {
+		return err
+	}
+	b.log.Info(ctx, "Got bridge account sequence", zap.Uint32("sequence", *accInfo.AccountData.Sequence))
+	txRes, err := b.contractClient.RecoverTickets(
+		ctx,
+		ownerAddress,
+		*accInfo.AccountData.Sequence,
+		lo.ToPtr(ticketsToAllocate),
+	)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully submitted recovery tickets transaction",
+		zap.Uint32("numberOfTickets", xrpl.MaxTicketsToAllocate),
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
+}
+
+// RegisterCoreumToken registers Coreum token.
+func (b *BridgeClient) RegisterCoreumToken(
+	ctx context.Context,
+	ownerAddress sdk.AccAddress,
+	denom string,
+	decimals uint32,
+	sendingPrecision int32,
+	maxHoldingAmount sdkmath.Int,
+) (coreum.CoreumToken, error) {
+	b.log.Info(
+		ctx,
+		"Registering Coreum token",
+		zap.String("denom", denom),
+		zap.Uint32("decimals", decimals),
+		zap.Int32("sendingPrecision", sendingPrecision),
+		zap.String("maxHoldingAmount", maxHoldingAmount.String()),
+	)
+	txRes, err := b.contractClient.RegisterCoreumToken(
+		ctx,
+		ownerAddress,
+		denom,
+		decimals,
+		sendingPrecision,
+		maxHoldingAmount,
+	)
+	if err != nil {
+		return coreum.CoreumToken{}, err
+	}
+
+	token, err := b.contractClient.GetCoreumTokenByDenom(ctx, denom)
+	if err != nil {
+		return coreum.CoreumToken{}, err
+	}
+	b.log.Info(
+		ctx,
+		"Successfully registered Coreum token",
+		zap.Any("token", token),
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return token, nil
+}
+
+// RegisterXRPLToken registers XRPL token.
+func (b *BridgeClient) RegisterXRPLToken(
+	ctx context.Context,
+	ownerAddress sdk.AccAddress,
+	issuer rippledata.Account, currency rippledata.Currency,
+	sendingPrecision int32,
+	maxHoldingAmount sdkmath.Int,
+) (coreum.XRPLToken, error) {
+	stringCurrency := xrpl.ConvertCurrencyToString(currency)
+	b.log.Info(
+		ctx,
+		"Registering XRPL token",
+		zap.String("issuer", issuer.String()),
+		zap.String("currency", stringCurrency),
+		zap.Int32("sendingPrecision", sendingPrecision),
+		zap.String("maxHoldingAmount", maxHoldingAmount.String()),
+	)
+	txRes, err := b.contractClient.RegisterXRPLToken(
+		ctx,
+		ownerAddress,
+		issuer.String(),
+		stringCurrency,
+		sendingPrecision,
+		maxHoldingAmount,
+	)
+	if err != nil {
+		return coreum.XRPLToken{}, err
+	}
+
+	token, err := b.contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer.String(), stringCurrency)
+	if err != nil {
+		return coreum.XRPLToken{}, err
+	}
+	b.log.Info(
+		ctx,
+		"Successfully registered XRPL token",
+		zap.Any("token", token),
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return token, nil
+}
+
+// GetAllTokens returns all registered tokens.
+func (b *BridgeClient) GetAllTokens(ctx context.Context) ([]coreum.CoreumToken, []coreum.XRPLToken, error) {
+	coreumTokens, err := b.contractClient.GetCoreumTokens(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	xrplTokens, err := b.contractClient.GetXRPLTokens(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return coreumTokens, xrplTokens, nil
+}
+
+// SendFromCoreumToXRPL sends tokens form Coreum to XRPL.
+func (b *BridgeClient) SendFromCoreumToXRPL(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	amount sdk.Coin,
+	recipient rippledata.Account,
+) error {
+	b.log.Info(
+		ctx,
+		"Sending tokens form Coreum to XRPL",
+		zap.String("sender", sender.String()),
+		zap.String("amount", amount.String()),
+		zap.String("recipient", recipient.String()),
+	)
+	txRes, err := b.contractClient.SendToXRPL(ctx, sender, recipient.String(), amount)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully sent tx to send from Coreum to XRPL token",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
+}
+
+// SendFromXRPLToCoreum sends tokens form XRPL to Coreum.
+func (b *BridgeClient) SendFromXRPLToCoreum(
+	ctx context.Context,
+	senderKeyName string,
+	amount rippledata.Amount,
+	recipient sdk.AccAddress,
+) error {
+	senderAccount, err := b.xrplTxSigner.Account(senderKeyName)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Sending tokens form XRPL to Coreum",
+		zap.String("sender", senderAccount.String()),
+		zap.String("amount", amount.String()),
+		zap.String("recipient", recipient.String()),
+	)
+
+	cfg, err := b.contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return err
+	}
+	xrplBridgeAddress, err := rippledata.NewAccountFromAddress(cfg.BridgeXRPLAddress)
+	if err != nil {
+		return errors.Wrapf(
+			err,
+			"failed to convert BridgeXRPLAddress from contract to rippledata.Account, address:%s",
+			cfg.BridgeXRPLAddress,
+		)
+	}
+
+	memo, err := xrpl.EncodeCoreumRecipientToMemo(recipient)
+	if err != nil {
+		return err
+	}
+
+	paymentTx := rippledata.Payment{
+		Destination: *xrplBridgeAddress,
+		Amount:      amount,
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.PAYMENT,
+			Memos: rippledata.Memos{
+				memo,
+			},
+		},
+	}
+
+	return b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &paymentTx, senderKeyName)
+}
+
+// SetXRPLTrustSet sends XRPL TrustSet transaction.
+func (b *BridgeClient) SetXRPLTrustSet(
+	ctx context.Context,
+	senderKeyName string,
+	limitAmount rippledata.Amount,
+) error {
+	senderAccount, err := b.xrplTxSigner.Account(senderKeyName)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Sending XRPL TrustSet",
+		zap.String("sender", senderAccount.String()),
+		zap.String("limitAmount", limitAmount.String()),
+	)
+
+	trustSetTx := rippledata.TrustSet{
+		LimitAmount: limitAmount,
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.TRUST_SET,
+		},
+	}
+
+	return b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &trustSetTx, senderKeyName)
+}
+
 func (b *BridgeClient) buildRelayersFromBootstrappingConfig(
 	ctx context.Context,
 	cfg BootstrappingConfig,
@@ -314,10 +605,10 @@ func (b *BridgeClient) setUpXRPLBridgeAccount(
 
 // ComputeXRPLBrideAccountBalance computes the min balance required by the XRPL bridge account.
 func ComputeXRPLBrideAccountBalance(signersCount int) float64 {
-	return minBalanceToCoverFee +
+	return minBalanceToCoverFeeAndTrustLines +
 		xrpl.ReserveToActivateAccount +
-		ticketsToAllocate*xrpl.ReservePerTicket +
-		float64(signersCount)*xrpl.ReservePerSigner
+		float64(xrpl.MaxTicketsToAllocate)*xrpl.ReservePerItem +
+		float64(signersCount)*xrpl.ReservePerItem
 }
 
 // InitBootstrappingConfig creates default bootstrapping config yaml file.
@@ -378,5 +669,16 @@ func (b *BridgeClient) autoFillSignSubmitAndAwaitXRPLTx(
 		return err
 	}
 
-	return b.xrplRPCClient.SubmitAndAwaitSuccess(ctx, tx)
+	b.log.Info(
+		ctx,
+		"Submitting XRPL transaction",
+		zap.String("txHash", tx.GetHash().String()),
+		zap.Any("tx", tx),
+	)
+	if err = b.xrplRPCClient.SubmitAndAwaitSuccess(ctx, tx); err != nil {
+		return err
+	}
+	b.log.Info(ctx, "Successfully submitted transaction", zap.String("txHash", tx.GetHash().String()))
+
+	return nil
 }
