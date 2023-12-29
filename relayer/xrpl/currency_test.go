@@ -25,14 +25,14 @@ func TestConvertCurrencyToString(t *testing.T) {
 			want:     "XRP",
 		},
 		{
-			name:     "short_currency_lower",
-			currency: mustCurrency(t, "abc"),
-			want:     "abc",
-		},
-		{
 			name:     "short_currency_upper",
 			currency: mustCurrency(t, "ABC"),
 			want:     "ABC",
+		},
+		{
+			name:     "short_currency_lower",
+			currency: mustCurrency(t, "abc"),
+			want:     "abc",
 		},
 		{
 			name:     "hex_full_length_currency",

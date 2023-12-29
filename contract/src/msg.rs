@@ -79,8 +79,10 @@ pub enum ExecuteMsg {
         denom: String,
         state: Option<TokenState>,
     },
-    // Any relayer can claim fees at any point in time. They will be distributed proportionally among all of them.
-    ClaimFees {},
+    // Any relayer can claim fees at any point in time. They need to provide what they want to claim.
+    ClaimFees {
+        amounts: Vec<Coin>,
+    },
 }
 
 #[cw_ownable_query]
@@ -105,7 +107,7 @@ pub enum QueryMsg {
     #[returns(AvailableTicketsResponse)]
     AvailableTickets {},
     #[returns(FeesCollectedResponse)]
-    FeesCollected {},
+    FeesCollected { relayer_address: Addr },
 }
 
 #[cw_serde]

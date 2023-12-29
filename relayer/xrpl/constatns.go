@@ -27,8 +27,10 @@ const (
 // Reserves.
 var (
 	ReserveToActivateAccount = float64(10)
-	ReservePerTicket         = float64(2)
-	ReservePerSigner         = float64(2)
+	// ReservePerItem defines reserves of objects that count towards their owner's reserve requirement include:
+	//	Checks, Deposit Preauthorizations, Escrows, NFT Offers, NFT Pages, Offers, Payment Channels, Signer Lists,
+	//	Tickets, and Trust Lines.
+	ReservePerItem = float64(2)
 )
 
 const (
@@ -36,6 +38,8 @@ const (
 	XRPLIssuedTokenDecimals = 15
 	// XRPCurrencyDecimals is XRP decimals used on the coreum.
 	XRPCurrencyDecimals = 6
+	// MaxTicketsToAllocate is the max supported tickets count to allocate.
+	MaxTicketsToAllocate = uint32(250)
 )
 
 // XRP token constants.
