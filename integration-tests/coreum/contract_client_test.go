@@ -850,7 +850,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 
 			issuerAcc := xrpl.GenPrivKeyTxSigner().Account()
 			issuer := issuerAcc.String()
-			currency := "CRC"
+			currency := "CRC" //nolint:goconst // defining these variables as const for testing is not beneficial.
 
 			// register from the owner
 			_, err := contractClient.RegisterXRPLToken(
@@ -3443,6 +3443,7 @@ func claimFeesAndMakeAssertions(
 		relayerBalanceAfterClaim, err := bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
 			Address: relayer.CoreumAddress.String(),
 		})
+		require.NoError(t, err)
 		balanceChange := relayerBalanceAfterClaim.Balances.AmountOf(bridgingFee.Denom).
 			Sub(relayerBalanceBeforeClaim.Balances.AmountOf(bridgingFee.Denom))
 		require.EqualValues(t, expectedFeeAmount.String(), balanceChange.String())
@@ -3450,6 +3451,6 @@ func claimFeesAndMakeAssertions(
 		// assert fees are now collected
 		fees, err = contractClient.GetFeesCollected(ctx, relayer.CoreumAddress)
 		require.NoError(t, err)
-		require.Len(t, fees, 0)
+		require.Empty(t, fees, 0)
 	}
 }
