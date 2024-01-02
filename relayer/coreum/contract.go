@@ -974,7 +974,7 @@ func (c *ContractClient) GetAvailableTickets(ctx context.Context) ([]uint32, err
 }
 
 // GetFeesCollected returns collected fees for an account.
-func (c *ContractClient) GetFeesCollected(ctx context.Context, address sdk.Address) ([]sdk.Coin, error) {
+func (c *ContractClient) GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error) {
 	var response feesCollectedResponse
 	err := c.query(ctx, map[QueryMethod]interface{}{
 		QueryMethodFeesCollected: struct {
@@ -987,7 +987,7 @@ func (c *ContractClient) GetFeesCollected(ctx context.Context, address sdk.Addre
 		return nil, err
 	}
 
-	return response.FeesCollected, nil
+	return sdk.NewCoins(response.FeesCollected...), nil
 }
 
 func (c *ContractClient) getPaginatedXRPLTokens(

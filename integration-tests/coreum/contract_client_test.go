@@ -18,6 +18,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoreumFoundation/coreum/v4/pkg/client"
@@ -3217,6 +3218,174 @@ func TestFeeCalculations(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+// TestFeeCalculations_MultipleAssetsAndPartialClaim tests that corrects fees are calculated, deducted and
+// are collected by relayers.
+//
+//nolint:tparallel // the test is parallel, but test cases are not
+func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
+	t.Parallel()
+
+	var (
+		sendingAmount    = sdkmath.NewInt(1000_000)
+		maxHoldingAmount = sdkmath.NewInt(1000_000_000)
+	)
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+
+	relayers := genRelayers(ctx, t, chains, 3)
+	bridgeAddress := xrpl.GenPrivKeyTxSigner().Account().String()
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		len(relayers),
+		10,
+		defaultTrustSetLimitAmount,
+		bridgeAddress,
+	)
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
+
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+
+	assets := []struct {
+		name            string
+		bridgingFee     sdkmath.Int
+		registeredToken coreum.XRPLToken
+	}{
+		{
+			name:        "asset 1",
+			bridgingFee: sdkmath.NewInt(4000),
+		},
+		{
+			name:        "asset 2",
+			bridgingFee: sdkmath.NewInt(4500),
+		},
+		{
+			name:        "asset 3",
+			bridgingFee: sdkmath.NewInt(2221),
+		},
+	}
+
+	for index, asset := range assets {
+		// fund owner to cover registration fee
+		chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
+			Amount: issueFee.Amount,
+		})
+
+		issuerAcc := xrpl.GenPrivKeyTxSigner().Account()
+		issuer := issuerAcc.String()
+		xrplCurrency := "CRC"
+
+		// register from the owner
+		_, err := contractClient.RegisterXRPLToken(
+			ctx,
+			owner,
+			issuer,
+			xrplCurrency,
+			15,
+			maxHoldingAmount,
+			asset.bridgingFee,
+		)
+		require.NoError(t, err)
+		registeredXRPLToken, err := contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, xrplCurrency)
+		require.NoError(t, err)
+		assets[index].registeredToken = registeredXRPLToken
+
+		// activate token
+		activateXRPLToken(ctx, t, contractClient, relayers, issuerAcc.String(), xrplCurrency)
+
+		// create an evidence
+		coreumRecipient := chains.Coreum.GenAccount()
+		xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+			TxHash:    genXRPLTxHash(t),
+			Issuer:    issuerAcc.String(),
+			Currency:  xrplCurrency,
+			Amount:    sendingAmount,
+			Recipient: coreumRecipient,
+		}
+
+		// call from all relayers
+		for _, relayer := range relayers {
+			_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer.CoreumAddress, xrplToCoreumTransferEvidence)
+			require.NoError(t, err)
+		}
+
+		balanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+			Address: coreumRecipient.String(),
+			Denom:   registeredXRPLToken.CoreumDenom,
+		})
+		require.NoError(t, err)
+		require.Equal(t, sendingAmount.Sub(asset.bridgingFee).String(), balanceRes.Balance.Amount.String())
+	}
+
+	// assert fees are calculated correctly
+	for _, relayer := range relayers {
+		fees, err := contractClient.GetFeesCollected(ctx, relayer.CoreumAddress)
+		require.NoError(t, err)
+		require.Len(t, fees, len(assets))
+		for _, fee := range fees {
+			found := false
+			for _, asset := range assets {
+				if asset.registeredToken.CoreumDenom == fee.Denom {
+					found = true
+					assert.EqualValues(t, fee.Amount.String(), asset.bridgingFee.Quo(sdk.NewInt(int64(len(relayers)))).String())
+					break
+				}
+			}
+
+			require.True(t, found)
+		}
+	}
+
+	// partial fee claiming
+	for _, relayer := range relayers {
+		initialFees, err := contractClient.GetFeesCollected(ctx, relayer.CoreumAddress)
+		require.NoError(t, err)
+
+		// claim one third of the fees
+		oneThirdOfFees := initialFees.QuoInt(sdk.NewInt(3))
+		_, err = contractClient.ClaimFees(ctx, relayer.CoreumAddress, oneThirdOfFees)
+		require.NoError(t, err)
+		allBalances, err := bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
+			Address: relayer.CoreumAddress.String(),
+		})
+		require.NoError(t, err)
+		for _, coin := range oneThirdOfFees {
+			require.Equal(t, coin.Amount.String(), allBalances.Balances.AmountOf(coin.Denom).String())
+		}
+
+		// assert remainder is correct
+		remainderFees := initialFees.Sub(oneThirdOfFees...)
+		fees, err := contractClient.GetFeesCollected(ctx, relayer.CoreumAddress)
+		require.NoError(t, err)
+		require.EqualValues(t, remainderFees.String(), fees.String())
+
+		// claim remainder of fees
+		_, err = contractClient.ClaimFees(ctx, relayer.CoreumAddress, remainderFees)
+		require.NoError(t, err)
+
+		allBalances, err = bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
+			Address: relayer.CoreumAddress.String(),
+		})
+		require.NoError(t, err)
+		allBalances, err = bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
+			Address: relayer.CoreumAddress.String(),
+		})
+		require.NoError(t, err)
+		for _, coin := range initialFees {
+			require.Equal(t, coin.Amount.String(), allBalances.Balances.AmountOf(coin.Denom).String())
+		}
+
+		// assert no fees are remaining
+		fees, err = contractClient.GetFeesCollected(ctx, relayer.CoreumAddress)
+		require.NoError(t, err)
+		require.Empty(t, fees)
 	}
 }
 
