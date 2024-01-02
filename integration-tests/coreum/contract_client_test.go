@@ -375,7 +375,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 		inactiveCurrency,
 		sendingPrecision,
 		maxHoldingAmount,
-		sdkmath.NewInt(0),
+		sdkmath.ZeroInt(),
 	)
 	require.True(t, coreum.IsNotOwnerError(err), err)
 
@@ -387,7 +387,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 		inactiveCurrency,
 		sendingPrecision,
 		maxHoldingAmount,
-		sdkmath.NewInt(0),
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -399,7 +399,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 		inactiveCurrency,
 		sendingPrecision,
 		maxHoldingAmount,
-		sdkmath.NewInt(0),
+		sdkmath.ZeroInt(),
 	)
 	require.True(t, coreum.IsXRPLTokenAlreadyRegisteredError(err), err)
 
@@ -554,7 +554,7 @@ func TestRegisterXRPLToken(t *testing.T) {
 		activeCurrency,
 		sendingPrecision,
 		maxHoldingAmount,
-		sdkmath.NewInt(0),
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -877,7 +877,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 				currency,
 				tt.sendingPrecision,
 				tt.maxHoldingAmount,
-				sdkmath.NewInt(0),
+				sdkmath.ZeroInt(),
 			)
 			require.NoError(t, err)
 			registeredXRPLToken, err := contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, currency)
@@ -1946,7 +1946,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 		currency,
 		sendingPrecision,
 		maxHoldingAmount,
-		sdkmath.NewInt(0),
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	// activate token
@@ -2205,7 +2205,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 				currency,
 				tt.sendingPrecision,
 				tt.maxHoldingAmount,
-				sdkmath.NewInt(0),
+				sdkmath.ZeroInt(),
 			)
 			require.NoError(t, err)
 			registeredXRPLToken, err := contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, currency)
@@ -2855,7 +2855,7 @@ func TestRecoverXRPLTokeRegistration(t *testing.T) {
 		currency,
 		sendingPrecision,
 		maxHoldingAmount,
-		sdkmath.NewInt(0),
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -3019,7 +3019,6 @@ func TestFeeCalculations(t *testing.T) {
 	type testCase struct {
 		name                    string
 		bridgingFee             sdkmath.Int
-		maxHoldingAmount        sdkmath.Int
 		sendingPrecision        int32
 		sendingAmountFromXRPL   sdkmath.Int
 		receivedOnCoreum        sdkmath.Int
@@ -3035,20 +3034,18 @@ func TestFeeCalculations(t *testing.T) {
 		{
 			name:                    "zero bridge fee",
 			sendingPrecision:        2,
-			bridgingFee:             sdkmath.NewInt(0),
-			maxHoldingAmount:        highMaxHoldingAmount,
+			bridgingFee:             sdkmath.ZeroInt(),
 			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
 			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
-			collectedFeeFromXRPL:    sdkmath.NewInt(0),
+			collectedFeeFromXRPL:    sdkmath.ZeroInt(),
 			sendingAmountFromCoreum: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
 			receivedOnXRPL:          integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
-			collectedFeeFromCoreum:  sdkmath.NewInt(0),
+			collectedFeeFromCoreum:  sdkmath.ZeroInt(),
 		},
 		{
 			name:                    "4 bridge fee",
 			sendingPrecision:        2,
 			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "4", tokenDecimals),
-			maxHoldingAmount:        highMaxHoldingAmount,
 			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1008", tokenDecimals),
 			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1004", tokenDecimals),
 			collectedFeeFromXRPL:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "4", tokenDecimals),
@@ -3060,7 +3057,6 @@ func TestFeeCalculations(t *testing.T) {
 			name:                    "bridge fee with precision",
 			sendingPrecision:        2,
 			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.04", tokenDecimals),
-			maxHoldingAmount:        highMaxHoldingAmount,
 			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000", tokenDecimals),
 			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "999.96", tokenDecimals),
 			collectedFeeFromXRPL:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.04", tokenDecimals),
@@ -3072,7 +3068,6 @@ func TestFeeCalculations(t *testing.T) {
 			name:                    "bridge fee with precision and truncation",
 			sendingPrecision:        2,
 			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.04", tokenDecimals),
-			maxHoldingAmount:        highMaxHoldingAmount,
 			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000.222", tokenDecimals),
 			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000.18", tokenDecimals),
 			collectedFeeFromXRPL:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.042", tokenDecimals),
@@ -3084,7 +3079,6 @@ func TestFeeCalculations(t *testing.T) {
 			name:                    "bridge fee less than sending precision",
 			sendingPrecision:        1,
 			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.00001", tokenDecimals),
-			maxHoldingAmount:        highMaxHoldingAmount,
 			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000", tokenDecimals),
 			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "999.9", tokenDecimals),
 			collectedFeeFromXRPL:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.1", tokenDecimals),
@@ -3095,7 +3089,6 @@ func TestFeeCalculations(t *testing.T) {
 		{
 			name:                    "low_amount send from xrpl",
 			sendingPrecision:        2,
-			maxHoldingAmount:        highMaxHoldingAmount,
 			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.001", tokenDecimals),
 			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.01", tokenDecimals),
 			expectErrorSendToCoreum: true,
@@ -3103,7 +3096,6 @@ func TestFeeCalculations(t *testing.T) {
 		{
 			name:                    "low_amount send from coreum",
 			sendingPrecision:        2,
-			maxHoldingAmount:        highMaxHoldingAmount,
 			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.001", tokenDecimals),
 			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", tokenDecimals),
 			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.99", tokenDecimals),
@@ -3132,7 +3124,7 @@ func TestFeeCalculations(t *testing.T) {
 				issuer,
 				xrplCurrency,
 				tt.sendingPrecision,
-				tt.maxHoldingAmount,
+				highMaxHoldingAmount,
 				tt.bridgingFee,
 			)
 			require.NoError(t, err)
@@ -3953,7 +3945,7 @@ func claimFeesAndMakeAssertions(
 		require.NoError(t, err)
 		require.Len(t, fees, 1)
 
-		// collecct fees
+		// collect fees
 		relayerBalanceBeforeClaim, err := bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
 			Address: relayer.CoreumAddress.String(),
 		})

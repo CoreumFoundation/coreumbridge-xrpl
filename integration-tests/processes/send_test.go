@@ -434,7 +434,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		sendingPrecision,
 		maxHoldingAmount,
-		sdkmath.NewInt(0),
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -446,7 +446,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		xrpl.ConvertCurrencyToString(registeredXRPLHexCurrency),
 		sendingPrecision,
 		maxHoldingAmount,
-		sdkmath.NewInt(0),
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -584,7 +584,7 @@ func TestRecoverXRPLOriginatedTokenRegistrationAndSendFromXRPLToCoreumAndBack(t 
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
-		sdkmath.NewInt(0),
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
