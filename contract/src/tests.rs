@@ -4,7 +4,7 @@ mod tests {
     use coreum_wasm_sdk::types::coreum::asset::ft::v1::{MsgFreeze, MsgUnfreeze};
     use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
     use coreum_wasm_sdk::{
-        assetft::{BURNING, IBC, MINTING, FREEZING},
+        assetft::{BURNING, FREEZING, IBC, MINTING},
         types::{
             coreum::asset::ft::v1::{
                 MsgIssue, QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
@@ -1917,7 +1917,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::ClaimRefund {
-                    pending_operation_id: "random_id".to_string(),
+                    pending_refund_id: "random_id".to_string(),
                 },
                 &[],
                 &sender,
@@ -1932,7 +1932,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &signer,
@@ -1958,7 +1958,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &sender,
@@ -1984,7 +1984,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &sender,
@@ -2376,7 +2376,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &sender,
@@ -3110,7 +3110,7 @@ mod tests {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::ClaimRefund {
-                    pending_operation_id: refund.id.to_owned(),
+                    pending_refund_id: refund.id.to_owned(),
                 },
                 &[],
                 &sender,
@@ -3340,7 +3340,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &sender,
@@ -3350,7 +3350,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_operation_id: query_pending_refunds.pending_refunds[1].id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[1].id.to_owned(),
             },
             &[],
             &sender,
@@ -5798,7 +5798,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &signer,
@@ -7297,11 +7297,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(send_error.to_string().contains(
-            ContractError::TokenNotEnabled {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(send_error
+            .to_string()
+            .contains(ContractError::TokenNotEnabled {}.to_string().as_str()));
     }
 
     #[test]

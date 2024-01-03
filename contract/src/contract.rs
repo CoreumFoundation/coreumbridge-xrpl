@@ -251,10 +251,12 @@ pub fn execute(
             update_coreum_token(deps.into_empty(), info.sender, denom, state)
         }
 
-        ExecuteMsg::ClaimRefund {
-            pending_operation_id,
-        } => claim_pending_refund(deps.into_empty(), info.sender, pending_operation_id),
-        ExecuteMsg::ClaimRelayerFees { amounts } => claim_relayer_fees(deps.into_empty(), info.sender, amounts),
+        ExecuteMsg::ClaimRefund { pending_refund_id } => {
+            claim_pending_refund(deps.into_empty(), info.sender, pending_refund_id)
+        }
+        ExecuteMsg::ClaimRelayerFees { amounts } => {
+            claim_relayer_fees(deps.into_empty(), info.sender, amounts)
+        }
     }
 }
 
@@ -954,7 +956,11 @@ fn update_coreum_token(
         .add_attribute("denom", denom))
 }
 
-fn claim_relayer_fees(deps: DepsMut, sender: Addr, amounts: Vec<Coin>) -> CoreumResult<ContractError> {
+fn claim_relayer_fees(
+    deps: DepsMut,
+    sender: Addr,
+    amounts: Vec<Coin>,
+) -> CoreumResult<ContractError> {
     assert_relayer(deps.as_ref(), sender.clone())?;
 
     substract_relayer_fees(deps.storage, sender.to_owned(), &amounts)?;

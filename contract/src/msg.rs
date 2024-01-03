@@ -81,7 +81,7 @@ pub enum ExecuteMsg {
     },
     // Claim refund. User who can claim amounts due to failed transactions can do it with this message.
     ClaimRefund {
-        pending_operation_id: String,
+        pending_refund_id: String,
     },
     // Any relayer can claim fees at any point in time. They need to provide what they want to claim.
     ClaimRelayerFees {
