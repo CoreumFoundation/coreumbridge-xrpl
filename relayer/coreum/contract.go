@@ -39,7 +39,7 @@ const (
 	ExecRecoveryXRPLTokenRegistration ExecMethod = "recover_xrpl_token_registration"
 	ExecUpdateXRPLToken               ExecMethod = "update_xrpl_token"
 	ExecUpdateCoreumToken             ExecMethod = "update_coreum_token"
-	ExecClaimRefunds                  ExecMethod = "claim_refunds"
+	ExecClaimRefund                   ExecMethod = "claim_refund"
 )
 
 // TransactionResult is transaction result.
@@ -286,8 +286,8 @@ type updateCoreumTokenRequest struct {
 	State TokenState `json:"state"`
 }
 
-type claimRefundsRequest struct {
-	PendingOperationID string `json:"pending_operation_id"`
+type claimRefundRequest struct {
+	PendingRefundID string `json:"pending_refund_id"`
 }
 
 type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
@@ -833,16 +833,16 @@ func (c *ContractClient) UpdateCoreumToken(
 	return txRes, nil
 }
 
-// ClaimRefunds executes `claim_refunds` method.
-func (c *ContractClient) ClaimRefunds(
+// ClaimRefund executes `claim_refund` method.
+func (c *ContractClient) ClaimRefund(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	pendingOperationID string,
+	pendingRefundID string,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]claimRefundsRequest{
-			ExecClaimRefunds: {
-				PendingOperationID: pendingOperationID,
+		Body: map[ExecMethod]claimRefundRequest{
+			ExecClaimRefund: {
+				PendingRefundID: pendingRefundID,
 			},
 		},
 	})
@@ -981,7 +981,7 @@ func (c *ContractClient) GetAvailableTickets(ctx context.Context) ([]uint32, err
 	return response.Tickets, nil
 }
 
-// GetAvailableTickets returns a list of registered not used tickets.
+// GetPendingRefunds returns the list of pending refunds for and address.
 func (c *ContractClient) GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]PendingRefund, error) {
 	var response pendingRefundsResponse
 	err := c.query(ctx, map[QueryMethod]interface{}{
