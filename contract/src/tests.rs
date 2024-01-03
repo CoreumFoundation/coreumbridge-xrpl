@@ -1916,7 +1916,7 @@ mod tests {
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimRefunds {
+                &ExecuteMsg::ClaimRefund {
                     pending_operation_id: "random_id".to_string(),
                 },
                 &[],
@@ -1931,7 +1931,7 @@ mod tests {
         // Try to claim a pending refund with a valid pending refund operation id but not as a different user, should also fail
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefunds {
+            &ExecuteMsg::ClaimRefund {
                 pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
@@ -1957,7 +1957,7 @@ mod tests {
         // Can't claim because token is frozen
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefunds {
+            &ExecuteMsg::ClaimRefund {
                 pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
@@ -1983,7 +1983,7 @@ mod tests {
         // Let's claim our pending refund
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefunds {
+            &ExecuteMsg::ClaimRefund {
                 pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
@@ -2375,7 +2375,7 @@ mod tests {
         // Claim it, should work
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefunds {
+            &ExecuteMsg::ClaimRefund {
                 pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
@@ -3109,7 +3109,7 @@ mod tests {
         for refund in query_pending_refunds.pending_refunds.iter() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimRefunds {
+                &ExecuteMsg::ClaimRefund {
                     pending_operation_id: refund.id.to_owned(),
                 },
                 &[],
@@ -3339,7 +3339,7 @@ mod tests {
         // Claiming pending refund should work for both operations
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefunds {
+            &ExecuteMsg::ClaimRefund {
                 pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
@@ -3349,7 +3349,7 @@ mod tests {
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefunds {
+            &ExecuteMsg::ClaimRefund {
                 pending_operation_id: query_pending_refunds.pending_refunds[1].id.to_owned(),
             },
             &[],
@@ -5047,7 +5047,7 @@ mod tests {
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
                         coin(136666, xrpl_token.coreum_denom.to_owned()),
                         coin(300007, coreum_token_denom.to_owned()), // +1
@@ -5071,7 +5071,7 @@ mod tests {
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
                         coin(136666, xrpl_token.coreum_denom.to_owned()),
                         coin(300006, coreum_token_denom.to_owned()),
@@ -5096,7 +5096,7 @@ mod tests {
         for relayer in relayer_accounts.iter() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
                         coin(136666, xrpl_token.coreum_denom.to_owned()),
                         coin(300005, coreum_token_denom.to_owned()),
@@ -5127,7 +5127,7 @@ mod tests {
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![coin(1, xrpl_token.coreum_denom.to_owned())],
                 },
                 &[],
@@ -5148,7 +5148,7 @@ mod tests {
         for relayer in relayer_accounts.iter() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![coin(1, coreum_token_denom.clone())],
                 },
                 &[],
@@ -5638,7 +5638,7 @@ mod tests {
         for relayer in relayer_accounts.iter() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
                         coin(50000, token_denoms[0].to_owned()),
                         coin(88889, token_denoms[1].to_owned()),
@@ -5797,7 +5797,7 @@ mod tests {
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::ClaimRefunds {
+            &ExecuteMsg::ClaimRefund {
                 pending_operation_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],

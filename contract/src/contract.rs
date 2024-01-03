@@ -251,10 +251,10 @@ pub fn execute(
             update_coreum_token(deps.into_empty(), info.sender, denom, state)
         }
 
-        ExecuteMsg::ClaimRefunds {
+        ExecuteMsg::ClaimRefund {
             pending_operation_id,
         } => claim_pending_refund(deps.into_empty(), info.sender, pending_operation_id),
-        ExecuteMsg::ClaimFees { amounts } => claim_fees(deps.into_empty(), info.sender, amounts),
+        ExecuteMsg::ClaimRelayerFees { amounts } => claim_relayer_fees(deps.into_empty(), info.sender, amounts),
     }
 }
 
@@ -954,7 +954,7 @@ fn update_coreum_token(
         .add_attribute("denom", denom))
 }
 
-fn claim_fees(deps: DepsMut, sender: Addr, amounts: Vec<Coin>) -> CoreumResult<ContractError> {
+fn claim_relayer_fees(deps: DepsMut, sender: Addr, amounts: Vec<Coin>) -> CoreumResult<ContractError> {
     assert_relayer(deps.as_ref(), sender.clone())?;
 
     substract_relayer_fees(deps.storage, sender.to_owned(), &amounts)?;
@@ -973,9 +973,9 @@ fn claim_fees(deps: DepsMut, sender: Addr, amounts: Vec<Coin>) -> CoreumResult<C
 fn claim_pending_refund(
     deps: DepsMut,
     sender: Addr,
-    pending_operation_id: String,
+    pending_refund_id: String,
 ) -> CoreumResult<ContractError> {
-    let coin = remove_pending_refund(deps.storage, sender.to_owned(), pending_operation_id)?;
+    let coin = remove_pending_refund(deps.storage, sender.to_owned(), pending_refund_id)?;
 
     let send_msg = BankMsg::Send {
         to_address: sender.to_string(),

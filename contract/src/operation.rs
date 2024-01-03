@@ -14,7 +14,7 @@ use crate::{
 
 #[cw_serde]
 pub struct Operation {
-    pub id: String, // We will use this unique id (block timestamp - operation_id) for users to claim their funds back per operation id instead of with amounts
+    pub id: String,
     pub ticket_sequence: Option<u64>,
     pub account_sequence: Option<u64>,
     pub signatures: Vec<Signature>,
@@ -216,13 +216,13 @@ pub fn store_pending_refund(
 pub fn remove_pending_refund(
     storage: &mut dyn Storage,
     sender: Addr,
-    pending_operation_id: String,
+    pending_refund_id: String,
 ) -> Result<Coin, ContractError> {
     let mut pending_refunds = PENDING_REFUNDS.load(storage, sender.to_owned())?;
     // We check that there is a pending refund for this user and this id, if there isn't we return an error
     let coin = match pending_refunds
         .iter()
-        .find(|refund| refund.id == pending_operation_id)
+        .find(|refund| refund.id == pending_refund_id)
     {
         Some(pending_refund) => {
             // We return the amount that we have to send back to the user
@@ -234,7 +234,7 @@ pub fn remove_pending_refund(
     // Remove the pending refund that matches the id
     let position = pending_refunds
         .iter()
-        .position(|refund| refund.id == pending_operation_id)
+        .position(|refund| refund.id == pending_refund_id)
         .unwrap();
 
     pending_refunds.remove(position);

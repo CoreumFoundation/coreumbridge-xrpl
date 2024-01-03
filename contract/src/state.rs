@@ -20,8 +20,8 @@ pub enum TopKey {
     UsedTickets = b'8',
     PendingOperations = b'9',
     PendingTicketUpdate = b'a',
-    FeesCollected = b'b',
-    PendingRefunds = b'c',
+    PendingRefunds = b'b',
+    FeesCollected = b'c',
     FeeRemainders = b'd',
 }
 
