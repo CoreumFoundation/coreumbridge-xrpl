@@ -338,6 +338,7 @@ type pendingRefundsResponse struct {
 	PendingRefunds []PendingRefund `json:"pending_refunds"`
 }
 
+// PendingRefund holds the pending refund information.
 type PendingRefund struct {
 	ID   string   `json:"id"`
 	Coin sdk.Coin `json:"coin"`
