@@ -162,6 +162,11 @@ pub enum ContractError {
     InvalidTransferRate {},
 
     #[error(
+        "PendingRefundNotFound: There is no pending refund for this user and pending operation id"
+    )]
+    PendingRefundNotFound {},
+
+    #[error(
         "NotEnoughFeesToClaim: The fee {} {} is not claimable because there are not enough fees collected",
         amount,
         denom
