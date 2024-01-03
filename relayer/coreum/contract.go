@@ -39,6 +39,7 @@ const (
 	ExecRecoveryXRPLTokenRegistration ExecMethod = "recover_xrpl_token_registration"
 	ExecUpdateXRPLToken               ExecMethod = "update_xrpl_token"
 	ExecUpdateCoreumToken             ExecMethod = "update_coreum_token"
+	ExecClaimRefunds                  ExecMethod = "claim_refunds"
 )
 
 // TransactionResult is transaction result.
@@ -73,6 +74,7 @@ const (
 	QueryMethodCoreumTokens      QueryMethod = "coreum_tokens"
 	QueryMethodPendingOperations QueryMethod = "pending_operations"
 	QueryMethodAvailableTickets  QueryMethod = "available_tickets"
+	QueryMethodPendingRefunds    QueryMethod = "pending_refunds"
 )
 
 // Relayer is the relayer information in the contract config.
@@ -284,6 +286,10 @@ type updateCoreumTokenRequest struct {
 	State TokenState `json:"state"`
 }
 
+type claimRefundsRequest struct {
+	PendingOperationID string `json:"pending_operation_id"`
+}
+
 type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
 	Tickets []uint32 `json:"tickets"`
 }
@@ -326,6 +332,15 @@ type pendingOperationsResponse struct {
 
 type availableTicketsResponse struct {
 	Tickets []uint32 `json:"tickets"`
+}
+
+type pendingRefundsResponse struct {
+	PendingRefunds []PendingRefund `json:"pending_refunds"`
+}
+
+type PendingRefund struct {
+	ID   string   `json:"id"`
+	Coin sdk.Coin `json:"coin"`
 }
 
 type pagingRequest struct {
@@ -818,6 +833,26 @@ func (c *ContractClient) UpdateCoreumToken(
 	return txRes, nil
 }
 
+// ClaimRefunds executes `claim_refunds` method.
+func (c *ContractClient) ClaimRefunds(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	pendingOperationID string,
+) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]claimRefundsRequest{
+			ExecClaimRefunds: {
+				PendingOperationID: pendingOperationID,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
 // ******************** Query ********************
 
 // GetContractConfig returns contract config.
@@ -944,6 +979,23 @@ func (c *ContractClient) GetAvailableTickets(ctx context.Context) ([]uint32, err
 	}
 
 	return response.Tickets, nil
+}
+
+// GetAvailableTickets returns a list of registered not used tickets.
+func (c *ContractClient) GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]PendingRefund, error) {
+	var response pendingRefundsResponse
+	err := c.query(ctx, map[QueryMethod]interface{}{
+		QueryMethodPendingRefunds: struct {
+			Address string `json:"address"`
+		}{
+			Address: address.String(),
+		},
+	}, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.PendingRefunds, nil
 }
 
 func (c *ContractClient) getPaginatedXRPLTokens(
