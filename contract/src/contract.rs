@@ -1077,13 +1077,17 @@ fn query_available_tickets(deps: Deps) -> StdResult<AvailableTicketsResponse> {
 }
 
 fn query_fees_collected(deps: Deps, relayer_address: Addr) -> StdResult<FeesCollectedResponse> {
-    let fees_collected = FEES_COLLECTED.load(deps.storage, relayer_address)?;
+    let fees_collected = FEES_COLLECTED
+        .may_load(deps.storage, relayer_address)?
+        .unwrap_or_default();
 
     Ok(FeesCollectedResponse { fees_collected })
 }
 
 fn query_pending_refunds(deps: Deps, address: Addr) -> StdResult<PendingRefundsResponse> {
-    let pending_refunds = PENDING_REFUNDS.load(deps.storage, address)?;
+    let pending_refunds = PENDING_REFUNDS
+        .may_load(deps.storage, address)?
+        .unwrap_or_default();
 
     Ok(PendingRefundsResponse { pending_refunds })
 }
