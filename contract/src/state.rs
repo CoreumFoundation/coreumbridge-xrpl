@@ -4,7 +4,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Coin, Empty, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 
-use crate::{evidence::Evidences, operation::Operation, relayer::Relayer};
+use crate::{evidence::Evidences, msg::PendingRefund, operation::Operation, relayer::Relayer};
 
 /// Top level storage key. Values must not conflict.
 /// Each key is only one byte long to ensure we use the smallest possible storage keys.
@@ -20,7 +20,8 @@ pub enum TopKey {
     UsedTickets = b'8',
     PendingOperations = b'9',
     PendingTicketUpdate = b'a',
-    FeesCollected = b'b',
+    PendingRefunds = b'b',
+    FeesCollected = b'c',
     FeeRemainders = b'd',
 }
 
@@ -139,6 +140,10 @@ pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str
 pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
 // Flag to know if we are currently waiting for new_tickets to be allocated
 pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
+// Amounts for rejected/invalid transactions on XRPL for each Coreum user that they can reclaim manually.
+// Key is the sender address and value is an array of all pending refunds he can reclaim
+pub const PENDING_REFUNDS: Map<Addr, Vec<PendingRefund>> =
+    Map::new(TopKey::PendingRefunds.as_str());
 // Fees collected that will be slowly accumulated here and relayers can claim them anytime
 pub const FEES_COLLECTED: Map<Addr, Vec<Coin>> = Map::new(TopKey::FeesCollected.as_str());
 // Fees Remainders in case that we have some small amounts left after dividing fees between our relayers we will keep them here until next time we collect fees and can add them to the new amount
@@ -158,6 +163,7 @@ pub enum ContractActions {
     ClaimFees,
     UpdateXRPLToken,
     UpdateCoreumToken,
+    ClaimRefunds,
 }
 
 impl ContractActions {
@@ -173,6 +179,7 @@ impl ContractActions {
             ContractActions::SaveSignature => "save_signature",
             ContractActions::SendToXRPL => "send_to_xrpl",
             ContractActions::ClaimFees => "claim_fees",
+            ContractActions::ClaimRefunds => "claim_refunds",
             ContractActions::UpdateXRPLToken => "update_xrpl_token",
             ContractActions::UpdateCoreumToken => "update_coreum_token",
         }

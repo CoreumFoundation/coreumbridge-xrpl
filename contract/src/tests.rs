@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod tests {
     use coreum_test_tube::{Account, AssetFT, Bank, CoreumTestApp, Module, SigningAccount, Wasm};
+    use coreum_wasm_sdk::types::coreum::asset::ft::v1::{MsgFreeze, MsgUnfreeze};
     use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
     use coreum_wasm_sdk::{
-        assetft::{BURNING, IBC, MINTING},
+        assetft::{BURNING, FREEZING, IBC, MINTING},
         types::{
             coreum::asset::ft::v1::{
                 MsgIssue, QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
@@ -21,7 +22,8 @@ mod tests {
         evidence::{Evidence, OperationResult, TransactionResult},
         msg::{
             AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, FeesCollectedResponse,
-            InstantiateMsg, PendingOperationsResponse, QueryMsg, XRPLTokensResponse,
+            InstantiateMsg, PendingOperationsResponse, PendingRefundsResponse, QueryMsg,
+            XRPLTokensResponse,
         },
         operation::{Operation, OperationType},
         relayer::{validate_xrpl_address, Relayer},
@@ -649,7 +651,7 @@ mod tests {
                     denom: test_tokens[0].denom.clone(),
                     decimals: 6,
                     sending_precision: 6,
-                    max_holding_amount: Uint128::new(1),
+                    max_holding_amount: Uint128::one(),
                     bridging_fee: test_tokens[0].bridging_fee,
                 },
                 &vec![],
@@ -673,7 +675,7 @@ mod tests {
                     denom: test_tokens[0].denom.clone(),
                     decimals: 6,
                     sending_precision: -17,
-                    max_holding_amount: Uint128::new(1),
+                    max_holding_amount: Uint128::one(),
                     bridging_fee: test_tokens[0].bridging_fee,
                 },
                 &vec![],
@@ -1739,23 +1741,38 @@ mod tests {
         asset_ft
             .issue(
                 MsgIssue {
-                    issuer: sender.address(),
+                    issuer: signer.address(),
                     symbol,
                     subunit: subunit.to_owned(),
                     precision: decimals,
                     initial_amount: initial_amount.to_string(),
                     description: "description".to_string(),
-                    features: vec![MINTING as i32],
+                    features: vec![MINTING as i32, FREEZING as i32],
                     burn_rate: "0".to_string(),
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
                 },
-                &sender,
+                &signer,
             )
             .unwrap();
 
-        let denom = format!("{}-{}", subunit, sender.address()).to_lowercase();
+        let denom = format!("{}-{}", subunit, signer.address()).to_lowercase();
+
+        // Send all initial amount tokens to the sender so that we can correctly test freezing without sending to the issuer
+        let bank = Bank::new(&app);
+        bank.send(
+            MsgSend {
+                from_address: signer.address(),
+                to_address: sender.address(),
+                amount: vec![BaseCoin {
+                    amount: initial_amount.to_string(),
+                    denom: denom.to_string(),
+                }],
+            },
+            &signer,
+        )
+        .unwrap();
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -1849,7 +1866,7 @@ mod tests {
             }
         );
 
-        // Reject the operation, therefore the tokens should be sent back to the sender.
+        // Reject the operation, therefore the tokens should be stored in the pending refunds (except for truncated amount).
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -1866,7 +1883,115 @@ mod tests {
         )
         .unwrap();
 
-        // Truncated amount won't be sent back
+        // Truncated amount and amount to be refunded will stay in the contract until relayers and users to be refunded claim
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+        assert_eq!(request_balance.balance, amount_to_send.to_string());
+
+        // Let's verify the pending refunds and try to claim them
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(sender.address()),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
+        // Truncated amount (1) is not refundable
+        assert_eq!(
+            query_pending_refunds.pending_refunds[0].coin,
+            coin(
+                amount_to_send.checked_sub(Uint128::one()).unwrap().u128(),
+                denom.to_owned()
+            )
+        );
+
+        // Trying to claim a refund with an invalid pending refund operation id should fail
+        let claim_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ClaimRefund {
+                    pending_refund_id: "random_id".to_string(),
+                },
+                &[],
+                &sender,
+            )
+            .unwrap_err();
+
+        assert!(claim_error
+            .to_string()
+            .contains(ContractError::PendingRefundNotFound {}.to_string().as_str()));
+
+        // Try to claim a pending refund with a valid pending refund operation id but not as a different user, should also fail
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimRefund {
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+            },
+            &[],
+            &signer,
+        )
+        .unwrap_err();
+
+        // Let's freeze the token to verify that claiming will fail
+        asset_ft
+            .freeze(
+                MsgFreeze {
+                    sender: signer.address(),
+                    account: contract_addr.to_owned(),
+                    coin: Some(BaseCoin {
+                        denom: denom.to_owned(),
+                        amount: "100000".to_string(),
+                    }),
+                },
+                &signer,
+            )
+            .unwrap();
+
+        // Can't claim because token is frozen
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimRefund {
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+            },
+            &[],
+            &sender,
+        )
+        .unwrap_err();
+
+        // Let's unfreeze token so we can claim
+        asset_ft
+            .unfreeze(
+                MsgUnfreeze {
+                    sender: signer.address(),
+                    account: contract_addr.to_owned(),
+                    coin: Some(BaseCoin {
+                        denom: denom.to_owned(),
+                        amount: "100000".to_string(),
+                    }),
+                },
+                &signer,
+            )
+            .unwrap();
+
+        // Let's claim our pending refund
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimRefund {
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+            },
+            &[],
+            &sender,
+        )
+        .unwrap();
+
+        // Verify balance of sender (to check it was correctly refunded) and verify that the amount refunded was removed from pending refunds
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: sender.address(),
@@ -1877,19 +2002,22 @@ mod tests {
         assert_eq!(
             request_balance.balance,
             initial_amount
-                .checked_sub(Uint128::one())
+                .checked_sub(Uint128::one()) // truncated amount
                 .unwrap()
                 .to_string()
         );
 
-        // Truncated amount will stay in contract (until we have fees collection)
-        let request_balance = asset_ft
-            .query_balance(&QueryBalanceRequest {
-                account: contract_addr.to_owned(),
-                denom: denom.to_owned(),
-            })
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(sender.address()),
+                },
+            )
             .unwrap();
-        assert_eq!(request_balance.balance, Uint128::one().to_string());
+
+        // We verify our pending refund operation was removed from the pending refunds
+        assert!(query_pending_refunds.pending_refunds.is_empty());
 
         // Try to send again
         wasm.execute::<ExecuteMsg>(
@@ -2196,7 +2324,7 @@ mod tests {
         )
         .unwrap();
 
-        // Truncated amount won't be sent back
+        // Truncated amount won't be sent back (goes to relayer fees) and the rest will be stored in refundable array for the user to claim
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: sender.address(),
@@ -2207,22 +2335,66 @@ mod tests {
         assert_eq!(
             request_balance.balance,
             initial_amount
-                .checked_sub(Uint128::new(9999999999)) // Truncated amount is not sent back
+                .checked_sub(amount_to_send)
                 .unwrap()
                 .to_string()
         );
 
-        // Truncated amount will stay in contract (until we have fees collection)
+        // Truncated amount and refundable fees will stay in contract
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: contract_addr.to_owned(),
                 denom: denom.to_owned(),
             })
             .unwrap();
+        assert_eq!(request_balance.balance, amount_to_send.to_string());
+
+        // If we query the refundable tokens that the user can claim, we should see the amount that was truncated is claimable
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(sender.address()),
+                },
+            )
+            .unwrap();
+
+        // We verify that these tokens are refundable
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
         assert_eq!(
-            request_balance.balance,
-            Uint128::new(9999999999).to_string()
+            query_pending_refunds.pending_refunds[0].coin,
+            coin(
+                amount_to_send
+                    .checked_sub(Uint128::new(9999999999)) // Amount truncated is not refunded to user
+                    .unwrap()
+                    .u128(),
+                denom.to_owned()
+            )
         );
+
+        // Claim it, should work
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimRefund {
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+            },
+            &[],
+            &sender,
+        )
+        .unwrap();
+
+        // pending refunds should now be empty
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(sender.address()),
+                },
+            )
+            .unwrap();
+
+        // We verify that there are no pending refunds left
+        assert!(query_pending_refunds.pending_refunds.is_empty());
 
         // Try to send again
         wasm.execute::<ExecuteMsg>(
@@ -2532,6 +2704,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations[0],
             Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
                 ticket_sequence: Some(1),
                 account_sequence: None,
                 signatures: vec![],
@@ -2618,15 +2791,7 @@ mod tests {
         )
         .unwrap();
 
-        // Since transaction result was Rejected, the tokens must have been sent back
-        let request_balance = asset_ft
-            .query_balance(&QueryBalanceRequest {
-                account: sender.address(),
-                denom: denom_xrp.to_owned(),
-            })
-            .unwrap();
-
-        assert_eq!(request_balance.balance, final_balance.to_string());
+        // Since transaction result was Rejected, the tokens must have been sent to pending refunds
 
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
@@ -2634,7 +2799,23 @@ mod tests {
                 denom: denom_xrp.to_owned(),
             })
             .unwrap();
-        assert_eq!(request_balance.balance, Uint128::zero().to_string());
+        assert_eq!(request_balance.balance, amount_to_send_back.to_string());
+
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(sender.address()),
+                },
+            )
+            .unwrap();
+
+        // We verify that these tokens are refundable
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
+        assert_eq!(
+            query_pending_refunds.pending_refunds[0].coin,
+            coin(amount_to_send_back.u128(), denom_xrp.to_owned())
+        );
 
         // *** Test sending an XRPL originated token back to XRPL ***
 
@@ -2807,6 +2988,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations[0],
             Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
                 ticket_sequence: Some(4),
                 account_sequence: None,
                 signatures: vec![],
@@ -2879,7 +3061,7 @@ mod tests {
         )
         .unwrap();
 
-        // Send rejected should send back the tokens except the truncated amount.
+        // Send rejected should store tokens minus truncated amount in refundable amount for the sender
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -2895,6 +3077,46 @@ mod tests {
             relayer_account,
         )
         .unwrap();
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom_xrp.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            request_balance.balance,
+            final_balance
+                .checked_sub(amount_to_send_back)
+                .unwrap()
+                .to_string()
+        );
+
+        // Let's claim all pending refunds and check that they are gone from the contract and in the senders address
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(sender.address()),
+                },
+            )
+            .unwrap();
+
+        // There was one pending refund from previous test, we are going to claim both
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 2);
+
+        for refund in query_pending_refunds.pending_refunds.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ClaimRefund {
+                    pending_refund_id: refund.id.to_owned(),
+                },
+                &[],
+                &sender,
+            )
+            .unwrap();
+        }
 
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
@@ -2958,7 +3180,17 @@ mod tests {
 
         let amount_to_send = Uint128::new(1000001); // 1000001 -> truncate -> 1e6 -> decimal conversion -> 1e15
 
-        // Bridge the token to the xrpl receiver address and check pending operations
+        // Bridge the token to the xrpl receiver address two times and check pending operations
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+            },
+            &coins(amount_to_send.u128(), denom.to_owned()),
+            &sender,
+        )
+        .unwrap();
+
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -2997,11 +3229,34 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(query_pending_operations.operations.len(), 1);
+        assert_eq!(query_pending_operations.operations.len(), 2);
         assert_eq!(
             query_pending_operations.operations[0],
             Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
                 ticket_sequence: Some(6),
+                account_sequence: None,
+                signatures: vec![],
+                operation_type: OperationType::CoreumToXRPLTransfer {
+                    issuer: multisig_address.to_owned(),
+                    currency: coreum_originated_token.xrpl_currency.to_owned(),
+                    amount: amount_to_send
+                        .checked_sub(Uint128::one()) //Truncated amount
+                        .unwrap()
+                        .checked_mul(Uint128::new(10u128.pow(9))) // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
+                        .unwrap(),
+                    transfer_fee: Uint128::zero(),
+                    sender: Addr::unchecked(sender.address()),
+                    recipient: xrpl_receiver_address.to_owned(),
+                },
+            }
+        );
+
+        assert_eq!(
+            query_pending_operations.operations[1],
+            Operation {
+                id: query_pending_operations.operations[1].id.to_owned(),
+                ticket_sequence: Some(7),
                 account_sequence: None,
                 signatures: vec![],
                 operation_type: OperationType::CoreumToXRPLTransfer {
@@ -3019,7 +3274,7 @@ mod tests {
             }
         );
 
-        // If we reject the operation, the tokens should be sent back to the sender (except truncated amount)
+        // If we reject both operations, the tokens should be kept in pending refunds with different ids for the sender to claim (except truncated amount)
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -3036,6 +3291,22 @@ mod tests {
         )
         .unwrap();
 
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: None,
+                    ticket_sequence: Some(7),
+                    transaction_result: TransactionResult::Rejected,
+                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: sender.address(),
@@ -3043,23 +3314,73 @@ mod tests {
             })
             .unwrap();
 
-        // Truncated amount won't be sent back
+        // Refundable amount (amount to send x 2 - truncated amount x 2) won't be sent back until claimed individually
         assert_eq!(
             request_balance.balance,
             initial_amount
-                .checked_sub(Uint128::one())
+                .checked_sub(amount_to_send)
+                .unwrap()
+                .checked_sub(amount_to_send)
                 .unwrap()
                 .to_string()
         );
 
-        // Truncated amount will stay in contract (until we have fees collection)
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(sender.address()),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 2);
+
+        // Claiming pending refund should work for both operations
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimRefund {
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+            },
+            &[],
+            &sender,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimRefund {
+                pending_refund_id: query_pending_refunds.pending_refunds[1].id.to_owned(),
+            },
+            &[],
+            &sender,
+        )
+        .unwrap();
+
+        // Check that balance was correctly sent back
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            request_balance.balance,
+            initial_amount
+                .checked_sub(Uint128::new(2))
+                .unwrap()
+                .to_string()
+        );
+
+        // Truncated amount will stay in contract
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: contract_addr.to_owned(),
                 denom: denom.to_owned(),
             })
             .unwrap();
-        assert_eq!(request_balance.balance, Uint128::one().to_string());
+        assert_eq!(request_balance.balance, Uint128::new(2).to_string());
     }
 
     #[test]
@@ -3731,7 +4052,7 @@ mod tests {
                     issuer: XRP_ISSUER.to_string(),
                     currency: XRP_CURRENCY.to_string(),
                     // There should never be truncation because we allow full precision for XRP initially
-                    amount: Uint128::new(1),
+                    amount: Uint128::one(),
                     recipient: Addr::unchecked(receiver.address()),
                 },
             },
@@ -3784,7 +4105,7 @@ mod tests {
                         issuer: XRP_ISSUER.to_string(),
                         currency: XRP_CURRENCY.to_string(),
                         // Sending 1 more token would surpass the maximum so should fail
-                        amount: Uint128::new(1),
+                        amount: Uint128::one(),
                         recipient: Addr::unchecked(receiver.address()),
                     },
                 },
@@ -4440,6 +4761,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations[0],
             Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
                 ticket_sequence: Some(2),
                 account_sequence: None,
                 signatures: vec![],
@@ -4530,6 +4852,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations[0],
             Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
                 ticket_sequence: Some(3),
                 account_sequence: None,
                 signatures: vec![],
@@ -4603,6 +4926,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations[0],
             Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
                 ticket_sequence: Some(4),
                 account_sequence: None,
                 signatures: vec![],
@@ -4723,7 +5047,7 @@ mod tests {
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
                         coin(136666, xrpl_token.coreum_denom.to_owned()),
                         coin(300007, coreum_token_denom.to_owned()), // +1
@@ -4747,7 +5071,7 @@ mod tests {
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
                         coin(136666, xrpl_token.coreum_denom.to_owned()),
                         coin(300006, coreum_token_denom.to_owned()),
@@ -4772,7 +5096,7 @@ mod tests {
         for relayer in relayer_accounts.iter() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
                         coin(136666, xrpl_token.coreum_denom.to_owned()),
                         coin(300005, coreum_token_denom.to_owned()),
@@ -4803,7 +5127,7 @@ mod tests {
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![coin(1, xrpl_token.coreum_denom.to_owned())],
                 },
                 &[],
@@ -4824,7 +5148,7 @@ mod tests {
         for relayer in relayer_accounts.iter() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![coin(1, coreum_token_denom.clone())],
                 },
                 &[],
@@ -5178,6 +5502,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations[0],
             Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
                 ticket_sequence: Some(4),
                 account_sequence: None,
                 signatures: vec![],
@@ -5236,6 +5561,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations[1],
             Operation {
+                id: query_pending_operations.operations[1].id.to_owned(),
                 ticket_sequence: Some(5),
                 account_sequence: None,
                 signatures: vec![],
@@ -5293,6 +5619,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations[2],
             Operation {
+                id: query_pending_operations.operations[2].id.to_owned(),
                 ticket_sequence: Some(6),
                 account_sequence: None,
                 signatures: vec![],
@@ -5311,7 +5638,7 @@ mod tests {
         for relayer in relayer_accounts.iter() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::ClaimFees {
+                &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
                         coin(50000, token_denoms[0].to_owned()),
                         coin(88889, token_denoms[1].to_owned()),
@@ -5455,7 +5782,30 @@ mod tests {
             .unwrap();
         }
 
-        // If transaction is rejected, contract should send back the amount sent + transfer fees to sender. Bridging fees were applied during sending so these are never sent back.
+        // If transaction is rejected, contract should store amount + transfer fees for sender in pending refunds.
+        // Bridging fees were applied during sending so these are never sent back.
+
+        // Claim the pending refunds
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(signer.address()),
+                },
+            )
+            .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimRefund {
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+            },
+            &[],
+            &signer,
+        )
+        .unwrap();
+
+        // Verify that balances are correct after claiming the rejected transaction
         let sender_balance_after = asset_ft
             .query_balance(&QueryBalanceRequest {
                 account: signer.address(),
@@ -5650,6 +6000,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations,
             [Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
                 ticket_sequence: None,
                 account_sequence: Some(account_sequence),
                 signatures: vec![], // No signatures yet
@@ -6190,6 +6541,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations[0],
             Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
                 ticket_sequence: Some(
                     query_pending_operations.operations[0]
                         .ticket_sequence
@@ -6336,6 +6688,7 @@ mod tests {
         assert_eq!(
             query_pending_operations.operations,
             [Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
                 ticket_sequence: Some(3),
                 account_sequence: None,
                 signatures: vec![],
@@ -6944,11 +7297,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(send_error.to_string().contains(
-            ContractError::TokenNotEnabled {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(send_error
+            .to_string()
+            .contains(ContractError::TokenNotEnabled {}.to_string().as_str()));
     }
 
     #[test]
