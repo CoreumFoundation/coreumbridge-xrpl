@@ -1892,6 +1892,18 @@ mod tests {
             .unwrap();
         assert_eq!(request_balance.balance, amount_to_send.to_string());
 
+        // If we try to query pending refunds for any address that has no pending refunds, it should return an empty array
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked("any_address"),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_refunds.pending_refunds, vec![]);
+
         // Let's verify the pending refunds and try to claim them
         let query_pending_refunds = wasm
             .query::<QueryMsg, PendingRefundsResponse>(
@@ -4627,6 +4639,18 @@ mod tests {
             .unwrap();
 
         assert_eq!(request_balance.balance, "1000000000000000".to_string());
+
+        // If we query fees for any random address that has no fees collected, it should return an empty array
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked("any_address"),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_fees_collected.fees_collected, vec![]);
 
         let query_fees_collected = wasm
             .query::<QueryMsg, FeesCollectedResponse>(
