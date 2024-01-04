@@ -79,8 +79,12 @@ pub enum ExecuteMsg {
         denom: String,
         state: Option<TokenState>,
     },
+    // Claim refund. User who can claim amounts due to failed transactions can do it with this message.
+    ClaimRefund {
+        pending_refund_id: String,
+    },
     // Any relayer can claim fees at any point in time. They need to provide what they want to claim.
-    ClaimFees {
+    ClaimRelayerFees {
         amounts: Vec<Coin>,
     },
 }
@@ -108,6 +112,8 @@ pub enum QueryMsg {
     AvailableTickets {},
     #[returns(FeesCollectedResponse)]
     FeesCollected { relayer_address: Addr },
+    #[returns(PendingRefundsResponse)]
+    PendingRefunds { address: Addr },
 }
 
 #[cw_serde]
@@ -133,4 +139,16 @@ pub struct AvailableTicketsResponse {
 #[cw_serde]
 pub struct FeesCollectedResponse {
     pub fees_collected: Vec<Coin>,
+}
+
+#[cw_serde]
+pub struct PendingRefundsResponse {
+    pub pending_refunds: Vec<PendingRefund>,
+}
+
+#[cw_serde]
+pub struct PendingRefund {
+    // We will use a unique id (block timestamp - operation_id) for users to claim their funds back per operation id
+    pub id: String,
+    pub coin: Coin,
 }
