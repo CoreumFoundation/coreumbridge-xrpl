@@ -14,6 +14,7 @@ jobs:
         with:
           persist-credentials: false
           path: coreumbridge-xrpl
+          ref: milad/release
           fetch-depth: 0
       - name: Login to DockerHub
         uses: docker/login-action@v2
