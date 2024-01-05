@@ -27,8 +27,8 @@ build-relayer-docker:
 
 .PHONY: push-relayer-docker
 push-relayer-docker: build-relayer-docker
-	docker image tag coreumbridge-xrpl-relayer:local coreumfoundation/coreumbridge-xrpl-relayer:GIT_VERSION
-	docker image push coreumfoundation/coreumbridge-xrpl-relayer:GIT_VERSION
+	docker image tag coreumbridge-xrpl-relayer:local coreumfoundation/coreumbridge-xrpl-relayer:$(GIT_VERSION)
+	docker image push coreumfoundation/coreumbridge-xrpl-relayer:$(GIT_VERSION)
 
 .PHONY: build-relayer-in-docker
 build-relayer-in-docker:
