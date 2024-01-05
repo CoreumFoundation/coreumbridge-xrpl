@@ -1,8 +1,8 @@
 name: release
 on:
   push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+*"
+    # tags:
+    #   - "v[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:
 
 jobs:
@@ -25,6 +25,8 @@ jobs:
         run: make push-relayer-docker
       - name: Build release artifacts 
         run: |
+          pwd
+          ls -la
           mkdir ~/release-build
           cd ~/coreumbridge-xrpl
           make build-relayer BUILD_DIR=~/release-build
