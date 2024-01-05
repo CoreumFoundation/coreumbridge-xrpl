@@ -26,6 +26,7 @@ jobs:
       - name: Build release artifacts 
         run: |
           mkdir ~/release-build
+          cd ~/coreumbridge-xrpl
           make build-relayer BUILD_DIR=~/release-build
           make build-contract BUILD_DIR=~/release-build
           sha256sum ~/release-build/* > checksums.txt
