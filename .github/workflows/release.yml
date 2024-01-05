@@ -23,19 +23,13 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and push docker image
         run: |
-          pwd
-          ls -la
           cd coreumbridge-xrpl
-          pwd
-          ls -la
           make push-relayer-docker
       - name: Build release artifacts 
         run: |
-          pwd
-          ls -la
           mkdir ~/release-build
-          cd ~/coreumbridge-xrpl
-          make build-relayer BUILD_DIR=~/release-build
+          cd coreumbridge-xrpl
+          make build-relayer-relase BUILD_DIR=~/release-build
           make build-contract BUILD_DIR=~/release-build
           sha256sum ~/release-build/* > checksums.txt
       - name: Create release

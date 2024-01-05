@@ -13,6 +13,10 @@ GIT_VERSION:=$(shell git describe --tags --exact-match 2>/dev/null || git rev-pa
 
 .PHONY: build-relayer
 build-relayer:
+	cd $(RELAYER_DIR) && CGO_ENABLED=0 go build --trimpath -mod=readonly -ldflags '-extldflags=-static'  -o $(BUILD_DIR)/coreumbridge-xrp-lrelayer ./cmd
+
+.PHONY: build-relayer-release
+build-relayer-release:
 	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build --trimpath -mod=readonly -ldflags '-extldflags=-static'  -o $(BUILD_DIR)/relayer-linux-amd64 ./cmd
 	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build --trimpath -mod=readonly -ldflags '-extldflags=-static'  -o $(BUILD_DIR)/relayer-darwin-amd64 ./cmd
 	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build --trimpath -mod=readonly -ldflags '-extldflags=-static'  -o $(BUILD_DIR)/relayer-darwin-arm64 ./cmd
