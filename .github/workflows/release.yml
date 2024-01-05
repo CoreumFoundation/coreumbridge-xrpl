@@ -25,7 +25,9 @@ jobs:
         run: |
           pwd
           ls -la
-          cd ~/coreumbridge-xrpl
+          cd coreumbridge-xrpl
+          pwd
+          ls -la
           make push-relayer-docker
       - name: Build release artifacts 
         run: |
