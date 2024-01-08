@@ -1948,7 +1948,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_refund_id: query_pending_refunds.pending_refunds[0].pending_refund_id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &signer,
@@ -1974,7 +1974,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_refund_id: query_pending_refunds.pending_refunds[0].pending_refund_id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &sender,
@@ -2000,7 +2000,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_refund_id: query_pending_refunds.pending_refunds[0].pending_refund_id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &sender,
@@ -2396,7 +2396,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_refund_id: query_pending_refunds.pending_refunds[0].pending_refund_id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &sender,
@@ -3136,7 +3136,7 @@ mod tests {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::ClaimRefund {
-                    pending_refund_id: refund.pending_refund_id.to_owned(),
+                    pending_refund_id: refund.id.to_owned(),
                 },
                 &[],
                 &sender,
@@ -3368,7 +3368,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_refund_id: query_pending_refunds.pending_refunds[0].pending_refund_id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &sender,
@@ -3378,7 +3378,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_refund_id: query_pending_refunds.pending_refunds[1].pending_refund_id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[1].id.to_owned(),
             },
             &[],
             &sender,
@@ -5840,7 +5840,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
-                pending_refund_id: query_pending_refunds.pending_refunds[0].pending_refund_id.to_owned(),
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
             },
             &[],
             &signer,

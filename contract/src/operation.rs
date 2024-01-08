@@ -200,7 +200,7 @@ pub fn store_pending_refund(
     // We store the pending refund for this user and this pending_operation_id
     let pending_refund = PendingRefund {
         address: receiver.to_owned(),
-        pending_refund_id: pending_operation_id.to_owned(),
+        id: pending_operation_id.to_owned(),
         coin,
     };
 

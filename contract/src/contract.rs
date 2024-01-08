@@ -1103,9 +1103,9 @@ fn query_pending_refunds(
         .skip(offset as usize)
         .take(limit as usize)
         .filter_map(|r| r.ok())
-        .map(|(_, ct)| PendingRefund {
-            pending_refund_id: ct.pending_refund_id,
-            coin: ct.coin,
+        .map(|(_, pr)| PendingRefund {
+            id: pr.id,
+            coin: pr.coin,
         })
         .collect();
 

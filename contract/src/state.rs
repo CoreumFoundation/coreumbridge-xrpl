@@ -82,8 +82,8 @@ pub struct CoreumToken {
 #[cw_serde]
 pub struct PendingRefund {
     pub address: Addr,
-    // We will use a unique pending_refund_id (block timestamp - operation_id) for users to claim their funds back per operation id
-    pub pending_refund_id: String,
+    // We will use a unique id (block timestamp - operation_id) for users to claim their funds back per operation id
+    pub id: String,
     pub coin: Coin,
 }
 

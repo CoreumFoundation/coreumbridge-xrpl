@@ -152,6 +152,6 @@ pub struct PendingRefundsResponse {
 
 #[cw_serde]
 pub struct PendingRefund {
-    pub pending_refund_id: String,
+    pub id: String,
     pub coin: Coin,
 }
