@@ -7,7 +7,9 @@ use crate::{
     error::ContractError,
     evidence::TransactionResult,
     signatures::Signature,
-    state::{TokenState, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS, XRPL_TOKENS, PendingRefund},
+    state::{
+        PendingRefund, TokenState, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS, XRPL_TOKENS,
+    },
     token::build_xrpl_token_key,
 };
 
