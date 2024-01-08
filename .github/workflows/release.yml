@@ -38,9 +38,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           generate_release_notes: true
           files: |
-            release-build/relayer-linux-amd64
-            release-build/relayer-darwin-amd64
-            release-build/relayer-darwin-arm64
-            release-build/coreumbridge_xrpl.wasm
-            release-build/checksums.txt
+            ~/release-build/relayer-linux-amd64
+            ~/release-build/relayer-darwin-amd64
+            ~/release-build/relayer-darwin-arm64
+            ~/release-build/coreumbridge_xrpl.wasm
+            ~/release-build/checksums.txt
 
