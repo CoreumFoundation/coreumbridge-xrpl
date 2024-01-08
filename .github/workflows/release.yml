@@ -31,12 +31,16 @@ jobs:
           cd coreumbridge-xrpl
           make build-relayer-release BUILD_DIR=~/release-build
           make build-contract BUILD_DIR=~/release-build
-          sha256sum ~/release-build/* > checksums.txt
+          sha256sum ~/release-build/* > ~/release-build/checksums.txt
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           generate_release_notes: true
           files: |
-            release-build/*
+            release-build/relayer-linux-amd64
+            release-build/relayer-darwin-amd64
+            release-build/relayer-darwin-arm64
+            release-build/coreumbridge_xrpl.wasm
+            release-build/checksums.txt
 
