@@ -1096,11 +1096,9 @@ fn query_pending_refunds(
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
 
     // A way to start after a specific pending refund id to not load the entire map
-    let bound = match start_after {
-        Some(start_after) => Some((address.to_owned(), start_after)),
-        None => None,
-    };
-    let start = bound.map(Bound::exclusive);
+    let start = start_after
+        .map(|start_after| (address.to_owned(), start_after))
+        .map(Bound::exclusive);
 
     let pending_refunds: Vec<PendingRefund> = PENDING_REFUNDS
         .idx
