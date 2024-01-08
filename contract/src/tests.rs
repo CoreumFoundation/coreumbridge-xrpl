@@ -1898,7 +1898,7 @@ mod tests {
                 &contract_addr,
                 &QueryMsg::PendingRefunds {
                     address: Addr::unchecked("any_address"),
-                    offset: None,
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -1912,7 +1912,7 @@ mod tests {
                 &contract_addr,
                 &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
-                    offset: None,
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -2028,7 +2028,7 @@ mod tests {
                 &contract_addr,
                 &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
-                    offset: None,
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -2373,7 +2373,7 @@ mod tests {
                 &contract_addr,
                 &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
-                    offset: None,
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -2409,7 +2409,7 @@ mod tests {
                 &contract_addr,
                 &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
-                    offset: None,
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -2828,7 +2828,7 @@ mod tests {
                 &contract_addr,
                 &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
-                    offset: None,
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -3123,7 +3123,7 @@ mod tests {
                 &contract_addr,
                 &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
-                    offset: None,
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -3356,7 +3356,7 @@ mod tests {
                 &contract_addr,
                 &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(sender.address()),
-                    offset: None,
+                    start_after: None,
                     limit: None,
                 },
             )
@@ -5831,7 +5831,7 @@ mod tests {
                 &contract_addr,
                 &QueryMsg::PendingRefunds {
                     address: Addr::unchecked(signer.address()),
-                    offset: None,
+                    start_after: None,
                     limit: None,
                 },
             )
