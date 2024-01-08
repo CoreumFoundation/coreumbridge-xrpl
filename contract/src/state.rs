@@ -145,6 +145,8 @@ pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpd
 pub const PENDING_REFUNDS: Map<Addr, Vec<PendingRefund>> =
     Map::new(TopKey::PendingRefunds.as_str());
 // Fees collected that will be slowly accumulated here and relayers can claim them anytime
+// We should add a TODO to move all coins, and the time on the keys rotation from the account
+// which is not in the list of new accounts to the `FEE_REMAINDERS` to re-distribute it's tokens
 pub const FEES_COLLECTED: Map<Addr, Vec<Coin>> = Map::new(TopKey::FeesCollected.as_str());
 // Fees Remainders in case that we have some small amounts left after dividing fees between our relayers we will keep them here until next time we collect fees and can add them to the new amount
 // Key is Coin denom and value is Coin amount

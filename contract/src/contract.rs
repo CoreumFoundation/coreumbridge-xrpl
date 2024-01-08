@@ -1008,6 +1008,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
         QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
+        // Why the pending refunds doesn't support the pagination?
         QueryMsg::PendingRefunds { address } => {
             to_json_binary(&query_pending_refunds(deps, address)?)
         }

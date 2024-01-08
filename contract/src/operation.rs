@@ -59,6 +59,7 @@ pub fn check_operation_exists(
 
 pub fn create_pending_operation(
     storage: &mut dyn Storage,
+    // What is the reason for the timestamp usage here?
     timestamp: u64,
     ticket_sequence: Option<u64>,
     account_sequence: Option<u64>,
@@ -66,6 +67,8 @@ pub fn create_pending_operation(
 ) -> Result<(), ContractError> {
     let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
     let operation = Operation {
+        // Not sure that this is a good idea format the ID that way, since in the map it is different
+        // Why not to keep it and additional attribute?
         id: format!("{}-{}", timestamp, operation_id),
         ticket_sequence,
         account_sequence,
@@ -218,6 +221,9 @@ pub fn remove_pending_refund(
     sender: Addr,
     pending_refund_id: String,
 ) -> Result<Coin, ContractError> {
+    // Not sure that the logic is optimal enough, since if the are a lot of refunds it might
+    // reach max gas. The reason of current approach is clear, but probably we can add extra
+    // key owner+pending_refund_id for the map, to fetch and remove by it.
     let mut pending_refunds = PENDING_REFUNDS.load(storage, sender.to_owned())?;
     // We check that there is a pending refund for this user and this id, if there isn't we return an error
     let coin = match pending_refunds
