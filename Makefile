@@ -5,7 +5,13 @@ CONTRACT_DIR:=$(ROOT_DIR)/contract
 INTEGRATION_TESTS_DIR:=$(ROOT_DIR)/integration-tests
 RELAYER_DIR:=$(ROOT_DIR)/relayer
 BUILD_DIR?=$(ROOT_DIR)/build
+GIT_TAG:=$(shell git describe --tags --exact-match 2>/dev/null)
+GIT_SHA:=$(shell git rev-parse HEAD)
 GIT_VERSION:=$(shell git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
+LD_FLAGS:="-extldflags=-static \
+-X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli.VersionTag=$(GIT_TAG)' \
+-X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli.GitCommit=$(GIT_SHA)' \
+"
 
 ###############################################################################
 ###                                  Build                                  ###
@@ -13,13 +19,13 @@ GIT_VERSION:=$(shell git describe --tags --exact-match 2>/dev/null || git rev-pa
 
 .PHONY: build-relayer
 build-relayer:
-	cd $(RELAYER_DIR) && CGO_ENABLED=0 go build --trimpath -mod=readonly -ldflags '-extldflags=-static'  -o $(BUILD_DIR)/coreumbridge-xrpl-relayer ./cmd
+	cd $(RELAYER_DIR) && CGO_ENABLED=0 go build --trimpath -mod=readonly $(LD_FLAGS)  -o $(BUILD_DIR)/coreumbridge-xrpl-relayer ./cmd
 
 .PHONY: build-relayer-release
 build-relayer-release:
-	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build --trimpath -mod=readonly -ldflags '-extldflags=-static'  -o $(BUILD_DIR)/relayer-linux-amd64 ./cmd
-	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build --trimpath -mod=readonly -ldflags '-extldflags=-static'  -o $(BUILD_DIR)/relayer-darwin-amd64 ./cmd
-	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build --trimpath -mod=readonly -ldflags '-extldflags=-static'  -o $(BUILD_DIR)/relayer-darwin-arm64 ./cmd
+	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build --trimpath -mod=readonly -ldflags $(LD_FLAGS)  -o $(BUILD_DIR)/relayer-linux-amd64 ./cmd
+	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build --trimpath -mod=readonly -ldflags $(LD_FLAGS)  -o $(BUILD_DIR)/relayer-darwin-amd64 ./cmd
+	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build --trimpath -mod=readonly -ldflags $(LD_FLAGS)  -o $(BUILD_DIR)/relayer-darwin-arm64 ./cmd
 
 .PHONY: build-relayer-docker
 build-relayer-docker:

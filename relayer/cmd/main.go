@@ -62,6 +62,7 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.CoreumBalancesCmd())
 	cmd.AddCommand(cli.XRPLBalancesCmd())
 	cmd.AddCommand(cli.SetXRPLTrustSet())
+	cmd.AddCommand(cli.VersionCommand())
 
 	return cmd, nil
 }
