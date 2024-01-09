@@ -27,7 +27,7 @@ use crate::{
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
     },
-    token::{build_xrpl_token_key, is_token_xrp, set_token_state},
+    token::{build_xrpl_token_key, is_token_xrp, set_token_sending_precision, set_token_state},
 };
 
 use coreum_wasm_sdk::{
@@ -246,10 +246,26 @@ pub fn execute(
             issuer,
             currency,
             state,
-        } => update_xrpl_token(deps.into_empty(), info.sender, issuer, currency, state),
-        ExecuteMsg::UpdateCoreumToken { denom, state } => {
-            update_coreum_token(deps.into_empty(), info.sender, denom, state)
-        }
+            min_sending_precision,
+        } => update_xrpl_token(
+            deps.into_empty(),
+            info.sender,
+            issuer,
+            currency,
+            state,
+            min_sending_precision,
+        ),
+        ExecuteMsg::UpdateCoreumToken {
+            denom,
+            state,
+            min_sending_precision,
+        } => update_coreum_token(
+            deps.into_empty(),
+            info.sender,
+            denom,
+            state,
+            min_sending_precision,
+        ),
 
         ExecuteMsg::ClaimRefund { pending_refund_id } => {
             claim_pending_refund(deps.into_empty(), info.sender, pending_refund_id)
@@ -916,6 +932,7 @@ fn update_xrpl_token(
     issuer: String,
     currency: String,
     state: Option<TokenState>,
+    min_sending_precision: Option<i32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -926,6 +943,11 @@ fn update_xrpl_token(
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
     set_token_state(&mut token.state, state)?;
+    set_token_sending_precision(
+        &mut token.sending_precision,
+        min_sending_precision,
+        XRPL_TOKENS_DECIMALS,
+    )?;
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
@@ -940,6 +962,7 @@ fn update_coreum_token(
     sender: Addr,
     denom: String,
     state: Option<TokenState>,
+    min_sending_precision: Option<i32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -948,6 +971,11 @@ fn update_coreum_token(
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
     set_token_state(&mut token.state, state)?;
+    set_token_sending_precision(
+        &mut token.sending_precision,
+        min_sending_precision,
+        token.decimals,
+    )?;
 
     COREUM_TOKENS.save(deps.storage, denom.to_owned(), &token)?;
 
