@@ -23,6 +23,7 @@ pub enum TopKey {
     PendingRefunds = b'b',
     FeesCollected = b'c',
     FeeRemainders = b'd',
+    PendingKeyRotation = b'e',
 }
 
 impl TopKey {
@@ -49,23 +50,8 @@ pub struct Config {
 pub enum BridgeState {
     // Bridge is active and working
     Active,
-    // Bridge is halted and no operations can be executed until it's reactivated by owner
+    // Bridge is halted and no operations can be executed until it's reactivated by owner or until key rotation operation is completed
     Halted,
-    // A key rotation is in progress and thus bridge cannot be activated until it's completed
-    PendingKeyRotation,
-    // A key rotation failed and no more tickets are available therefore owner needs to perform key rotation recovery
-    KeyRotationFailed,
-}
-
-impl BridgeState {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            BridgeState::Active => "active",
-            BridgeState::Halted => "halted",
-            BridgeState::PendingKeyRotation => "pending_key_rotation",
-            BridgeState::KeyRotationFailed => "key_rotation_failed",
-        }
-    }
 }
 
 #[cw_serde]
@@ -149,7 +135,7 @@ pub const COREUM_TOKENS: IndexedMap<String, CoreumToken, CoreumTokensIndexes> = 
     },
 );
 
-// Evidences, when enough evidences are collected, the transaction hashes are stored in EXECUTED_EVIDENCE_OPERATIONS.
+// Evidences, when enough evidences are collected, the transaction hashes are stored in PROCESSED_TXS.
 pub const TX_EVIDENCES: Map<String, Evidences> = Map::new(TopKey::TxEvidences.as_str());
 // This will contain the transaction hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again
 pub const PROCESSED_TXS: Map<String, Empty> = Map::new(TopKey::ProcessedTxs.as_str());
@@ -164,6 +150,8 @@ pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str
 pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
 // Flag to know if we are currently waiting for new_tickets to be allocated
 pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
+// Flag to know if we are currently waiting for a key rotation to be completed
+pub const PENDING_KEY_ROTATION: Item<bool> = Item::new(TopKey::PendingKeyRotation.as_str());
 // Amounts for rejected/invalid transactions on XRPL for each Coreum user that they can reclaim manually.
 // Key is the sender address and value is an array of all pending refunds he can reclaim
 pub const PENDING_REFUNDS: Map<Addr, Vec<PendingRefund>> =

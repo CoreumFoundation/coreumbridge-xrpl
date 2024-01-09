@@ -100,6 +100,7 @@ pub enum ExecuteMsg {
     Resume {},
     // Owner can trigger a key rotation, removing and/or adding relayers
     KeyRotation {
+        account_sequence: Option<u64>,
         relayers_to_remove: Option<Vec<Relayer>>,
         relayers_to_add: Option<Vec<Relayer>>,
     },

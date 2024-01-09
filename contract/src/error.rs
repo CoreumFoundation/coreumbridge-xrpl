@@ -176,18 +176,6 @@ pub enum ContractError {
     #[error("NotOwnerOrRelayer: The sender is not the owner of the contract or a relayer. Unauthorized.")]
     NotOwnerOrRelayer {},
 
-    #[error("BridgeNotActive: Bridge is currently not active. It's either halted or processing a key rotation")]
-    BridgeNotActive {},
-
-    #[error("BridgeNotHalted: Bridge is currently not halted. It's either active or processing a key rotation")]
-    BridgeNotHalted {},
-
-    #[error("BridgeHalted: Bridge is currently halted by owner. This operation is not authorized")]
-    BridgeHalted {},
-
-    #[error("BridgeAlreadyKeyRotating: Bridge is already in the middle of a key rotation")]
-    BridgeAlreadyKeyRotating {},
-
     #[error("InvalidKeyRotation: must provide either relayers to remove and/or relayers to add")]
     InvalidKeyRotation {},
 
@@ -200,15 +188,15 @@ pub enum ContractError {
     )]
     TooManyRelayers { max_relayers: u32 },
 
-    #[error("RelayerNotRegistered: you are trying to remove a relayer that is currently not a bridge relayer")]
-    RelayerNotRegistered {},
+    #[error("BridgeHalted: The bridge is currently halted and this operation is not authorized")]
+    BridgeHalted {},
 
-    #[error("RelayerAlreadyRegistered: you are trying to add a relayer that is already a bridge relayer")]
-    RelayerAlreadyRegistered {},
+    #[error("KeyRotationOngoing: Can't perform this operation while key rotation is ongoing")]
+    KeyRotationOngoing {},
 
-    #[error("BridgeHaltedOrWaitingRecovery: bridge is currently halted or waiting for a bridge key rotation recovery by owner")]
-    BridgeHaltedOrWaitingRecovery {},
+    #[error("RelayerNotRegistered: Can't remove a relayer that is not currently in the active set")]
+    RelayerNotInSet {},
 
-    #[error("OnlyKeyRotationEvidencesAllowed: bridge is currently processing a key rotation, only these evidences are allowed")]
-    OnlyKeyRotationEvidencesAllowed {},
+    #[error("RelayerAlreadyRegistered: Can't add a relayer that is already in the active set")]
+    RelayerAlreadyInSet {},
 }

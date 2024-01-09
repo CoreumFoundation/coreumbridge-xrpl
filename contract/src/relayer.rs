@@ -3,7 +3,12 @@ use std::collections::HashMap;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Deps, Empty, Storage};
 
-use crate::{contract::MAX_RELAYERS, error::ContractError, state::{CONFIG, BridgeState}, evidence::TransactionResult};
+use crate::{
+    contract::MAX_RELAYERS,
+    error::ContractError,
+    evidence::TransactionResult,
+    state::{BridgeState, CONFIG, PENDING_KEY_ROTATION, TX_EVIDENCES},
+};
 
 #[cw_serde]
 pub struct Relayer {
@@ -102,7 +107,7 @@ pub fn rotate_relayers(
     if let Some(relayers_to_remove) = relayers_to_remove {
         for relayer in relayers_to_remove {
             if !relayers.contains(&relayer) {
-                return Err(ContractError::RelayerNotRegistered {});
+                return Err(ContractError::RelayerNotInSet {});
             }
             relayers.retain(|r| r != &relayer);
         }
@@ -112,7 +117,7 @@ pub fn rotate_relayers(
     if let Some(relayers_to_add) = relayers_to_add {
         for relayer in relayers_to_add {
             if relayers.contains(&relayer) {
-                return Err(ContractError::RelayerAlreadyRegistered {});
+                return Err(ContractError::RelayerAlreadyInSet {});
             }
             relayers.push(relayer);
         }
@@ -127,13 +132,15 @@ pub fn handle_key_rotation_confirmation(
     transaction_result: TransactionResult,
 ) -> Result<(), ContractError> {
     let mut config = CONFIG.load(storage)?;
-    // Set config relayers to the new relayers if the transaction was successful and update the state of the bridge
+    // Set config relayers to the new relayers if the transaction was successful and update the state of the bridge, relayers, and clear all current evidences
+    // If it failed, the bridge will remain halted and relayers are not updated, waiting for another recovery by owner
     if transaction_result.eq(&TransactionResult::Accepted) {
         config.bridge_state = BridgeState::Active;
         config.relayers = relayers;
-    } else {
-        // The key rotation failed, we set the state of the bridge to KeyRotationFailed, the owner must trigger a key rotation recovery
-        config.bridge_state = BridgeState::KeyRotationFailed;
+        TX_EVIDENCES.clear(storage);
     }
+
+    PENDING_KEY_ROTATION.save(storage, &false)?;
+
     Ok(())
 }

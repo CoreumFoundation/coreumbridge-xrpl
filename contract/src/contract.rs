@@ -17,12 +17,16 @@ use crate::{
         handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation,
         remove_pending_refund, Operation, OperationType,
     },
-    relayer::{assert_relayer, rotate_relayers, validate_relayers, validate_xrpl_address, Relayer, handle_key_rotation_confirmation},
+    relayer::{
+        assert_relayer, handle_key_rotation_confirmation, rotate_relayers, validate_relayers,
+        validate_xrpl_address, Relayer,
+    },
     signatures::add_signature,
     state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, XRPLToken,
-        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS,
-        PENDING_REFUNDS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER, XRPL_TOKENS,
+        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_KEY_ROTATION,
+        PENDING_OPERATIONS, PENDING_REFUNDS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
+        XRPL_TOKENS,
     },
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
@@ -110,6 +114,7 @@ pub fn instantiate(
     // We initialize these values here so that we can immediately start working with them
     USED_TICKETS_COUNTER.save(deps.storage, &0)?;
     PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
+    PENDING_KEY_ROTATION.save(deps.storage, &false)?;
     AVAILABLE_TICKETS.save(deps.storage, &VecDeque::new())?;
 
     let config = Config {
@@ -276,12 +281,14 @@ pub fn execute(
         ExecuteMsg::Halt {} => halt_bridge(deps.into_empty(), info.sender),
         ExecuteMsg::Resume {} => resume_bridge(deps.into_empty(), info.sender),
         ExecuteMsg::KeyRotation {
+            account_sequence,
             relayers_to_remove,
             relayers_to_add,
         } => key_rotation(
             deps.into_empty(),
             env,
             info.sender,
+            account_sequence,
             relayers_to_remove,
             relayers_to_add,
         ),
@@ -468,19 +475,22 @@ fn save_evidence(
 ) -> CoreumResult<ContractError> {
     // Evidences can only be sent under 2 conditions:
     // 1. The bridge is active -> All evidences are accepted
-    // 2. The bridge is in the middle of a key rotation -> Only evidences of a key rotation operation are valid
-    match CONFIG.load(deps.storage)?.bridge_state {
-        BridgeState::Active => (),
-        BridgeState::PendingKeyRotation => match evidence.to_owned() {
+    // 2. The bridge is halted -> Only key rotation evidences allowed if there is a key rotation ongoing
+    let config = CONFIG.load(deps.storage)?;
+
+    if config.bridge_state == BridgeState::Halted {
+        if !PENDING_KEY_ROTATION.load(deps.storage)? {
+            return Err(ContractError::BridgeHalted {});
+        }
+
+        // If evidence is not a key rotation we won't accept this operation
+        match evidence {
             Evidence::XRPLTransactionResult {
-                operation_result, ..
-            } => match operation_result {
-                OperationResult::KeyRotation { .. } => (),
-                _ => return Err(ContractError::OnlyKeyRotationEvidencesAllowed {}),
-            },
-            _ => return Err(ContractError::OnlyKeyRotationEvidencesAllowed {}),
-        },
-        _ => return Err(ContractError::BridgeHaltedOrWaitingRecovery {}),
+                operation_result: OperationResult::KeyRotation { .. },
+                ..
+            } => (),
+            _ => return Err(ContractError::BridgeHalted {}),
+        }
     }
 
     evidence.validate_basic()?;
@@ -500,7 +510,6 @@ fn save_evidence(
             recipient,
         } => {
             deps.api.addr_validate(recipient.as_ref())?;
-            let config = CONFIG.load(deps.storage)?;
 
             // This means the token is not a Coreum originated token (the issuer is not the XRPL multisig address)
             if issuer.ne(&config.bridge_xrpl_address) {
@@ -1085,11 +1094,12 @@ fn halt_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
 fn resume_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
-    let mut config = CONFIG.load(deps.storage)?;
-    // Bridge can only be resumed if it's halted
-    if config.bridge_state.ne(&BridgeState::Halted) {
-        return Err(ContractError::BridgeNotHalted {});
+    // Can't resume the bridge if there is a pending rotation ongoing
+    if PENDING_KEY_ROTATION.load(deps.storage)? {
+        return Err(ContractError::KeyRotationOngoing {});
     }
+
+    let mut config = CONFIG.load(deps.storage)?;
     config.bridge_state = BridgeState::Active;
     CONFIG.save(deps.storage, &config)?;
 
@@ -1102,19 +1112,18 @@ fn key_rotation(
     deps: DepsMut,
     env: Env,
     sender: Addr,
+    account_sequence: Option<u64>,
     relayers_to_remove: Option<Vec<Relayer>>,
     relayers_to_add: Option<Vec<Relayer>>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
-    let mut config = CONFIG.load(deps.storage)?;
-
-    if config.bridge_state.ne(&BridgeState::Active)
-        || config.bridge_state.ne(&BridgeState::Halted)
-    {
-        return Err(ContractError::BridgeAlreadyKeyRotating {});
+    // If there is already a pending key rotation ongoing, we don't allow another one until that one is confirmed
+    if PENDING_KEY_ROTATION.load(deps.storage)? {
+        return Err(ContractError::KeyRotationOngoing {});
     }
 
+    let config = CONFIG.load(deps.storage)?;
     let mut relayers = config.relayers.to_owned();
 
     rotate_relayers(&mut relayers, relayers_to_remove, relayers_to_add)?;
@@ -1123,19 +1132,32 @@ fn key_rotation(
     validate_relayers(deps.as_ref(), &relayers, config.evidence_threshold)?;
 
     // Create the pending operation for key rotation
-    let ticket = allocate_ticket(deps.storage)?;
+    // If an account sequence is sent we will use it, otherwise we will use a ticket
+    let acc_seq;
+    let ticket;
+    match account_sequence {
+        Some(account_sequence) => {
+            acc_seq = Some(account_sequence);
+            ticket = None;
+        }
+        None => {
+            acc_seq = None;
+            ticket = Some(allocate_ticket(deps.storage)?);
+        }
+    }
+
     create_pending_operation(
         deps.storage,
         env.block.time.seconds(),
-        Some(ticket),
-        None,
+        ticket,
+        acc_seq,
         OperationType::KeyRotation {
             new_relayers: relayers,
         },
     )?;
 
-    // We set the bridge status to PendingKeyRotation so that we can't send any more transactions until the key rotation is complete on the XRPL side
-    config.bridge_state = BridgeState::PendingKeyRotation;
+    // We set the pending key rotation flag to true so that we don't allow another key rotation until this one is confirmed
+    PENDING_KEY_ROTATION.save(deps.storage, &true)?;
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new()
@@ -1407,7 +1429,7 @@ fn convert_currency_to_xrpl_hexadecimal(currency: String) -> String {
 
 // Helper function to check that the sender is either an owner or a relayer
 fn assert_owner_or_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractError> {
-    match assert_owner(deps.storage, &sender) {
+    match assert_owner(deps.storage, sender) {
         Ok(_) => Ok(()),
         Err(_) => assert_relayer(deps, sender).map_err(|_| ContractError::NotOwnerOrRelayer {}),
     }
@@ -1417,7 +1439,7 @@ fn assert_owner_or_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractErro
 fn assert_bridge_active(deps: Deps) -> Result<(), ContractError> {
     let config = CONFIG.load(deps.storage)?;
     if config.bridge_state.ne(&BridgeState::Active) {
-        return Err(ContractError::BridgeNotActive {});
+        return Err(ContractError::BridgeHalted {});
     }
     Ok(())
 }
