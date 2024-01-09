@@ -3117,7 +3117,7 @@ mod tests {
                 .to_string()
         );
 
-        // Let's claim all pending refunds and check that they are gone from the contract and in the senders address
+        // Let's check the pending refunds for the sender and also check that pagination works correctly.
         let query_pending_refunds = wasm
             .query::<QueryMsg, PendingRefundsResponse>(
                 &contract_addr,
@@ -3132,6 +3132,36 @@ mod tests {
         // There was one pending refund from previous test, we are going to claim both
         assert_eq!(query_pending_refunds.pending_refunds.len(), 2);
 
+        // Test with limit 1 and starting after first one
+        let query_pending_refunds_with_limit = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(sender.address()),
+                    start_after: None,
+                    limit: Some(1),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_refunds_with_limit.pending_refunds.len(), 1);
+
+        // Test with limit 1 and starting after first one
+        let query_pending_refunds_with_limit_and_start_after = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(sender.address()),
+                    start_after: Some(query_pending_refunds.pending_refunds[0].id.to_owned()),
+                    limit: Some(1),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_refunds_with_limit_and_start_after.pending_refunds.len(), 1);
+        assert_eq!(query_pending_refunds_with_limit_and_start_after.pending_refunds[0], query_pending_refunds.pending_refunds[1]);
+
+        // Let's claim all pending refunds and check that they are gone from the contract and in the senders address
         for refund in query_pending_refunds.pending_refunds.iter() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
