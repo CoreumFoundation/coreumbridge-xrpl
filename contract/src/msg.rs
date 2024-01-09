@@ -115,7 +115,7 @@ pub enum QueryMsg {
     #[returns(PendingRefundsResponse)]
     PendingRefunds {
         address: Addr,
-        start_after: Option<String>,
+        offset: Option<u64>,
         limit: Option<u32>,
     },
 }

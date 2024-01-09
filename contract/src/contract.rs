@@ -40,7 +40,6 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
-use cw_storage_plus::Bound;
 use cw_utils::one_coin;
 
 // version info for migration info
@@ -1011,9 +1010,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
         QueryMsg::PendingRefunds {
             address,
-            start_after,
+            offset,
             limit,
-        } => to_json_binary(&query_pending_refunds(deps, address, start_after, limit)?),
+        } => to_json_binary(&query_pending_refunds(deps, address, offset, limit)?),
         QueryMsg::FeesCollected { relayer_address } => {
             to_json_binary(&query_fees_collected(deps, relayer_address)?)
         }
@@ -1090,21 +1089,18 @@ fn query_fees_collected(deps: Deps, relayer_address: Addr) -> StdResult<FeesColl
 fn query_pending_refunds(
     deps: Deps,
     address: Addr,
-    start_after: Option<String>,
+    offset: Option<u64>,
     limit: Option<u32>,
 ) -> StdResult<PendingRefundsResponse> {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
-
-    // A way to start after a specific pending refund id to not load the entire map
-    let start = start_after
-        .map(|start_after| (address.to_owned(), start_after))
-        .map(Bound::exclusive);
+    let offset = offset.unwrap_or_default();
 
     let pending_refunds: Vec<PendingRefund> = PENDING_REFUNDS
         .idx
         .address
         .prefix(address)
-        .range(deps.storage, start, None, Order::Ascending)
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(offset as usize)
         .take(limit as usize)
         .filter_map(|r| r.ok())
         .map(|(_, pr)| PendingRefund {
