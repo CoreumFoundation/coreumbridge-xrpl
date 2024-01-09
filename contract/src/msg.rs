@@ -4,7 +4,12 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[allow(unused_imports)]
 use crate::state::{Config, CoreumToken, XRPLToken};
-use crate::{evidence::Evidence, operation::Operation, relayer::Relayer, state::TokenState};
+use crate::{
+    evidence::Evidence,
+    operation::Operation,
+    relayer::Relayer,
+    state::{BridgeState, TokenState},
+};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -89,6 +94,15 @@ pub enum ExecuteMsg {
     ClaimRelayerFees {
         amounts: Vec<Coin>,
     },
+    // A relayer or the owner can halt operations if an issue is detected
+    Halt {},
+    // Owner can resume the bridge that is in halted state
+    Resume {},
+    // Owner can trigger a key rotation, removing and/or adding relayers
+    KeyRotation {
+        relayers_to_remove: Option<Vec<Relayer>>,
+        relayers_to_add: Option<Vec<Relayer>>,
+    },
 }
 
 #[cw_ownable_query]
@@ -116,6 +130,8 @@ pub enum QueryMsg {
     FeesCollected { relayer_address: Addr },
     #[returns(PendingRefundsResponse)]
     PendingRefunds { address: Addr },
+    #[returns(BridgeStateResponse)]
+    BridgeState {},
 }
 
 #[cw_serde]
@@ -153,4 +169,9 @@ pub struct PendingRefund {
     // We will use a unique id (block timestamp - operation_id) for users to claim their funds back per operation id
     pub id: String,
     pub coin: Coin,
+}
+
+#[cw_serde]
+pub struct BridgeStateResponse {
+    pub state: BridgeState,
 }

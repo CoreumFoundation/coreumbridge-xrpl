@@ -16,6 +16,7 @@ mod tests {
     use rand::{distributions::Alphanumeric, thread_rng, Rng};
     use sha2::{Digest, Sha256};
 
+    use crate::state::BridgeState;
     use crate::{
         contract::{XRP_CURRENCY, XRP_ISSUER},
         error::ContractError,
@@ -527,6 +528,7 @@ mod tests {
                 used_ticket_sequence_threshold: 50,
                 trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                 bridge_xrpl_address: multisig_address,
+                bridge_state: BridgeState::Active
             }
         );
     }

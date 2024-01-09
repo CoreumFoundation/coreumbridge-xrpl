@@ -8,21 +8,21 @@ use crate::{
         substract_relayer_fees,
     },
     msg::{
-        AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, FeesCollectedResponse,
-        InstantiateMsg, PendingOperationsResponse, PendingRefundsResponse, QueryMsg,
-        XRPLTokensResponse,
+        AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
+        FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefundsResponse,
+        QueryMsg, XRPLTokensResponse,
     },
     operation::{
         check_operation_exists, create_pending_operation,
         handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation,
         remove_pending_refund, Operation, OperationType,
     },
-    relayer::{assert_relayer, validate_relayers, validate_xrpl_address},
+    relayer::{assert_relayer, rotate_relayers, validate_relayers, validate_xrpl_address, Relayer, handle_key_rotation_confirmation},
     signatures::add_signature,
     state::{
-        Config, ContractActions, CoreumToken, TokenState, XRPLToken, AVAILABLE_TICKETS, CONFIG,
-        COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS, PENDING_REFUNDS, PENDING_TICKET_UPDATE,
-        USED_TICKETS_COUNTER, XRPL_TOKENS,
+        BridgeState, Config, ContractActions, CoreumToken, TokenState, XRPLToken,
+        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS,
+        PENDING_REFUNDS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
@@ -75,6 +75,7 @@ const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 =
 const XRP_DEFAULT_FEE: Uint128 = Uint128::zero();
 
 pub const MAX_TICKETS: u32 = 250;
+pub const MAX_RELAYERS: u32 = 32;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -90,17 +91,16 @@ pub fn instantiate(
         Some(deps.api.addr_validate(msg.owner.as_ref())?.as_ref()),
     )?;
 
-    validate_relayers(&deps, msg.relayers.clone())?;
+    validate_relayers(
+        deps.as_ref().into_empty(),
+        &msg.relayers,
+        msg.evidence_threshold,
+    )?;
 
     validate_xrpl_address(msg.bridge_xrpl_address.to_owned())?;
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
-
-    // Threshold can't be more than number of relayers
-    if msg.evidence_threshold > msg.relayers.len().try_into().unwrap() {
-        return Err(ContractError::InvalidThreshold {});
-    }
 
     // We need to allow at least 2 tickets and less than 250 (XRPL limit) to be used
     if msg.used_ticket_sequence_threshold <= 1 || msg.used_ticket_sequence_threshold > MAX_TICKETS {
@@ -118,6 +118,7 @@ pub fn instantiate(
         used_ticket_sequence_threshold: msg.used_ticket_sequence_threshold,
         trust_set_limit_amount: msg.trust_set_limit_amount,
         bridge_xrpl_address: msg.bridge_xrpl_address,
+        bridge_state: BridgeState::Active,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -266,13 +267,24 @@ pub fn execute(
             state,
             min_sending_precision,
         ),
-
         ExecuteMsg::ClaimRefund { pending_refund_id } => {
             claim_pending_refund(deps.into_empty(), info.sender, pending_refund_id)
         }
         ExecuteMsg::ClaimRelayerFees { amounts } => {
             claim_relayer_fees(deps.into_empty(), info.sender, amounts)
         }
+        ExecuteMsg::Halt {} => halt_bridge(deps.into_empty(), info.sender),
+        ExecuteMsg::Resume {} => resume_bridge(deps.into_empty(), info.sender),
+        ExecuteMsg::KeyRotation {
+            relayers_to_remove,
+            relayers_to_add,
+        } => key_rotation(
+            deps.into_empty(),
+            env,
+            info.sender,
+            relayers_to_remove,
+            relayers_to_add,
+        ),
     }
 }
 
@@ -298,6 +310,7 @@ fn register_coreum_token(
     bridging_fee: Uint128,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
+    assert_bridge_active(deps.as_ref())?;
 
     validate_sending_precision(sending_precision, decimals)?;
 
@@ -359,6 +372,7 @@ fn register_xrpl_token(
     transfer_rate: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
+    assert_bridge_active(deps.as_ref().into_empty())?;
 
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
 
@@ -452,9 +466,26 @@ fn save_evidence(
     sender: Addr,
     evidence: Evidence,
 ) -> CoreumResult<ContractError> {
+    // Evidences can only be sent under 2 conditions:
+    // 1. The bridge is active -> All evidences are accepted
+    // 2. The bridge is in the middle of a key rotation -> Only evidences of a key rotation operation are valid
+    match CONFIG.load(deps.storage)?.bridge_state {
+        BridgeState::Active => (),
+        BridgeState::PendingKeyRotation => match evidence.to_owned() {
+            Evidence::XRPLTransactionResult {
+                operation_result, ..
+            } => match operation_result {
+                OperationResult::KeyRotation { .. } => (),
+                _ => return Err(ContractError::OnlyKeyRotationEvidencesAllowed {}),
+            },
+            _ => return Err(ContractError::OnlyKeyRotationEvidencesAllowed {}),
+        },
+        _ => return Err(ContractError::BridgeHaltedOrWaitingRecovery {}),
+    }
+
     evidence.validate_basic()?;
 
-    assert_relayer(deps.as_ref(), sender.clone())?;
+    assert_relayer(deps.as_ref(), &sender)?;
 
     let threshold_reached = handle_evidence(deps.storage, sender, evidence.clone())?;
 
@@ -609,6 +640,7 @@ fn save_evidence(
                 }
                 OperationResult::TicketsAllocation { .. } => {}
                 OperationResult::CoreumToXRPLTransfer { .. } => {}
+                OperationResult::KeyRotation { .. } => {}
             }
 
             if threshold_reached {
@@ -634,6 +666,13 @@ fn save_evidence(
                             transaction_result.clone(),
                             operation_id,
                             &mut response,
+                        )?;
+                    }
+                    OperationResult::KeyRotation { new_relayers } => {
+                        handle_key_rotation_confirmation(
+                            deps.storage,
+                            new_relayers.clone(),
+                            transaction_result.clone(),
                         )?;
                     }
                 }
@@ -683,6 +722,7 @@ fn recover_tickets(
     number_of_tickets: Option<u32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
+    assert_bridge_active(deps.as_ref())?;
 
     let available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
 
@@ -736,6 +776,7 @@ fn recover_xrpl_token_registration(
     transfer_rate: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
+    assert_bridge_active(deps.as_ref())?;
 
     let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
 
@@ -786,7 +827,7 @@ fn save_signature(
     operation_id: u64,
     signature: String,
 ) -> CoreumResult<ContractError> {
-    assert_relayer(deps.as_ref(), sender.clone())?;
+    assert_relayer(deps.as_ref(), &sender)?;
 
     add_signature(deps, operation_id, sender.clone(), signature.clone())?;
 
@@ -803,6 +844,7 @@ fn send_to_xrpl(
     info: MessageInfo,
     recipient: String,
 ) -> CoreumResult<ContractError> {
+    assert_bridge_active(deps.as_ref())?;
     // Check that we are only sending 1 type of coin
     let funds = one_coin(&info)?;
 
@@ -935,6 +977,7 @@ fn update_xrpl_token(
     min_sending_precision: Option<i32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
+    assert_bridge_active(deps.as_ref())?;
 
     let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
 
@@ -965,6 +1008,7 @@ fn update_coreum_token(
     min_sending_precision: Option<i32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
+    assert_bridge_active(deps.as_ref())?;
 
     let mut token = COREUM_TOKENS
         .load(deps.storage, denom.to_owned())
@@ -989,7 +1033,8 @@ fn claim_relayer_fees(
     sender: Addr,
     amounts: Vec<Coin>,
 ) -> CoreumResult<ContractError> {
-    assert_relayer(deps.as_ref(), sender.clone())?;
+    assert_relayer(deps.as_ref(), &sender)?;
+    assert_bridge_active(deps.as_ref())?;
 
     substract_relayer_fees(deps.storage, sender.to_owned(), &amounts)?;
 
@@ -1009,6 +1054,7 @@ fn claim_pending_refund(
     sender: Addr,
     pending_refund_id: String,
 ) -> CoreumResult<ContractError> {
+    assert_bridge_active(deps.as_ref())?;
     let coin = remove_pending_refund(deps.storage, sender.to_owned(), pending_refund_id)?;
 
     let send_msg = BankMsg::Send {
@@ -1019,6 +1065,81 @@ fn claim_pending_refund(
     Ok(Response::new()
         .add_message(send_msg)
         .add_attribute("action", ContractActions::ClaimRefunds.as_str())
+        .add_attribute("sender", sender))
+}
+
+fn halt_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
+    assert_owner_or_relayer(deps.as_ref(), &sender)?;
+    assert_bridge_active(deps.as_ref())?;
+
+    let mut config = CONFIG.load(deps.storage)?;
+
+    config.bridge_state = BridgeState::Halted;
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::Halt.as_str())
+        .add_attribute("sender", sender))
+}
+
+fn resume_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    let mut config = CONFIG.load(deps.storage)?;
+    // Bridge can only be resumed if it's halted
+    if config.bridge_state.ne(&BridgeState::Halted) {
+        return Err(ContractError::BridgeNotHalted {});
+    }
+    config.bridge_state = BridgeState::Active;
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::Resume.as_str())
+        .add_attribute("sender", sender))
+}
+
+fn key_rotation(
+    deps: DepsMut,
+    env: Env,
+    sender: Addr,
+    relayers_to_remove: Option<Vec<Relayer>>,
+    relayers_to_add: Option<Vec<Relayer>>,
+) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    let mut config = CONFIG.load(deps.storage)?;
+
+    if config.bridge_state.ne(&BridgeState::Active)
+        || config.bridge_state.ne(&BridgeState::Halted)
+    {
+        return Err(ContractError::BridgeAlreadyKeyRotating {});
+    }
+
+    let mut relayers = config.relayers.to_owned();
+
+    rotate_relayers(&mut relayers, relayers_to_remove, relayers_to_add)?;
+
+    // Finally validate the new relayer set so that we are sure that the new set is valid (e.g. no duplicated relayers, etc.)
+    validate_relayers(deps.as_ref(), &relayers, config.evidence_threshold)?;
+
+    // Create the pending operation for key rotation
+    let ticket = allocate_ticket(deps.storage)?;
+    create_pending_operation(
+        deps.storage,
+        env.block.time.seconds(),
+        Some(ticket),
+        None,
+        OperationType::KeyRotation {
+            new_relayers: relayers,
+        },
+    )?;
+
+    // We set the bridge status to PendingKeyRotation so that we can't send any more transactions until the key rotation is complete on the XRPL side
+    config.bridge_state = BridgeState::PendingKeyRotation;
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::KeyRotation.as_str())
         .add_attribute("sender", sender))
 }
 
@@ -1042,12 +1163,20 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::FeesCollected { relayer_address } => {
             to_json_binary(&query_fees_collected(deps, relayer_address)?)
         }
+        QueryMsg::BridgeState {} => to_json_binary(&query_bridge_state(deps)?),
     }
 }
 
 fn query_config(deps: Deps) -> StdResult<Config> {
     let config = CONFIG.load(deps.storage)?;
     Ok(config)
+}
+
+fn query_bridge_state(deps: Deps) -> StdResult<BridgeStateResponse> {
+    let config = CONFIG.load(deps.storage)?;
+    Ok(BridgeStateResponse {
+        state: config.bridge_state,
+    })
 }
 
 fn query_xrpl_tokens(
@@ -1274,4 +1403,21 @@ fn truncate_and_convert_amount(
 fn convert_currency_to_xrpl_hexadecimal(currency: String) -> String {
     // Fill with zeros to get the correct hex representation in XRPL of our currency.
     format!("{:0<40}", hex::encode(currency)).to_uppercase()
+}
+
+// Helper function to check that the sender is either an owner or a relayer
+fn assert_owner_or_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractError> {
+    match assert_owner(deps.storage, &sender) {
+        Ok(_) => Ok(()),
+        Err(_) => assert_relayer(deps, sender).map_err(|_| ContractError::NotOwnerOrRelayer {}),
+    }
+}
+
+// Helper function to check that bridge is active
+fn assert_bridge_active(deps: Deps) -> Result<(), ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    if config.bridge_state.ne(&BridgeState::Active) {
+        return Err(ContractError::BridgeNotActive {});
+    }
+    Ok(())
 }

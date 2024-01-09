@@ -42,6 +42,30 @@ pub struct Config {
     pub used_ticket_sequence_threshold: u32,
     pub trust_set_limit_amount: Uint128,
     pub bridge_xrpl_address: String,
+    pub bridge_state: BridgeState,
+}
+
+#[cw_serde]
+pub enum BridgeState {
+    // Bridge is active and working
+    Active,
+    // Bridge is halted and no operations can be executed until it's reactivated by owner
+    Halted,
+    // A key rotation is in progress and thus bridge cannot be activated until it's completed
+    PendingKeyRotation,
+    // A key rotation failed and no more tickets are available therefore owner needs to perform key rotation recovery
+    KeyRotationFailed,
+}
+
+impl BridgeState {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BridgeState::Active => "active",
+            BridgeState::Halted => "halted",
+            BridgeState::PendingKeyRotation => "pending_key_rotation",
+            BridgeState::KeyRotationFailed => "key_rotation_failed",
+        }
+    }
 }
 
 #[cw_serde]
@@ -164,6 +188,9 @@ pub enum ContractActions {
     UpdateXRPLToken,
     UpdateCoreumToken,
     ClaimRefunds,
+    Halt,
+    Resume,
+    KeyRotation,
 }
 
 impl ContractActions {
@@ -182,6 +209,9 @@ impl ContractActions {
             ContractActions::ClaimRefunds => "claim_refunds",
             ContractActions::UpdateXRPLToken => "update_xrpl_token",
             ContractActions::UpdateCoreumToken => "update_coreum_token",
+            ContractActions::Halt => "halt_bridge",
+            ContractActions::Resume => "resume_bridge",
+            ContractActions::KeyRotation => "key_rotation",
         }
     }
 }

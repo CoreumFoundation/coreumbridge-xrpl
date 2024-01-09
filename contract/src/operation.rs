@@ -7,6 +7,7 @@ use crate::{
     error::ContractError,
     evidence::TransactionResult,
     msg::PendingRefund,
+    relayer::Relayer,
     signatures::Signature,
     state::{TokenState, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS, XRPL_TOKENS},
     token::build_xrpl_token_key,
@@ -30,6 +31,9 @@ pub enum OperationType {
         issuer: String,
         currency: String,
         trust_set_limit_amount: Uint128,
+    },
+    KeyRotation {
+        new_relayers: Vec<Relayer>,
     },
     #[serde(rename = "coreum_to_xrpl_transfer")]
     CoreumToXRPLTransfer {

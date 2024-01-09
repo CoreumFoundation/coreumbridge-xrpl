@@ -172,4 +172,43 @@ pub enum ContractError {
         denom
     )]
     NotEnoughFeesToClaim { denom: String, amount: Uint128 },
+
+    #[error("NotOwnerOrRelayer: The sender is not the owner of the contract or a relayer. Unauthorized.")]
+    NotOwnerOrRelayer {},
+
+    #[error("BridgeNotActive: Bridge is currently not active. It's either halted or processing a key rotation")]
+    BridgeNotActive {},
+
+    #[error("BridgeNotHalted: Bridge is currently not halted. It's either active or processing a key rotation")]
+    BridgeNotHalted {},
+
+    #[error("BridgeHalted: Bridge is currently halted by owner. This operation is not authorized")]
+    BridgeHalted {},
+
+    #[error("BridgeAlreadyKeyRotating: Bridge is already in the middle of a key rotation")]
+    BridgeAlreadyKeyRotating {},
+
+    #[error("InvalidKeyRotation: must provide either relayers to remove and/or relayers to add")]
+    InvalidKeyRotation {},
+
+    #[error("NoRelayers: at least one relayer must be provided")]
+    NoRelayers {},
+
+    #[error(
+        "TooManyRelayers: too many relayers provided, max allowed is {}",
+        max_relayers
+    )]
+    TooManyRelayers { max_relayers: u32 },
+
+    #[error("RelayerNotRegistered: you are trying to remove a relayer that is currently not a bridge relayer")]
+    RelayerNotRegistered {},
+
+    #[error("RelayerAlreadyRegistered: you are trying to add a relayer that is already a bridge relayer")]
+    RelayerAlreadyRegistered {},
+
+    #[error("BridgeHaltedOrWaitingRecovery: bridge is currently halted or waiting for a bridge key rotation recovery by owner")]
+    BridgeHaltedOrWaitingRecovery {},
+
+    #[error("OnlyKeyRotationEvidencesAllowed: bridge is currently processing a key rotation, only these evidences are allowed")]
+    OnlyKeyRotationEvidencesAllowed {},
 }
