@@ -98,15 +98,15 @@ pub fn handle_key_rotation_confirmation(
     new_evidence_threshold: u32,
     transaction_result: TransactionResult,
 ) -> Result<(), ContractError> {
-    let mut config = CONFIG.load(storage)?;
     // Set config relayers to the new relayers if the transaction was successful update the relayers and evidence threshhold, and clear all current evidences
     // Bridge will stay halted until owner resumes it.
     // If it failed, the bridge will remain halted and relayers are not updated, waiting for another recovery by owner
     if transaction_result.eq(&TransactionResult::Accepted) {
+        let mut config = CONFIG.load(storage)?;
         config.relayers = relayers;
         config.evidence_threshold = new_evidence_threshold;
-        TX_EVIDENCES.clear(storage);
         CONFIG.save(storage, &config)?;
+        TX_EVIDENCES.clear(storage);
     }
 
     PENDING_KEY_ROTATION.save(storage, &false)?;

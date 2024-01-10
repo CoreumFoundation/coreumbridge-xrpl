@@ -393,7 +393,7 @@ mod tests {
 
         // Instantiating with too many relayers (> 32) should fail
         let mut too_many_relayers = vec![];
-        for _ in 0..MAX_RELAYERS+1 {
+        for _ in 0..MAX_RELAYERS + 1 {
             let coreum_address = app.init_account(&vec![]).unwrap().address();
             too_many_relayers.push(Relayer {
                 coreum_address: Addr::unchecked(coreum_address),
@@ -7971,7 +7971,7 @@ mod tests {
         .unwrap();
 
         let tx_hash = generate_hash();
-        for relayer in relayer_accounts {
+        for relayer in relayer_accounts.iter() {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveEvidence {
@@ -7990,6 +7990,280 @@ mod tests {
             )
             .unwrap();
         }
+
+        // Let's send a random evidence from 1 relayer that will stay after key rotation to confirm that it will be cleared after key rotation confirmation
+        let tx_hash_old_evidence = generate_hash();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: tx_hash_old_evidence.to_owned(),
+                    issuer: XRP_ISSUER.to_string(),
+                    currency: XRP_CURRENCY.to_string(),
+                    amount: Uint128::one(),
+                    recipient: Addr::unchecked(signer.address()),
+                },
+            },
+            &vec![],
+            &relayer_accounts[0],
+        )
+        .unwrap();
+
+        // If we send it again it should by same relayer it should fail because it's duplicated
+        let error_duplicated_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: tx_hash_old_evidence.to_owned(),
+                        issuer: XRP_ISSUER.to_string(),
+                        currency: XRP_CURRENCY.to_string(),
+                        amount: Uint128::one(),
+                        recipient: Addr::unchecked(signer.address()),
+                    },
+                },
+                &vec![],
+                &relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(error_duplicated_evidence.to_string().contains(
+            ContractError::EvidenceAlreadyProvided {}
+                .to_string()
+                .as_str()
+        ));
+
+        // We are going to perform a key rotation, for that we are going to remove a malicious relayer
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::KeyRotation {
+                account_sequence: None,
+                new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
+                new_evidence_threshold: 2,
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // If we try to perform another key rotation, it should fail because we have one pending ongoing
+        let pending_rotation_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::KeyRotation {
+                    account_sequence: None,
+                    new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
+                    new_evidence_threshold: 2,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(pending_rotation_error
+            .to_string()
+            .contains(ContractError::KeyRotationOngoing {}.to_string().as_str()));
+
+        // Let's confirm that a pending operation is created
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+        assert_eq!(
+            query_pending_operations.operations[0],
+            Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
+                ticket_sequence: Some(1),
+                account_sequence: None,
+                signatures: vec![],
+                operation_type: OperationType::KeyRotation {
+                    new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
+                    new_evidence_threshold: 2
+                }
+            }
+        );
+
+        // Any evidence we send now that is not a KeyRotation evidence should fail
+        let error_no_key_rotation_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: tx_hash_old_evidence.to_owned(),
+                        issuer: XRP_ISSUER.to_string(),
+                        currency: XRP_CURRENCY.to_string(),
+                        amount: Uint128::one(),
+                        recipient: Addr::unchecked(signer.address()),
+                    },
+                },
+                &vec![],
+                &relayer_accounts[1],
+            )
+            .unwrap_err();
+
+        assert!(error_no_key_rotation_evidence
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        // We are going to confirm the KeyRotation as rejected and check that nothing is changed and bridge is still halted
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: None,
+                        ticket_sequence: Some(1),
+                        transaction_result: TransactionResult::Rejected,
+                        operation_result: OperationResult::KeyRotation {
+                            new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
+                            new_evidence_threshold: 2,
+                        },
+                    },
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        // Pending operation should have been removed
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert!(query_pending_operations.operations.is_empty());
+
+        // Check config and see that it's the same as before and bridge is still halted
+        let query_config = wasm
+            .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
+            .unwrap();
+
+        assert_eq!(query_config.relayers, relayers);
+        assert_eq!(query_config.evidence_threshold, 3);
+        assert_eq!(query_config.bridge_state, BridgeState::Halted);
+
+        // Let's try to perform a key rotation again and check that it works
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::KeyRotation {
+                account_sequence: None,
+                new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
+                new_evidence_threshold: 2,
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Let's confirm that a pending operation is created
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+        assert_eq!(
+            query_pending_operations.operations[0],
+            Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
+                ticket_sequence: Some(2),
+                account_sequence: None,
+                signatures: vec![],
+                operation_type: OperationType::KeyRotation {
+                    new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
+                    new_evidence_threshold: 2
+                }
+            }
+        );
+
+        // We are going to confirm the KeyRotation as accepted and check that config has been updated correctly
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: None,
+                        ticket_sequence: Some(2),
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::KeyRotation {
+                            new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
+                            new_evidence_threshold: 2,
+                        },
+                    },
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        let query_config = wasm
+            .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
+            .unwrap();
+
+        assert_eq!(
+            query_config.relayers,
+            vec![relayers[0].clone(), relayers[1].clone()]
+        );
+        assert_eq!(query_config.evidence_threshold, 2);
+        assert_eq!(query_config.bridge_state, BridgeState::Halted);
+
+        // Owner can now resume the bridge
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Resume {}, &vec![], &signer)
+            .unwrap();
+
+        // Let's check that evidences have been cleared by sending again the old evidence and it succeeds
+        // If evidences were cleared, this message will succeed because the evidence is not stored
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: tx_hash_old_evidence.to_owned(),
+                    issuer: XRP_ISSUER.to_string(),
+                    currency: XRP_CURRENCY.to_string(),
+                    amount: Uint128::one(),
+                    recipient: Addr::unchecked(signer.address()),
+                },
+            },
+            &vec![],
+            &relayer_accounts[0],
+        )
+        .unwrap();
+
+        // Finally, let's check that the old relayer can not send evidences anymore
+        let error_not_relayer = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: tx_hash_old_evidence.to_owned(),
+                        issuer: XRP_ISSUER.to_string(),
+                        currency: XRP_CURRENCY.to_string(),
+                        amount: Uint128::one(),
+                        recipient: Addr::unchecked(signer.address()),
+                    },
+                },
+                &vec![],
+                &relayer_accounts[2],
+            )
+            .unwrap_err();
+
+        assert!(error_not_relayer
+            .to_string()
+            .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
     }
 
     #[test]
@@ -8199,6 +8473,7 @@ mod tests {
             xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
+        // We perform a key rotation using an account sequence
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::KeyRotation {
@@ -8210,6 +8485,29 @@ mod tests {
             &signer,
         )
         .unwrap();
+
+        // Let's query the pending operations to see that this operation was saved correctly
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+        assert_eq!(
+            query_pending_operations.operations[0],
+            Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
+                ticket_sequence: None,
+                account_sequence: Some(1),
+                signatures: vec![],
+                operation_type: OperationType::KeyRotation {
+                    new_relayers: vec![new_relayer.clone()],
+                    new_evidence_threshold: 1
+                }
+            }
+        );
 
         // Resuming now should not be allowed because we have a pending key rotation
         let resume_error = wasm

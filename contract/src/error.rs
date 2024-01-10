@@ -3,7 +3,7 @@ use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
 
-use crate::contract::{MAX_TICKETS, MAX_RELAYERS};
+use crate::contract::{MAX_RELAYERS, MAX_TICKETS};
 
 #[derive(Error, Debug)]
 pub enum ContractError {
@@ -193,12 +193,4 @@ pub enum ContractError {
 
     #[error("KeyRotationOngoing: Can't perform this operation while key rotation is ongoing")]
     KeyRotationOngoing {},
-
-    #[error(
-        "RelayerNotRegistered: Can't remove a relayer that is not currently in the active set"
-    )]
-    RelayerNotInSet {},
-
-    #[error("RelayerAlreadyRegistered: Can't add a relayer that is already in the active set")]
-    RelayerAlreadyInSet {},
 }

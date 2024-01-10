@@ -1085,10 +1085,7 @@ fn halt_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
     assert_owner_or_relayer(deps.as_ref(), &sender)?;
     assert_bridge_active(deps.as_ref())?;
 
-    let mut config = CONFIG.load(deps.storage)?;
-
-    config.bridge_state = BridgeState::Halted;
-    CONFIG.save(deps.storage, &config)?;
+    update_bridge_state(deps, BridgeState::Halted)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::Halt.as_str())
@@ -1103,9 +1100,7 @@ fn resume_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
         return Err(ContractError::KeyRotationOngoing {});
     }
 
-    let mut config = CONFIG.load(deps.storage)?;
-    config.bridge_state = BridgeState::Active;
-    CONFIG.save(deps.storage, &config)?;
+    update_bridge_state(deps, BridgeState::Active)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::Resume.as_str())
@@ -1126,8 +1121,6 @@ fn key_rotation(
     if PENDING_KEY_ROTATION.load(deps.storage)? {
         return Err(ContractError::KeyRotationOngoing {});
     }
-
-    let config = CONFIG.load(deps.storage)?;
 
     // Validate the new relayer set so that we are sure that the new set is valid (e.g. no duplicated relayers, etc.)
     validate_relayers(deps.as_ref(), &new_relayers, new_evidence_threshold)?;
@@ -1160,6 +1153,9 @@ fn key_rotation(
 
     // We set the pending key rotation flag to true so that we don't allow another key rotation until this one is confirmed
     PENDING_KEY_ROTATION.save(deps.storage, &true)?;
+    // We set the bridge state to halted
+    let mut config = CONFIG.load(deps.storage)?;
+    config.bridge_state = BridgeState::Halted;
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new()
@@ -1463,5 +1459,12 @@ fn assert_bridge_active(deps: Deps) -> Result<(), ContractError> {
     if config.bridge_state.ne(&BridgeState::Active) {
         return Err(ContractError::BridgeHalted {});
     }
+    Ok(())
+}
+
+fn update_bridge_state(deps: DepsMut, bridge_state: BridgeState) -> Result<(), ContractError> {
+    let mut config = CONFIG.load(deps.storage)?;
+    config.bridge_state = bridge_state;
+    CONFIG.save(deps.storage, &config)?;
     Ok(())
 }
