@@ -72,12 +72,14 @@ pub enum ExecuteMsg {
         issuer: String,
         currency: String,
         state: Option<TokenState>,
+        min_sending_precision: Option<i32>,
     },
     // All fields that can be updatable for Coreum tokens will be updated with this message.
     // They are all optional, so any fields that have to be updated can be included in the message.
     UpdateCoreumToken {
         denom: String,
         state: Option<TokenState>,
+        min_sending_precision: Option<i32>,
     },
     // Claim refund. User who can claim amounts due to failed transactions can do it with this message.
     ClaimRefund {
@@ -113,7 +115,11 @@ pub enum QueryMsg {
     #[returns(FeesCollectedResponse)]
     FeesCollected { relayer_address: Addr },
     #[returns(PendingRefundsResponse)]
-    PendingRefunds { address: Addr },
+    PendingRefunds {
+        address: Addr,
+        offset: Option<u64>,
+        limit: Option<u32>,
+    },
 }
 
 #[cw_serde]
@@ -148,7 +154,6 @@ pub struct PendingRefundsResponse {
 
 #[cw_serde]
 pub struct PendingRefund {
-    // We will use a unique id (block timestamp - operation_id) for users to claim their funds back per operation id
     pub id: String,
     pub coin: Coin,
 }
