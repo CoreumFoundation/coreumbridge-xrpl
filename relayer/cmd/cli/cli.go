@@ -891,3 +891,21 @@ func getConsoleLogger() (*logger.ZapLogger, error) {
 
 	return zapLogger, nil
 }
+
+// VersionCommand returns a CLI command to interactively print the application binary version information.
+func VersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the application binary version information",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			fmt.Printf(`
+Git Tag: %s,
+Git Commit: %s,
+`,
+				runner.VersionTag,
+				runner.GitCommit,
+			)
+			return nil
+		},
+	}
+}

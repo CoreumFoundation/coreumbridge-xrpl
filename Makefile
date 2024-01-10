@@ -7,11 +7,14 @@ RELAYER_DIR:=$(ROOT_DIR)/relayer
 BUILD_DIR?=$(ROOT_DIR)/build
 GIT_TAG:=$(shell git describe --tags --exact-match 2>/dev/null)
 GIT_SHA:=$(shell git rev-parse HEAD)
-GIT_VERSION:=$(shell git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
+DOCKER_PUSH_TAG?=$(shell git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
 LD_FLAGS:="-extldflags=-static \
--X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli.VersionTag=$(GIT_TAG)' \
--X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli.GitCommit=$(GIT_SHA)' \
+-X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner.VersionTag=$(GIT_TAG)' \
+-X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner.GitCommit=$(GIT_SHA)' \
 "
+GOOS?=
+GOARCH?=
+BINARY_NAME?=coreumbridge-xrpl-relayer
 
 ###############################################################################
 ###                                  Build                                  ###
@@ -19,28 +22,28 @@ LD_FLAGS:="-extldflags=-static \
 
 .PHONY: build-relayer
 build-relayer:
-	cd $(RELAYER_DIR) && CGO_ENABLED=0 go build --trimpath -mod=readonly $(LD_FLAGS)  -o $(BUILD_DIR)/coreumbridge-xrpl-relayer ./cmd
+	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build --trimpath -mod=readonly -ldflags $(LD_FLAGS)  -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd
 
-.PHONY: build-relayer-release
-build-relayer-release:
-	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build --trimpath -mod=readonly -ldflags $(LD_FLAGS)  -o $(BUILD_DIR)/relayer-linux-amd64 ./cmd
-	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build --trimpath -mod=readonly -ldflags $(LD_FLAGS)  -o $(BUILD_DIR)/relayer-darwin-amd64 ./cmd
-	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build --trimpath -mod=readonly -ldflags $(LD_FLAGS)  -o $(BUILD_DIR)/relayer-darwin-arm64 ./cmd
+.PHONY: release-relayer
+release-relayer:
+	@$(MAKE) build-relayer-in-docker GOOS=linux GOARCH=amd64 BINARY_NAME=relayer-linux-amd64
+	@$(MAKE) build-relayer-in-docker GOOS=darwin GOARCH=amd64 BINARY_NAME=relayer-darwin-amd64
+	@$(MAKE) build-relayer-in-docker GOOS=darwin GOARCH=arm64 BINARY_NAME=relayer-darwin-arm64
 
 .PHONY: build-relayer-docker
 build-relayer-docker:
-	docker buildx build -f $(RELAYER_DIR)/Dockerfile . -t coreumbridge-xrpl-relayer:local
+	docker buildx build --build-arg GOOS=$(GOOS) --build-arg GOARCH=$(GOARCH) -f $(RELAYER_DIR)/Dockerfile . -t coreumbridge-xrpl-relayer:local
 
 .PHONY: push-relayer-docker
 push-relayer-docker: build-relayer-docker
-	docker image tag coreumbridge-xrpl-relayer:local coreumfoundation/coreumbridge-xrpl-relayer:$(GIT_VERSION)
-	docker image push coreumfoundation/coreumbridge-xrpl-relayer:$(GIT_VERSION)
+	docker image tag coreumbridge-xrpl-relayer:local coreumfoundation/coreumbridge-xrpl-relayer:$(DOCKER_PUSH_TAG)
+	docker image push coreumfoundation/coreumbridge-xrpl-relayer:$(DOCKER_PUSH_TAG)
 
 .PHONY: build-relayer-in-docker
 build-relayer-in-docker:
 	make build-relayer-docker
 	mkdir -p $(BUILD_DIR)
-	docker run --rm --entrypoint cat coreumbridge-xrpl-relayer:local /app/coreumbridge-xrpl-relayer > $(BUILD_DIR)/coreumbridge-xrpl-relayer
+	docker run --rm --entrypoint cat coreumbridge-xrpl-relayer:local /app/coreumbridge-xrpl-relayer > $(BUILD_DIR)/$(BINARY_NAME)
 
 .PHONY: build-contract
 build-contract:
