@@ -3,7 +3,7 @@ use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
 
-use crate::contract::MAX_TICKETS;
+use crate::contract::{MAX_TICKETS, MAX_RELAYERS};
 
 #[derive(Error, Debug)]
 pub enum ContractError {
@@ -179,14 +179,14 @@ pub enum ContractError {
     #[error("InvalidKeyRotation: must provide either relayers to remove and/or relayers to add")]
     InvalidKeyRotation {},
 
-    #[error("NoRelayers: at least one relayer must be provided")]
-    NoRelayers {},
+    #[error("ThresholdZero: Evidence threshold can't be 0")]
+    ThresholdZero {},
 
     #[error(
         "TooManyRelayers: too many relayers provided, max allowed is {}",
-        max_relayers
+        MAX_RELAYERS
     )]
-    TooManyRelayers { max_relayers: u32 },
+    TooManyRelayers {},
 
     #[error("BridgeHalted: The bridge is currently halted and this operation is not authorized")]
     BridgeHalted {},
@@ -194,7 +194,9 @@ pub enum ContractError {
     #[error("KeyRotationOngoing: Can't perform this operation while key rotation is ongoing")]
     KeyRotationOngoing {},
 
-    #[error("RelayerNotRegistered: Can't remove a relayer that is not currently in the active set")]
+    #[error(
+        "RelayerNotRegistered: Can't remove a relayer that is not currently in the active set"
+    )]
     RelayerNotInSet {},
 
     #[error("RelayerAlreadyRegistered: Can't add a relayer that is already in the active set")]

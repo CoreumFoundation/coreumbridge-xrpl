@@ -101,8 +101,8 @@ pub enum ExecuteMsg {
     // Owner can trigger a key rotation, removing and/or adding relayers
     KeyRotation {
         account_sequence: Option<u64>,
-        relayers_to_remove: Option<Vec<Relayer>>,
-        relayers_to_add: Option<Vec<Relayer>>,
+        new_relayers: Vec<Relayer>,
+        new_evidence_threshold: u32,
     },
 }
 

@@ -7,7 +7,7 @@ use crate::{
     contract::MAX_RELAYERS,
     error::ContractError,
     evidence::TransactionResult,
-    state::{BridgeState, CONFIG, PENDING_KEY_ROTATION, TX_EVIDENCES},
+    state::{CONFIG, PENDING_KEY_ROTATION, TX_EVIDENCES},
 };
 
 #[cw_serde]
@@ -26,19 +26,18 @@ pub fn validate_relayers(
     let mut map_xrpl_pubkeys = HashMap::new();
     let mut map_coreum_addresses = HashMap::new();
 
+    // Threshold can't be 0
+    if evidence_threshold == 0 {
+        return Err(ContractError::ThresholdZero {});
+    }
+
     // Threshold can't be more than number of relayers
     if evidence_threshold > relayers.len() as u32 {
         return Err(ContractError::InvalidThreshold {});
     }
 
-    if relayers.is_empty() {
-        return Err(ContractError::NoRelayers {});
-    }
-
     if relayers.len() as u32 > MAX_RELAYERS {
-        return Err(ContractError::TooManyRelayers {
-            max_relayers: MAX_RELAYERS,
-        });
+        return Err(ContractError::TooManyRelayers {});
     }
 
     for relayer in relayers.iter() {
@@ -93,51 +92,21 @@ pub fn assert_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractError> {
     Err(ContractError::UnauthorizedSender {})
 }
 
-pub fn rotate_relayers(
-    relayers: &mut Vec<Relayer>,
-    relayers_to_remove: Option<Vec<Relayer>>,
-    relayers_to_add: Option<Vec<Relayer>>,
-) -> Result<(), ContractError> {
-    // Check that we provided at least one relayer to remove or add
-    if relayers_to_remove.is_none() && relayers_to_add.is_none() {
-        return Err(ContractError::InvalidKeyRotation {});
-    }
-
-    // Remove all relayers that we want to remove
-    if let Some(relayers_to_remove) = relayers_to_remove {
-        for relayer in relayers_to_remove {
-            if !relayers.contains(&relayer) {
-                return Err(ContractError::RelayerNotInSet {});
-            }
-            relayers.retain(|r| r != &relayer);
-        }
-    }
-
-    // Add all relayers that we want to add
-    if let Some(relayers_to_add) = relayers_to_add {
-        for relayer in relayers_to_add {
-            if relayers.contains(&relayer) {
-                return Err(ContractError::RelayerAlreadyInSet {});
-            }
-            relayers.push(relayer);
-        }
-    }
-
-    Ok(())
-}
-
 pub fn handle_key_rotation_confirmation(
     storage: &mut dyn Storage,
     relayers: Vec<Relayer>,
+    new_evidence_threshold: u32,
     transaction_result: TransactionResult,
 ) -> Result<(), ContractError> {
     let mut config = CONFIG.load(storage)?;
-    // Set config relayers to the new relayers if the transaction was successful and update the state of the bridge, relayers, and clear all current evidences
+    // Set config relayers to the new relayers if the transaction was successful update the relayers and evidence threshhold, and clear all current evidences
+    // Bridge will stay halted until owner resumes it.
     // If it failed, the bridge will remain halted and relayers are not updated, waiting for another recovery by owner
     if transaction_result.eq(&TransactionResult::Accepted) {
-        config.bridge_state = BridgeState::Active;
         config.relayers = relayers;
+        config.evidence_threshold = new_evidence_threshold;
         TX_EVIDENCES.clear(storage);
+        CONFIG.save(storage, &config)?;
     }
 
     PENDING_KEY_ROTATION.save(storage, &false)?;

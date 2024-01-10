@@ -9,8 +9,8 @@ use crate::{
     },
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
-        FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefundsResponse,
-        QueryMsg, XRPLTokensResponse, PendingRefund,
+        FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefund,
+        PendingRefundsResponse, QueryMsg, XRPLTokensResponse,
     },
     operation::{
         check_operation_exists, create_pending_operation,
@@ -18,8 +18,8 @@ use crate::{
         remove_pending_refund, Operation, OperationType,
     },
     relayer::{
-        assert_relayer, handle_key_rotation_confirmation, rotate_relayers, validate_relayers,
-        validate_xrpl_address, Relayer,
+        assert_relayer, handle_key_rotation_confirmation, validate_relayers, validate_xrpl_address,
+        Relayer,
     },
     signatures::add_signature,
     state::{
@@ -282,15 +282,15 @@ pub fn execute(
         ExecuteMsg::Resume {} => resume_bridge(deps.into_empty(), info.sender),
         ExecuteMsg::KeyRotation {
             account_sequence,
-            relayers_to_remove,
-            relayers_to_add,
+            new_relayers,
+            new_evidence_threshold,
         } => key_rotation(
             deps.into_empty(),
             env,
             info.sender,
             account_sequence,
-            relayers_to_remove,
-            relayers_to_add,
+            new_relayers,
+            new_evidence_threshold,
         ),
     }
 }
@@ -657,8 +657,8 @@ fn save_evidence(
                     OperationResult::TicketsAllocation { tickets } => {
                         handle_ticket_allocation_confirmation(
                             deps.storage,
-                            tickets.clone(),
-                            transaction_result.clone(),
+                            tickets.to_owned(),
+                            transaction_result.to_owned(),
                         )?;
                     }
                     OperationResult::TrustSet { issuer, currency } => {
@@ -666,22 +666,26 @@ fn save_evidence(
                             deps.storage,
                             issuer.to_owned(),
                             currency.to_owned(),
-                            transaction_result.clone(),
+                            transaction_result.to_owned(),
                         )?;
                     }
                     OperationResult::CoreumToXRPLTransfer {} => {
                         handle_coreum_to_xrpl_transfer_confirmation(
                             deps.storage,
-                            transaction_result.clone(),
+                            transaction_result.to_owned(),
                             operation_id,
                             &mut response,
                         )?;
                     }
-                    OperationResult::KeyRotation { new_relayers } => {
+                    OperationResult::KeyRotation {
+                        new_relayers,
+                        new_evidence_threshold,
+                    } => {
                         handle_key_rotation_confirmation(
                             deps.storage,
-                            new_relayers.clone(),
-                            transaction_result.clone(),
+                            new_relayers.to_owned(),
+                            new_evidence_threshold.to_owned(),
+                            transaction_result.to_owned(),
                         )?;
                     }
                 }
@@ -1113,8 +1117,8 @@ fn key_rotation(
     env: Env,
     sender: Addr,
     account_sequence: Option<u64>,
-    relayers_to_remove: Option<Vec<Relayer>>,
-    relayers_to_add: Option<Vec<Relayer>>,
+    new_relayers: Vec<Relayer>,
+    new_evidence_threshold: u32,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -1124,12 +1128,9 @@ fn key_rotation(
     }
 
     let config = CONFIG.load(deps.storage)?;
-    let mut relayers = config.relayers.to_owned();
 
-    rotate_relayers(&mut relayers, relayers_to_remove, relayers_to_add)?;
-
-    // Finally validate the new relayer set so that we are sure that the new set is valid (e.g. no duplicated relayers, etc.)
-    validate_relayers(deps.as_ref(), &relayers, config.evidence_threshold)?;
+    // Validate the new relayer set so that we are sure that the new set is valid (e.g. no duplicated relayers, etc.)
+    validate_relayers(deps.as_ref(), &new_relayers, new_evidence_threshold)?;
 
     // Create the pending operation for key rotation
     // If an account sequence is sent we will use it, otherwise we will use a ticket
@@ -1152,7 +1153,8 @@ fn key_rotation(
         ticket,
         acc_seq,
         OperationType::KeyRotation {
-            new_relayers: relayers,
+            new_relayers,
+            new_evidence_threshold,
         },
     )?;
 

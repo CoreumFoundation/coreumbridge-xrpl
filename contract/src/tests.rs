@@ -16,6 +16,8 @@ mod tests {
     use rand::{distributions::Alphanumeric, thread_rng, Rng};
     use sha2::{Digest, Sha256};
 
+    use crate::contract::MAX_RELAYERS;
+    use crate::msg::BridgeStateResponse;
     use crate::state::BridgeState;
     use crate::{
         contract::{XRP_CURRENCY, XRP_ISSUER},
@@ -365,6 +367,62 @@ mod tests {
                 .to_string()
                 .as_str()
         ));
+
+        // Instantiating with threshold 0 will fail
+        let error = wasm
+            .instantiate(
+                1,
+                &InstantiateMsg {
+                    owner: Addr::unchecked(signer.address()),
+                    relayers: vec![],
+                    evidence_threshold: 0,
+                    used_ticket_sequence_threshold: 50,
+                    trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+                    bridge_xrpl_address: generate_xrpl_address(),
+                },
+                None,
+                "label".into(),
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains(ContractError::ThresholdZero {}.to_string().as_str()));
+
+        // Instantiating with too many relayers (> 32) should fail
+        let mut too_many_relayers = vec![];
+        for _ in 0..MAX_RELAYERS+1 {
+            let coreum_address = app.init_account(&vec![]).unwrap().address();
+            too_many_relayers.push(Relayer {
+                coreum_address: Addr::unchecked(coreum_address),
+                xrpl_address: generate_xrpl_address(),
+                xrpl_pub_key: generate_xrpl_pub_key(),
+            });
+        }
+
+        let error = wasm
+            .instantiate(
+                1,
+                &InstantiateMsg {
+                    owner: Addr::unchecked(signer.address()),
+                    relayers: too_many_relayers,
+                    evidence_threshold: 1,
+                    used_ticket_sequence_threshold: 50,
+                    trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+                    bridge_xrpl_address: generate_xrpl_address(),
+                },
+                None,
+                "label".into(),
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains(ContractError::TooManyRelayers {}.to_string().as_str()));
 
         // We query the issued token by the contract instantiation (XRP)
         let query_response = asset_ft
@@ -3160,8 +3218,16 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(query_pending_refunds_with_limit_and_offset.pending_refunds.len(), 1);
-        assert_eq!(query_pending_refunds_with_limit_and_offset.pending_refunds[0], query_pending_refunds.pending_refunds[1]);
+        assert_eq!(
+            query_pending_refunds_with_limit_and_offset
+                .pending_refunds
+                .len(),
+            1
+        );
+        assert_eq!(
+            query_pending_refunds_with_limit_and_offset.pending_refunds[0],
+            query_pending_refunds.pending_refunds[1]
+        );
 
         // Let's claim all pending refunds and check that they are gone from the contract and in the senders address
         for refund in query_pending_refunds.pending_refunds.iter() {
@@ -7847,6 +7913,420 @@ mod tests {
             .unwrap();
 
         assert_eq!(request_balance.balance, "0".to_string());
+    }
+
+    #[test]
+    fn key_rotation() {
+        let app = CoreumTestApp::new();
+        let accounts_number = 4;
+        let accounts = app
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
+            .unwrap();
+
+        let signer = accounts.get((accounts_number - 1) as usize).unwrap();
+        let xrpl_addresses: Vec<String> = (0..3).map(|_| generate_xrpl_address()).collect();
+        let xrpl_pub_keys: Vec<String> = (0..3).map(|_| generate_xrpl_pub_key()).collect();
+
+        let mut relayer_accounts = vec![];
+        let mut relayers = vec![];
+
+        for i in 0..accounts_number - 1 {
+            relayer_accounts.push(accounts.get(i as usize).unwrap());
+            relayers.push(Relayer {
+                coreum_address: Addr::unchecked(accounts.get(i as usize).unwrap().address()),
+                xrpl_address: xrpl_addresses[i as usize].to_string(),
+                xrpl_pub_key: xrpl_pub_keys[i as usize].to_string(),
+            });
+        }
+
+        let wasm = Wasm::new(&app);
+        let asset_ft = AssetFT::new(&app);
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            vec![
+                relayers[0].clone(),
+                relayers[1].clone(),
+                relayers[2].clone(),
+            ],
+            3,
+            4,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+            query_issue_fee(&asset_ft),
+            generate_xrpl_address(),
+        );
+
+        // Recover enough tickets for testing
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(5),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: Some(1),
+                        ticket_sequence: None,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::TicketsAllocation {
+                            tickets: Some((1..6).collect()),
+                        },
+                    },
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn bridge_halting_and_resuming() {
+        let app = CoreumTestApp::new();
+        let accounts_number = 3;
+        let accounts = app
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
+            .unwrap();
+
+        let signer = accounts.get(0).unwrap();
+        let relayer_account = accounts.get(1).unwrap();
+        let new_relayer_account = accounts.get(2).unwrap();
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(relayer_account.address()),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
+        };
+
+        let bridge_xrpl_address = generate_xrpl_address();
+
+        let wasm = Wasm::new(&app);
+        let asset_ft = AssetFT::new(&app);
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            signer,
+            Addr::unchecked(signer.address()),
+            vec![relayer.clone()],
+            1,
+            9,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+            query_issue_fee(&asset_ft),
+            bridge_xrpl_address.to_owned(),
+        );
+
+        // Halt the bridge and check that we can't send any operations except allowed ones
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Halt {}, &vec![], &signer)
+            .unwrap();
+
+        // Query bridge state to confirm it's halted
+        let query_bridge_state = wasm
+            .query::<QueryMsg, BridgeStateResponse>(&contract_addr, &QueryMsg::BridgeState {})
+            .unwrap();
+
+        assert_eq!(query_bridge_state.state, BridgeState::Halted);
+
+        // Trying to register tokens should fail
+        let bridge_halted_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: "any_denom".to_string(),
+                    decimals: 6,
+                    sending_precision: 1,
+                    max_holding_amount: Uint128::one(),
+                    bridging_fee: Uint128::zero(),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(bridge_halted_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        let bridge_halted_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: generate_xrpl_address(),
+                    currency: "USD".to_string(),
+                    sending_precision: 4,
+                    max_holding_amount: Uint128::new(50000),
+                    bridging_fee: Uint128::zero(),
+                    transfer_rate: None,
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(bridge_halted_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        // Recover tickets should also fail
+        let bridge_halted_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RecoverTickets {
+                    account_sequence: 1,
+                    number_of_tickets: Some(5),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(bridge_halted_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        // Sending from Coreum to XRPL should fail
+        let bridge_halted_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: generate_xrpl_address(),
+                },
+                &coins(1, FEE_DENOM),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(bridge_halted_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        // Updating tokens should fail too
+        let bridge_halted_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateXRPLToken {
+                    issuer: "any_issuer".to_owned(),
+                    currency: "any_currency".to_owned(),
+                    state: Some(TokenState::Disabled),
+                    min_sending_precision: None,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(bridge_halted_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        let bridge_halted_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateCoreumToken {
+                    denom: "any_denom".to_owned(),
+                    state: Some(TokenState::Disabled),
+                    min_sending_precision: None,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(bridge_halted_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        // Claiming pending refunds or relayers fees should fail
+        let bridge_halted_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ClaimRefund {
+                    pending_refund_id: "any_id".to_owned(),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(bridge_halted_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        let bridge_halted_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ClaimRelayerFees {
+                    amounts: vec![coin(1, FEE_DENOM)],
+                },
+                &[],
+                relayer_account,
+            )
+            .unwrap_err();
+
+        assert!(bridge_halted_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        // Resuming the bridge should work
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Resume {}, &vec![], &signer)
+            .unwrap();
+
+        // Query bridge state to confirm it's active
+        let query_bridge_state = wasm
+            .query::<QueryMsg, BridgeStateResponse>(&contract_addr, &QueryMsg::BridgeState {})
+            .unwrap();
+
+        assert_eq!(query_bridge_state.state, BridgeState::Active);
+
+        // Halt it again to send some allowed operations
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Halt {}, &vec![], &signer)
+            .unwrap();
+
+        // Perform a simple key rotation, should be allowed
+        let new_relayer = Relayer {
+            coreum_address: Addr::unchecked(new_relayer_account.address()),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
+        };
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::KeyRotation {
+                account_sequence: Some(1),
+                new_relayers: vec![new_relayer.clone()],
+                new_evidence_threshold: 1,
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Resuming now should not be allowed because we have a pending key rotation
+        let resume_error = wasm
+            .execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Resume {}, &vec![], &signer)
+            .unwrap_err();
+
+        assert!(resume_error
+            .to_string()
+            .contains(ContractError::KeyRotationOngoing {}.to_string().as_str()));
+
+        // Sending signatures should be allowed with the bridge halted and with pending operations
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveSignature {
+                operation_id: 1,
+                signature: "signature".to_owned(),
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
+        // Sending an evidence for something that is not a KeyRotation should fail
+        let bridge_halted_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: generate_hash(),
+                        issuer: generate_xrpl_address(),
+                        currency: "USD".to_string(),
+                        amount: Uint128::new(100),
+                        recipient: Addr::unchecked(signer.address()),
+                    },
+                },
+                &[],
+                &relayer_account,
+            )
+            .unwrap_err();
+
+        assert!(bridge_halted_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        // Sending an evidence confirming a Key rotation should work and should also activate the bridge
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: OperationResult::KeyRotation {
+                        new_relayers: vec![new_relayer.to_owned()],
+                        new_evidence_threshold: 1,
+                    },
+                },
+            },
+            &[],
+            &relayer_account,
+        )
+        .unwrap();
+
+        // Query bridge state to confirm it's still halted
+        let query_bridge_state = wasm
+            .query::<QueryMsg, BridgeStateResponse>(&contract_addr, &QueryMsg::BridgeState {})
+            .unwrap();
+
+        assert_eq!(query_bridge_state.state, BridgeState::Halted);
+
+        // Query config to see that relayers have been correctly rotated
+        let query_config = wasm
+            .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
+            .unwrap();
+
+        assert_eq!(query_config.relayers, vec![new_relayer]);
+
+        // We should now be able to resume the bridge because the key rotation has been confirmed
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Resume {}, &vec![], &signer)
+            .unwrap();
+
+        // Query bridge state to confirm it's now active
+        let query_bridge_state = wasm
+            .query::<QueryMsg, BridgeStateResponse>(&contract_addr, &QueryMsg::BridgeState {})
+            .unwrap();
+
+        assert_eq!(query_bridge_state.state, BridgeState::Active);
+
+        // Halt the bridge should not be possible by an address that is not owner or current relayer
+        let halt_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::Halt {},
+                &vec![],
+                &relayer_account,
+            )
+            .unwrap_err();
+
+        assert!(halt_error
+            .to_string()
+            .contains(ContractError::NotOwnerOrRelayer {}.to_string().as_str()));
+
+        // Current relayer should be allowed to halt it
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::Halt {},
+            &vec![],
+            &new_relayer_account,
+        )
+        .unwrap();
+
+        let query_bridge_state = wasm
+            .query::<QueryMsg, BridgeStateResponse>(&contract_addr, &QueryMsg::BridgeState {})
+            .unwrap();
+
+        assert_eq!(query_bridge_state.state, BridgeState::Halted);
     }
 
     #[test]

@@ -61,6 +61,7 @@ pub enum OperationResult {
     },
     KeyRotation {
         new_relayers: Vec<Relayer>,
+        new_evidence_threshold: u32,
     },
     #[serde(rename = "coreum_to_xrpl_transfer")]
     CoreumToXRPLTransfer {},
