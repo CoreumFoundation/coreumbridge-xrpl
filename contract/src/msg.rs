@@ -130,7 +130,11 @@ pub enum QueryMsg {
     #[returns(FeesCollectedResponse)]
     FeesCollected { relayer_address: Addr },
     #[returns(PendingRefundsResponse)]
-    PendingRefunds { address: Addr },
+    PendingRefunds {
+        address: Addr,
+        offset: Option<u64>,
+        limit: Option<u32>,
+    },
     #[returns(BridgeStateResponse)]
     BridgeState {},
 }
@@ -167,7 +171,6 @@ pub struct PendingRefundsResponse {
 
 #[cw_serde]
 pub struct PendingRefund {
-    // We will use a unique id (block timestamp - operation_id) for users to claim their funds back per operation id
     pub id: String,
     pub coin: Coin,
 }

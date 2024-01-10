@@ -10,7 +10,7 @@ use crate::{
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
         FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefundsResponse,
-        QueryMsg, XRPLTokensResponse,
+        QueryMsg, XRPLTokensResponse, PendingRefund,
     },
     operation::{
         check_operation_exists, create_pending_operation,
@@ -1179,9 +1179,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
         QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
-        QueryMsg::PendingRefunds { address } => {
-            to_json_binary(&query_pending_refunds(deps, address)?)
-        }
+        QueryMsg::PendingRefunds {
+            address,
+            offset,
+            limit,
+        } => to_json_binary(&query_pending_refunds(deps, address, offset, limit)?),
         QueryMsg::FeesCollected { relayer_address } => {
             to_json_binary(&query_fees_collected(deps, relayer_address)?)
         }
@@ -1263,10 +1265,28 @@ fn query_fees_collected(deps: Deps, relayer_address: Addr) -> StdResult<FeesColl
     Ok(FeesCollectedResponse { fees_collected })
 }
 
-fn query_pending_refunds(deps: Deps, address: Addr) -> StdResult<PendingRefundsResponse> {
-    let pending_refunds = PENDING_REFUNDS
-        .may_load(deps.storage, address)?
-        .unwrap_or_default();
+fn query_pending_refunds(
+    deps: Deps,
+    address: Addr,
+    offset: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<PendingRefundsResponse> {
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
+    let offset = offset.unwrap_or_default();
+
+    let pending_refunds: Vec<PendingRefund> = PENDING_REFUNDS
+        .idx
+        .address
+        .prefix(address)
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(offset as usize)
+        .take(limit as usize)
+        .filter_map(|r| r.ok())
+        .map(|(_, pr)| PendingRefund {
+            id: pr.id,
+            coin: pr.coin,
+        })
+        .collect();
 
     Ok(PendingRefundsResponse { pending_refunds })
 }
