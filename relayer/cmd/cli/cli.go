@@ -36,10 +36,8 @@ func init() {
 	DefaultHomeDir = filepath.Join(userHomeDir, ".coreumbridge-xrpl-relayer")
 }
 
-var (
-	// DefaultHomeDir is default home for the relayer.
-	DefaultHomeDir string
-)
+// DefaultHomeDir is default home for the relayer.
+var DefaultHomeDir string
 
 const (
 	// FlagHome is home flag.

@@ -2660,6 +2660,185 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 	}
 }
 
+func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumToXRPLAndBack(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+
+	coreumIssuerAddress := chains.Coreum.GenAccount()
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumIssuerAddress, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.Add(sdkmath.NewInt(10_000_000)),
+	})
+
+	coreumSenderAddress := chains.Coreum.GenAccount()
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
+		Amount: sdkmath.NewInt(1_000_000),
+	})
+
+	coreumRecipient := chains.Coreum.GenAccount()
+
+	xrplRecipientAddress := xrpl.GenPrivKeyTxSigner().Account()
+	relayers := genRelayers(ctx, t, chains, 2)
+	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		len(relayers),
+		3,
+		defaultTrustSetLimitAmount,
+		bridgeXRPLAddress,
+	)
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 10)
+
+	// issue asset ft and register it
+	sendingPrecision := int32(5)
+	tokenDecimals := uint32(5)
+	maxHoldingAmount := sdk.NewIntFromUint64(100_000_000_000)
+	msgIssue := &assetfttypes.MsgIssue{
+		Issuer:             coreumIssuerAddress.String(),
+		Symbol:             "denom",
+		Subunit:            "denom",
+		Precision:          tokenDecimals,
+		InitialAmount:      maxHoldingAmount,
+		BurnRate:           sdk.MustNewDecFromStr("0.1"),
+		SendCommissionRate: sdk.MustNewDecFromStr("0.2"),
+	}
+	_, err := client.BroadcastTx(
+		ctx,
+		chains.Coreum.ClientContext.WithFromAddress(coreumIssuerAddress),
+		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+		msgIssue,
+	)
+	require.NoError(t, err)
+	denom := assetfttypes.BuildDenom(msgIssue.Subunit, coreumIssuerAddress)
+	_, err = contractClient.RegisterCoreumToken(ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount)
+	require.NoError(t, err)
+	registeredToken, err := contractClient.GetCoreumTokenByDenom(ctx, denom)
+	require.NoError(t, err)
+
+	// send coins to sender to test the commission
+
+	msgSend := &banktypes.MsgSend{
+		FromAddress: coreumIssuerAddress.String(),
+		ToAddress:   coreumSenderAddress.String(),
+		Amount:      sdk.NewCoins(sdk.NewInt64Coin(denom, 10_000_000)),
+	}
+	_, err = client.BroadcastTx(
+		ctx,
+		chains.Coreum.ClientContext.WithFromAddress(coreumIssuerAddress),
+		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+		msgSend,
+	)
+	require.NoError(t, err)
+
+	// ********** Coreum to XRPL **********
+
+	amountToSend := sdkmath.NewInt(1_000_000)
+
+	// send the amount and validate the state
+	coreumSenderBalanceBeforeRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumSenderAddress.String(),
+		Denom:   registeredToken.Denom,
+	})
+	require.NoError(t, err)
+	_, err = contractClient.SendToXRPL(
+		ctx,
+		coreumSenderAddress,
+		xrplRecipientAddress.String(),
+		sdk.NewCoin(registeredToken.Denom, amountToSend),
+	)
+	require.NoError(t, err)
+	// check the remaining balance
+	coreumSenderBalanceAfterRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumSenderAddress.String(),
+		Denom:   registeredToken.Denom,
+	})
+	require.NoError(t, err)
+	// amountToSend + burning rate + sending commission
+	spentAmount := amountToSend.
+		Add(amountToSend.ToLegacyDec().Mul(msgIssue.BurnRate.Add(msgIssue.SendCommissionRate)).TruncateInt())
+	require.Equal(
+		t,
+		coreumSenderBalanceBeforeRes.Balance.Amount.Sub(spentAmount).String(),
+		coreumSenderBalanceAfterRes.Balance.Amount.String(),
+	)
+
+	pendingOperations, err := contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+	operation := pendingOperations[0]
+	operationType := operation.OperationType.CoreumToXRPLTransfer
+	// XRPL DECIMALS (15) - TOKEN DECIMALS (5) = 10
+	require.Equal(t, operationType.Amount, amountToSend.Mul(sdk.NewInt(10_000_000_000)))
+	require.Equal(t, operationType.Recipient, xrplRecipientAddress.String())
+
+	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            genXRPLTxHash(t),
+			TicketSequence:    &operation.TicketSequence,
+			TransactionResult: coreum.TransactionResultAccepted,
+		},
+	}
+	// send from all relayers
+	for _, relayer := range relayers {
+		_, err = contractClient.SendCoreumToXRPLTransferTransactionResultEvidence(
+			ctx, relayer.CoreumAddress, acceptedTxEvidence,
+		)
+		require.NoError(t, err)
+	}
+
+	// check pending operations
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Empty(t, pendingOperations)
+
+	// ********** XRPL to Coreum **********
+
+	// XRPL DECIMALS (15) - TOKEN DECIMALS (5) = 10
+	amountToSendBack := amountToSend.Mul(sdkmath.NewIntWithDecimal(1, 10))
+
+	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+		TxHash:    genXRPLTxHash(t),
+		Issuer:    bridgeXRPLAddress,
+		Currency:  registeredToken.XRPLCurrency,
+		Amount:    amountToSendBack,
+		Recipient: coreumRecipient,
+	}
+
+	bridgeContractBalanceBeforeRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: contractClient.GetContractAddress().String(),
+		Denom:   registeredToken.Denom,
+	})
+	require.NoError(t, err)
+
+	// send from all relayers
+	for _, relayer := range relayers {
+		_, err = contractClient.SendXRPLToCoreumTransferEvidence(
+			ctx, relayer.CoreumAddress, xrplToCoreumTransferEvidence,
+		)
+		require.NoError(t, err)
+	}
+
+	// check the remaining balance
+	bridgeContractBalanceAfterRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: contractClient.GetContractAddress().String(),
+		Denom:   registeredToken.Denom,
+	})
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		bridgeContractBalanceBeforeRes.Balance.Amount.Sub(amountToSend).String(),
+		bridgeContractBalanceAfterRes.Balance.Amount.String(),
+	)
+	require.Equal(t, sdkmath.ZeroInt().String(), bridgeContractBalanceAfterRes.Balance.Amount.String())
+}
+
 func TestRecoverXRPLTokeRegistration(t *testing.T) {
 	t.Parallel()
 
