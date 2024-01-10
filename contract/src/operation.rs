@@ -6,9 +6,10 @@ use crate::{
     contract::{convert_amount_decimals, XRPL_TOKENS_DECIMALS},
     error::ContractError,
     evidence::TransactionResult,
-    msg::PendingRefund,
     signatures::Signature,
-    state::{TokenState, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS, XRPL_TOKENS},
+    state::{
+        PendingRefund, TokenState, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS, XRPL_TOKENS,
+    },
     token::build_xrpl_token_key,
 };
 
@@ -65,6 +66,8 @@ pub fn create_pending_operation(
     operation_type: OperationType,
 ) -> Result<(), ContractError> {
     let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
+    // We use a unique ID for operations that will also be used for refunding failed operations
+    // We need to use both timestamp and operation_id to ensure uniqueness of IDs, since operation_id can be reused in case of invalid transactions
     let operation = Operation {
         id: format!("{}-{}", timestamp, operation_id),
         ticket_sequence,
@@ -196,19 +199,14 @@ pub fn store_pending_refund(
     receiver: Addr,
     coin: Coin,
 ) -> Result<(), ContractError> {
-    // We get current refundable amounts for the receiver.  If it's the first time we are storing an amount for this receiver, we initialize the array.
-    let mut pending_refunds = match PENDING_REFUNDS.may_load(storage, receiver.to_owned())? {
-        Some(pending_refunds) => pending_refunds,
-        None => vec![],
+    // We store the pending refund for this user and this pending_operation_id
+    let pending_refund = PendingRefund {
+        address: receiver.to_owned(),
+        id: pending_operation_id.to_owned(),
+        coin,
     };
 
-    // We add the pending refund to the array
-    pending_refunds.push(PendingRefund {
-        id: pending_operation_id,
-        coin,
-    });
-
-    PENDING_REFUNDS.save(storage, receiver, &pending_refunds)?;
+    PENDING_REFUNDS.save(storage, (receiver, pending_operation_id), &pending_refund)?;
 
     Ok(())
 }
@@ -218,28 +216,12 @@ pub fn remove_pending_refund(
     sender: Addr,
     pending_refund_id: String,
 ) -> Result<Coin, ContractError> {
-    let mut pending_refunds = PENDING_REFUNDS.load(storage, sender.to_owned())?;
-    // We check that there is a pending refund for this user and this id, if there isn't we return an error
-    let coin = match pending_refunds
-        .iter()
-        .find(|refund| refund.id == pending_refund_id)
-    {
-        Some(pending_refund) => {
-            // We return the amount that we have to send back to the user
-            pending_refund.coin.to_owned()
-        }
-        None => return Err(ContractError::PendingRefundNotFound {}),
-    };
+    // If pending refund is not found we return the error
+    let pending_refund = PENDING_REFUNDS
+        .load(storage, (sender.to_owned(), pending_refund_id.to_owned()))
+        .map_err(|_| ContractError::PendingRefundNotFound {})?;
 
-    // Remove the pending refund that matches the id
-    let position = pending_refunds
-        .iter()
-        .position(|refund| refund.id == pending_refund_id)
-        .unwrap();
+    PENDING_REFUNDS.remove(storage, (sender, pending_refund_id))?;
 
-    pending_refunds.remove(position);
-
-    PENDING_REFUNDS.save(storage, sender, &pending_refunds)?;
-
-    Ok(coin)
+    Ok(pending_refund.coin)
 }
