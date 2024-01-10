@@ -3601,6 +3601,14 @@ func TestEnableAndDisableXRPLOriginatedToken(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	// manually claim refunds
+	pendingRefunds, err := contractClient.GetPendingRefunds(ctx, coreumRecipient)
+	require.NoError(t, err)
+	require.Len(t, pendingRefunds, 1)
+	require.EqualValues(t, pendingRefunds[0].Coin.String(), coinToSendBack.String())
+	_, err = contractClient.ClaimRefund(ctx, coreumRecipient, pendingRefunds[0].ID)
+	require.NoError(t, err)
+
 	// check the successful refunding
 	recipientBalanceRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 		Address: coreumRecipient.String(),
@@ -3804,6 +3812,14 @@ func TestEnableAndDisableCoreumOriginatedToken(t *testing.T) {
 		)
 		require.NoError(t, err)
 	}
+
+	// claim refunds
+	pendingRefunds, err := contractClient.GetPendingRefunds(ctx, coreumSenderAddress)
+	require.NoError(t, err)
+	require.Len(t, pendingRefunds, 1)
+	require.EqualValues(t, pendingRefunds[0].Coin.String(), coinToSendFromCoreumToXRPL.String())
+	_, err = contractClient.ClaimRefund(ctx, coreumSenderAddress, pendingRefunds[0].ID)
+	require.NoError(t, err)
 
 	// check the successful refunding
 	senderBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{

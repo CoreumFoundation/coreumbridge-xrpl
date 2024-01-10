@@ -1,18 +1,21 @@
 use coreum_wasm_sdk::{assetft, core::CoreumMsg};
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Response, Storage, Uint128};
+use cosmwasm_std::{coin, Addr, Coin, CosmosMsg, Response, Storage, Uint128};
 
 use crate::{
     contract::{convert_amount_decimals, XRPL_TOKENS_DECIMALS},
     error::ContractError,
     evidence::TransactionResult,
     signatures::Signature,
-    state::{TokenState, COREUM_TOKENS, PENDING_OPERATIONS, XRPL_TOKENS},
+    state::{
+        PendingRefund, TokenState, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS, XRPL_TOKENS,
+    },
     token::build_xrpl_token_key,
 };
 
 #[cw_serde]
 pub struct Operation {
+    pub id: String,
     pub ticket_sequence: Option<u64>,
     pub account_sequence: Option<u64>,
     pub signatures: Vec<Signature>,
@@ -57,18 +60,22 @@ pub fn check_operation_exists(
 
 pub fn create_pending_operation(
     storage: &mut dyn Storage,
+    timestamp: u64,
     ticket_sequence: Option<u64>,
     account_sequence: Option<u64>,
     operation_type: OperationType,
 ) -> Result<(), ContractError> {
+    let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
+    // We use a unique ID for operations that will also be used for refunding failed operations
+    // We need to use both timestamp and operation_id to ensure uniqueness of IDs, since operation_id can be reused in case of invalid transactions
     let operation = Operation {
+        id: format!("{}-{}", timestamp, operation_id),
         ticket_sequence,
         account_sequence,
         signatures: vec![],
         operation_type,
     };
 
-    let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
     if PENDING_OPERATIONS.has(storage, operation_id) {
         return Err(ContractError::PendingOperationAlreadyExists {});
     }
@@ -101,7 +108,7 @@ pub fn handle_trust_set_confirmation(
 }
 
 pub fn handle_coreum_to_xrpl_transfer_confirmation(
-    storage: &dyn Storage,
+    storage: &mut dyn Storage,
     transaction_result: TransactionResult,
     operation_id: u64,
     response: &mut Response<CoreumMsg>,
@@ -134,20 +141,20 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
 
                         *response = response.to_owned().add_message(burn_msg);
                     } else {
-                        // If transaction was rejected, we must send the token amount and transfer_fee back to the user
-                        let send_msg = BankMsg::Send {
-                            to_address: sender.to_string(),
-                            amount: coins(
+                        // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
+                        store_pending_refund(
+                            storage,
+                            pending_operation.id,
+                            sender,
+                            coin(
                                 amount.checked_add(transfer_fee)?.u128(),
                                 xrpl_token.coreum_denom,
                             ),
-                        };
-
-                        *response = response.to_owned().add_message(send_msg);
+                        )?;
                     }
                 }
                 None => {
-                    // If the token sent was a Coreum originated token we only need to send back in case of rejection.
+                    // If the token sent was a Coreum originated token we only need to store refundable amount in case of rejection.
                     if transaction_result.ne(&TransactionResult::Accepted) {
                         match COREUM_TOKENS
                             .idx
@@ -162,12 +169,13 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                                     token.decimals,
                                     amount,
                                 )?;
-                                let send_msg = BankMsg::Send {
-                                    to_address: sender.to_string(),
-                                    amount: coins(amount_to_send_back.u128(), token.denom),
-                                };
-
-                                *response = response.to_owned().add_message(send_msg);
+                                // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
+                                store_pending_refund(
+                                    storage,
+                                    pending_operation.id,
+                                    sender,
+                                    coin(amount_to_send_back.u128(), token.denom),
+                                )?;
                             }
                             // In practice this will never happen because any token issued from the multisig address is a token that was bridged from Coreum so it will be registered.
                             // This could theoretically happen if the multisig address on XRPL issued a token on its own and then tried to bridge it
@@ -183,4 +191,37 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
     }
 
     Ok(())
+}
+
+pub fn store_pending_refund(
+    storage: &mut dyn Storage,
+    pending_operation_id: String,
+    receiver: Addr,
+    coin: Coin,
+) -> Result<(), ContractError> {
+    // We store the pending refund for this user and this pending_operation_id
+    let pending_refund = PendingRefund {
+        address: receiver.to_owned(),
+        id: pending_operation_id.to_owned(),
+        coin,
+    };
+
+    PENDING_REFUNDS.save(storage, (receiver, pending_operation_id), &pending_refund)?;
+
+    Ok(())
+}
+
+pub fn remove_pending_refund(
+    storage: &mut dyn Storage,
+    sender: Addr,
+    pending_refund_id: String,
+) -> Result<Coin, ContractError> {
+    // If pending refund is not found we return the error
+    let pending_refund = PENDING_REFUNDS
+        .load(storage, (sender.to_owned(), pending_refund_id.to_owned()))
+        .map_err(|_| ContractError::PendingRefundNotFound {})?;
+
+    PENDING_REFUNDS.remove(storage, (sender, pending_refund_id))?;
+
+    Ok(pending_refund.coin)
 }

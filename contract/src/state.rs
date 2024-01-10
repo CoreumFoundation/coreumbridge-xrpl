@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Coin, Empty, Uint128};
-use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
+use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex, UniqueIndex};
 
 use crate::{evidence::Evidences, operation::Operation, relayer::Relayer};
 
@@ -20,7 +20,8 @@ pub enum TopKey {
     UsedTickets = b'8',
     PendingOperations = b'9',
     PendingTicketUpdate = b'a',
-    FeesCollected = b'b',
+    PendingRefunds = b'b',
+    FeesCollected = b'c',
     FeeRemainders = b'd',
 }
 
@@ -76,6 +77,14 @@ pub struct CoreumToken {
     pub max_holding_amount: Uint128,
     pub state: TokenState,
     pub bridging_fee: Uint128,
+}
+
+#[cw_serde]
+pub struct PendingRefund {
+    pub address: Addr,
+    // We will use a unique id (block timestamp - operation_id) for users to claim their funds back per operation id
+    pub id: String,
+    pub coin: Coin,
 }
 
 pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());
@@ -139,6 +148,33 @@ pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str
 pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
 // Flag to know if we are currently waiting for new_tickets to be allocated
 pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
+
+// Amounts for rejected/invalid transactions on XRPL for each Coreum user that they can reclaim manually.
+// Key is the tuple (user_address, pending_refund_id)
+pub struct PendingRefundsIndexes<'a> {
+    // One address can have multiple pending refunds
+    pub address: MultiIndex<'a, Addr, PendingRefund, (Addr, String)>,
+}
+
+impl<'a> IndexList<PendingRefund> for PendingRefundsIndexes<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<PendingRefund>> + '_> {
+        let v: Vec<&dyn Index<PendingRefund>> = vec![&self.address];
+        Box::new(v.into_iter())
+    }
+}
+
+pub const PENDING_REFUNDS: IndexedMap<(Addr, String), PendingRefund, PendingRefundsIndexes> =
+    IndexedMap::new(
+        TopKey::PendingRefunds.as_str(),
+        PendingRefundsIndexes {
+            address: MultiIndex::new(
+                |_pk, p: &PendingRefund| p.address.clone(),
+                TopKey::PendingRefunds.as_str(),
+                "pending_refund__address",
+            ),
+        },
+    );
+
 // Fees collected that will be slowly accumulated here and relayers can claim them anytime
 pub const FEES_COLLECTED: Map<Addr, Vec<Coin>> = Map::new(TopKey::FeesCollected.as_str());
 // Fees Remainders in case that we have some small amounts left after dividing fees between our relayers we will keep them here until next time we collect fees and can add them to the new amount
@@ -158,6 +194,7 @@ pub enum ContractActions {
     ClaimFees,
     UpdateXRPLToken,
     UpdateCoreumToken,
+    ClaimRefunds,
 }
 
 impl ContractActions {
@@ -173,6 +210,7 @@ impl ContractActions {
             ContractActions::SaveSignature => "save_signature",
             ContractActions::SendToXRPL => "send_to_xrpl",
             ContractActions::ClaimFees => "claim_fees",
+            ContractActions::ClaimRefunds => "claim_refunds",
             ContractActions::UpdateXRPLToken => "update_xrpl_token",
             ContractActions::UpdateCoreumToken => "update_coreum_token",
         }

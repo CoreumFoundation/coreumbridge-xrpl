@@ -30,7 +30,10 @@ pub fn allocate_ticket(storage: &mut dyn Storage) -> Result<u64, ContractError> 
 }
 
 // Once we confirm/reject a transaction, we need to register a ticket as used
-pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<bool, ContractError> {
+pub fn register_used_ticket(
+    storage: &mut dyn Storage,
+    timestamp: u64,
+) -> Result<bool, ContractError> {
     let used_tickets = USED_TICKETS_COUNTER.load(storage)?;
     let config = CONFIG.load(storage)?;
 
@@ -48,6 +51,7 @@ pub fn register_used_ticket(storage: &mut dyn Storage) -> Result<bool, ContractE
                     storage,
                     ticket_to_update,
                     &Operation {
+                        id: format!("{}-{}", timestamp, ticket_to_update),
                         ticket_sequence: Some(ticket_to_update),
                         account_sequence: None,
                         signatures: vec![],
