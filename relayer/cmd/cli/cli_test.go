@@ -61,10 +61,19 @@ func TestKeyringCmds(t *testing.T) {
 	cmd, err := cli.KeyringCmd()
 	require.NoError(t, err)
 
+	configPath := t.TempDir()
+	configFilePath := path.Join(configPath, runner.ConfigFileName)
+	require.NoFileExists(t, configFilePath)
 	args := []string{
-		"list",
+		flagWithPrefix(cli.FlagHome), configPath,
 	}
-	args = append(args, testKeyringFlags(t.TempDir())...)
+	executeCmd(t, cli.InitCmd(), args...)
+
+	args = []string{
+		"list",
+		flagWithPrefix(cli.FlagHome), configPath,
+	}
+	args = append(args, testKeyringFlags(configPath)...)
 	out := executeCmd(t, cmd, args...)
 	keysOut := make([]string, 0)
 	require.NoError(t, json.Unmarshal([]byte(out), &keysOut))
@@ -104,9 +113,6 @@ func TestBootstrapCmd(t *testing.T) {
 	addKeyToTestKeyring(t, keyringDir, keyName)
 
 	// call bootstrap with init only
-	cmd := cli.BootstrapBridgeCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return nil, nil
-	})
 	args := []string{
 		configPath,
 		flagWithPrefix(cli.FlagInitOnly),
@@ -114,20 +120,17 @@ func TestBootstrapCmd(t *testing.T) {
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
-	executeCmd(t, cmd, args...)
+	executeCmd(t, cli.BootstrapBridgeCmd(nil), args...)
 
 	// use generated file
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().Bootstrap(gomock.Any(), gomock.Any(), keyName, bridgeclient.DefaultBootstrappingConfig())
-	cmd = cli.BootstrapBridgeCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return bridgeClientMock, nil
-	})
 	args = []string{
 		configPath,
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
-	executeCmd(t, cmd, args...)
+	executeCmd(t, cli.BootstrapBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
 func TestContractConfigCmd(t *testing.T) {
@@ -136,10 +139,7 @@ func TestContractConfigCmd(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{}, nil)
-	cmd := cli.ContractConfigCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return bridgeClientMock, nil
-	})
-	executeCmd(t, cmd)
+	executeCmd(t, cli.ContractConfigCmd(mockBridgeClientProvider(bridgeClientMock)))
 }
 
 func TestRecoverTicketsCmd(t *testing.T) {
@@ -157,10 +157,7 @@ func TestRecoverTicketsCmd(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().RecoverTickets(gomock.Any(), gomock.Any(), xrpl.MaxTicketsToAllocate)
-	cmd := cli.RecoverTicketsCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return bridgeClientMock, nil
-	})
-	executeCmd(t, cmd, args...)
+	executeCmd(t, cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
 func TestRegisterCoreumTokenCmd(t *testing.T) {
@@ -193,10 +190,7 @@ func TestRegisterCoreumTokenCmd(t *testing.T) {
 		int32(sendingPrecision),
 		sdkmath.NewInt(int64(maxHoldingAmount)),
 	)
-	cmd := cli.RegisterCoreumTokenCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return bridgeClientMock, nil
-	})
-	executeCmd(t, cmd, args...)
+	executeCmd(t, cli.RegisterCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
 func TestRegisterXRPLTokenCmd(t *testing.T) {
@@ -230,10 +224,7 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 		int32(sendingPrecision),
 		sdkmath.NewInt(int64(maxHoldingAmount)),
 	)
-	cmd := cli.RegisterXRPLTokenCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return bridgeClientMock, nil
-	})
-	executeCmd(t, cmd, args...)
+	executeCmd(t, cli.RegisterXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
 func TestRegisteredTokensCmd(t *testing.T) {
@@ -242,10 +233,7 @@ func TestRegisteredTokensCmd(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().GetAllTokens(gomock.Any()).Return([]coreum.CoreumToken{}, []coreum.XRPLToken{}, nil)
-	cmd := cli.RegisteredTokensCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return bridgeClientMock, nil
-	})
-	executeCmd(t, cmd)
+	executeCmd(t, cli.RegisteredTokensCmd(mockBridgeClientProvider(bridgeClientMock)))
 }
 
 func TestSendFromCoreumToXRPLCmd(t *testing.T) {
@@ -272,10 +260,7 @@ func TestSendFromCoreumToXRPLCmd(t *testing.T) {
 		amount,
 		recipient,
 	)
-	cmd := cli.SendFromCoreumToXRPLCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return bridgeClientMock, nil
-	})
-	executeCmd(t, cmd, args...)
+	executeCmd(t, cli.SendFromCoreumToXRPLCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
 func TestCoreumBalancesCmd(t *testing.T) {
@@ -286,10 +271,7 @@ func TestCoreumBalancesCmd(t *testing.T) {
 
 	account := coreum.GenAccount()
 	bridgeClientMock.EXPECT().GetCoreumBalances(gomock.Any(), account).Return(sdk.NewCoins(), nil)
-	cmd := cli.CoreumBalancesCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return bridgeClientMock, nil
-	})
-	executeCmd(t, cmd, account.String())
+	executeCmd(t, cli.CoreumBalancesCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
 }
 
 func TestXRPBalancesCmd(t *testing.T) {
@@ -300,10 +282,7 @@ func TestXRPBalancesCmd(t *testing.T) {
 
 	account := xrpl.GenPrivKeyTxSigner().Account()
 	bridgeClientMock.EXPECT().GetXRPLBalances(gomock.Any(), account).Return([]rippledata.Amount{}, nil)
-	cmd := cli.XRPLBalancesCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return bridgeClientMock, nil
-	})
-	executeCmd(t, cmd, account.String())
+	executeCmd(t, cli.XRPLBalancesCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
 }
 
 func TestSetXRPLTrustSetCmd(t *testing.T) {
@@ -338,10 +317,7 @@ func TestSetXRPLTrustSetCmd(t *testing.T) {
 		gomock.Any(),
 		amount,
 	)
-	cmd := cli.SetXRPLTrustSetCmd(func(cmd *cobra.Command) (cli.BridgeClient, error) {
-		return bridgeClientMock, nil
-	})
-	executeCmd(t, cmd, args...)
+	executeCmd(t, cli.SetXRPLTrustSetCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
 func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {
@@ -392,6 +368,12 @@ func testKeyringFlags(keyringDir string) []string {
 
 func flagWithPrefix(f string) string {
 	return fmt.Sprintf("--%s", f)
+}
+
+func mockBridgeClientProvider(bridgeClientMock *MockBridgeClient) cli.BridgeClientProvider {
+	return func(cmd *cobra.Command) (cli.BridgeClient, error) {
+		return bridgeClientMock, nil
+	}
 }
 
 func unsealConfig() {
