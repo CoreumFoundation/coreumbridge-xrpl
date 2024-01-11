@@ -40,7 +40,7 @@ use coreum_wasm_sdk::{
 };
 use cosmwasm_std::{
     coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps,
-    DepsMut, Env, MessageInfo, Order, Response, StdResult, Uint128,
+    DepsMut, Env, MessageInfo, Order, Response, StdResult, Storage, Uint128,
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
@@ -1085,7 +1085,7 @@ fn halt_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
     assert_owner_or_relayer(deps.as_ref(), &sender)?;
     assert_bridge_active(deps.as_ref())?;
 
-    update_bridge_state(deps, BridgeState::Halted)?;
+    update_bridge_state(deps.storage, BridgeState::Halted)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::Halt.as_str())
@@ -1100,7 +1100,7 @@ fn resume_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
         return Err(ContractError::KeyRotationOngoing {});
     }
 
-    update_bridge_state(deps, BridgeState::Active)?;
+    update_bridge_state(deps.storage, BridgeState::Active)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::Resume.as_str())
@@ -1121,6 +1121,9 @@ fn key_rotation(
     if PENDING_KEY_ROTATION.load(deps.storage)? {
         return Err(ContractError::KeyRotationOngoing {});
     }
+
+    // We set the bridge state to halted
+    update_bridge_state(deps.storage, BridgeState::Halted)?;
 
     // Validate the new relayer set so that we are sure that the new set is valid (e.g. no duplicated relayers, etc.)
     validate_relayers(deps.as_ref(), &new_relayers, new_evidence_threshold)?;
@@ -1153,10 +1156,6 @@ fn key_rotation(
 
     // We set the pending key rotation flag to true so that we don't allow another key rotation until this one is confirmed
     PENDING_KEY_ROTATION.save(deps.storage, &true)?;
-    // We set the bridge state to halted
-    let mut config = CONFIG.load(deps.storage)?;
-    config.bridge_state = BridgeState::Halted;
-    CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::KeyRotation.as_str())
@@ -1462,9 +1461,12 @@ fn assert_bridge_active(deps: Deps) -> Result<(), ContractError> {
     Ok(())
 }
 
-fn update_bridge_state(deps: DepsMut, bridge_state: BridgeState) -> Result<(), ContractError> {
-    let mut config = CONFIG.load(deps.storage)?;
+fn update_bridge_state(
+    storage: &mut dyn Storage,
+    bridge_state: BridgeState,
+) -> Result<(), ContractError> {
+    let mut config = CONFIG.load(storage)?;
     config.bridge_state = bridge_state;
-    CONFIG.save(deps.storage, &config)?;
+    CONFIG.save(storage, &config)?;
     Ok(())
 }
