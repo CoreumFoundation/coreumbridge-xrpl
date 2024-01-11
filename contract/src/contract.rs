@@ -1048,6 +1048,14 @@ fn claim_relayer_fees(
 ) -> CoreumResult<ContractError> {
     assert_bridge_active(deps.as_ref())?;
 
+    // If fees were never collected for this address we don't allow the claim
+    if FEES_COLLECTED
+        .may_load(deps.storage, sender.to_owned())?
+        .is_none()
+    {
+        return Err(ContractError::UnauthorizedSender {});
+    };
+
     substract_relayer_fees(deps.storage, sender.to_owned(), &amounts)?;
 
     let send_msg = BankMsg::Send {
