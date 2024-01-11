@@ -176,9 +176,6 @@ pub enum ContractError {
     #[error("NotOwnerOrRelayer: The sender is not the owner of the contract or a relayer. Unauthorized.")]
     NotOwnerOrRelayer {},
 
-    #[error("InvalidKeyRotation: must provide either relayers to remove and/or relayers to add")]
-    InvalidKeyRotation {},
-
     #[error("ThresholdZero: Evidence threshold can't be 0")]
     ThresholdZero {},
 
