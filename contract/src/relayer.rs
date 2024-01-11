@@ -98,7 +98,7 @@ pub fn handle_key_rotation_confirmation(
     new_evidence_threshold: u32,
     transaction_result: TransactionResult,
 ) -> Result<(), ContractError> {
-    // If transaction was accepted, update the relayers and evidence threshhold and clear all current evidences
+    // If transaction was accepted, update the relayers and evidence threshold and clear all current evidences
     // Bridge will stay halted until owner resumes it.
     // If it failed, the bridge will remain halted and relayers are not updated, waiting for another recovery by owner
     if transaction_result.eq(&TransactionResult::Accepted) {
