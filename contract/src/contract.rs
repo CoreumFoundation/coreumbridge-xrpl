@@ -1046,7 +1046,6 @@ fn claim_relayer_fees(
     sender: Addr,
     amounts: Vec<Coin>,
 ) -> CoreumResult<ContractError> {
-    assert_relayer(deps.as_ref(), &sender)?;
     assert_bridge_active(deps.as_ref())?;
 
     substract_relayer_fees(deps.storage, sender.to_owned(), &amounts)?;
