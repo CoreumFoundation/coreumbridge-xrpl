@@ -367,6 +367,16 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring, setCoreumSDK
 	return rnr, nil
 }
 
+// GetBridgeClient returns BridgeClient.
+func (r *Runner) GetBridgeClient() *client.BridgeClient {
+	return r.BridgeClient
+}
+
+// StartAllProcesses starts all processes.
+func (r *Runner) StartAllProcesses(ctx context.Context) error {
+	return r.Processor.StartProcesses(ctx, r.Processes.XRPLTxSubmitter, r.Processes.XRPLTxObserver)
+}
+
 // InitConfig creates config yaml file.
 func InitConfig(homePath string, cfg Config) error {
 	path := buildFilePath(homePath)
