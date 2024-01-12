@@ -33,7 +33,7 @@ pub enum OperationType {
         currency: String,
         trust_set_limit_amount: Uint128,
     },
-    KeyRotation {
+    RotateKeys {
         new_relayers: Vec<Relayer>,
         new_evidence_threshold: u32,
     },

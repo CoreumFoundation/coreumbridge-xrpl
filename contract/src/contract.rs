@@ -18,13 +18,13 @@ use crate::{
         remove_pending_refund, Operation, OperationType,
     },
     relayer::{
-        assert_relayer, handle_key_rotation_confirmation, validate_relayers, validate_xrpl_address,
+        assert_relayer, handle_rotate_keys_confirmation, validate_relayers, validate_xrpl_address,
         Relayer,
     },
     signatures::add_signature,
     state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, XRPLToken,
-        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_KEY_ROTATION,
+        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_ROTATE_KEYS,
         PENDING_OPERATIONS, PENDING_REFUNDS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
         XRPL_TOKENS,
     },
@@ -114,7 +114,7 @@ pub fn instantiate(
     // We initialize these values here so that we can immediately start working with them
     USED_TICKETS_COUNTER.save(deps.storage, &0)?;
     PENDING_TICKET_UPDATE.save(deps.storage, &false)?;
-    PENDING_KEY_ROTATION.save(deps.storage, &false)?;
+    PENDING_ROTATE_KEYS.save(deps.storage, &false)?;
     AVAILABLE_TICKETS.save(deps.storage, &VecDeque::new())?;
 
     let config = Config {
@@ -278,13 +278,13 @@ pub fn execute(
         ExecuteMsg::ClaimRelayerFees { amounts } => {
             claim_relayer_fees(deps.into_empty(), info.sender, amounts)
         }
-        ExecuteMsg::Halt {} => halt_bridge(deps.into_empty(), info.sender),
-        ExecuteMsg::Resume {} => resume_bridge(deps.into_empty(), info.sender),
-        ExecuteMsg::KeyRotation {
+        ExecuteMsg::HaltBridge {} => halt_bridge(deps.into_empty(), info.sender),
+        ExecuteMsg::ResumeBridge {} => resume_bridge(deps.into_empty(), info.sender),
+        ExecuteMsg::RotateKeys {
             account_sequence,
             new_relayers,
             new_evidence_threshold,
-        } => key_rotation(
+        } => rotate_keys(
             deps.into_empty(),
             env,
             info.sender,
@@ -475,18 +475,18 @@ fn save_evidence(
 ) -> CoreumResult<ContractError> {
     // Evidences can only be sent under 2 conditions:
     // 1. The bridge is active -> All evidences are accepted
-    // 2. The bridge is halted -> Only key rotation evidences allowed if there is a key rotation ongoing
+    // 2. The bridge is halted -> Only rotate keys evidences allowed if there is a rotate keys ongoing
     let config = CONFIG.load(deps.storage)?;
 
     if config.bridge_state == BridgeState::Halted {
-        if !PENDING_KEY_ROTATION.load(deps.storage)? {
+        if !PENDING_ROTATE_KEYS.load(deps.storage)? {
             return Err(ContractError::BridgeHalted {});
         }
 
-        // If evidence is not a key rotation we won't accept this operation
+        // If evidence is not a rotate keys we won't accept this operation
         match evidence {
             Evidence::XRPLTransactionResult {
-                operation_result: OperationResult::KeyRotation { .. },
+                operation_result: OperationResult::RotateKeys { .. },
                 ..
             } => (),
             _ => return Err(ContractError::BridgeHalted {}),
@@ -649,7 +649,7 @@ fn save_evidence(
                 }
                 OperationResult::TicketsAllocation { .. } => {}
                 OperationResult::CoreumToXRPLTransfer { .. } => {}
-                OperationResult::KeyRotation { .. } => {}
+                OperationResult::RotateKeys { .. } => {}
             }
 
             if threshold_reached {
@@ -677,11 +677,11 @@ fn save_evidence(
                             &mut response,
                         )?;
                     }
-                    OperationResult::KeyRotation {
+                    OperationResult::RotateKeys {
                         new_relayers,
                         new_evidence_threshold,
                     } => {
-                        handle_key_rotation_confirmation(
+                        handle_rotate_keys_confirmation(
                             deps.storage,
                             new_relayers.to_owned(),
                             new_evidence_threshold.to_owned(),
@@ -1095,26 +1095,26 @@ fn halt_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
     update_bridge_state(deps.storage, BridgeState::Halted)?;
 
     Ok(Response::new()
-        .add_attribute("action", ContractActions::Halt.as_str())
+        .add_attribute("action", ContractActions::HaltBridge.as_str())
         .add_attribute("sender", sender))
 }
 
 fn resume_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
-    // Can't resume the bridge if there is a pending rotation ongoing
-    if PENDING_KEY_ROTATION.load(deps.storage)? {
-        return Err(ContractError::KeyRotationOngoing {});
+    // Can't resume the bridge if there is a pending rotate keys ongoing
+    if PENDING_ROTATE_KEYS.load(deps.storage)? {
+        return Err(ContractError::RotateKeysOngoing {});
     }
 
     update_bridge_state(deps.storage, BridgeState::Active)?;
 
     Ok(Response::new()
-        .add_attribute("action", ContractActions::Resume.as_str())
+        .add_attribute("action", ContractActions::ResumeBridge.as_str())
         .add_attribute("sender", sender))
 }
 
-fn key_rotation(
+fn rotate_keys(
     deps: DepsMut,
     env: Env,
     sender: Addr,
@@ -1124,9 +1124,9 @@ fn key_rotation(
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
-    // If there is already a pending key rotation ongoing, we don't allow another one until that one is confirmed
-    if PENDING_KEY_ROTATION.load(deps.storage)? {
-        return Err(ContractError::KeyRotationOngoing {});
+    // If there is already a pending rotate keys ongoing, we don't allow another one until that one is confirmed
+    if PENDING_ROTATE_KEYS.load(deps.storage)? {
+        return Err(ContractError::RotateKeysOngoing {});
     }
 
     // We set the bridge state to halted
@@ -1155,17 +1155,17 @@ fn key_rotation(
         env.block.time.seconds(),
         ticket,
         acc_seq,
-        OperationType::KeyRotation {
+        OperationType::RotateKeys {
             new_relayers,
             new_evidence_threshold,
         },
     )?;
 
-    // We set the pending key rotation flag to true so that we don't allow another key rotation until this one is confirmed
-    PENDING_KEY_ROTATION.save(deps.storage, &true)?;
+    // We set the pending rotate keys flag to true so that we don't allow another rotate keys operation until this one is confirmed
+    PENDING_ROTATE_KEYS.save(deps.storage, &true)?;
 
     Ok(Response::new()
-        .add_attribute("action", ContractActions::KeyRotation.as_str())
+        .add_attribute("action", ContractActions::RotateKeys.as_str())
         .add_attribute("sender", sender))
 }
 

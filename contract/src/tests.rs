@@ -8036,7 +8036,7 @@ mod tests {
         // We are going to perform a key rotation, for that we are going to remove a malicious relayer
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::KeyRotation {
+            &ExecuteMsg::RotateKeys {
                 account_sequence: None,
                 new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                 new_evidence_threshold: 2,
@@ -8050,7 +8050,7 @@ mod tests {
         let pending_rotation_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::KeyRotation {
+                &ExecuteMsg::RotateKeys {
                     account_sequence: None,
                     new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                     new_evidence_threshold: 2,
@@ -8062,7 +8062,7 @@ mod tests {
 
         assert!(pending_rotation_error
             .to_string()
-            .contains(ContractError::KeyRotationOngoing {}.to_string().as_str()));
+            .contains(ContractError::RotateKeysOngoing {}.to_string().as_str()));
 
         // Let's confirm that a pending operation is created
         let query_pending_operations = wasm
@@ -8080,14 +8080,14 @@ mod tests {
                 ticket_sequence: Some(1),
                 account_sequence: None,
                 signatures: vec![],
-                operation_type: OperationType::KeyRotation {
+                operation_type: OperationType::RotateKeys {
                     new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                     new_evidence_threshold: 2
                 }
             }
         );
 
-        // Any evidence we send now that is not a KeyRotation evidence should fail
+        // Any evidence we send now that is not a RotateKeys evidence should fail
         let error_no_key_rotation_evidence = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -8109,7 +8109,7 @@ mod tests {
             .to_string()
             .contains(ContractError::BridgeHalted {}.to_string().as_str()));
 
-        // We are going to confirm the KeyRotation as rejected and check that nothing is changed and bridge is still halted
+        // We are going to confirm the RotateKeys as rejected and check that nothing is changed and bridge is still halted
         let tx_hash = generate_hash();
         for relayer in relayer_accounts.iter() {
             wasm.execute::<ExecuteMsg>(
@@ -8120,7 +8120,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(1),
                         transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::KeyRotation {
+                        operation_result: OperationResult::RotateKeys {
                             new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                             new_evidence_threshold: 2,
                         },
@@ -8154,7 +8154,7 @@ mod tests {
         // Let's try to perform a key rotation again and check that it works
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::KeyRotation {
+            &ExecuteMsg::RotateKeys {
                 account_sequence: None,
                 new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                 new_evidence_threshold: 2,
@@ -8180,14 +8180,14 @@ mod tests {
                 ticket_sequence: Some(2),
                 account_sequence: None,
                 signatures: vec![],
-                operation_type: OperationType::KeyRotation {
+                operation_type: OperationType::RotateKeys {
                     new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                     new_evidence_threshold: 2
                 }
             }
         );
 
-        // We are going to confirm the KeyRotation as accepted and check that config has been updated correctly
+        // We are going to confirm the RotateKeys as accepted and check that config has been updated correctly
         let tx_hash = generate_hash();
         for relayer in relayer_accounts.iter() {
             wasm.execute::<ExecuteMsg>(
@@ -8198,7 +8198,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(2),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::KeyRotation {
+                        operation_result: OperationResult::RotateKeys {
                             new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                             new_evidence_threshold: 2,
                         },
@@ -8222,7 +8222,7 @@ mod tests {
         assert_eq!(query_config.bridge_state, BridgeState::Halted);
 
         // Owner can now resume the bridge
-        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Resume {}, &vec![], &signer)
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::ResumeBridge {}, &vec![], &signer)
             .unwrap();
 
         // Let's check that evidences have been cleared by sending again the old evidence and it succeeds
@@ -8301,7 +8301,7 @@ mod tests {
         );
 
         // Halt the bridge and check that we can't send any operations except allowed ones
-        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Halt {}, &vec![], &signer)
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::HaltBridge {}, &vec![], &signer)
             .unwrap();
 
         // Query bridge state to confirm it's halted
@@ -8452,7 +8452,7 @@ mod tests {
             .contains(ContractError::BridgeHalted {}.to_string().as_str()));
 
         // Resuming the bridge should work
-        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Resume {}, &vec![], &signer)
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::ResumeBridge {}, &vec![], &signer)
             .unwrap();
 
         // Query bridge state to confirm it's active
@@ -8463,7 +8463,7 @@ mod tests {
         assert_eq!(query_bridge_state.state, BridgeState::Active);
 
         // Halt it again to send some allowed operations
-        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Halt {}, &vec![], &signer)
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::HaltBridge {}, &vec![], &signer)
             .unwrap();
 
         // Perform a simple key rotation, should be allowed
@@ -8476,7 +8476,7 @@ mod tests {
         // We perform a key rotation using an account sequence
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::KeyRotation {
+            &ExecuteMsg::RotateKeys {
                 account_sequence: Some(1),
                 new_relayers: vec![new_relayer.clone()],
                 new_evidence_threshold: 1,
@@ -8502,7 +8502,7 @@ mod tests {
                 ticket_sequence: None,
                 account_sequence: Some(1),
                 signatures: vec![],
-                operation_type: OperationType::KeyRotation {
+                operation_type: OperationType::RotateKeys {
                     new_relayers: vec![new_relayer.clone()],
                     new_evidence_threshold: 1
                 }
@@ -8511,12 +8511,12 @@ mod tests {
 
         // Resuming now should not be allowed because we have a pending key rotation
         let resume_error = wasm
-            .execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Resume {}, &vec![], &signer)
+            .execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::ResumeBridge {}, &vec![], &signer)
             .unwrap_err();
 
         assert!(resume_error
             .to_string()
-            .contains(ContractError::KeyRotationOngoing {}.to_string().as_str()));
+            .contains(ContractError::RotateKeysOngoing {}.to_string().as_str()));
 
         // Sending signatures should be allowed with the bridge halted and with pending operations
         wasm.execute::<ExecuteMsg>(
@@ -8530,7 +8530,7 @@ mod tests {
         )
         .unwrap();
 
-        // Sending an evidence for something that is not a KeyRotation should fail
+        // Sending an evidence for something that is not a RotateKeys should fail
         let bridge_halted_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -8561,7 +8561,7 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::KeyRotation {
+                    operation_result: OperationResult::RotateKeys {
                         new_relayers: vec![new_relayer.to_owned()],
                         new_evidence_threshold: 1,
                     },
@@ -8587,7 +8587,7 @@ mod tests {
         assert_eq!(query_config.relayers, vec![new_relayer]);
 
         // We should now be able to resume the bridge because the key rotation has been confirmed
-        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::Resume {}, &vec![], &signer)
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::ResumeBridge {}, &vec![], &signer)
             .unwrap();
 
         // Query bridge state to confirm it's now active
@@ -8601,7 +8601,7 @@ mod tests {
         let halt_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::Halt {},
+                &ExecuteMsg::HaltBridge {},
                 &vec![],
                 &relayer_account,
             )
@@ -8614,7 +8614,7 @@ mod tests {
         // Current relayer should be allowed to halt it
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::Halt {},
+            &ExecuteMsg::HaltBridge {},
             &vec![],
             &new_relayer_account,
         )

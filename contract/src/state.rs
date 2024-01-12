@@ -23,7 +23,7 @@ pub enum TopKey {
     PendingRefunds = b'b',
     FeesCollected = b'c',
     FeeRemainders = b'd',
-    PendingKeyRotation = b'e',
+    PendingRotateKeys = b'e',
 }
 
 impl TopKey {
@@ -50,7 +50,7 @@ pub struct Config {
 pub enum BridgeState {
     // Bridge is active and working
     Active,
-    // Bridge is halted and no operations can be executed until it's reactivated by owner or until key rotation operation is completed
+    // Bridge is halted and no operations can be executed until it's reactivated by owner (if there are no pending rotate keys operation on going)
     Halted,
 }
 
@@ -158,8 +158,8 @@ pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str
 pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
 // Flag to know if we are currently waiting for new_tickets to be allocated
 pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
-// Flag to know if we are currently waiting for a key rotation to be completed
-pub const PENDING_KEY_ROTATION: Item<bool> = Item::new(TopKey::PendingKeyRotation.as_str());
+// Flag to know if we are currently waiting for a rotate keys operation to be completed
+pub const PENDING_ROTATE_KEYS: Item<bool> = Item::new(TopKey::PendingRotateKeys.as_str());
 // Amounts for rejected/invalid transactions on XRPL for each Coreum user that they can reclaim manually.
 // Key is the tuple (user_address, pending_refund_id)
 pub struct PendingRefundsIndexes<'a> {
@@ -206,9 +206,9 @@ pub enum ContractActions {
     UpdateXRPLToken,
     UpdateCoreumToken,
     ClaimRefunds,
-    Halt,
-    Resume,
-    KeyRotation,
+    HaltBridge,
+    ResumeBridge,
+    RotateKeys,
 }
 
 impl ContractActions {
@@ -227,9 +227,9 @@ impl ContractActions {
             ContractActions::ClaimRefunds => "claim_refunds",
             ContractActions::UpdateXRPLToken => "update_xrpl_token",
             ContractActions::UpdateCoreumToken => "update_coreum_token",
-            ContractActions::Halt => "halt_bridge",
-            ContractActions::Resume => "resume_bridge",
-            ContractActions::KeyRotation => "key_rotation",
+            ContractActions::HaltBridge => "halt_bridge",
+            ContractActions::ResumeBridge => "resume_bridge",
+            ContractActions::RotateKeys => "rotate_keys",
         }
     }
 }

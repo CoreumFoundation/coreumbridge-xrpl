@@ -59,7 +59,7 @@ pub enum OperationResult {
         issuer: String,
         currency: String,
     },
-    KeyRotation {
+    RotateKeys {
         new_relayers: Vec<Relayer>,
         new_evidence_threshold: u32,
     },
@@ -74,7 +74,7 @@ impl OperationResult {
             OperationResult::TicketsAllocation { .. } => "tickets_allocation",
             OperationResult::TrustSet { .. } => "trust_set",
             OperationResult::CoreumToXRPLTransfer {} => "coreum_to_xrpl_transfer",
-            OperationResult::KeyRotation { .. } => "key_rotation",
+            OperationResult::RotateKeys { .. } => "rotate_keys",
         }
     }
 }
@@ -160,7 +160,7 @@ impl Evidence {
                         }
                     }
                     // Key rotation operations can be done with both account_sequence and ticket_sequence
-                    OperationResult::KeyRotation { .. } => {}
+                    OperationResult::RotateKeys { .. } => {}
                 }
 
                 Ok(())

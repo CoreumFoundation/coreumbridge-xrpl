@@ -7,7 +7,7 @@ use crate::{
     contract::MAX_RELAYERS,
     error::ContractError,
     evidence::TransactionResult,
-    state::{CONFIG, PENDING_KEY_ROTATION, TX_EVIDENCES},
+    state::{CONFIG, PENDING_ROTATE_KEYS, TX_EVIDENCES},
 };
 
 #[cw_serde]
@@ -92,7 +92,7 @@ pub fn assert_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractError> {
     Err(ContractError::UnauthorizedSender {})
 }
 
-pub fn handle_key_rotation_confirmation(
+pub fn handle_rotate_keys_confirmation(
     storage: &mut dyn Storage,
     relayers: Vec<Relayer>,
     new_evidence_threshold: u32,
@@ -109,7 +109,7 @@ pub fn handle_key_rotation_confirmation(
         TX_EVIDENCES.clear(storage);
     }
 
-    PENDING_KEY_ROTATION.save(storage, &false)?;
+    PENDING_ROTATE_KEYS.save(storage, &false)?;
 
     Ok(())
 }

@@ -94,12 +94,12 @@ pub enum ExecuteMsg {
     ClaimRelayerFees {
         amounts: Vec<Coin>,
     },
-    // A relayer or the owner can halt operations if an issue is detected
-    Halt {},
+    // A relayer or the owner can halt the bridge operations if an issue is detected
+    HaltBridge {},
     // Owner can resume the bridge that is in halted state
-    Resume {},
-    // Owner can trigger a key rotation, removing and/or adding relayers
-    KeyRotation {
+    ResumeBridge {},
+    // Owner can trigger a rotate keys, removing and/or adding relayers
+    RotateKeys {
         account_sequence: Option<u64>,
         new_relayers: Vec<Relayer>,
         new_evidence_threshold: u32,

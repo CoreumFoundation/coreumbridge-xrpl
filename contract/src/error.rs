@@ -188,6 +188,6 @@ pub enum ContractError {
     #[error("BridgeHalted: The bridge is currently halted and this operation is not authorized")]
     BridgeHalted {},
 
-    #[error("KeyRotationOngoing: Can't perform this operation while key rotation is ongoing")]
-    KeyRotationOngoing {},
+    #[error("RotateKeysOngoing: Can't perform this operation while there is a rotate key operation ongoing")]
+    RotateKeysOngoing {},
 }
