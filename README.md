@@ -191,7 +191,7 @@ Additionally, set the bridge contract address in the `relayer.yaml`
 ### Send from XRPL to coreum
 
 ```bash 
-./coreumbridge-xrpl-relayer send-from-xrpl-to-coreum 1000000 XRP rrrrrrrrrrrrrrrrrrrrrhoLvTp testcore1adst6w4e79tddzhcgaru2l2gms8jjep6a4caa7 --key-name sender --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+./coreumbridge-xrpl-relayer send-from-xrpl-to-coreum 1000000 rrrrrrrrrrrrrrrrrrrrrhoLvTp XRP testcore1adst6w4e79tddzhcgaru2l2gms8jjep6a4caa7 --key-name sender --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 ### Get contact config
@@ -221,7 +221,7 @@ Additionally, set the bridge contract address in the `relayer.yaml`
 ### Set XRPL TrustSet
 
 ```bash 
-./coreumbridge-xrpl-relayer set-xrpl-trust-set 1e80 XRP rrrrrrrrrrrrrrrrrrrrrhoLvTp --key-name sender --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+./coreumbridge-xrpl-relayer set-xrpl-trust-set 1e80 rrrrrrrrrrrrrrrrrrrrrhoLvTp XRP --key-name sender --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 ## Owner CLI
