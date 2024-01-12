@@ -246,25 +246,25 @@ pub fn execute(
             issuer,
             currency,
             state,
-            min_sending_precision,
+            sending_precision,
         } => update_xrpl_token(
             deps.into_empty(),
             info.sender,
             issuer,
             currency,
             state,
-            min_sending_precision,
+            sending_precision,
         ),
         ExecuteMsg::UpdateCoreumToken {
             denom,
             state,
-            min_sending_precision,
+            sending_precision,
         } => update_coreum_token(
             deps.into_empty(),
             info.sender,
             denom,
             state,
-            min_sending_precision,
+            sending_precision,
         ),
 
         ExecuteMsg::ClaimRefund { pending_refund_id } => {
@@ -932,7 +932,7 @@ fn update_xrpl_token(
     issuer: String,
     currency: String,
     state: Option<TokenState>,
-    min_sending_precision: Option<i32>,
+    sending_precision: Option<i32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -945,7 +945,7 @@ fn update_xrpl_token(
     set_token_state(&mut token.state, state)?;
     set_token_sending_precision(
         &mut token.sending_precision,
-        min_sending_precision,
+        sending_precision,
         XRPL_TOKENS_DECIMALS,
     )?;
 
@@ -962,7 +962,7 @@ fn update_coreum_token(
     sender: Addr,
     denom: String,
     state: Option<TokenState>,
-    min_sending_precision: Option<i32>,
+    sending_precision: Option<i32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -973,7 +973,7 @@ fn update_coreum_token(
     set_token_state(&mut token.state, state)?;
     set_token_sending_precision(
         &mut token.sending_precision,
-        min_sending_precision,
+        sending_precision,
         token.decimals,
     )?;
 

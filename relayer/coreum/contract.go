@@ -276,14 +276,16 @@ type recoverXRPLTokenRegistrationRequest struct {
 }
 
 type updateXRPLTokenRequest struct {
-	Issuer   string     `json:"issuer"`
-	Currency string     `json:"currency"`
-	State    TokenState `json:"state"`
+	Issuer           string      `json:"issuer"`
+	Currency         string      `json:"currency"`
+	State            *TokenState `json:"state,omitempty"`
+	SendingPrecision *int32      `json:"sending_precision,omitempty"`
 }
 
 type updateCoreumTokenRequest struct {
-	Denom string     `json:"denom"`
-	State TokenState `json:"state"`
+	Denom            string      `json:"denom"`
+	State            *TokenState `json:"state,omitempty"`
+	SendingPrecision *int32      `json:"sending_precision,omitempty"`
 }
 
 type claimRefundRequest struct {
@@ -794,14 +796,16 @@ func (c *ContractClient) UpdateXRPLToken(
 	ctx context.Context,
 	sender sdk.AccAddress,
 	issuer, currency string,
-	state TokenState,
+	state *TokenState,
+	sendingPrecision *int32,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]updateXRPLTokenRequest{
 			ExecUpdateXRPLToken: {
-				Issuer:   issuer,
-				Currency: currency,
-				State:    state,
+				Issuer:           issuer,
+				Currency:         currency,
+				State:            state,
+				SendingPrecision: sendingPrecision,
 			},
 		},
 	})
@@ -817,13 +821,15 @@ func (c *ContractClient) UpdateCoreumToken(
 	ctx context.Context,
 	sender sdk.AccAddress,
 	denom string,
-	state TokenState,
+	state *TokenState,
+	sendingPrecision *int32,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]updateCoreumTokenRequest{
 			ExecUpdateCoreumToken: {
-				Denom: denom,
-				State: state,
+				Denom:            denom,
+				State:            state,
+				SendingPrecision: sendingPrecision,
 			},
 		},
 	})
