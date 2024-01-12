@@ -3230,6 +3230,169 @@ func TestBridgingFeeForXRPLOrginatedTokens(t *testing.T) {
 	}
 }
 
+// TestBridgingFeeForCoreumOrginatedTokens tests that corrects fees are calculated, deducted and
+// are collected by relayers.
+//
+//nolint:tparallel // the test is parallel, but test cases are not
+func TestBridgingFeeForCoreumOrginatedTokens(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+
+	maxHoldingAmount := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
+	tokenDecimals := uint32(15)
+	relayers := genRelayers(ctx, t, chains, 2)
+	bridgeAddress := xrpl.GenPrivKeyTxSigner().Account().String()
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		len(relayers),
+		10,
+		defaultTrustSetLimitAmount,
+		bridgeAddress,
+	)
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
+
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+
+	type testCase struct {
+		name             string
+		bridgingFee      string
+		sendingPrecision int32
+		sendingAmount    string
+		receivedAmount   string
+		collectedFee     string
+	}
+
+	tests := []testCase{
+		{
+			name:             "zero_bridge_fee",
+			sendingPrecision: 2,
+			bridgingFee:      "0",
+			sendingAmount:    "9999999999.15",
+			receivedAmount:   "9999999999.15",
+			collectedFee:     "0",
+		},
+		{
+			name:             "4_bridge_fee",
+			sendingPrecision: 2,
+			bridgingFee:      "4",
+			sendingAmount:    "1004",
+			receivedAmount:   "1000",
+			collectedFee:     "4",
+		},
+		{
+			name:             "bridge_fee_with_precision",
+			sendingPrecision: 2,
+			bridgingFee:      "0.04",
+			sendingAmount:    "999.96",
+			receivedAmount:   "999.92",
+			collectedFee:     "0.04",
+		},
+		{
+			name:             "bridge_fee_with_precision_and_truncation",
+			sendingPrecision: 2,
+			bridgingFee:      "0.04",
+			sendingAmount:    "1000.127",
+			receivedAmount:   "1000.08",
+			collectedFee:     "0.047",
+		},
+		{
+			name:             "bridge_fee_less_than_sending_precision",
+			sendingPrecision: 1,
+			bridgingFee:      "0.00001",
+			sendingAmount:    "999.9",
+			receivedAmount:   "999.8",
+			collectedFee:     "0.1",
+		},
+	}
+
+	stringToSDKInt := func(stringValue string) sdkmath.Int {
+		return integrationtests.ConvertStringWithDecimalsToSDKInt(t, stringValue, int64(tokenDecimals))
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			// fund sender to cover registration fee and some coins on top for the contract calls
+			coreumSenderAddress := chains.Coreum.GenAccount()
+			chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
+				Amount: issueFee.Amount.Add(sdkmath.NewInt(1_000_000)),
+			})
+
+			// issue asset ft and register it
+			issueMsg := &assetfttypes.MsgIssue{
+				Issuer:        coreumSenderAddress.String(),
+				Symbol:        "denom",
+				Subunit:       "denom",
+				Precision:     tokenDecimals,              // token decimals in terms of the contract
+				InitialAmount: maxHoldingAmount.MulRaw(2), // twice more to be able to send more than max
+			}
+			_, err := client.BroadcastTx(
+				ctx,
+				chains.Coreum.ClientContext.WithFromAddress(coreumSenderAddress),
+				chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+				issueMsg,
+			)
+			require.NoError(t, err)
+			denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
+
+			xrplRecipient := xrpl.GenPrivKeyTxSigner().Account()
+			_, err = contractClient.RegisterCoreumToken(
+				ctx,
+				owner,
+				denom,
+				tokenDecimals,
+				tt.sendingPrecision,
+				maxHoldingAmount,
+				stringToSDKInt(tt.bridgingFee),
+			)
+			require.NoError(t, err)
+			registeredCoreumToken, err := contractClient.GetCoreumTokenByDenom(ctx, denom)
+			require.NoError(t, err)
+
+			_, err = contractClient.SendToXRPL(
+				ctx,
+				coreumSenderAddress,
+				xrplRecipient.String(),
+				sdk.NewCoin(registeredCoreumToken.Denom, stringToSDKInt(tt.sendingAmount)),
+			)
+
+			require.NoError(t, err)
+
+			pendingOperations, err := contractClient.GetPendingOperations(ctx)
+			require.NoError(t, err)
+			found := false
+			for _, operation := range pendingOperations {
+				operationType := operation.OperationType.CoreumToXRPLTransfer
+				if operationType != nil &&
+					operationType.Issuer == bridgeAddress &&
+					operationType.Currency == registeredCoreumToken.XRPLCurrency {
+					found = true
+					require.Equal(t, stringToSDKInt(tt.receivedAmount).String(), operationType.Amount.String())
+				}
+			}
+			require.True(t, found)
+
+			// assert fee collection
+			claimFeesAndMakeAssertions(
+				ctx,
+				t,
+				contractClient,
+				bankClient,
+				relayers,
+				stringToSDKInt(tt.collectedFee),
+				sdk.ZeroInt(),
+				registeredCoreumToken.Denom,
+			)
+		})
+	}
+}
+
 // TestFeeCalculations_MultipleAssetsAndPartialClaim tests that corrects fees are calculated, deducted and
 // are collected by relayers.
 func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
