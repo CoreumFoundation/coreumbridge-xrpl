@@ -37,7 +37,7 @@ const (
 	ExecMethodSaveSignature           ExecMethod = "save_signature"
 	ExecSendToXRPL                    ExecMethod = "send_to_xrpl"
 	ExecRecoveryXRPLTokenRegistration ExecMethod = "recover_xrpl_token_registration"
-	ExecClaimFees                     ExecMethod = "claim_fees"
+	ExecClaimRelayersFees             ExecMethod = "claim_relayer_fees"
 	ExecUpdateXRPLToken               ExecMethod = "update_xrpl_token"
 	ExecUpdateCoreumToken             ExecMethod = "update_coreum_token"
 	ExecClaimRefund                   ExecMethod = "claim_refund"
@@ -801,10 +801,15 @@ func (c *ContractClient) RecoverXRPLTokenRegistration(
 	return txRes, nil
 }
 
-func (c *ContractClient) ClaimFees(ctx context.Context, sender sdk.AccAddress, amounts []sdk.Coin) (*sdk.TxResponse, error) {
+// ClaimFees calls the contract to claim the fees for a given relayer.
+func (c *ContractClient) ClaimFees(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	amounts []sdk.Coin,
+) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]claimFeesRequest{
-			ExecClaimFees: {
+			ExecClaimRelayersFees: {
 				Amounts: amounts,
 			},
 		},

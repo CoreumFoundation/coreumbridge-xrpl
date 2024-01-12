@@ -742,7 +742,9 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		contractClient,
 		bankClient,
 		relayers,
-		sdk.NewCoin(registeredToken.CoreumDenom, bridgingFee),
+		bridgingFee,
+		sdk.ZeroInt(),
+		registeredToken.CoreumDenom,
 	)
 }
 
@@ -2985,11 +2987,11 @@ func TestRecoverXRPLTokeRegistration(t *testing.T) {
 	require.Equal(t, coreum.TokenStateEnabled, registeredXRPLToken.State)
 }
 
-// TestFeeCalculations tests that corrects fees are calculated, deducted and
+// TestBridgingFeeForXRPLOrginatedTokens tests that corrects fees are calculated, deducted and
 // are collected by relayers.
 //
 //nolint:tparallel // the test is parallel, but test cases are not
-func TestFeeCalculations(t *testing.T) {
+func TestBridgingFeeForXRPLOrginatedTokens(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -3019,91 +3021,95 @@ func TestFeeCalculations(t *testing.T) {
 
 	type testCase struct {
 		name                    string
-		bridgingFee             sdkmath.Int
+		bridgingFee             string
 		sendingPrecision        int32
-		sendingAmountFromXRPL   sdkmath.Int
-		receivedOnCoreum        sdkmath.Int
-		collectedFeeFromXRPL    sdkmath.Int
-		sendingAmountFromCoreum sdkmath.Int
-		receivedOnXRPL          sdkmath.Int
-		collectedFeeFromCoreum  sdkmath.Int
+		sendingAmountFromXRPL   string
+		receivedOnCoreum        string
+		collectedFeeFromXRPL    string
+		sendingAmountFromCoreum string
+		receivedOnXRPL          string
+		collectedFeeFromCoreum  string
 		expectErrorXRPL         bool
 		expectErrorSendToCoreum bool
 	}
 
 	tests := []testCase{
 		{
-			name:                    "zero bridge fee",
+			name:                    "zero_bridge_fee",
 			sendingPrecision:        2,
-			bridgingFee:             sdkmath.ZeroInt(),
-			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
-			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
-			collectedFeeFromXRPL:    sdkmath.ZeroInt(),
-			sendingAmountFromCoreum: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
-			receivedOnXRPL:          integrationtests.ConvertStringWithDecimalsToSDKInt(t, "9999999999.15", tokenDecimals),
-			collectedFeeFromCoreum:  sdkmath.ZeroInt(),
+			bridgingFee:             "0",
+			sendingAmountFromXRPL:   "9999999999.15",
+			receivedOnCoreum:        "9999999999.15",
+			collectedFeeFromXRPL:    "0",
+			sendingAmountFromCoreum: "9999999999.15",
+			receivedOnXRPL:          "9999999999.15",
+			collectedFeeFromCoreum:  "0",
 		},
 		{
-			name:                    "4 bridge fee",
+			name:                    "4_bridge_fee",
 			sendingPrecision:        2,
-			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "4", tokenDecimals),
-			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1008", tokenDecimals),
-			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1004", tokenDecimals),
-			collectedFeeFromXRPL:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "4", tokenDecimals),
-			sendingAmountFromCoreum: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1004", tokenDecimals),
-			receivedOnXRPL:          integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000", tokenDecimals),
-			collectedFeeFromCoreum:  integrationtests.ConvertStringWithDecimalsToSDKInt(t, "4", tokenDecimals),
+			bridgingFee:             "4",
+			sendingAmountFromXRPL:   "1008",
+			receivedOnCoreum:        "1004",
+			collectedFeeFromXRPL:    "4",
+			sendingAmountFromCoreum: "1004",
+			receivedOnXRPL:          "1000",
+			collectedFeeFromCoreum:  "4",
 		},
 		{
-			name:                    "bridge fee with precision",
+			name:                    "bridge_fee_with_precision",
 			sendingPrecision:        2,
-			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.04", tokenDecimals),
-			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000", tokenDecimals),
-			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "999.96", tokenDecimals),
-			collectedFeeFromXRPL:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.04", tokenDecimals),
-			sendingAmountFromCoreum: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "999.96", tokenDecimals),
-			receivedOnXRPL:          integrationtests.ConvertStringWithDecimalsToSDKInt(t, "999.92", tokenDecimals),
-			collectedFeeFromCoreum:  integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.04", tokenDecimals),
+			bridgingFee:             "0.04",
+			sendingAmountFromXRPL:   "1000",
+			receivedOnCoreum:        "999.96",
+			collectedFeeFromXRPL:    "0.04",
+			sendingAmountFromCoreum: "999.96",
+			receivedOnXRPL:          "999.92",
+			collectedFeeFromCoreum:  "0.04",
 		},
 		{
-			name:                    "bridge fee with precision and truncation",
+			name:                    "bridge_fee_with_precision_and_truncation",
 			sendingPrecision:        2,
-			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.04", tokenDecimals),
-			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000.222", tokenDecimals),
-			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000.18", tokenDecimals),
-			collectedFeeFromXRPL:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.042", tokenDecimals),
-			sendingAmountFromCoreum: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000.127", tokenDecimals),
-			receivedOnXRPL:          integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000.08", tokenDecimals),
-			collectedFeeFromCoreum:  integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.047", tokenDecimals),
+			bridgingFee:             "0.04",
+			sendingAmountFromXRPL:   "1000.222",
+			receivedOnCoreum:        "1000.18",
+			collectedFeeFromXRPL:    "0.042",
+			sendingAmountFromCoreum: "1000.127",
+			receivedOnXRPL:          "1000.08",
+			collectedFeeFromCoreum:  "0.047",
 		},
 		{
-			name:                    "bridge fee less than sending precision",
+			name:                    "bridge_fee_less_than_sending_precision",
 			sendingPrecision:        1,
-			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.00001", tokenDecimals),
-			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1000", tokenDecimals),
-			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "999.9", tokenDecimals),
-			collectedFeeFromXRPL:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.1", tokenDecimals),
-			sendingAmountFromCoreum: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "999.9", tokenDecimals),
-			receivedOnXRPL:          integrationtests.ConvertStringWithDecimalsToSDKInt(t, "999.8", tokenDecimals),
-			collectedFeeFromCoreum:  integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.1", tokenDecimals),
+			bridgingFee:             "0.00001",
+			sendingAmountFromXRPL:   "1000",
+			receivedOnCoreum:        "999.9",
+			collectedFeeFromXRPL:    "0.1",
+			sendingAmountFromCoreum: "999.9",
+			receivedOnXRPL:          "999.8",
+			collectedFeeFromCoreum:  "0.1",
 		},
 		{
-			name:                    "low_amount send from xrpl",
+			name:                    "low_amount_send_from_xrpl",
 			sendingPrecision:        2,
-			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.001", tokenDecimals),
-			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.01", tokenDecimals),
+			bridgingFee:             "0.001",
+			sendingAmountFromXRPL:   "0.01",
 			expectErrorSendToCoreum: true,
 		},
 		{
-			name:                    "low_amount send from coreum",
+			name:                    "low_amount_send_from_coreum",
 			sendingPrecision:        2,
-			bridgingFee:             integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.001", tokenDecimals),
-			sendingAmountFromXRPL:   integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", tokenDecimals),
-			receivedOnCoreum:        integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.99", tokenDecimals),
-			collectedFeeFromXRPL:    integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.01", tokenDecimals),
-			sendingAmountFromCoreum: integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.01", tokenDecimals),
+			bridgingFee:             "0.001",
+			sendingAmountFromXRPL:   "1",
+			receivedOnCoreum:        "0.99",
+			collectedFeeFromXRPL:    "0.01",
+			sendingAmountFromCoreum: "0.01",
 			expectErrorXRPL:         true,
 		},
+	}
+
+	stringToSDKInt := func(stringValue string) sdkmath.Int {
+		return integrationtests.ConvertStringWithDecimalsToSDKInt(t, stringValue, tokenDecimals)
 	}
 
 	for _, tt := range tests {
@@ -3126,7 +3132,7 @@ func TestFeeCalculations(t *testing.T) {
 				xrplCurrency,
 				tt.sendingPrecision,
 				highMaxHoldingAmount,
-				tt.bridgingFee,
+				stringToSDKInt(tt.bridgingFee),
 			)
 			require.NoError(t, err)
 			registeredXRPLToken, err := contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, xrplCurrency)
@@ -3141,7 +3147,7 @@ func TestFeeCalculations(t *testing.T) {
 				TxHash:    genXRPLTxHash(t),
 				Issuer:    issuerAcc.String(),
 				Currency:  xrplCurrency,
-				Amount:    tt.sendingAmountFromXRPL,
+				Amount:    stringToSDKInt(tt.sendingAmountFromXRPL),
 				Recipient: coreumRecipient,
 			}
 
@@ -3160,19 +3166,19 @@ func TestFeeCalculations(t *testing.T) {
 				Denom:   registeredXRPLToken.CoreumDenom,
 			})
 			require.NoError(t, err)
-			require.Equal(t, tt.receivedOnCoreum.String(), balanceRes.Balance.Amount.String())
+			require.Equal(t, stringToSDKInt(tt.receivedOnCoreum).String(), balanceRes.Balance.Amount.String())
 
-			if tt.bridgingFee.IsPositive() {
-				// assert fee collection
-				claimFeesAndMakeAssertions(
-					ctx,
-					t,
-					contractClient,
-					bankClient,
-					relayers,
-					sdk.NewCoin(registeredXRPLToken.CoreumDenom, tt.collectedFeeFromXRPL),
-				)
-			}
+			// assert fee collection
+			claimFeesAndMakeAssertions(
+				ctx,
+				t,
+				contractClient,
+				bankClient,
+				relayers,
+				stringToSDKInt(tt.collectedFeeFromXRPL),
+				sdk.ZeroInt(),
+				registeredXRPLToken.CoreumDenom,
+			)
 
 			// send back to xrpl
 			chains.Coreum.FundAccountWithOptions(ctx, t, coreumRecipient, coreumintegration.BalancesOptions{
@@ -3183,7 +3189,10 @@ func TestFeeCalculations(t *testing.T) {
 				ctx,
 				coreumRecipient,
 				xrplRecipient.String(),
-				sdk.NewCoin(registeredXRPLToken.CoreumDenom, tt.sendingAmountFromCoreum),
+				sdk.NewCoin(
+					registeredXRPLToken.CoreumDenom,
+					stringToSDKInt(tt.sendingAmountFromCoreum),
+				),
 			)
 			if tt.expectErrorXRPL {
 				require.Error(t, err)
@@ -3201,30 +3210,28 @@ func TestFeeCalculations(t *testing.T) {
 					operationType.Issuer == issuerAcc.String() &&
 					operationType.Currency == xrplCurrency {
 					found = true
-					require.Equal(t, tt.receivedOnXRPL.String(), operationType.Amount.String())
+					require.Equal(t, stringToSDKInt(tt.receivedOnXRPL).String(), operationType.Amount.String())
 				}
 			}
 			require.True(t, found)
 
 			// assert fees again for bridging back
-			if tt.bridgingFee.IsPositive() {
-				claimFeesAndMakeAssertions(
-					ctx,
-					t,
-					contractClient,
-					bankClient,
-					relayers,
-					sdk.NewCoin(registeredXRPLToken.CoreumDenom, tt.collectedFeeFromCoreum),
-				)
-			}
+			claimFeesAndMakeAssertions(
+				ctx,
+				t,
+				contractClient,
+				bankClient,
+				relayers,
+				stringToSDKInt(tt.collectedFeeFromCoreum),
+				sdk.ZeroInt(),
+				registeredXRPLToken.CoreumDenom,
+			)
 		})
 	}
 }
 
 // TestFeeCalculations_MultipleAssetsAndPartialClaim tests that corrects fees are calculated, deducted and
 // are collected by relayers.
-//
-//nolint:tparallel // the test is parallel, but test cases are not
 func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 	t.Parallel()
 
@@ -3374,10 +3381,6 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 			Address: relayer.CoreumAddress.String(),
 		})
 		require.NoError(t, err)
-		allBalances, err = bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
-			Address: relayer.CoreumAddress.String(),
-		})
-		require.NoError(t, err)
 		for _, coin := range initialFees {
 			require.Equal(t, coin.Amount.String(), allBalances.Balances.AmountOf(coin.Denom).String())
 		}
@@ -3387,6 +3390,130 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, fees)
 	}
+}
+
+// TestFeeCalculations_MultipleAssetsAndPartialClaim tests that corrects remainder fees are calculated, deducted and
+// are collected by relayers.
+func TestFeeCalculations_FeeRemainder(t *testing.T) {
+	t.Parallel()
+
+	maxHoldingAmount := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30)
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+
+	relayers := genRelayers(ctx, t, chains, 2)
+	bridgeAddress := xrpl.GenPrivKeyTxSigner().Account().String()
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		len(relayers),
+		10,
+		defaultTrustSetLimitAmount,
+		bridgeAddress,
+	)
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
+
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+
+	// fund owner to cover registration fee
+	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount,
+	})
+
+	issuerAcc := xrpl.GenPrivKeyTxSigner().Account()
+	issuer := issuerAcc.String()
+	xrplCurrency := "CRC"
+
+	tokenDecimals := int64(15)
+	// register from the owner
+	bridgingFee := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.3", tokenDecimals)
+	_, err := contractClient.RegisterXRPLToken(
+		ctx,
+		owner,
+		issuer,
+		xrplCurrency,
+		1,
+		maxHoldingAmount,
+		bridgingFee,
+	)
+	require.NoError(t, err)
+	registeredXRPLToken, err := contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, xrplCurrency)
+	require.NoError(t, err)
+
+	// activate token
+	activateXRPLToken(ctx, t, contractClient, relayers, issuerAcc.String(), xrplCurrency)
+
+	// create an evidence
+	sendingAmount := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1.36", tokenDecimals)
+	remainder := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.06", tokenDecimals)
+	coreumRecipient := chains.Coreum.GenAccount()
+	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+		TxHash:    genXRPLTxHash(t),
+		Issuer:    issuerAcc.String(),
+		Currency:  xrplCurrency,
+		Amount:    sendingAmount,
+		Recipient: coreumRecipient,
+	}
+
+	// call from all relayers
+	for _, relayer := range relayers {
+		_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer.CoreumAddress, xrplToCoreumTransferEvidence)
+		require.NoError(t, err)
+	}
+
+	balanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumRecipient.String(),
+		Denom:   registeredXRPLToken.CoreumDenom,
+	})
+	require.NoError(t, err)
+	require.Equal(t, sendingAmount.Sub(bridgingFee).Sub(remainder).String(), balanceRes.Balance.Amount.String())
+
+	// assert fees are calculated correctly
+	claimFeesAndMakeAssertions(
+		ctx,
+		t,
+		contractClient,
+		bankClient,
+		relayers,
+		bridgingFee,
+		remainder,
+		registeredXRPLToken.CoreumDenom,
+	)
+
+	// send the amount again
+	xrplToCoreumTransferEvidence.TxHash = genXRPLTxHash(t)
+	xrplToCoreumTransferEvidence.Recipient = coreum.GenAccount()
+
+	// call from all relayers
+	for _, relayer := range relayers {
+		_, err = contractClient.SendXRPLToCoreumTransferEvidence(ctx, relayer.CoreumAddress, xrplToCoreumTransferEvidence)
+		require.NoError(t, err)
+	}
+
+	balanceRes, err = bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: coreumRecipient.String(),
+		Denom:   registeredXRPLToken.CoreumDenom,
+	})
+	require.NoError(t, err)
+	require.Equal(t, sendingAmount.Sub(bridgingFee).Sub(remainder).String(), balanceRes.Balance.Amount.String())
+
+	// assert fees are calculated correctly
+	bridgingFeeWithRemainder := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.4", tokenDecimals)
+	newRemainder := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.02", tokenDecimals)
+	claimFeesAndMakeAssertions(
+		ctx,
+		t,
+		contractClient,
+		bankClient,
+		relayers,
+		bridgingFeeWithRemainder,
+		newRemainder,
+		registeredXRPLToken.CoreumDenom,
+	)
 }
 
 func TestEnableAndDisableXRPLOriginatedToken(t *testing.T) {
@@ -4120,34 +4247,47 @@ func claimFeesAndMakeAssertions(
 	contractClient *coreum.ContractClient,
 	bankClient banktypes.QueryClient,
 	relayers []coreum.Relayer,
-	bridgingFee sdk.Coin,
+	bridgingFeeAmount sdkmath.Int,
+	remainderAmount sdkmath.Int,
+	denom string,
 ) {
-	expectedFeeAmount := bridgingFee.Amount.Quo(sdk.NewInt(int64(len(relayers))))
-	expectedFee := sdk.NewCoins(sdk.NewCoin(bridgingFee.Denom, expectedFeeAmount))
+	expectedFeeAmount := bridgingFeeAmount.Quo(sdk.NewInt(int64(len(relayers))))
+	expectedFee := sdk.NewCoins(sdk.NewCoin(denom, expectedFeeAmount))
 	for _, relayer := range relayers {
 		// assert fees are calculated correctly
 		fees, err := contractClient.GetFeesCollected(ctx, relayer.CoreumAddress)
 		require.NoError(t, err)
+		if bridgingFeeAmount.IsZero() {
+			require.Empty(t, fees)
+			continue
+		}
 		require.Len(t, fees, 1)
 
 		// collect fees
-		relayerBalanceBeforeClaim, err := bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
+		relayerBalanceBeforeClaim, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 			Address: relayer.CoreumAddress.String(),
+			Denom:   denom,
 		})
 		require.NoError(t, err)
 		_, err = contractClient.ClaimFees(ctx, relayer.CoreumAddress, expectedFee)
 		require.NoError(t, err)
-		relayerBalanceAfterClaim, err := bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
+		relayerBalanceAfterClaim, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 			Address: relayer.CoreumAddress.String(),
+			Denom:   denom,
 		})
 		require.NoError(t, err)
-		balanceChange := relayerBalanceAfterClaim.Balances.AmountOf(bridgingFee.Denom).
-			Sub(relayerBalanceBeforeClaim.Balances.AmountOf(bridgingFee.Denom))
-		require.EqualValues(t, expectedFeeAmount.String(), balanceChange.String())
+		balanceChange := relayerBalanceAfterClaim.Balance.
+			Sub(*relayerBalanceBeforeClaim.Balance)
+		require.EqualValues(t, expectedFeeAmount.String(), balanceChange.Amount.String())
 
 		// assert fees are now collected
 		fees, err = contractClient.GetFeesCollected(ctx, relayer.CoreumAddress)
 		require.NoError(t, err)
-		require.Empty(t, fees, 0)
+		if remainderAmount.IsZero() {
+			require.Empty(t, fees, 0)
+		} else {
+			expectedRemainder := remainderAmount.QuoRaw(int64(len(relayers)))
+			require.EqualValues(t, fees[0].Amount.String(), expectedRemainder.String())
+		}
 	}
 }

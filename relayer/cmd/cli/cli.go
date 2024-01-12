@@ -383,7 +383,7 @@ $ recovery-tickets --key-name owner
 // RegisterCoreumTokenCmd registers the Coreum originated token in the bridge contract.
 func RegisterCoreumTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "register-coreum-token [denom] [decimals] [sendingPrecision] [maxHoldingAmount] [bridgeFee]",
+		Use:   "register-coreum-token [denom] [decimals] [sendingPrecision] [maxHoldingAmount] [bridgingFee]",
 		Short: "Registers Coreum token in the bridge contract.",
 		Long: strings.TrimSpace(
 			`Registers Coreum token in the bridge contract.
@@ -423,7 +423,7 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --key-name owner
 				return errors.Wrapf(err, "invalid maxHoldingAmount: %s", args[3])
 			}
 
-			bridgeFee, ok := sdkmath.NewIntFromString(args[4])
+			bridgingFee, ok := sdkmath.NewIntFromString(args[4])
 			if !ok {
 				return errors.Wrapf(err, "invalid bridgeFee: %s", args[4])
 			}
@@ -435,7 +435,7 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --key-name owner
 				uint32(decimals),
 				int32(sendingPrecision),
 				maxHoldingAmount,
-				bridgeFee,
+				bridgingFee,
 			)
 			return err
 		},
