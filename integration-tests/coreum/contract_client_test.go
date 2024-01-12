@@ -3541,9 +3541,7 @@ func TestUpdateCoreumOriginatedTokenSendingPrecision(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, *newSendingPrecision, registeredCoreumOriginatedToken.SendingPrecision)
 
-	// try to send the disabled token
 	coinToSendFromCoreumToXRPL := sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdk.NewInt(111))
-
 	// send token
 	_, err = contractClient.SendToXRPL(
 		ctx,
