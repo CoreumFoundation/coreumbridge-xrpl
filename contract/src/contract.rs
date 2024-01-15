@@ -249,7 +249,7 @@ pub fn execute(
             issuer,
             currency,
             state,
-            min_sending_precision,
+            sending_precision,
             bridging_fee,
             max_holding_amount,
         } => update_xrpl_token(
@@ -258,14 +258,14 @@ pub fn execute(
             issuer,
             currency,
             state,
-            min_sending_precision,
+            sending_precision,
             bridging_fee,
             max_holding_amount,
         ),
         ExecuteMsg::UpdateCoreumToken {
             denom,
             state,
-            min_sending_precision,
+            sending_precision,
             bridging_fee,
             max_holding_amount,
         } => update_coreum_token(
@@ -274,7 +274,7 @@ pub fn execute(
             info.sender,
             denom,
             state,
-            min_sending_precision,
+            sending_precision,
             bridging_fee,
             max_holding_amount,
         ),
@@ -945,7 +945,7 @@ fn update_xrpl_token(
     issuer: String,
     currency: String,
     state: Option<TokenState>,
-    min_sending_precision: Option<i32>,
+    sending_precision: Option<i32>,
     bridging_fee: Option<Uint128>,
     max_holding_amount: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
@@ -960,7 +960,7 @@ fn update_xrpl_token(
     set_token_state(&mut token.state, state)?;
     set_token_sending_precision(
         &mut token.sending_precision,
-        min_sending_precision,
+        sending_precision,
         XRPL_TOKENS_DECIMALS,
     )?;
     set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
@@ -992,7 +992,7 @@ fn update_coreum_token(
     sender: Addr,
     denom: String,
     state: Option<TokenState>,
-    min_sending_precision: Option<i32>,
+    sending_precision: Option<i32>,
     bridging_fee: Option<Uint128>,
     max_holding_amount: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
@@ -1005,7 +1005,7 @@ fn update_coreum_token(
     set_token_state(&mut token.state, state)?;
     set_token_sending_precision(
         &mut token.sending_precision,
-        min_sending_precision,
+        sending_precision,
         token.decimals,
     )?;
     set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
