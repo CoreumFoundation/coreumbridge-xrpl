@@ -152,7 +152,7 @@ func InitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -205,7 +205,7 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 			// scan helps to wait for any input infinitely and just then call the relayer. That handles
 			// the relayer restart in the container. Because after the restart the container is detached, relayer
 			// requests the keyring password and fail immediately.
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -254,7 +254,7 @@ func RelayerKeyInfoCmd() *cobra.Command {
 			}
 
 			ctx := cmd.Context()
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -329,7 +329,7 @@ $ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
 				return errors.Wrap(err, "failed to get client context")
 			}
 
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -345,7 +345,7 @@ $ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
 			if err != nil {
 				return err
 			}
-			log.Info(ctx, "XRPL bridge address", zap.Any("address", xrplBridgeAddress.String()))
+			log.Info(ctx, "XRPL bridge address", zap.String("address", xrplBridgeAddress.String()))
 
 			filePath := args[0]
 			initOnly, err := cmd.Flags().GetBool(FlagInitOnly)
@@ -353,7 +353,7 @@ $ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
 				return errors.Wrapf(err, "failed to get %s", FlagInitOnly)
 			}
 			if initOnly {
-				log.Info(ctx, "Initializing default bootstrapping config", zap.Any("path", filePath))
+				log.Info(ctx, "Initializing default bootstrapping config", zap.String("path", filePath))
 				if err := bridgeclient.InitBootstrappingConfig(filePath); err != nil {
 					return err
 				}
@@ -422,12 +422,12 @@ func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 				return err
 			}
 
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
-
 			log.Info(ctx, "Got contract config", zap.Any("config", cfg))
+
 			return nil
 		},
 	}
@@ -615,7 +615,7 @@ func RegisteredTokensCmd(bcp BridgeClientProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -773,7 +773,7 @@ func CoreumBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -818,7 +818,7 @@ func XRPLBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 				)
 			})
 
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -895,6 +895,19 @@ $ set-xrpl-trust-set 1e80 %s %s --key-name sender
 	return cmd
 }
 
+// GetCLILogger returns the console logger initialised with the default logger config but with set `yaml` format.
+func GetCLILogger() (*logger.ZapLogger, error) {
+	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig{
+		Level:  "info",
+		Format: logger.YamlConsoleLoggerFormat,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return zapLogger, nil
+}
+
 func readAddressFromKeyNameFlag(cmd *cobra.Command, clientCtx client.Context) (sdk.AccAddress, error) {
 	keyName, err := cmd.Flags().GetString(FlagKeyName)
 	if err != nil {
@@ -959,16 +972,4 @@ func addKeyringFlags(cmd *cobra.Command) {
 
 func addKeyNameFlag(cmd *cobra.Command) {
 	cmd.PersistentFlags().String(FlagKeyName, "", "Key name from the keyring")
-}
-
-// returns the console logger initialised with the default logger config but with set `console` format.
-func getConsoleLogger() (*logger.ZapLogger, error) {
-	cfg := runner.DefaultConfig().LoggingConfig
-	cfg.Format = "console"
-	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig(cfg))
-	if err != nil {
-		return nil, err
-	}
-
-	return zapLogger, nil
 }
