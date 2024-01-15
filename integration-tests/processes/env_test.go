@@ -404,6 +404,30 @@ func (r *RunnerEnv) SendXRPLMaxTrustSetTx(
 	}))
 }
 
+// UpdateCoreumToken updates Coreum token.
+func (r *RunnerEnv) UpdateCoreumToken(
+	ctx context.Context,
+	t *testing.T,
+	sender sdk.AccAddress,
+	denom string,
+	state *coreum.TokenState,
+	sendingPrecision *int32,
+) {
+	require.NoError(t, r.BridgeClient.UpdateCoreumToken(ctx, sender, denom, state, sendingPrecision))
+}
+
+// UpdateCoreumToken updates XRPL token.
+func (r *RunnerEnv) UpdateXRPLToken(
+	ctx context.Context,
+	t *testing.T,
+	sender sdk.AccAddress,
+	issuer, currency string,
+	state *coreum.TokenState,
+	sendingPrecision *int32,
+) {
+	require.NoError(t, r.BridgeClient.UpdateXRPLToken(ctx, sender, issuer, currency, state, sendingPrecision))
+}
+
 func genCoreumRelayers(
 	ctx context.Context,
 	t *testing.T,
