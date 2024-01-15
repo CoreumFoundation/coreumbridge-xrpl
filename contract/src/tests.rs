@@ -2,6 +2,7 @@
 mod tests {
     use coreum_test_tube::{Account, AssetFT, Bank, CoreumTestApp, Module, SigningAccount, Wasm};
     use coreum_wasm_sdk::types::coreum::asset::ft::v1::{MsgFreeze, MsgUnfreeze};
+    use coreum_wasm_sdk::types::cosmos::bank::v1beta1::QueryTotalSupplyRequest;
     use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
     use coreum_wasm_sdk::{
         assetft::{BURNING, FREEZING, IBC, MINTING},
@@ -7932,23 +7933,19 @@ mod tests {
         // Let's send an XRPL token evidence, modify the max_holding_amount, check that it's updated, and send the next evidence to see
         // that max_holding_amount checks are applied correctly
 
-        // Get balance of contract and user
-        let balance_contract = asset_ft
-            .query_balance(&QueryBalanceRequest {
-                account: contract_addr.to_owned(),
-                denom: xrpl_token_denom.clone(),
-            })
+        // Get current bridged amount
+        let bank = Bank::new(&app);
+        let total_supplies = bank
+            .query_total_supply(&QueryTotalSupplyRequest { pagination: None })
             .unwrap();
 
-        let balance_user = asset_ft
-            .query_balance(&QueryBalanceRequest {
-                account: signer.address(),
-                denom: xrpl_token_denom.clone(),
-            })
-            .unwrap();
-
-        let current_bridged_amount = balance_contract.balance.parse::<u128>().unwrap()
-            + balance_user.balance.parse::<u128>().unwrap();
+        let mut current_bridged_amount = 0;
+        for total_supply in total_supplies.supply.iter() {
+            if total_supply.denom == xrpl_token_denom {
+                current_bridged_amount = total_supply.amount.to_owned().parse::<u128>().unwrap();
+                break;
+            }
+        }
 
         // Let's update the max holding amount with current bridged amount - 1 (it should fail)
         let update_error = wasm
@@ -8034,6 +8031,14 @@ mod tests {
                 .as_str()
         ));
 
+        // Get previous balance of user to compare later
+        let previous_balance_user = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: signer.address(),
+                denom: xrpl_token_denom.clone(),
+            })
+            .unwrap();
+
         // Let's update the max holding amount with current bridged amount + amount to send (second evidence should go through)
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -8076,7 +8081,7 @@ mod tests {
         // Check balance has been sent to user
         assert_eq!(
             new_balance_user.balance.parse::<u128>().unwrap(),
-            balance_user
+            previous_balance_user
                 .balance
                 .parse::<u128>()
                 .unwrap()
