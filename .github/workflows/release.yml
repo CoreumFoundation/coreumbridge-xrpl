@@ -37,9 +37,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           generate_release_notes: true
           files: |
-            /home/runner/release-build/relayer-linux-amd64
-            /home/runner/release-build/relayer-darwin-amd64
-            /home/runner/release-build/relayer-darwin-arm64
-            /home/runner/release-build/coreumbridge_xrpl.wasm
-            /home/runner/release-build/checksums.txt
-
+            /home/runner/release-build/*

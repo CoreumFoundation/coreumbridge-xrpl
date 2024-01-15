@@ -27,6 +27,7 @@ build-relayer:
 .PHONY: release-relayer
 release-relayer:
 	@$(MAKE) build-relayer-in-docker GOOS=linux GOARCH=amd64 BINARY_NAME=relayer-linux-amd64
+	@$(MAKE) build-relayer-in-docker GOOS=linux GOARCH=arm64 BINARY_NAME=relayer-linux-arm64
 	@$(MAKE) build-relayer-in-docker GOOS=darwin GOARCH=amd64 BINARY_NAME=relayer-darwin-amd64
 	@$(MAKE) build-relayer-in-docker GOOS=darwin GOARCH=arm64 BINARY_NAME=relayer-darwin-arm64
 
