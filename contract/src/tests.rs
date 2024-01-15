@@ -8418,8 +8418,13 @@ mod tests {
         assert_eq!(query_config.bridge_state, BridgeState::Halted);
 
         // Owner can now resume the bridge
-        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::ResumeBridge {}, &vec![], &signer)
-            .unwrap();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ResumeBridge {},
+            &vec![],
+            &signer,
+        )
+        .unwrap();
 
         // Let's check that evidences have been cleared by sending again the old evidence and it succeeds
         // If evidences were cleared, this message will succeed because the evidence is not stored
@@ -8589,6 +8594,7 @@ mod tests {
                     currency: "any_currency".to_owned(),
                     state: Some(TokenState::Disabled),
                     min_sending_precision: None,
+                    bridging_fee: None,
                 },
                 &vec![],
                 &signer,
@@ -8606,6 +8612,7 @@ mod tests {
                     denom: "any_denom".to_owned(),
                     state: Some(TokenState::Disabled),
                     min_sending_precision: None,
+                    bridging_fee: None,
                 },
                 &vec![],
                 &signer,
@@ -8648,8 +8655,13 @@ mod tests {
             .contains(ContractError::BridgeHalted {}.to_string().as_str()));
 
         // Resuming the bridge should work
-        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::ResumeBridge {}, &vec![], &signer)
-            .unwrap();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ResumeBridge {},
+            &vec![],
+            &signer,
+        )
+        .unwrap();
 
         // Query bridge state to confirm it's active
         let query_bridge_state = wasm
@@ -8707,7 +8719,12 @@ mod tests {
 
         // Resuming now should not be allowed because we have a pending key rotation
         let resume_error = wasm
-            .execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::ResumeBridge {}, &vec![], &signer)
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::ResumeBridge {},
+                &vec![],
+                &signer,
+            )
             .unwrap_err();
 
         assert!(resume_error
@@ -8783,8 +8800,13 @@ mod tests {
         assert_eq!(query_config.relayers, vec![new_relayer]);
 
         // We should now be able to resume the bridge because the key rotation has been confirmed
-        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::ResumeBridge {}, &vec![], &signer)
-            .unwrap();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ResumeBridge {},
+            &vec![],
+            &signer,
+        )
+        .unwrap();
 
         // Query bridge state to confirm it's now active
         let query_bridge_state = wasm
