@@ -77,7 +77,7 @@ pub enum ExecuteMsg {
         issuer: String,
         currency: String,
         state: Option<TokenState>,
-        min_sending_precision: Option<i32>,
+        sending_precision: Option<i32>,
         bridging_fee: Option<Uint128>,
     },
     // All fields that can be updatable for Coreum tokens will be updated with this message.
@@ -85,7 +85,7 @@ pub enum ExecuteMsg {
     UpdateCoreumToken {
         denom: String,
         state: Option<TokenState>,
-        min_sending_precision: Option<i32>,
+        sending_precision: Option<i32>,
         bridging_fee: Option<Uint128>,
     },
     // Claim refund. User who can claim amounts due to failed transactions can do it with this message.
