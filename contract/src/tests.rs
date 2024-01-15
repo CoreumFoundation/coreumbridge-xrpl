@@ -8593,7 +8593,7 @@ mod tests {
                     issuer: "any_issuer".to_owned(),
                     currency: "any_currency".to_owned(),
                     state: Some(TokenState::Disabled),
-                    min_sending_precision: None,
+                    sending_precision: None,
                     bridging_fee: None,
                 },
                 &vec![],
@@ -8611,7 +8611,7 @@ mod tests {
                 &ExecuteMsg::UpdateCoreumToken {
                     denom: "any_denom".to_owned(),
                     state: Some(TokenState::Disabled),
-                    min_sending_precision: None,
+                    sending_precision: None,
                     bridging_fee: None,
                 },
                 &vec![],
