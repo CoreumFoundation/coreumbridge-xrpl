@@ -10,6 +10,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
@@ -78,6 +79,12 @@ type XRPLRPCClient interface {
 	AutoFillTx(ctx context.Context, tx rippledata.Transaction, sender rippledata.Account) error
 	Submit(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error)
 	SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Transaction) error
+	AccountLines(
+		ctx context.Context,
+		account rippledata.Account,
+		ledgerIndex any,
+		marker *rippledata.Hash256,
+	) (xrpl.AccountLinesResult, error)
 }
 
 // XRPLTxSigner is XRPL transaction signer.
@@ -480,6 +487,48 @@ func (b *BridgeClient) SetXRPLTrustSet(
 	}
 
 	return b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &trustSetTx, senderKeyName)
+}
+
+// GetCoreumBalances returns all coreum account balances.
+func (b *BridgeClient) GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error) {
+	bankClient := banktypes.NewQueryClient(b.clientCtx)
+	res, err := bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
+		Address: address.String(),
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get coreum balances, address:%s", address.String())
+	}
+
+	return res.Balances, nil
+}
+
+// GetXRPLBalances returns all XRPL account balances.
+func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error) {
+	balances := make([]rippledata.Amount, 0)
+	accInfo, err := b.xrplRPCClient.AccountInfo(ctx, acc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get XRPL account info, address:%s", acc.String())
+	}
+	balances = append(balances, rippledata.Amount{
+		Value:    accInfo.AccountData.Balance,
+		Currency: xrpl.XRPTokenCurrency,
+		Issuer:   xrpl.XRPTokenIssuer,
+	})
+
+	accLines, err := b.xrplRPCClient.AccountLines(ctx, acc, "closed", nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get XRPL account lines, address:%s", acc.String())
+	}
+	for _, line := range accLines.Lines {
+		lineCopy := line
+		balances = append(balances, rippledata.Amount{
+			Value:    &lineCopy.Balance.Value,
+			Currency: lineCopy.Currency,
+			Issuer:   lineCopy.Account,
+		})
+	}
+
+	return balances, nil
 }
 
 func (b *BridgeClient) buildRelayersFromBootstrappingConfig(

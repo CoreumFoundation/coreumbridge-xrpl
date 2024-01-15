@@ -27,7 +27,10 @@ use crate::{
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
     },
-    token::{build_xrpl_token_key, is_token_xrp, set_token_sending_precision, set_token_state},
+    token::{
+        build_xrpl_token_key, is_token_xrp, set_token_bridging_fee, set_token_sending_precision,
+        set_token_state,
+    },
 };
 
 use coreum_wasm_sdk::{
@@ -247,6 +250,7 @@ pub fn execute(
             currency,
             state,
             min_sending_precision,
+            bridging_fee,
         } => update_xrpl_token(
             deps.into_empty(),
             info.sender,
@@ -254,17 +258,20 @@ pub fn execute(
             currency,
             state,
             min_sending_precision,
+            bridging_fee,
         ),
         ExecuteMsg::UpdateCoreumToken {
             denom,
             state,
             min_sending_precision,
+            bridging_fee,
         } => update_coreum_token(
             deps.into_empty(),
             info.sender,
             denom,
             state,
             min_sending_precision,
+            bridging_fee,
         ),
 
         ExecuteMsg::ClaimRefund { pending_refund_id } => {
@@ -933,6 +940,7 @@ fn update_xrpl_token(
     currency: String,
     state: Option<TokenState>,
     min_sending_precision: Option<i32>,
+    bridging_fee: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -949,6 +957,8 @@ fn update_xrpl_token(
         XRPL_TOKENS_DECIMALS,
     )?;
 
+    set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
+
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
     Ok(Response::new()
@@ -963,6 +973,7 @@ fn update_coreum_token(
     denom: String,
     state: Option<TokenState>,
     min_sending_precision: Option<i32>,
+    bridging_fee: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -976,6 +987,7 @@ fn update_coreum_token(
         min_sending_precision,
         token.decimals,
     )?;
+    set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
 
     COREUM_TOKENS.save(deps.storage, denom.to_owned(), &token)?;
 
