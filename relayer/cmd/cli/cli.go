@@ -581,7 +581,7 @@ $ update-coreum-token ucore --state enabled --sendingPrecision 2 --key-name owne
 				return err
 			}
 
-			tokenState, err := convertStateStingTokenState(state)
+			tokenState, err := convertStateStringTokenState(state)
 			if err != nil {
 				return err
 			}
@@ -705,7 +705,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 				return err
 			}
 
-			tokenState, err := convertStateStingTokenState(state)
+			tokenState, err := convertStateStringTokenState(state)
 			if err != nil {
 				return err
 			}
@@ -1116,7 +1116,7 @@ func readUpdateTokenFlags(cmd *cobra.Command) (*string, *int32, error) {
 	return state, sendingPrecision, nil
 }
 
-func convertStateStingTokenState(state *string) (*coreum.TokenState, error) {
+func convertStateStringTokenState(state *string) (*coreum.TokenState, error) {
 	if state == nil {
 		return nil, nil //nolint:nilnil // nil is expected value
 	}
