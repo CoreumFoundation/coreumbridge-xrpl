@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,19 +14,22 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
+
+//go:generate mockgen -destination=cli_mocks_test.go -package=cli_test . BridgeClient,Processor
 
 func init() {
 	userHomeDir, err := os.UserHomeDir()
@@ -36,10 +40,8 @@ func init() {
 	DefaultHomeDir = filepath.Join(userHomeDir, ".coreumbridge-xrpl-relayer")
 }
 
-var (
-	// DefaultHomeDir is default home for the relayer.
-	DefaultHomeDir string
-)
+// DefaultHomeDir is default home for the relayer.
+var DefaultHomeDir string
 
 const (
 	// FlagHome is home flag.
@@ -57,6 +59,87 @@ const (
 	// FlagRelayersCount is relayers count flag.
 	FlagRelayersCount = "relayers-count"
 )
+
+// BridgeClient is bridge client used to interact with the chains and contract.
+//
+//nolint:interfacebloat
+type BridgeClient interface {
+	Bootstrap(ctx context.Context,
+		senderAddress sdk.AccAddress,
+		bridgeAccountKeyName string,
+		cfg bridgeclient.BootstrappingConfig,
+	) (sdk.AccAddress, error)
+	GetContractConfig(ctx context.Context) (coreum.ContractConfig, error)
+	RecoverTickets(
+		ctx context.Context,
+		ownerAddress sdk.AccAddress,
+		ticketsToAllocate uint32,
+	) error
+	RegisterCoreumToken(
+		ctx context.Context,
+		ownerAddress sdk.AccAddress,
+		denom string,
+		decimals uint32,
+		sendingPrecision int32,
+		maxHoldingAmount sdkmath.Int,
+	) (coreum.CoreumToken, error)
+	RegisterXRPLToken(
+		ctx context.Context,
+		ownerAddress sdk.AccAddress,
+		issuer rippledata.Account, currency rippledata.Currency,
+		sendingPrecision int32,
+		maxHoldingAmount sdkmath.Int,
+	) (coreum.XRPLToken, error)
+	GetAllTokens(ctx context.Context) ([]coreum.CoreumToken, []coreum.XRPLToken, error)
+	SendFromCoreumToXRPL(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		amount sdk.Coin,
+		recipient rippledata.Account,
+	) error
+	SendFromXRPLToCoreum(
+		ctx context.Context,
+		senderKeyName string,
+		amount rippledata.Amount,
+		recipient sdk.AccAddress,
+	) error
+	SetXRPLTrustSet(
+		ctx context.Context,
+		senderKeyName string,
+		limitAmount rippledata.Amount,
+	) error
+	GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error)
+	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
+}
+
+// BridgeClientProvider is function which returns the BridgeClient from the input cmd.
+type BridgeClientProvider func(cmd *cobra.Command) (BridgeClient, error)
+
+// Processor is processor interface responsible for the process start.
+type Processor interface {
+	StartAllProcesses(ctx context.Context) error
+}
+
+// ProcessorProvider is function which returns the Processor from the input cmd.
+type ProcessorProvider func(cmd *cobra.Command) (Processor, error)
+
+// GetRunnerFromHome returns runner from home.
+func GetRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
+	cfg, err := getRelayerHomeRunnerConfig(cmd)
+	if err != nil {
+		return nil, err
+	}
+	clientCtx, err := client.GetClientQueryContext(cmd)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get client context")
+	}
+	rnr, err := runner.NewRunner(cmd.Context(), cfg, clientCtx.Keyring, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return rnr, nil
+}
 
 // InitCmd returns the init cmd.
 func InitCmd() *cobra.Command {
@@ -113,7 +196,7 @@ func InitCmd() *cobra.Command {
 }
 
 // StartCmd returns the start cmd.
-func StartCmd() *cobra.Command {
+func StartCmd(pp ProcessorProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start relayer.",
@@ -121,7 +204,7 @@ func StartCmd() *cobra.Command {
 			ctx := cmd.Context()
 			// scan helps to wait for any input infinitely and just then call the relayer. That handles
 			// the relayer restart in the container. Because after the restart the container is detached, relayer
-			// requests the keyring password and fail inanimately.
+			// requests the keyring password and fail immediately.
 			log, err := getConsoleLogger()
 			if err != nil {
 				return err
@@ -130,11 +213,11 @@ func StartCmd() *cobra.Command {
 			input := bufio.NewScanner(os.Stdin)
 			input.Scan()
 
-			rnr, err := getRunnerFromHome(cmd)
+			processor, err := pp(cmd)
 			if err != nil {
 				return err
 			}
-			return rnr.Processor.StartProcesses(ctx, rnr.Processes.XRPLTxSubmitter, rnr.Processes.XRPLTxObserver)
+			return processor.StartAllProcesses(ctx)
 		},
 	}
 	addHomeFlag(cmd)
@@ -160,8 +243,8 @@ func KeyringCmd() (*cobra.Command, error) {
 	return cmd, nil
 }
 
-// XRPLKeyInfoCmd prints the XRPL keys info.
-func XRPLKeyInfoCmd() *cobra.Command {
+// RelayerKeyInfoCmd prints the relayer keys info.
+func RelayerKeyInfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "relayer-keys-info",
 		Short: "Prints the coreum and XRPL relayer keys info.",
@@ -228,7 +311,7 @@ func XRPLKeyInfoCmd() *cobra.Command {
 }
 
 // BootstrapBridgeCmd safely creates XRPL bridge account with all required settings and deploys the bridge contract.
-func BootstrapBridgeCmd() *cobra.Command {
+func BootstrapBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bootstrap-bridge [config-path]",
 		Args:  cobra.ExactArgs(1),
@@ -286,10 +369,6 @@ $ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
 				return nil
 			}
 
-			rnr, err := getRunnerFromHome(cmd)
-			if err != nil {
-				return err
-			}
 			record, err := clientCtx.Keyring.Key(keyName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get key by name:%s", keyName)
@@ -307,7 +386,12 @@ $ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
 			input := bufio.NewScanner(os.Stdin)
 			input.Scan()
 
-			_, err = rnr.BridgeClient.Bootstrap(ctx, addr, keyName, cfg)
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			_, err = bridgeClient.Bootstrap(ctx, addr, keyName, cfg)
 			return err
 		},
 	}
@@ -321,22 +405,29 @@ $ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
 	return cmd
 }
 
-// ContractConfigCmd prints contracts config .
-func ContractConfigCmd() *cobra.Command {
+// ContractConfigCmd prints contracts config.
+func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "contract-config",
 		Short: "Prints contract config.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			rnr, err := getRunnerFromHome(cmd)
+			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
-			cfg, err := rnr.BridgeClient.GetContractConfig(ctx)
+
+			cfg, err := bridgeClient.GetContractConfig(ctx)
 			if err != nil {
 				return err
 			}
-			rnr.Log.Info(ctx, "Got contract config", zap.Any("config", cfg))
+
+			log, err := getConsoleLogger()
+			if err != nil {
+				return err
+			}
+
+			log.Info(ctx, "Got contract config", zap.Any("config", cfg))
 			return nil
 		},
 	}
@@ -346,7 +437,7 @@ func ContractConfigCmd() *cobra.Command {
 }
 
 // RecoverTicketsCmd recovers 250 tickets in the bridge contract.
-func RecoverTicketsCmd() *cobra.Command {
+func RecoverTicketsCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "recovery-tickets",
 		Short: "Recovers 250 tickets in the bridge contract.",
@@ -366,11 +457,12 @@ $ recovery-tickets --key-name owner
 			if err != nil {
 				return err
 			}
-			rnr, err := getRunnerFromHome(cmd)
+			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
-			return rnr.BridgeClient.RecoverTickets(ctx, owner, xrpl.MaxTicketsToAllocate)
+
+			return bridgeClient.RecoverTickets(ctx, owner, xrpl.MaxTicketsToAllocate)
 		},
 	}
 	addKeyringFlags(cmd)
@@ -381,7 +473,7 @@ $ recovery-tickets --key-name owner
 }
 
 // RegisterCoreumTokenCmd registers the Coreum originated token in the bridge contract.
-func RegisterCoreumTokenCmd() *cobra.Command {
+func RegisterCoreumTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "register-coreum-token [denom] [decimals] [sendingPrecision] [maxHoldingAmount]",
 		Short: "Registers Coreum token in the bridge contract.",
@@ -402,10 +494,6 @@ $ register-coreum-token ucore 6 2 500000000000000 --key-name owner
 			if err != nil {
 				return err
 			}
-			rnr, err := getRunnerFromHome(cmd)
-			if err != nil {
-				return err
-			}
 
 			denom := args[0]
 			decimals, err := strconv.ParseUint(args[1], 10, 64)
@@ -423,7 +511,12 @@ $ register-coreum-token ucore 6 2 500000000000000 --key-name owner
 				return errors.Wrapf(err, "invalid maxHoldingAmount: %s", args[3])
 			}
 
-			_, err = rnr.BridgeClient.RegisterCoreumToken(
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			_, err = bridgeClient.RegisterCoreumToken(
 				ctx,
 				owner,
 				denom,
@@ -442,7 +535,7 @@ $ register-coreum-token ucore 6 2 500000000000000 --key-name owner
 }
 
 // RegisterXRPLTokenCmd registers the XRPL originated token in the bridge contract.
-func RegisterXRPLTokenCmd() *cobra.Command {
+func RegisterXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "register-xrpl-token [issuer] [currency] [sendingPrecision] [maxHoldingAmount]",
 		Short: "Registers XRPL token in the bridge contract.",
@@ -461,10 +554,6 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				return errors.Wrap(err, "failed to get client context")
 			}
 			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
-			if err != nil {
-				return err
-			}
-			rnr, err := getRunnerFromHome(cmd)
 			if err != nil {
 				return err
 			}
@@ -489,7 +578,11 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				return errors.Wrapf(err, "invalid maxHoldingAmount: %s", args[3])
 			}
 
-			_, err = rnr.BridgeClient.RegisterXRPLToken(
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			_, err = bridgeClient.RegisterXRPLToken(
 				ctx,
 				owner,
 				*issuer,
@@ -508,27 +601,31 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 }
 
 // RegisteredTokensCmd prints all registered tokens.
-func RegisteredTokensCmd() *cobra.Command {
+func RegisteredTokensCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "registered-tokens",
 		Short: "Prints all registered tokens.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			rnr, err := getRunnerFromHome(cmd)
+			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
-			coreumTokens, xrplTokens, err := rnr.BridgeClient.GetAllTokens(ctx)
+			coreumTokens, xrplTokens, err := bridgeClient.GetAllTokens(ctx)
 			if err != nil {
 				return err
 			}
-			rnr.Log.Info(ctx, "Coreum tokens", zap.Int("total", len(coreumTokens)))
+			log, err := getConsoleLogger()
+			if err != nil {
+				return err
+			}
+			log.Info(ctx, "Coreum tokens", zap.Int("total", len(coreumTokens)))
 			for _, token := range coreumTokens {
-				rnr.Log.Info(ctx, token.Denom, zap.Any("token", token))
+				log.Info(ctx, token.Denom, zap.Any("token", token))
 			}
-			rnr.Log.Info(ctx, "XRPL tokens", zap.Int("total", len(xrplTokens)))
+			log.Info(ctx, "XRPL tokens", zap.Int("total", len(xrplTokens)))
 			for _, token := range xrplTokens {
-				rnr.Log.Info(ctx, fmt.Sprintf("%s/%s", token.Currency, token.Issuer), zap.Any("token", token))
+				log.Info(ctx, fmt.Sprintf("%s/%s", token.Currency, token.Issuer), zap.Any("token", token))
 			}
 
 			return nil
@@ -540,7 +637,7 @@ func RegisteredTokensCmd() *cobra.Command {
 }
 
 // SendFromCoreumToXRPLCmd sends tokens from the Coreum to XRPL.
-func SendFromCoreumToXRPLCmd() *cobra.Command {
+func SendFromCoreumToXRPLCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "send-from-coreum-to-xrpl [amount] [recipient]",
 		Short: "Sends tokens from the Coreum to XRPL.",
@@ -561,10 +658,6 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --key-name s
 			if err != nil {
 				return err
 			}
-			rnr, err := getRunnerFromHome(cmd)
-			if err != nil {
-				return err
-			}
 
 			amount, err := sdk.ParseCoinNormalized(args[0])
 			if err != nil {
@@ -574,8 +667,12 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --key-name s
 			if err != nil {
 				return errors.Wrapf(err, "failed to convert recipient string to rippledata.Account: %s", args[1])
 			}
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 
-			return rnr.BridgeClient.SendFromCoreumToXRPL(ctx, sender, amount, *recipient)
+			return bridgeClient.SendFromCoreumToXRPL(ctx, sender, amount, *recipient)
 		},
 	}
 	addKeyringFlags(cmd)
@@ -586,33 +683,30 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --key-name s
 }
 
 // SendFromXRPLToCoreumCmd sends tokens from the XRPL to Coreum.
-func SendFromXRPLToCoreumCmd() *cobra.Command {
+func SendFromXRPLToCoreumCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "send-from-xrpl-to-coreum [amount] [currency] [issuer] [recipient]",
+		Use:   "send-from-xrpl-to-coreum [amount] [issuer] [currency] [recipient]",
 		Short: "Sends tokens from the XRPL to Coreum.",
 		Long: strings.TrimSpace(
 			fmt.Sprintf(`Sends tokens from the XRPL to Coreum.
 Example:
 $ send-from-xrpl-to-coreum 1000000 %s %s %s  --key-name sender
-`, xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), xrpl.XRPTokenIssuer.String(), constant.AddressSampleTest),
+`, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), constant.AddressSampleTest),
 		),
 		Args: cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			rnr, err := getRunnerFromHome(cmd)
+
+			issuer, err := rippledata.NewAccountFromAddress(args[1])
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[2])
 			}
 
-			currency, err := rippledata.NewCurrency(args[1])
+			currency, err := rippledata.NewCurrency(args[2])
 			if err != nil {
 				return errors.Wrapf(err, "failed to convert currency string to rippledata.Currency: %s", args[1])
 			}
 
-			issuer, err := rippledata.NewAccountFromAddress(args[2])
-			if err != nil {
-				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[2])
-			}
 			isNative := false
 			if xrpl.ConvertCurrencyToString(currency) == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
 				issuer.String() == xrpl.XRPTokenIssuer.String() {
@@ -634,7 +728,12 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s  --key-name sender
 				return errors.Wrapf(err, "failed to get flag %s", FlagKeyName)
 			}
 
-			return rnr.BridgeClient.SendFromXRPLToCoreum(
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			return bridgeClient.SendFromXRPLToCoreum(
 				ctx,
 				keyName,
 				rippledata.Amount{
@@ -654,25 +753,31 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s  --key-name sender
 }
 
 // CoreumBalancesCmd prints coreum balances.
-func CoreumBalancesCmd() *cobra.Command {
+func CoreumBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "coreum-balances [address]",
 		Short: "Prints coreum balances of the provided address.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			rnr, err := getRunnerFromHome(cmd)
+			address, err := sdk.AccAddressFromBech32(args[0])
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert address string to sdk.AccAddress: %s", args[0])
+			}
+
+			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
-			bankClient := banktypes.NewQueryClient(rnr.ClientCtx)
-			balancesRes, err := bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
-				Address: args[0],
-			})
+			coins, err := bridgeClient.GetCoreumBalances(ctx, address)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get coreum balances, address:%s", args[0])
+				return err
 			}
-			rnr.Log.Info(ctx, "Got balances", zap.Any("balances", balancesRes.Balances))
+			log, err := getConsoleLogger()
+			if err != nil {
+				return err
+			}
+			log.Info(ctx, "Got balances", zap.Any("balances", coins))
 			return nil
 		},
 	}
@@ -682,51 +787,42 @@ func CoreumBalancesCmd() *cobra.Command {
 }
 
 // XRPLBalancesCmd prints XRPL balances.
-func XRPLBalancesCmd() *cobra.Command {
+func XRPLBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "xrpl-balances [address]",
 		Short: "Prints XRPL balances of the provided address.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			rnr, err := getRunnerFromHome(cmd)
-			if err != nil {
-				return err
-			}
-
 			acc, err := rippledata.NewAccountFromAddress(args[0])
 			if err != nil {
 				return errors.Wrapf(err, "failed to convert address to rippledata.Address, address:%s", args[0])
 			}
 
-			balances := make(map[string]rippledata.Amount, 0)
-			accInfo, err := rnr.XRPLRPCClient.AccountInfo(ctx, *acc)
+			bridgeClient, err := bcp(cmd)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get XRPL account info, address:%s", acc.String())
-			}
-			key := fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), xrpl.XRPTokenIssuer.String())
-			balances[key] = rippledata.Amount{
-				Value: accInfo.AccountData.Balance,
-			}
-			// none xrp amounts
-			accLines, err := rnr.XRPLRPCClient.AccountLines(ctx, *acc, "closed", nil)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get XRPL account lines, address:%s", acc.String())
-			}
-			for _, line := range accLines.Lines {
-				lineCopy := line
-				key := fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(lineCopy.Currency), lineCopy.Account.String())
-				balances[key] = rippledata.Amount{
-					Value:    &lineCopy.Balance.Value,
-					Currency: lineCopy.Currency,
-					Issuer:   lineCopy.Account,
-				}
+				return err
 			}
 
+			balances, err := bridgeClient.GetXRPLBalances(ctx, *acc)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get XRPL balances")
+				return err
 			}
-			rnr.Log.Info(ctx, "Got balances: [currency/issuer amount]", zap.Any("balances", balances))
+
+			balancesFormatted := lo.Map(balances, func(amount rippledata.Amount, index int) string {
+				return fmt.Sprintf(
+					"%s/%s %s",
+					amount.Issuer.String(),
+					xrpl.ConvertCurrencyToString(amount.Currency),
+					amount.Value.String(),
+				)
+			})
+
+			log, err := getConsoleLogger()
+			if err != nil {
+				return err
+			}
+			log.Info(ctx, "Got balances: [issuer/currency amount]", zap.Any("balances", balancesFormatted))
 			return nil
 		},
 	}
@@ -735,34 +831,31 @@ func XRPLBalancesCmd() *cobra.Command {
 	return cmd
 }
 
-// SetXRPLTrustSet sends the XRPL TrustSet transaction.
-func SetXRPLTrustSet() *cobra.Command {
+// SetXRPLTrustSetCmd sends the XRPL TrustSet transaction.
+func SetXRPLTrustSetCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "set-xrpl-trust-set [amount] [currency] [issuer]",
+		Use:   "set-xrpl-trust-set [amount] [issuer] [currency]",
 		Short: "Sends tokens from the XRPL to Coreum.",
 		Long: strings.TrimSpace(
 			fmt.Sprintf(`Sends tokens from the XRPL to Coreum.
 Example:
 $ set-xrpl-trust-set 1e80 %s %s --key-name sender
-`, xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), xrpl.XRPTokenIssuer.String()),
+`, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency)),
 		),
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			rnr, err := getRunnerFromHome(cmd)
+
+			issuer, err := rippledata.NewAccountFromAddress(args[1])
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[2])
 			}
 
-			currency, err := rippledata.NewCurrency(args[1])
+			currency, err := rippledata.NewCurrency(args[2])
 			if err != nil {
 				return errors.Wrapf(err, "failed to convert currency string to rippledata.Currency: %s", args[1])
 			}
 
-			issuer, err := rippledata.NewAccountFromAddress(args[2])
-			if err != nil {
-				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[2])
-			}
 			isNative := false
 			if xrpl.ConvertCurrencyToString(currency) == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
 				issuer.String() == xrpl.XRPTokenIssuer.String() {
@@ -779,7 +872,12 @@ $ set-xrpl-trust-set 1e80 %s %s --key-name sender
 				return errors.Wrapf(err, "failed to get flag %s", FlagKeyName)
 			}
 
-			return rnr.BridgeClient.SetXRPLTrustSet(
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			return bridgeClient.SetXRPLTrustSet(
 				ctx,
 				keyName,
 				rippledata.Amount{
@@ -833,23 +931,6 @@ func readAddressFromKeyNameFlag(cmd *cobra.Command, clientCtx client.Context) (s
 	}
 
 	return addr, nil
-}
-
-func getRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
-	cfg, err := getRelayerHomeRunnerConfig(cmd)
-	if err != nil {
-		return nil, err
-	}
-	clientCtx, err := client.GetClientQueryContext(cmd)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get client context")
-	}
-	rnr, err := runner.NewRunner(cmd.Context(), cfg, clientCtx.Keyring, true)
-	if err != nil {
-		return nil, err
-	}
-
-	return rnr, nil
 }
 
 func setCoreumConfigFromHomeFlag(cmd *cobra.Command) error {
