@@ -28,8 +28,8 @@ use crate::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
     },
     token::{
-        build_xrpl_token_key, is_token_xrp, set_token_bridging_fee, set_token_sending_precision,
-        set_token_state,
+        build_xrpl_token_key, is_token_xrp, set_token_bridging_fee, set_token_max_holding_amount,
+        set_token_sending_precision, set_token_state,
     },
 };
 
@@ -251,6 +251,7 @@ pub fn execute(
             state,
             min_sending_precision,
             bridging_fee,
+            max_holding_amount,
         } => update_xrpl_token(
             deps.into_empty(),
             info.sender,
@@ -259,19 +260,23 @@ pub fn execute(
             state,
             min_sending_precision,
             bridging_fee,
+            max_holding_amount,
         ),
         ExecuteMsg::UpdateCoreumToken {
             denom,
             state,
             min_sending_precision,
             bridging_fee,
+            max_holding_amount,
         } => update_coreum_token(
             deps.into_empty(),
+            env,
             info.sender,
             denom,
             state,
             min_sending_precision,
             bridging_fee,
+            max_holding_amount,
         ),
 
         ExecuteMsg::ClaimRefund { pending_refund_id } => {
@@ -933,6 +938,7 @@ fn send_to_xrpl(
         .add_attribute("coin", funds.to_string()))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_xrpl_token(
     deps: DepsMut,
     sender: Addr,
@@ -941,6 +947,7 @@ fn update_xrpl_token(
     state: Option<TokenState>,
     min_sending_precision: Option<i32>,
     bridging_fee: Option<Uint128>,
+    max_holding_amount: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -956,8 +963,19 @@ fn update_xrpl_token(
         min_sending_precision,
         XRPL_TOKENS_DECIMALS,
     )?;
-
     set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
+
+    // Get the current bridged amount for this token
+    let current_bridged_amount = deps
+        .querier
+        .query_supply(token.coreum_denom.to_owned())?
+        .amount;
+
+    set_token_max_holding_amount(
+        current_bridged_amount,
+        &mut token.max_holding_amount,
+        max_holding_amount,
+    )?;
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
@@ -967,13 +985,16 @@ fn update_xrpl_token(
         .add_attribute("currency", currency))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_coreum_token(
     deps: DepsMut,
+    env: Env,
     sender: Addr,
     denom: String,
     state: Option<TokenState>,
     min_sending_precision: Option<i32>,
     bridging_fee: Option<Uint128>,
+    max_holding_amount: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -988,6 +1009,17 @@ fn update_coreum_token(
         token.decimals,
     )?;
     set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
+
+    // Get the current bridged amount for this token
+    let current_bridged_amount = deps
+        .querier
+        .query_balance(env.contract.address, token.denom.to_owned())?
+        .amount;
+    set_token_max_holding_amount(
+        current_bridged_amount,
+        &mut token.max_holding_amount,
+        max_holding_amount,
+    )?;
 
     COREUM_TOKENS.save(deps.storage, denom.to_owned(), &token)?;
 

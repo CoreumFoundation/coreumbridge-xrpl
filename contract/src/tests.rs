@@ -7149,6 +7149,7 @@ mod tests {
                     state: Some(TokenState::Disabled),
                     min_sending_precision: None,
                     bridging_fee: None,
+                    max_holding_amount: None,
                 },
                 &vec![],
                 &signer,
@@ -7209,6 +7210,7 @@ mod tests {
                 state: Some(TokenState::Disabled),
                 min_sending_precision: None,
                 bridging_fee: None,
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7247,6 +7249,7 @@ mod tests {
                     state: Some(TokenState::Inactive),
                     min_sending_precision: None,
                     bridging_fee: None,
+                    max_holding_amount: None,
                 },
                 &vec![],
                 &signer,
@@ -7268,6 +7271,7 @@ mod tests {
                 state: Some(TokenState::Enabled),
                 min_sending_precision: None,
                 bridging_fee: None,
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7308,6 +7312,7 @@ mod tests {
                 state: Some(TokenState::Disabled),
                 min_sending_precision: None,
                 bridging_fee: None,
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7353,6 +7358,7 @@ mod tests {
                     state: Some(TokenState::Processing),
                     min_sending_precision: None,
                     bridging_fee: None,
+                    max_holding_amount: None,
                 },
                 &vec![],
                 &signer,
@@ -7373,6 +7379,7 @@ mod tests {
                 state: Some(TokenState::Disabled),
                 min_sending_precision: None,
                 bridging_fee: None,
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7403,6 +7410,7 @@ mod tests {
                 state: Some(TokenState::Enabled),
                 min_sending_precision: Some(5),
                 bridging_fee: None,
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7431,6 +7439,7 @@ mod tests {
                     state: None,
                     min_sending_precision: Some(7),
                     bridging_fee: None,
+                    max_holding_amount: None,
                 },
                 &vec![],
                 &signer,
@@ -7454,6 +7463,7 @@ mod tests {
                 state: Some(TokenState::Enabled),
                 min_sending_precision: None,
                 bridging_fee: None,
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7487,6 +7497,7 @@ mod tests {
                 state: None,
                 min_sending_precision: Some(14),
                 bridging_fee: None,
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7525,6 +7536,7 @@ mod tests {
                 state: None,
                 min_sending_precision: Some(15),
                 bridging_fee: None,
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7583,6 +7595,7 @@ mod tests {
                 state: None,
                 min_sending_precision: Some(10),
                 bridging_fee: None,
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7632,6 +7645,7 @@ mod tests {
                 state: None,
                 min_sending_precision: None,
                 bridging_fee: Some(Uint128::new(1000)),
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7684,6 +7698,7 @@ mod tests {
                 state: None,
                 min_sending_precision: None,
                 bridging_fee: Some(Uint128::new(10000000)),
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7723,6 +7738,7 @@ mod tests {
                 state: None,
                 min_sending_precision: None,
                 bridging_fee: Some(Uint128::new(1000000)),
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7762,6 +7778,7 @@ mod tests {
                 state: None,
                 min_sending_precision: None,
                 bridging_fee: Some(Uint128::new(1000)),
+                max_holding_amount: None,
             },
             &vec![],
             &signer,
@@ -7804,6 +7821,268 @@ mod tests {
                 .checked_sub(1000) // bridging fee
                 .unwrap()
                 .checked_sub(99000) // Truncated amount after applying bridging fees (sending precision is 10) = 999000 -> 900000
+                .unwrap()
+        );
+
+        // Let's bridge some tokens from Coreum to XRPL to have some amount in the bridge
+        let current_max_amount = 10000;
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: generate_xrpl_address(),
+            },
+            &coins(current_max_amount, coreum_token_denom.to_owned()),
+            &signer,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: None,
+                        ticket_sequence: Some(
+                            query_pending_operations.operations[0]
+                                .ticket_sequence
+                                .unwrap(),
+                        ),
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    },
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: coreum_token_denom.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, current_max_amount.to_string());
+
+        // Updating max holding amount for Coreum Token should work with less than current holding amount should not work
+        let error_update = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateCoreumToken {
+                    denom: coreum_token_denom.to_owned(),
+                    state: None,
+                    min_sending_precision: None,
+                    bridging_fee: None,
+                    max_holding_amount: Some(Uint128::new(current_max_amount - 1)),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(error_update.to_string().contains(
+            ContractError::InvalidTargetMaxHoldingAmount {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Updating max holding amount with more than current holding amount should work
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateCoreumToken {
+                denom: coreum_token_denom.to_owned(),
+                state: None,
+                min_sending_precision: None,
+                bridging_fee: None,
+                max_holding_amount: Some(Uint128::new(current_max_amount + 1)),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let query_coreum_tokens = wasm
+            .query::<QueryMsg, CoreumTokensResponse>(
+                &contract_addr,
+                &QueryMsg::CoreumTokens {
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(
+            query_coreum_tokens.tokens[0].max_holding_amount,
+            Uint128::new(current_max_amount + 1)
+        );
+
+        // Let's send an XRPL token evidence, modify the max_holding_amount, check that it's updated, and send the next evidence to see
+        // that max_holding_amount checks are applied correctly
+
+        // Get balance of contract and user
+        let balance_contract = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: contract_addr.to_owned(),
+                denom: xrpl_token_denom.clone(),
+            })
+            .unwrap();
+
+        let balance_user = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: signer.address(),
+                denom: xrpl_token_denom.clone(),
+            })
+            .unwrap();
+
+        let current_bridged_amount = balance_contract.balance.parse::<u128>().unwrap()
+            + balance_user.balance.parse::<u128>().unwrap();
+
+        // Let's update the max holding amount with current bridged amount - 1 (it should fail)
+        let update_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateXRPLToken {
+                    issuer: xrpl_token.issuer.to_owned(),
+                    currency: xrpl_token.currency.to_owned(),
+                    state: None,
+                    min_sending_precision: None,
+                    bridging_fee: None,
+                    max_holding_amount: Some(Uint128::new(current_bridged_amount - 1)),
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(update_error.to_string().contains(
+            ContractError::InvalidTargetMaxHoldingAmount {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Let's send the first XRPL transfer evidence
+        let amount_to_send = 1001000;
+
+        let tx_hash = generate_hash();
+        // First evidence should succeed
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: tx_hash.to_owned(),
+                    issuer: xrpl_token.issuer.clone(),
+                    currency: xrpl_token.currency.clone(),
+                    amount: Uint128::new(amount_to_send),
+                    recipient: Addr::unchecked(signer.address()),
+                },
+            },
+            &[],
+            relayer_accounts[0],
+        )
+        .unwrap();
+
+        // Let's update the max holding amount with current bridged amount + amount to send - 1 (it should fail in next evidence send because it won't be enough)
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateXRPLToken {
+                issuer: xrpl_token.issuer.to_owned(),
+                currency: xrpl_token.currency.to_owned(),
+                state: None,
+                min_sending_precision: None,
+                bridging_fee: None,
+                max_holding_amount: Some(Uint128::new(current_bridged_amount + amount_to_send - 1)),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // If we try to send the second evidence it should fail because we can't go over max holding amount
+        let bridging_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: tx_hash.to_owned(),
+                        issuer: xrpl_token.issuer.clone(),
+                        currency: xrpl_token.currency.clone(),
+                        amount: Uint128::new(amount_to_send),
+                        recipient: Addr::unchecked(signer.address()),
+                    },
+                },
+                &[],
+                relayer_accounts[1],
+            )
+            .unwrap_err();
+
+        assert!(bridging_error.to_string().contains(
+            ContractError::MaximumBridgedAmountReached {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Let's update the max holding amount with current bridged amount + amount to send (second evidence should go through)
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateXRPLToken {
+                issuer: xrpl_token.issuer.to_owned(),
+                currency: xrpl_token.currency.to_owned(),
+                state: None,
+                min_sending_precision: None,
+                bridging_fee: None,
+                max_holding_amount: Some(Uint128::new(current_bridged_amount + amount_to_send)),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLToCoreumTransfer {
+                    tx_hash: tx_hash.to_owned(),
+                    issuer: xrpl_token.issuer.clone(),
+                    currency: xrpl_token.currency.clone(),
+                    amount: Uint128::new(amount_to_send),
+                    recipient: Addr::unchecked(signer.address()),
+                },
+            },
+            &[],
+            relayer_accounts[1],
+        )
+        .unwrap();
+
+        let new_balance_user = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: signer.address(),
+                denom: xrpl_token_denom.clone(),
+            })
+            .unwrap();
+
+        // Check balance has been sent to user
+        assert_eq!(
+            new_balance_user.balance.parse::<u128>().unwrap(),
+            balance_user
+                .balance
+                .parse::<u128>()
+                .unwrap()
+                .checked_add(amount_to_send)
+                .unwrap()
+                .checked_sub(1000) // bridging fee
                 .unwrap()
         );
     }
