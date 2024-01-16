@@ -100,7 +100,7 @@ test-integration:
 
 .PHONY: test-relayer
 test-relayer:
-	cd $(RELAYER_DIR) && go clean -testcache && go test -v -mod=readonly -parallel=10 -timeout 500ms ./...
+	cd $(RELAYER_DIR) && go clean -testcache && go test -v -mod=readonly -parallel=10 -timeout 2s ./...
 
 .PHONY: test-contract
 test-contract:

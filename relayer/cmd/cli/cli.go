@@ -58,6 +58,10 @@ const (
 	FlagInitOnly = "init-only"
 	// FlagRelayersCount is relayers count flag.
 	FlagRelayersCount = "relayers-count"
+	// FlagTokenState is token state flag.
+	FlagTokenState = "token-state"
+	// FlagSendingPrecision is sending precision flag.
+	FlagSendingPrecision = "sending-precision"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -107,6 +111,20 @@ type BridgeClient interface {
 		ctx context.Context,
 		senderKeyName string,
 		limitAmount rippledata.Amount,
+	) error
+	UpdateCoreumToken(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		denom string,
+		state *coreum.TokenState,
+		sendingPrecision *int32,
+	) error
+	UpdateXRPLToken(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		issuer, currency string,
+		state *coreum.TokenState,
+		sendingPrecision *int32,
 	) error
 	GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error)
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
@@ -534,6 +552,62 @@ $ register-coreum-token ucore 6 2 500000000000000 --key-name owner
 	return cmd
 }
 
+// UpdateCoreumTokenCmd updates the Coreum originated token in the bridge contract.
+func UpdateCoreumTokenCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-coreum-token [denom]",
+		Short: "Updates Coreum token in the bridge contract.",
+		Long: strings.TrimSpace(
+			`Updates Coreum token in the bridge contract.
+Example:
+$ update-coreum-token ucore --state enabled --sendingPrecision 2 --key-name owner
+`,
+		),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+			if err != nil {
+				return err
+			}
+			denom := args[0]
+
+			state, sendingPrecision, err := readUpdateTokenFlags(cmd)
+			if err != nil {
+				return err
+			}
+
+			tokenState, err := convertStateStringTokenState(state)
+			if err != nil {
+				return err
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			return bridgeClient.UpdateCoreumToken(
+				ctx,
+				owner,
+				denom,
+				tokenState,
+				sendingPrecision,
+			)
+		},
+	}
+
+	addUpdateTokenFlags(cmd)
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
 // RegisterXRPLTokenCmd registers the XRPL originated token in the bridge contract.
 func RegisterXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
@@ -593,6 +667,64 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 			return err
 		},
 	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
+// UpdateXRPLTokenCmd updates the XRPL originated token in the bridge contract.
+func UpdateXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-xrpl-token [denom]",
+		Short: "Updates XRPL token in the bridge contract.",
+		//nolint:lll // long example
+		Long: strings.TrimSpace(
+			`Updates XRPL token in the bridge contract.
+Example:
+$ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 --state enabled --sendingPrecision 2 --key-name owner
+`,
+		),
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+			if err != nil {
+				return err
+			}
+			issuer := args[0]
+			currency := args[1]
+
+			state, sendingPrecision, err := readUpdateTokenFlags(cmd)
+			if err != nil {
+				return err
+			}
+
+			tokenState, err := convertStateStringTokenState(state)
+			if err != nil {
+				return err
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			return bridgeClient.UpdateXRPLToken(
+				ctx,
+				owner,
+				issuer, currency,
+				tokenState,
+				sendingPrecision,
+			)
+		},
+	}
+
+	addUpdateTokenFlags(cmd)
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
@@ -978,8 +1110,75 @@ func addKeyringFlags(cmd *cobra.Command) {
 		DefaultHomeDir, "The client Keyring directory; if omitted, the default 'home' directory will be used")
 }
 
+func addUpdateTokenFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().String(
+		FlagTokenState,
+		"",
+		fmt.Sprintf("Token state (%s/%s)", coreum.TokenStateEnabled, coreum.TokenStateDisabled),
+	)
+	cmd.PersistentFlags().Int32(
+		FlagSendingPrecision,
+		0, "Token sending precision")
+}
+
+func readUpdateTokenFlags(cmd *cobra.Command) (*string, *int32, error) {
+	var (
+		state *string
+		err   error
+	)
+	if state, err = getFlagStringIfPresent(cmd, FlagTokenState); err != nil {
+		return nil, nil, err
+	}
+	var sendingPrecision *int32
+	if sendingPrecision, err = getFlagInt32IfPresent(cmd, FlagSendingPrecision); err != nil {
+		return nil, nil, err
+	}
+
+	return state, sendingPrecision, nil
+}
+
+func convertStateStringTokenState(state *string) (*coreum.TokenState, error) {
+	if state == nil {
+		return nil, nil //nolint:nilnil // nil is expected value
+	}
+	tokenState := coreum.TokenState(*state)
+	switch tokenState {
+	case coreum.TokenStateEnabled, coreum.TokenStateDisabled:
+		return lo.ToPtr(tokenState), nil
+	default:
+		return nil, errors.Errorf("invalid token state: %s", *state)
+	}
+}
+
 func addKeyNameFlag(cmd *cobra.Command) {
 	cmd.PersistentFlags().String(FlagKeyName, "", "Key name from the keyring")
+}
+
+func getFlagStringIfPresent(cmd *cobra.Command, flagName string) (*string, error) {
+	if !cmd.Flags().Lookup(flagName).Changed {
+		return nil, nil //nolint:nilnil // nil is expected value
+	}
+	val, err := cmd.Flags().GetString(flagName)
+	if err != nil {
+		return nil, err
+	}
+	if val == "" {
+		return nil, nil //nolint:nilnil // nil is expected value
+	}
+
+	return &val, nil
+}
+
+func getFlagInt32IfPresent(cmd *cobra.Command, flagName string) (*int32, error) {
+	if !cmd.Flags().Lookup(flagName).Changed {
+		return nil, nil //nolint:nilnil // nil is expected value
+	}
+	val, err := cmd.Flags().GetInt32(flagName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &val, nil
 }
 
 // returns the console logger initialised with the default logger config but with set `console` format.

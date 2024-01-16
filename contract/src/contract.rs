@@ -249,7 +249,7 @@ pub fn execute(
             issuer,
             currency,
             state,
-            min_sending_precision,
+            sending_precision,
             bridging_fee,
         } => update_xrpl_token(
             deps.into_empty(),
@@ -257,20 +257,20 @@ pub fn execute(
             issuer,
             currency,
             state,
-            min_sending_precision,
+            sending_precision,
             bridging_fee,
         ),
         ExecuteMsg::UpdateCoreumToken {
             denom,
             state,
-            min_sending_precision,
+            sending_precision,
             bridging_fee,
         } => update_coreum_token(
             deps.into_empty(),
             info.sender,
             denom,
             state,
-            min_sending_precision,
+            sending_precision,
             bridging_fee,
         ),
 
@@ -939,7 +939,7 @@ fn update_xrpl_token(
     issuer: String,
     currency: String,
     state: Option<TokenState>,
-    min_sending_precision: Option<i32>,
+    sending_precision: Option<i32>,
     bridging_fee: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
@@ -953,7 +953,7 @@ fn update_xrpl_token(
     set_token_state(&mut token.state, state)?;
     set_token_sending_precision(
         &mut token.sending_precision,
-        min_sending_precision,
+        sending_precision,
         XRPL_TOKENS_DECIMALS,
     )?;
 
@@ -972,7 +972,7 @@ fn update_coreum_token(
     sender: Addr,
     denom: String,
     state: Option<TokenState>,
-    min_sending_precision: Option<i32>,
+    sending_precision: Option<i32>,
     bridging_fee: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
@@ -984,7 +984,7 @@ fn update_coreum_token(
     set_token_state(&mut token.state, state)?;
     set_token_sending_precision(
         &mut token.sending_precision,
-        min_sending_precision,
+        sending_precision,
         token.decimals,
     )?;
     set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
