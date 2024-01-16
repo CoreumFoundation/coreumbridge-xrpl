@@ -131,33 +131,33 @@ func (mr *MockBridgeClientMockRecorder) RecoverTickets(arg0, arg1, arg2 interfac
 }
 
 // RegisterCoreumToken mocks base method.
-func (m *MockBridgeClient) RegisterCoreumToken(arg0 context.Context, arg1 types.AccAddress, arg2 string, arg3 uint32, arg4 int32, arg5 math.Int) (coreum.CoreumToken, error) {
+func (m *MockBridgeClient) RegisterCoreumToken(arg0 context.Context, arg1 types.AccAddress, arg2 string, arg3 uint32, arg4 int32, arg5, arg6 math.Int) (coreum.CoreumToken, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterCoreumToken", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "RegisterCoreumToken", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(coreum.CoreumToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RegisterCoreumToken indicates an expected call of RegisterCoreumToken.
-func (mr *MockBridgeClientMockRecorder) RegisterCoreumToken(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+func (mr *MockBridgeClientMockRecorder) RegisterCoreumToken(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCoreumToken", reflect.TypeOf((*MockBridgeClient)(nil).RegisterCoreumToken), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCoreumToken", reflect.TypeOf((*MockBridgeClient)(nil).RegisterCoreumToken), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // RegisterXRPLToken mocks base method.
-func (m *MockBridgeClient) RegisterXRPLToken(arg0 context.Context, arg1 types.AccAddress, arg2 data.Account, arg3 data.Currency, arg4 int32, arg5 math.Int) (coreum.XRPLToken, error) {
+func (m *MockBridgeClient) RegisterXRPLToken(arg0 context.Context, arg1 types.AccAddress, arg2 data.Account, arg3 data.Currency, arg4 int32, arg5, arg6 math.Int) (coreum.XRPLToken, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterXRPLToken", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "RegisterXRPLToken", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(coreum.XRPLToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RegisterXRPLToken indicates an expected call of RegisterXRPLToken.
-func (mr *MockBridgeClientMockRecorder) RegisterXRPLToken(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+func (mr *MockBridgeClientMockRecorder) RegisterXRPLToken(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterXRPLToken", reflect.TypeOf((*MockBridgeClient)(nil).RegisterXRPLToken), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterXRPLToken", reflect.TypeOf((*MockBridgeClient)(nil).RegisterXRPLToken), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // SendFromCoreumToXRPL mocks base method.

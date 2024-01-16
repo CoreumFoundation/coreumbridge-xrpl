@@ -52,6 +52,7 @@ type ContractClient interface {
 		decimals uint32,
 		sendingPrecision int32,
 		maxHoldingAmount sdkmath.Int,
+		bridgeFee sdkmath.Int,
 	) (*sdk.TxResponse, error)
 
 	RegisterXRPLToken(
@@ -60,6 +61,7 @@ type ContractClient interface {
 		issuer, currency string,
 		sendingPrecision int32,
 		maxHoldingAmount sdkmath.Int,
+		bridgeFee sdkmath.Int,
 	) (*sdk.TxResponse, error)
 	GetCoreumTokenByDenom(ctx context.Context, denom string) (coreum.CoreumToken, error)
 	GetCoreumTokens(ctx context.Context) ([]coreum.CoreumToken, error)
@@ -298,6 +300,7 @@ func (b *BridgeClient) RegisterCoreumToken(
 	decimals uint32,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
+	bridgeFee sdkmath.Int,
 ) (coreum.CoreumToken, error) {
 	b.log.Info(
 		ctx,
@@ -314,6 +317,7 @@ func (b *BridgeClient) RegisterCoreumToken(
 		decimals,
 		sendingPrecision,
 		maxHoldingAmount,
+		bridgeFee,
 	)
 	if err != nil {
 		return coreum.CoreumToken{}, err
@@ -340,6 +344,7 @@ func (b *BridgeClient) RegisterXRPLToken(
 	issuer rippledata.Account, currency rippledata.Currency,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
+	bridgeFee sdkmath.Int,
 ) (coreum.XRPLToken, error) {
 	stringCurrency := xrpl.ConvertCurrencyToString(currency)
 	b.log.Info(
@@ -357,6 +362,7 @@ func (b *BridgeClient) RegisterXRPLToken(
 		stringCurrency,
 		sendingPrecision,
 		maxHoldingAmount,
+		bridgeFee,
 	)
 	if err != nil {
 		return coreum.XRPLToken{}, err
