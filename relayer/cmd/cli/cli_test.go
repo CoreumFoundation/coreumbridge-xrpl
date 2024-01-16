@@ -177,7 +177,7 @@ func TestRegisterCoreumTokenCmd(t *testing.T) {
 		strconv.Itoa(decimals),
 		strconv.Itoa(sendingPrecision),
 		strconv.Itoa(maxHoldingAmount),
-		"0",
+		"1",
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
@@ -190,7 +190,7 @@ func TestRegisterCoreumTokenCmd(t *testing.T) {
 		uint32(decimals),
 		int32(sendingPrecision),
 		sdkmath.NewInt(int64(maxHoldingAmount)),
-		sdkmath.ZeroInt(),
+		sdkmath.NewInt(1),
 	)
 	executeCmd(t, cli.RegisterCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
@@ -213,7 +213,7 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 		currency.String(),
 		strconv.Itoa(sendingPrecision),
 		strconv.Itoa(maxHoldingAmount),
-		"0",
+		"1",
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
@@ -226,7 +226,7 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 		currency,
 		int32(sendingPrecision),
 		sdkmath.NewInt(int64(maxHoldingAmount)),
-		sdkmath.ZeroInt(),
+		sdkmath.NewInt(1),
 	)
 	executeCmd(t, cli.RegisterXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
