@@ -281,6 +281,7 @@ func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 		currency,
 		sendingPrecision,
 		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	// await for the trust set
@@ -304,7 +305,7 @@ func (r *RunnerEnv) RegisterCoreumOriginatedToken(
 	maxHoldingAmount sdkmath.Int,
 ) coreum.CoreumToken {
 	token, err := r.BridgeClient.RegisterCoreumToken(
-		ctx, r.ContractOwner, denom, decimals, sendingPrecision, maxHoldingAmount,
+		ctx, r.ContractOwner, denom, decimals, sendingPrecision, maxHoldingAmount, sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	return token
@@ -412,8 +413,9 @@ func (r *RunnerEnv) UpdateCoreumToken(
 	denom string,
 	state *coreum.TokenState,
 	sendingPrecision *int32,
+	bridgingFee *sdkmath.Int,
 ) {
-	require.NoError(t, r.BridgeClient.UpdateCoreumToken(ctx, sender, denom, state, sendingPrecision))
+	require.NoError(t, r.BridgeClient.UpdateCoreumToken(ctx, sender, denom, state, sendingPrecision, bridgingFee))
 }
 
 // UpdateCoreumToken updates XRPL token.
@@ -424,8 +426,9 @@ func (r *RunnerEnv) UpdateXRPLToken(
 	issuer, currency string,
 	state *coreum.TokenState,
 	sendingPrecision *int32,
+	bridgingFee *sdkmath.Int,
 ) {
-	require.NoError(t, r.BridgeClient.UpdateXRPLToken(ctx, sender, issuer, currency, state, sendingPrecision))
+	require.NoError(t, r.BridgeClient.UpdateXRPLToken(ctx, sender, issuer, currency, state, sendingPrecision, bridgingFee))
 }
 
 func genCoreumRelayers(

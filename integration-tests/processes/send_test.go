@@ -435,6 +435,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		sendingPrecision,
 		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -446,6 +447,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		xrpl.ConvertCurrencyToString(registeredXRPLHexCurrency),
 		sendingPrecision,
 		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -662,6 +664,7 @@ func TestRecoverXRPLOriginatedTokenRegistrationAndSendFromXRPLToCoreumAndBack(t 
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
@@ -1056,6 +1059,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		lo.ToPtr(coreum.TokenStateDisabled),
 		nil,
+		nil,
 	)
 
 	select {
@@ -1071,6 +1075,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 		xrplIssuerAddress.String(),
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		lo.ToPtr(coreum.TokenStateEnabled),
+		nil,
 		nil,
 	)
 
@@ -1118,6 +1123,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 		xrplIssuerAddress.String(),
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		lo.ToPtr(coreum.TokenStateDisabled),
+		nil,
 		nil,
 	)
 
@@ -1178,7 +1184,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	require.NoError(t, err)
 	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
 	_, err = runnerEnv.ContractClient.RegisterCoreumToken(
-		ctx, runnerEnv.ContractOwner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount,
+		ctx, runnerEnv.ContractOwner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount, sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	registeredCoreumOriginatedToken, err := runnerEnv.ContractClient.GetCoreumTokenByDenom(ctx, denom)
@@ -1206,6 +1212,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		denom,
 		lo.ToPtr(coreum.TokenStateDisabled),
 		nil,
+		nil,
 	)
 
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
@@ -1216,6 +1223,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		runnerEnv.ContractOwner,
 		denom,
 		lo.ToPtr(coreum.TokenStateEnabled),
+		nil,
 		nil,
 	)
 
@@ -1255,6 +1263,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		denom,
 		lo.ToPtr(coreum.TokenStateDisabled),
 		nil,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -1270,6 +1279,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		runnerEnv.ContractOwner,
 		denom,
 		lo.ToPtr(coreum.TokenStateEnabled),
+		nil,
 		nil,
 	)
 

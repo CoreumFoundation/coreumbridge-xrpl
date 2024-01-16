@@ -190,6 +190,7 @@ func TestRegisterCoreumTokenCmd(t *testing.T) {
 		uint32(decimals),
 		int32(sendingPrecision),
 		sdkmath.NewInt(int64(maxHoldingAmount)),
+		sdkmath.ZeroInt(),
 	)
 	executeCmd(t, cli.RegisterCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
@@ -221,6 +222,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					denom,
 					nil,
 					nil,
+					nil,
 				)
 			},
 		},
@@ -240,6 +242,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == -2
 					}),
+					nil,
 				)
 			},
 		},
@@ -259,6 +262,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == 0
 					}),
+					nil,
 				)
 			},
 		},
@@ -278,6 +282,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == 2
 					}),
+					nil,
 				)
 			},
 		},
@@ -296,6 +301,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *coreum.TokenState) bool {
 						return *v == coreum.TokenStateEnabled
 					}),
+					nil,
 					nil,
 				)
 			},
@@ -318,6 +324,50 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					}),
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == 2
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "bridging_fee_update",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagBridgingFee), "9999",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					nil,
+					nil,
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "9999"
+					}),
+				)
+			},
+		},
+		{
+			name: "sending_precision_and_bridging_fee_update",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(2),
+				flagWithPrefix(cli.FlagBridgingFee), "9999",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 2
+					}),
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "9999"
 					}),
 				)
 			},
@@ -365,6 +415,7 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 		currency,
 		int32(sendingPrecision),
 		sdkmath.NewInt(int64(maxHoldingAmount)),
+		sdkmath.ZeroInt(),
 	)
 	executeCmd(t, cli.RegisterXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
@@ -399,6 +450,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					currency,
 					nil,
 					nil,
+					nil,
 				)
 			},
 		},
@@ -420,6 +472,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == -2
 					}),
+					nil,
 				)
 			},
 		},
@@ -441,6 +494,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == 0
 					}),
+					nil,
 				)
 			},
 		},
@@ -462,6 +516,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == 2
 					}),
+					nil,
 				)
 			},
 		},
@@ -482,6 +537,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *coreum.TokenState) bool {
 						return *v == coreum.TokenStateEnabled
 					}),
+					nil,
 					nil,
 				)
 			},
@@ -506,6 +562,54 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					}),
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == 2
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "bridging_fee_update",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagBridgingFee), "9999",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					nil,
+					nil,
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "9999"
+					}),
+				)
+			},
+		},
+		{
+			name: "sending_precision_and_bridging_fee_update",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(2),
+				flagWithPrefix(cli.FlagBridgingFee), "9999",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 2
+					}),
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "9999"
 					}),
 				)
 			},

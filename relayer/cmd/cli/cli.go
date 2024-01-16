@@ -62,6 +62,8 @@ const (
 	FlagTokenState = "token-state"
 	// FlagSendingPrecision is sending precision flag.
 	FlagSendingPrecision = "sending-precision"
+	// FlagBridgingFee is bridging fee flag.
+	FlagBridgingFee = "bridging-fee"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -86,6 +88,7 @@ type BridgeClient interface {
 		decimals uint32,
 		sendingPrecision int32,
 		maxHoldingAmount sdkmath.Int,
+		bridgingFee sdkmath.Int,
 	) (coreum.CoreumToken, error)
 	RegisterXRPLToken(
 		ctx context.Context,
@@ -93,6 +96,7 @@ type BridgeClient interface {
 		issuer rippledata.Account, currency rippledata.Currency,
 		sendingPrecision int32,
 		maxHoldingAmount sdkmath.Int,
+		bridgingFee sdkmath.Int,
 	) (coreum.XRPLToken, error)
 	GetAllTokens(ctx context.Context) ([]coreum.CoreumToken, []coreum.XRPLToken, error)
 	SendFromCoreumToXRPL(
@@ -118,6 +122,7 @@ type BridgeClient interface {
 		denom string,
 		state *coreum.TokenState,
 		sendingPrecision *int32,
+		bridgingFee *sdkmath.Int,
 	) error
 	UpdateXRPLToken(
 		ctx context.Context,
@@ -125,6 +130,7 @@ type BridgeClient interface {
 		issuer, currency string,
 		state *coreum.TokenState,
 		sendingPrecision *int32,
+		bridgingFee *sdkmath.Int,
 	) error
 	GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error)
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
@@ -541,6 +547,8 @@ $ register-coreum-token ucore 6 2 500000000000000 --key-name owner
 				uint32(decimals),
 				int32(sendingPrecision),
 				maxHoldingAmount,
+				// TODO check that we didn't miss the implementation
+				sdkmath.ZeroInt(),
 			)
 			return err
 		},
@@ -560,7 +568,7 @@ func UpdateCoreumTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 		Long: strings.TrimSpace(
 			`Updates Coreum token in the bridge contract.
 Example:
-$ update-coreum-token ucore --state enabled --sendingPrecision 2 --key-name owner
+$ update-coreum-token ucore --state enabled --sending-precision 2 --key-name owner
 `,
 		),
 		Args: cobra.ExactArgs(1),
@@ -576,7 +584,7 @@ $ update-coreum-token ucore --state enabled --sendingPrecision 2 --key-name owne
 			}
 			denom := args[0]
 
-			state, sendingPrecision, err := readUpdateTokenFlags(cmd)
+			state, sendingPrecision, bridgingFee, err := readUpdateTokenFlags(cmd)
 			if err != nil {
 				return err
 			}
@@ -596,6 +604,7 @@ $ update-coreum-token ucore --state enabled --sendingPrecision 2 --key-name owne
 				denom,
 				tokenState,
 				sendingPrecision,
+				bridgingFee,
 			)
 		},
 	}
@@ -663,6 +672,8 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				currency,
 				int32(sendingPrecision),
 				maxHoldingAmount,
+				// TODO check that we didn't miss the implementation
+				sdkmath.ZeroInt(),
 			)
 			return err
 		},
@@ -683,7 +694,7 @@ func UpdateXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 		Long: strings.TrimSpace(
 			`Updates XRPL token in the bridge contract.
 Example:
-$ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 --state enabled --sendingPrecision 2 --key-name owner
+$ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 --state enabled --sending-precision 2 --key-name owner
 `,
 		),
 		Args: cobra.ExactArgs(2),
@@ -700,7 +711,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 			issuer := args[0]
 			currency := args[1]
 
-			state, sendingPrecision, err := readUpdateTokenFlags(cmd)
+			state, sendingPrecision, bridgingFee, err := readUpdateTokenFlags(cmd)
 			if err != nil {
 				return err
 			}
@@ -720,6 +731,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 				issuer, currency,
 				tokenState,
 				sendingPrecision,
+				bridgingFee,
 			)
 		},
 	}
@@ -1098,22 +1110,42 @@ func addUpdateTokenFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().Int32(
 		FlagSendingPrecision,
 		0, "Token sending precision")
+	cmd.PersistentFlags().String(
+		FlagBridgingFee,
+		"", "Token bridging fee")
 }
 
-func readUpdateTokenFlags(cmd *cobra.Command) (*string, *int32, error) {
+func readUpdateTokenFlags(cmd *cobra.Command) (*string, *int32, *sdkmath.Int, error) {
 	var (
 		state *string
 		err   error
 	)
 	if state, err = getFlagStringIfPresent(cmd, FlagTokenState); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var sendingPrecision *int32
 	if sendingPrecision, err = getFlagInt32IfPresent(cmd, FlagSendingPrecision); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return state, sendingPrecision, nil
+	var (
+		bridgingFeeString *string
+		bridgingFee       *sdkmath.Int
+	)
+
+	bridgingFeeString, err = getFlagStringIfPresent(cmd, FlagBridgingFee)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if bridgingFeeString != nil {
+		bridgingFeeInt, ok := sdkmath.NewIntFromString(*bridgingFeeString)
+		if !ok {
+			return nil, nil, nil, errors.Errorf("failed to convert string to sdkmath.Int, string:%s", *bridgingFeeString)
+		}
+		bridgingFee = &bridgingFeeInt
+	}
+
+	return state, sendingPrecision, bridgingFee, nil
 }
 
 func convertStateStringTokenState(state *string) (*coreum.TokenState, error) {
