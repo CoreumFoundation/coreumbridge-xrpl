@@ -723,7 +723,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 
 	require.NoError(t, err)
 	// expect new token on the recipient balance
-	// the amount is sent_amount - brdige_fee
+	// the amount is sent_amount - bridge_fee
 	require.Equal(t,
 		xrplToCoreumTransferEvidence.Amount.Sub(bridgingFee).String(),
 		recipientBalanceRes.Balance.Amount.String())

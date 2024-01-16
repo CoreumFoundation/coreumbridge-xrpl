@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use coreum_test_tube::{Account, AssetFT, Bank, CoreumTestApp, Module, SigningAccount, Wasm};
     use coreum_wasm_sdk::types::coreum::asset::ft::v1::{MsgFreeze, MsgUnfreeze};
     use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
@@ -8325,60 +8327,155 @@ mod tests {
 
     #[test]
     fn enum_hashes() {
-        let evidence1 = Evidence::XRPLToCoreumTransfer {
-            tx_hash: "any_hash".to_string(),
-            issuer: "any_issuer".to_string(),
-            currency: "any_currency".to_string(),
-            amount: Uint128::new(100),
-            recipient: Addr::unchecked("signer"),
-        };
+        let hash = generate_hash();
+        let issuer = "issuer".to_string();
+        let currency = "currency".to_string();
+        let amount = Uint128::new(100);
+        let recipient = Addr::unchecked("signer");
 
-        let evidence2 = Evidence::XRPLToCoreumTransfer {
-            tx_hash: "any_hash".to_string(),
-            issuer: "any_issuer".to_string(),
-            currency: "any_currency".to_string(),
-            amount: Uint128::new(101),
-            recipient: Addr::unchecked("signer"),
-        };
-
-        assert_eq!(
-            hash_bytes(serde_json::to_string(&evidence1).unwrap().into_bytes()),
-            hash_bytes(
-                serde_json::to_string(&evidence1.clone())
-                    .unwrap()
-                    .into_bytes()
-            )
-        );
-
-        assert_ne!(
-            hash_bytes(serde_json::to_string(&evidence1).unwrap().into_bytes()),
-            hash_bytes(serde_json::to_string(&evidence2).unwrap().into_bytes())
-        );
-
-        let evidence3 = Evidence::XRPLTransactionResult {
-            tx_hash: Some("any_hash123".to_string()),
-            account_sequence: Some(1),
-            ticket_sequence: None,
-            transaction_result: TransactionResult::Rejected,
-            operation_result: OperationResult::TicketsAllocation {
-                tickets: Some((1..6).collect()),
+        // Create multiple evidences changing only 1 field to verify that all of them have different hashes
+        let xrpl_to_coreum_transfer_evidences = vec![
+            Evidence::XRPLToCoreumTransfer {
+                tx_hash: hash.to_owned(),
+                issuer: issuer.to_owned(),
+                currency: currency.to_owned(),
+                amount: amount.to_owned(),
+                recipient: recipient.to_owned(),
             },
-        };
-
-        let evidence4 = Evidence::XRPLTransactionResult {
-            tx_hash: Some("any_hash123".to_string()),
-            account_sequence: Some(1),
-            ticket_sequence: None,
-            transaction_result: TransactionResult::Accepted,
-            operation_result: OperationResult::TicketsAllocation {
-                tickets: Some((1..6).collect()),
+            Evidence::XRPLToCoreumTransfer {
+                tx_hash: generate_hash(),
+                issuer: issuer.to_owned(),
+                currency: currency.to_owned(),
+                amount: amount.to_owned(),
+                recipient: recipient.to_owned(),
             },
-        };
+            Evidence::XRPLToCoreumTransfer {
+                tx_hash: hash.to_owned(),
+                issuer: "new_issuer".to_string(),
+                currency: currency.to_owned(),
+                amount: amount.to_owned(),
+                recipient: recipient.to_owned(),
+            },
+            Evidence::XRPLToCoreumTransfer {
+                tx_hash: hash.to_owned(),
+                issuer: issuer.to_owned(),
+                currency: "new_currency".to_string(),
+                amount: amount.to_owned(),
+                recipient: recipient.to_owned(),
+            },
+            Evidence::XRPLToCoreumTransfer {
+                tx_hash: hash.to_owned(),
+                issuer: issuer.to_owned(),
+                currency: currency.to_owned(),
+                amount: Uint128::one(),
+                recipient: recipient.to_owned(),
+            },
+            Evidence::XRPLToCoreumTransfer {
+                tx_hash: hash.to_owned(),
+                issuer: issuer.to_owned(),
+                currency: currency.to_owned(),
+                amount: amount.to_owned(),
+                recipient: Addr::unchecked("new_recipient"),
+            },
+        ];
 
-        assert_ne!(
-            hash_bytes(serde_json::to_string(&evidence3).unwrap().into_bytes()),
-            hash_bytes(serde_json::to_string(&evidence4).unwrap().into_bytes()),
-        );
+        // Add them all to a map to see that they create different entries
+        let mut evidence_map = HashMap::new();
+        for evidence in xrpl_to_coreum_transfer_evidences.iter() {
+            evidence_map.insert(
+                hash_bytes(serde_json::to_string(evidence).unwrap().into_bytes()),
+                true,
+            );
+        }
+
+        assert_eq!(evidence_map.len(), xrpl_to_coreum_transfer_evidences.len());
+
+        let hash = Some(generate_hash());
+        let operation_id = Some(1);
+        let transaction_result = TransactionResult::Accepted;
+        let operation_result = OperationResult::CoreumToXRPLTransfer {};
+        // Create multiple evidences changing only 1 field to verify that all of them have different hashes
+        let xrpl_transaction_result_evidences = vec![
+            Evidence::XRPLTransactionResult {
+                tx_hash: hash.to_owned(),
+                account_sequence: operation_id,
+                ticket_sequence: None,
+                transaction_result: transaction_result.to_owned(),
+                operation_result: operation_result.to_owned(),
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: Some(generate_hash()),
+                account_sequence: operation_id,
+                ticket_sequence: None,
+                transaction_result: transaction_result.to_owned(),
+                operation_result: operation_result.to_owned(),
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: hash.to_owned(),
+                account_sequence: Some(2),
+                ticket_sequence: None,
+                transaction_result: transaction_result.to_owned(),
+                operation_result: operation_result.to_owned(),
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: hash.to_owned(),
+                account_sequence: None,
+                ticket_sequence: operation_id,
+                transaction_result: transaction_result.to_owned(),
+                operation_result: operation_result.to_owned(),
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: hash.to_owned(),
+                account_sequence: None,
+                ticket_sequence: Some(2),
+                transaction_result: transaction_result.to_owned(),
+                operation_result: operation_result.to_owned(),
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: hash.to_owned(),
+                account_sequence: operation_id,
+                ticket_sequence: None,
+                transaction_result: TransactionResult::Rejected,
+                operation_result: operation_result.to_owned(),
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: hash.to_owned(),
+                account_sequence: operation_id,
+                ticket_sequence: None,
+                transaction_result: transaction_result.to_owned(),
+                operation_result: OperationResult::TicketsAllocation { tickets: None },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: hash.to_owned(),
+                account_sequence: operation_id,
+                ticket_sequence: None,
+                transaction_result: transaction_result.to_owned(),
+                operation_result: OperationResult::TicketsAllocation {
+                    tickets: Some(vec![1, 2, 3]),
+                },
+            },
+            Evidence::XRPLTransactionResult {
+                tx_hash: hash.to_owned(),
+                account_sequence: operation_id,
+                ticket_sequence: None,
+                transaction_result: transaction_result.to_owned(),
+                operation_result: OperationResult::TrustSet {
+                    issuer: generate_xrpl_address(),
+                    currency: "USD".to_string(),
+                },
+            },
+        ];
+
+        // Add them all to a map to see that they create different entries
+        let mut evidence_map = HashMap::new();
+        for evidence in xrpl_transaction_result_evidences.iter() {
+            evidence_map.insert(
+                hash_bytes(serde_json::to_string(evidence).unwrap().into_bytes()),
+                true,
+            );
+        }
+
+        assert_eq!(evidence_map.len(), xrpl_transaction_result_evidences.len());
     }
 
     #[test]
