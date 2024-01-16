@@ -9,7 +9,7 @@ use crate::{
     },
     msg::{
         AvailableTicketsResponse, CoreumTokensResponse, ExecuteMsg, FeesCollectedResponse,
-        InstantiateMsg, PendingOperationsResponse, PendingRefundsResponse, QueryMsg,
+        InstantiateMsg, PendingOperationsResponse, PendingRefund, PendingRefundsResponse, QueryMsg,
         XRPLTokensResponse,
     },
     operation::{
@@ -27,7 +27,10 @@ use crate::{
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
     },
-    token::{build_xrpl_token_key, is_token_xrp, set_token_state},
+    token::{
+        build_xrpl_token_key, is_token_xrp, set_token_bridging_fee, set_token_sending_precision,
+        set_token_state,
+    },
 };
 
 use coreum_wasm_sdk::{
@@ -246,10 +249,30 @@ pub fn execute(
             issuer,
             currency,
             state,
-        } => update_xrpl_token(deps.into_empty(), info.sender, issuer, currency, state),
-        ExecuteMsg::UpdateCoreumToken { denom, state } => {
-            update_coreum_token(deps.into_empty(), info.sender, denom, state)
-        }
+            sending_precision,
+            bridging_fee,
+        } => update_xrpl_token(
+            deps.into_empty(),
+            info.sender,
+            issuer,
+            currency,
+            state,
+            sending_precision,
+            bridging_fee,
+        ),
+        ExecuteMsg::UpdateCoreumToken {
+            denom,
+            state,
+            sending_precision,
+            bridging_fee,
+        } => update_coreum_token(
+            deps.into_empty(),
+            info.sender,
+            denom,
+            state,
+            sending_precision,
+            bridging_fee,
+        ),
 
         ExecuteMsg::ClaimRefund { pending_refund_id } => {
             claim_pending_refund(deps.into_empty(), info.sender, pending_refund_id)
@@ -916,6 +939,8 @@ fn update_xrpl_token(
     issuer: String,
     currency: String,
     state: Option<TokenState>,
+    sending_precision: Option<i32>,
+    bridging_fee: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -926,6 +951,13 @@ fn update_xrpl_token(
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
     set_token_state(&mut token.state, state)?;
+    set_token_sending_precision(
+        &mut token.sending_precision,
+        sending_precision,
+        XRPL_TOKENS_DECIMALS,
+    )?;
+
+    set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
@@ -940,6 +972,8 @@ fn update_coreum_token(
     sender: Addr,
     denom: String,
     state: Option<TokenState>,
+    sending_precision: Option<i32>,
+    bridging_fee: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
 
@@ -948,6 +982,12 @@ fn update_coreum_token(
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
     set_token_state(&mut token.state, state)?;
+    set_token_sending_precision(
+        &mut token.sending_precision,
+        sending_precision,
+        token.decimals,
+    )?;
+    set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
 
     COREUM_TOKENS.save(deps.storage, denom.to_owned(), &token)?;
 
@@ -1008,9 +1048,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
         QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
-        QueryMsg::PendingRefunds { address } => {
-            to_json_binary(&query_pending_refunds(deps, address)?)
-        }
+        QueryMsg::PendingRefunds {
+            address,
+            offset,
+            limit,
+        } => to_json_binary(&query_pending_refunds(deps, address, offset, limit)?),
         QueryMsg::FeesCollected { relayer_address } => {
             to_json_binary(&query_fees_collected(deps, relayer_address)?)
         }
@@ -1084,10 +1126,28 @@ fn query_fees_collected(deps: Deps, relayer_address: Addr) -> StdResult<FeesColl
     Ok(FeesCollectedResponse { fees_collected })
 }
 
-fn query_pending_refunds(deps: Deps, address: Addr) -> StdResult<PendingRefundsResponse> {
-    let pending_refunds = PENDING_REFUNDS
-        .may_load(deps.storage, address)?
-        .unwrap_or_default();
+fn query_pending_refunds(
+    deps: Deps,
+    address: Addr,
+    offset: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<PendingRefundsResponse> {
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
+    let offset = offset.unwrap_or_default();
+
+    let pending_refunds: Vec<PendingRefund> = PENDING_REFUNDS
+        .idx
+        .address
+        .prefix(address)
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(offset as usize)
+        .take(limit as usize)
+        .filter_map(|r| r.ok())
+        .map(|(_, pr)| PendingRefund {
+            id: pr.id,
+            coin: pr.coin,
+        })
+        .collect();
 
     Ok(PendingRefundsResponse { pending_refunds })
 }

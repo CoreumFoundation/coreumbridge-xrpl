@@ -156,8 +156,8 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		return nil
 	}
 
-	if IsEvidenceErrorCausedByResubmissionOrDisabledToken(err) {
-		o.log.Debug(ctx, "Received expected send evidence error")
+	if IsExpectedEvidenceSubmissionError(err) {
+		o.log.Debug(ctx, "Received expected evidence submission error", zap.String("errText", err.Error()))
 		return nil
 	}
 
@@ -306,8 +306,8 @@ func (o *XRPLTxObserver) handleEvidenceSubmissionError(
 		}
 		return nil
 	}
-	if IsEvidenceErrorCausedByResubmissionOrDisabledToken(err) {
-		o.log.Debug(ctx, "Received expected send evidence error")
+	if IsExpectedEvidenceSubmissionError(err) {
+		o.log.Debug(ctx, "Received expected evidence submission error", zap.String("errText", err.Error()))
 		return nil
 	}
 	return err

@@ -35,6 +35,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+require github.com/stretchr/objx v0.5.0 // indirect
+
 require (
 	cloud.google.com/go v0.110.10 // indirect
 	cloud.google.com/go/compute v1.23.3 // indirect

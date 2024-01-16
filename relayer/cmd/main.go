@@ -29,6 +29,8 @@ func main() {
 }
 
 // RootCmd returns the root cmd.
+//
+//nolint:contextcheck // the context is passed in the command
 func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	encodingConfig := config.NewEncodingConfig(coreumapp.ModuleBasics)
 	clientCtx := client.Context{}.
@@ -44,24 +46,44 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.SetContext(ctx)
 
 	cmd.AddCommand(cli.InitCmd())
-	cmd.AddCommand(cli.StartCmd())
+	cmd.AddCommand(cli.StartCmd(processorProvider))
 	keyringCmd, err := cli.KeyringCmd()
 	if err != nil {
 		return nil, err
 	}
 	cmd.AddCommand(keyringCmd)
-	cmd.AddCommand(cli.XRPLKeyInfoCmd())
-	cmd.AddCommand(cli.BootstrapBridgeCmd())
-	cmd.AddCommand(cli.ContractConfigCmd())
-	cmd.AddCommand(cli.RecoverTicketsCmd())
-	cmd.AddCommand(cli.RegisterCoreumTokenCmd())
-	cmd.AddCommand(cli.RegisterXRPLTokenCmd())
-	cmd.AddCommand(cli.RegisteredTokensCmd())
-	cmd.AddCommand(cli.SendFromCoreumToXRPLCmd())
-	cmd.AddCommand(cli.SendFromXRPLToCoreumCmd())
-	cmd.AddCommand(cli.CoreumBalancesCmd())
-	cmd.AddCommand(cli.XRPLBalancesCmd())
-	cmd.AddCommand(cli.SetXRPLTrustSet())
+	cmd.AddCommand(cli.RelayerKeyInfoCmd())
+	cmd.AddCommand(cli.BootstrapBridgeCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.ContractConfigCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.RecoverTicketsCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.RegisterCoreumTokenCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.UpdateCoreumTokenCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.RegisterXRPLTokenCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.UpdateXRPLTokenCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.RegisteredTokensCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.SendFromCoreumToXRPLCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.SendFromXRPLToCoreumCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.CoreumBalancesCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.XRPLBalancesCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.SetXRPLTrustSetCmd(bridgeClientProvider))
 
 	return cmd, nil
+}
+
+func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
+	rnr, err := cli.GetRunnerFromHome(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	return rnr.BridgeClient, nil
+}
+
+func processorProvider(cmd *cobra.Command) (cli.Processor, error) {
+	rnr, err := cli.GetRunnerFromHome(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	return rnr, nil
 }
