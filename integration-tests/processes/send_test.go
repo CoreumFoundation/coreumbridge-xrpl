@@ -13,6 +13,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
@@ -1076,14 +1077,15 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 	runnerEnv.SendXRPLPaymentTx(ctx, t, xrplIssuerAddress, runnerEnv.bridgeXRPLAddress, amountToSendFromXRPLtoCoreum, memo)
 
 	// disable token temporary to let the relayers find the tx and try to relay the evidence with the disabled token
-	_, err = runnerEnv.ContractClient.UpdateXRPLToken(
+	runnerEnv.UpdateXRPLToken(
 		ctx,
+		t,
 		runnerEnv.ContractOwner,
 		xrplIssuerAddress.String(),
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
-		coreum.TokenStateDisabled,
+		lo.ToPtr(coreum.TokenStateDisabled),
+		nil,
 	)
-	require.NoError(t, err)
 
 	select {
 	case <-ctx.Done():
@@ -1091,14 +1093,15 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 	case <-time.After(5 * time.Second):
 	}
 
-	_, err = runnerEnv.ContractClient.UpdateXRPLToken(
+	runnerEnv.UpdateXRPLToken(
 		ctx,
+		t,
 		runnerEnv.ContractOwner,
 		xrplIssuerAddress.String(),
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
-		coreum.TokenStateEnabled,
+		lo.ToPtr(coreum.TokenStateEnabled),
+		nil,
 	)
-	require.NoError(t, err)
 
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
@@ -1137,14 +1140,15 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 	require.NoError(t, err)
 
 	// disable token to let the relayers confirm the operation with the disabled token
-	_, err = runnerEnv.ContractClient.UpdateXRPLToken(
+	runnerEnv.UpdateXRPLToken(
 		ctx,
+		t,
 		runnerEnv.ContractOwner,
 		xrplIssuerAddress.String(),
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
-		coreum.TokenStateDisabled,
+		lo.ToPtr(coreum.TokenStateDisabled),
+		nil,
 	)
-	require.NoError(t, err)
 
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 
@@ -1230,23 +1234,25 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	require.NoError(t, err)
 
 	// disable token to let the relayers confirm the operation with the disabled token
-	_, err = runnerEnv.ContractClient.UpdateCoreumToken(
+	runnerEnv.UpdateCoreumToken(
 		ctx,
+		t,
 		runnerEnv.ContractOwner,
 		denom,
-		coreum.TokenStateDisabled,
+		lo.ToPtr(coreum.TokenStateDisabled),
+		nil,
 	)
-	require.NoError(t, err)
 
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 
-	_, err = runnerEnv.ContractClient.UpdateCoreumToken(
+	runnerEnv.UpdateCoreumToken(
 		ctx,
+		t,
 		runnerEnv.ContractOwner,
 		denom,
-		coreum.TokenStateEnabled,
+		lo.ToPtr(coreum.TokenStateEnabled),
+		nil,
 	)
-	require.NoError(t, err)
 
 	// check the XRPL recipient balance
 	balance := runnerEnv.Chains.XRPL.GetAccountBalance(
@@ -1277,11 +1283,13 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	)
 
 	// disable token temporary to let the relayers find the tx and try to relay the evidence with the disabled token
-	_, err = runnerEnv.ContractClient.UpdateCoreumToken(
+	runnerEnv.UpdateCoreumToken(
 		ctx,
+		t,
 		runnerEnv.ContractOwner,
 		denom,
-		coreum.TokenStateDisabled,
+		lo.ToPtr(coreum.TokenStateDisabled),
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -1291,13 +1299,14 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	case <-time.After(5 * time.Second):
 	}
 
-	_, err = runnerEnv.ContractClient.UpdateCoreumToken(
+	runnerEnv.UpdateCoreumToken(
 		ctx,
+		t,
 		runnerEnv.ContractOwner,
 		denom,
-		coreum.TokenStateEnabled,
+		lo.ToPtr(coreum.TokenStateEnabled),
+		nil,
 	)
-	require.NoError(t, err)
 
 	runnerEnv.AwaitCoreumBalance(
 		ctx,

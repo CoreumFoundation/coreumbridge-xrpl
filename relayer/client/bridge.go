@@ -29,6 +29,8 @@ const (
 )
 
 // ContractClient is the interface for the contract client.
+//
+//nolint:interfacebloat
 type ContractClient interface {
 	DeployAndInstantiate(
 		ctx context.Context,
@@ -70,6 +72,20 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		recipient string,
 		amount sdk.Coin,
+	) (*sdk.TxResponse, error)
+	UpdateXRPLToken(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		issuer, currency string,
+		state *coreum.TokenState,
+		sendingPrecision *int32,
+	) (*sdk.TxResponse, error)
+	UpdateCoreumToken(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		denom string,
+		state *coreum.TokenState,
+		sendingPrecision *int32,
 	) (*sdk.TxResponse, error)
 }
 
@@ -487,6 +503,82 @@ func (b *BridgeClient) SetXRPLTrustSet(
 	}
 
 	return b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &trustSetTx, senderKeyName)
+}
+
+// UpdateCoreumToken updates Coreum token.
+func (b *BridgeClient) UpdateCoreumToken(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	denom string,
+	state *coreum.TokenState,
+	sendingPrecision *int32,
+) error {
+	fields := []zap.Field{
+		zap.String("sender", sender.String()),
+		zap.String("denom", denom),
+	}
+	if state != nil {
+		fields = append(fields, zap.String("state", string(*state)))
+	}
+	if sendingPrecision != nil {
+		fields = append(fields, zap.Int32("sendingPrecision", *sendingPrecision))
+	}
+	b.log.Info(
+		ctx,
+		"Updating token",
+		fields...,
+	)
+
+	txRes, err := b.contractClient.UpdateCoreumToken(ctx, sender, denom, state, sendingPrecision)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully sent tx to update Coreum token",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
+}
+
+// UpdateXRPLToken updates XRPL token state.
+func (b *BridgeClient) UpdateXRPLToken(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	issuer, currency string,
+	state *coreum.TokenState,
+	sendingPrecision *int32,
+) error {
+	fields := []zap.Field{
+		zap.String("sender", sender.String()),
+		zap.String("issuer", issuer),
+		zap.String("currency", currency),
+	}
+	if state != nil {
+		fields = append(fields, zap.String("state", string(*state)))
+	}
+	if sendingPrecision != nil {
+		fields = append(fields, zap.Int32("sendingPrecision", *sendingPrecision))
+	}
+	b.log.Info(
+		ctx,
+		"Updating token",
+		fields...,
+	)
+	txRes, err := b.contractClient.UpdateXRPLToken(ctx, sender, issuer, currency, state, sendingPrecision)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully sent tx to update XRPL token",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
 }
 
 // GetCoreumBalances returns all coreum account balances.
