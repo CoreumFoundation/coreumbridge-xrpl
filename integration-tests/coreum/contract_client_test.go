@@ -746,6 +746,7 @@ func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
 		xrplToCoreumTransferEvidence,
 	)
 	require.Error(t, err)
+	require.True(t, coreum.IsRecipientBlockedError(err))
 }
 
 //nolint:tparallel // the test is parallel, but test cases are not

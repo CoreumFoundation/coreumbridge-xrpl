@@ -1252,6 +1252,11 @@ func IsAssetFTWhitelistedLimitExceededError(err error) bool {
 	return isError(err, "whitelisted limit exceeded")
 }
 
+// IsRecipientBlockedError returns true if error is the recipient is blocked.
+func IsRecipientBlockedError(err error) bool {
+	return isError(err, "is not allowed to receive funds: unauthorized")
+}
+
 func isError(err error, errorString string) bool {
 	return err != nil && strings.Contains(err.Error(), errorString)
 }
