@@ -4258,7 +4258,9 @@ func TestUpdateXRPLOriginatedTokenSendingPrecision(t *testing.T) {
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 
 	// register from the owner
-	_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount, sdk.ZeroInt())
+	_, err := contractClient.RegisterXRPLToken(
+		ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount, sdk.ZeroInt(),
+	)
 	require.NoError(t, err)
 	registeredToken, err := contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, currency)
 	require.NoError(t, err)
@@ -4389,7 +4391,9 @@ func TestUpdateCoreumOriginatedTokenSendingPrecision(t *testing.T) {
 	)
 	require.NoError(t, err)
 	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
-	_, err = contractClient.RegisterCoreumToken(ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount, sdk.ZeroInt())
+	_, err = contractClient.RegisterCoreumToken(
+		ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount, sdk.ZeroInt(),
+	)
 	require.NoError(t, err)
 	registeredCoreumOriginatedToken, err := contractClient.GetCoreumTokenByDenom(ctx, denom)
 	require.NoError(t, err)
