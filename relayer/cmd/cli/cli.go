@@ -1053,11 +1053,11 @@ func VersionCommand() *cobra.Command {
 		Use:   "version",
 		Short: "Print the application binary version information",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			logger, err := getConsoleLogger()
+			log, err := getConsoleLogger()
 			if err != nil {
 				return err
 			}
-			logger.Info(
+			log.Info(
 				cmd.Context(),
 				"Version Info",
 				zap.String("Git Tag", runner.VersionTag),
