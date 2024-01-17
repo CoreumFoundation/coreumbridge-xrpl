@@ -1084,6 +1084,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		lo.ToPtr(coreum.TokenStateDisabled),
 		nil,
+		nil,
 	)
 
 	select {
@@ -1099,6 +1100,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 		xrplIssuerAddress.String(),
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		lo.ToPtr(coreum.TokenStateEnabled),
+		nil,
 		nil,
 	)
 
@@ -1146,6 +1148,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 		xrplIssuerAddress.String(),
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		lo.ToPtr(coreum.TokenStateDisabled),
+		nil,
 		nil,
 	)
 
@@ -1205,13 +1208,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	// register Coreum originated token
 	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
 	_, err = runnerEnv.ContractClient.RegisterCoreumToken(
-		ctx,
-		runnerEnv.ContractOwner,
-		denom,
-		tokenDecimals,
-		sendingPrecision,
-		maxHoldingAmount,
-		sdkmath.ZeroInt(),
+		ctx, runnerEnv.ContractOwner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount, sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	registeredCoreumOriginatedToken, err := runnerEnv.ContractClient.GetCoreumTokenByDenom(ctx, denom)
@@ -1239,6 +1236,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		denom,
 		lo.ToPtr(coreum.TokenStateDisabled),
 		nil,
+		nil,
 	)
 
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
@@ -1249,6 +1247,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		runnerEnv.ContractOwner,
 		denom,
 		lo.ToPtr(coreum.TokenStateEnabled),
+		nil,
 		nil,
 	)
 
@@ -1288,6 +1287,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		denom,
 		lo.ToPtr(coreum.TokenStateDisabled),
 		nil,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -1303,6 +1303,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		runnerEnv.ContractOwner,
 		denom,
 		lo.ToPtr(coreum.TokenStateEnabled),
+		nil,
 		nil,
 	)
 
