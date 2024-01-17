@@ -270,6 +270,7 @@ func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 	currency rippledata.Currency,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
+	bridgingFee sdkmath.Int,
 ) coreum.XRPLToken {
 	r.Chains.Coreum.FundAccountWithOptions(ctx, t, r.ContractOwner, coreumintegration.BalancesOptions{
 		Amount: r.Chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount,
@@ -281,6 +282,7 @@ func (r *RunnerEnv) RegisterXRPLOriginatedToken(
 		currency,
 		sendingPrecision,
 		maxHoldingAmount,
+		bridgingFee,
 	)
 	require.NoError(t, err)
 	// await for the trust set
@@ -302,9 +304,10 @@ func (r *RunnerEnv) RegisterCoreumOriginatedToken(
 	decimals uint32,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
+	bridgeFee sdkmath.Int,
 ) coreum.CoreumToken {
 	token, err := r.BridgeClient.RegisterCoreumToken(
-		ctx, r.ContractOwner, denom, decimals, sendingPrecision, maxHoldingAmount,
+		ctx, r.ContractOwner, denom, decimals, sendingPrecision, maxHoldingAmount, bridgeFee,
 	)
 	require.NoError(t, err)
 	return token

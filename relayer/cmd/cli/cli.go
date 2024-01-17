@@ -86,6 +86,7 @@ type BridgeClient interface {
 		decimals uint32,
 		sendingPrecision int32,
 		maxHoldingAmount sdkmath.Int,
+		bridgingFee sdkmath.Int,
 	) (coreum.CoreumToken, error)
 	RegisterXRPLToken(
 		ctx context.Context,
@@ -93,6 +94,7 @@ type BridgeClient interface {
 		issuer rippledata.Account, currency rippledata.Currency,
 		sendingPrecision int32,
 		maxHoldingAmount sdkmath.Int,
+		bridgingFee sdkmath.Int,
 	) (coreum.XRPLToken, error)
 	GetAllTokens(ctx context.Context) ([]coreum.CoreumToken, []coreum.XRPLToken, error)
 	SendFromCoreumToXRPL(
@@ -493,15 +495,15 @@ $ recovery-tickets --key-name owner
 // RegisterCoreumTokenCmd registers the Coreum originated token in the bridge contract.
 func RegisterCoreumTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "register-coreum-token [denom] [decimals] [sendingPrecision] [maxHoldingAmount]",
+		Use:   "register-coreum-token [denom] [decimals] [sendingPrecision] [maxHoldingAmount] [bridgingFee]",
 		Short: "Registers Coreum token in the bridge contract.",
 		Long: strings.TrimSpace(
 			`Registers Coreum token in the bridge contract.
 Example:
-$ register-coreum-token ucore 6 2 500000000000000 --key-name owner
+$ register-coreum-token ucore 6 2 500000000000000 4000 --key-name owner
 `,
 		),
-		Args: cobra.ExactArgs(4),
+		Args: cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -529,6 +531,11 @@ $ register-coreum-token ucore 6 2 500000000000000 --key-name owner
 				return errors.Wrapf(err, "invalid maxHoldingAmount: %s", args[3])
 			}
 
+			bridgingFee, ok := sdkmath.NewIntFromString(args[4])
+			if !ok {
+				return errors.Wrapf(err, "invalid bridgeFee: %s", args[4])
+			}
+
 			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
@@ -541,6 +548,7 @@ $ register-coreum-token ucore 6 2 500000000000000 --key-name owner
 				uint32(decimals),
 				int32(sendingPrecision),
 				maxHoldingAmount,
+				bridgingFee,
 			)
 			return err
 		},
@@ -611,16 +619,16 @@ $ update-coreum-token ucore --state enabled --sendingPrecision 2 --key-name owne
 // RegisterXRPLTokenCmd registers the XRPL originated token in the bridge contract.
 func RegisterXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "register-xrpl-token [issuer] [currency] [sendingPrecision] [maxHoldingAmount]",
+		Use:   "register-xrpl-token [issuer] [currency] [sendingPrecision] [maxHoldingAmount] [bridgeFee]",
 		Short: "Registers XRPL token in the bridge contract.",
 		//nolint:lll // example
 		Long: strings.TrimSpace(
 			`Registers XRPL token in the bridge contract.
 Example:
-$ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 2 500000000000000 --key-name owner
+$ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 2 500000000000000 4000 --key-name owner
 `,
 		),
-		Args: cobra.ExactArgs(4),
+		Args: cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -652,6 +660,11 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				return errors.Wrapf(err, "invalid maxHoldingAmount: %s", args[3])
 			}
 
+			bridgeFee, ok := sdkmath.NewIntFromString(args[4])
+			if !ok {
+				return errors.Wrapf(err, "invalid bridgeFee: %s", args[4])
+			}
+
 			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
@@ -663,6 +676,7 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				currency,
 				int32(sendingPrecision),
 				maxHoldingAmount,
+				bridgeFee,
 			)
 			return err
 		},
@@ -1025,6 +1039,27 @@ $ set-xrpl-trust-set 1e80 %s %s --key-name sender
 	addHomeFlag(cmd)
 
 	return cmd
+}
+
+// VersionCommand returns a CLI command to interactively print the application binary version information.
+func VersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the application binary version information",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			logger, err := getConsoleLogger()
+			if err != nil {
+				return err
+			}
+			logger.Info(
+				cmd.Context(),
+				"Version Info",
+				zap.String("Git Tag", runner.VersionTag),
+				zap.String("Git Commit", runner.GitCommit),
+			)
+			return nil
+		},
+	}
 }
 
 func readAddressFromKeyNameFlag(cmd *cobra.Command, clientCtx client.Context) (sdk.AccAddress, error) {
