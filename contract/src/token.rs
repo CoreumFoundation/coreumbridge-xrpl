@@ -1,3 +1,5 @@
+use cosmwasm_std::Uint128;
+
 use crate::{
     contract::{validate_sending_precision, XRP_CURRENCY, XRP_ISSUER},
     error::ContractError,
@@ -46,6 +48,18 @@ pub fn set_token_sending_precision(
         validate_sending_precision(target_sending_precision, decimals)?;
 
         *sending_precision = target_sending_precision;
+    }
+
+    Ok(())
+}
+
+// Helper function to update the bridging fee of a token
+pub fn set_token_bridging_fee(
+    bridging_fee: &mut Uint128,
+    target_bridging_fee: Option<Uint128>,
+) -> Result<(), ContractError> {
+    if let Some(target_bridging_fee) = target_bridging_fee {
+        *bridging_fee = target_bridging_fee;
     }
 
     Ok(())

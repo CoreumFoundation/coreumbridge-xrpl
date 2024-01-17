@@ -37,6 +37,7 @@ const (
 	ExecMethodSaveSignature           ExecMethod = "save_signature"
 	ExecSendToXRPL                    ExecMethod = "send_to_xrpl"
 	ExecRecoveryXRPLTokenRegistration ExecMethod = "recover_xrpl_token_registration"
+	ExecClaimRelayersFees             ExecMethod = "claim_relayer_fees"
 	ExecUpdateXRPLToken               ExecMethod = "update_xrpl_token"
 	ExecUpdateCoreumToken             ExecMethod = "update_coreum_token"
 	ExecClaimRefund                   ExecMethod = "claim_refund"
@@ -71,6 +72,7 @@ const (
 	QueryMethodConfig            QueryMethod = "config"
 	QueryMethodOwnership         QueryMethod = "ownership"
 	QueryMethodXRPLTokens        QueryMethod = "xrpl_tokens"
+	QueryMethodFeesCollected     QueryMethod = "fees_collected"
 	QueryMethodCoreumTokens      QueryMethod = "coreum_tokens"
 	QueryMethodPendingOperations QueryMethod = "pending_operations"
 	QueryMethodAvailableTickets  QueryMethod = "available_tickets"
@@ -275,15 +277,21 @@ type recoverXRPLTokenRegistrationRequest struct {
 	Currency string `json:"currency"`
 }
 
+type claimFeesRequest struct {
+	Amounts []sdk.Coin `json:"amounts"`
+}
+
 type updateXRPLTokenRequest struct {
-	Issuer   string     `json:"issuer"`
-	Currency string     `json:"currency"`
-	State    TokenState `json:"state"`
+	Issuer           string      `json:"issuer"`
+	Currency         string      `json:"currency"`
+	State            *TokenState `json:"state,omitempty"`
+	SendingPrecision *int32      `json:"sending_precision,omitempty"`
 }
 
 type updateCoreumTokenRequest struct {
-	Denom string     `json:"denom"`
-	State TokenState `json:"state"`
+	Denom            string      `json:"denom"`
+	State            *TokenState `json:"state,omitempty"`
+	SendingPrecision *int32      `json:"sending_precision,omitempty"`
 }
 
 type claimRefundRequest struct {
@@ -332,6 +340,10 @@ type pendingOperationsResponse struct {
 
 type availableTicketsResponse struct {
 	Tickets []uint32 `json:"tickets"`
+}
+
+type feesCollectedResponse struct {
+	FeesCollected []sdk.Coin `json:"fees_collected"`
 }
 
 type pendingRefundsResponse struct {
@@ -537,6 +549,7 @@ func (c *ContractClient) RegisterCoreumToken(
 	decimals uint32,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
+	bridgingFee sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]registerCoreumTokenRequest{
@@ -545,7 +558,7 @@ func (c *ContractClient) RegisterCoreumToken(
 				Decimals:         decimals,
 				SendingPrecision: sendingPrecision,
 				MaxHoldingAmount: maxHoldingAmount,
-				BridgingFee:      sdkmath.NewInt(0),
+				BridgingFee:      bridgingFee,
 			},
 		},
 	})
@@ -563,6 +576,7 @@ func (c *ContractClient) RegisterXRPLToken(
 	issuer, currency string,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
+	bridgingFee sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	fee, err := c.queryAssetFTIssueFee(ctx)
 	if err != nil {
@@ -576,7 +590,7 @@ func (c *ContractClient) RegisterXRPLToken(
 				Currency:         currency,
 				SendingPrecision: sendingPrecision,
 				MaxHoldingAmount: maxHoldingAmount,
-				BridgingFee:      sdkmath.NewInt(0),
+				BridgingFee:      bridgingFee,
 			},
 		},
 		Funds: sdk.NewCoins(fee),
@@ -789,19 +803,41 @@ func (c *ContractClient) RecoverXRPLTokenRegistration(
 	return txRes, nil
 }
 
+// ClaimFees calls the contract to claim the fees for a given relayer.
+func (c *ContractClient) ClaimFees(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	amounts []sdk.Coin,
+) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]claimFeesRequest{
+			ExecClaimRelayersFees: {
+				Amounts: amounts,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
 // UpdateXRPLToken executes `update_xrpl_token` method.
 func (c *ContractClient) UpdateXRPLToken(
 	ctx context.Context,
 	sender sdk.AccAddress,
 	issuer, currency string,
-	state TokenState,
+	state *TokenState,
+	sendingPrecision *int32,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]updateXRPLTokenRequest{
 			ExecUpdateXRPLToken: {
-				Issuer:   issuer,
-				Currency: currency,
-				State:    state,
+				Issuer:           issuer,
+				Currency:         currency,
+				State:            state,
+				SendingPrecision: sendingPrecision,
 			},
 		},
 	})
@@ -817,13 +853,15 @@ func (c *ContractClient) UpdateCoreumToken(
 	ctx context.Context,
 	sender sdk.AccAddress,
 	denom string,
-	state TokenState,
+	state *TokenState,
+	sendingPrecision *int32,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]updateCoreumTokenRequest{
 			ExecUpdateCoreumToken: {
-				Denom: denom,
-				State: state,
+				Denom:            denom,
+				State:            state,
+				SendingPrecision: sendingPrecision,
 			},
 		},
 	})
@@ -980,6 +1018,23 @@ func (c *ContractClient) GetAvailableTickets(ctx context.Context) ([]uint32, err
 	}
 
 	return response.Tickets, nil
+}
+
+// GetFeesCollected returns collected fees for an account.
+func (c *ContractClient) GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error) {
+	var response feesCollectedResponse
+	err := c.query(ctx, map[QueryMethod]interface{}{
+		QueryMethodFeesCollected: struct {
+			RelayerAddress string `json:"relayer_address"`
+		}{
+			RelayerAddress: address.String(),
+		},
+	}, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return sdk.NewCoins(response.FeesCollected...), nil
 }
 
 // GetPendingRefunds returns the list of pending refunds for and address.
