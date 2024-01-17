@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
@@ -213,6 +214,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 			registeredXRPLCurrency,
 			int32(6),
 			integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+			sdkmath.ZeroInt(),
 		)
 	}
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
@@ -234,6 +236,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 			registeredXRPLCurrency,
 			int32(6),
 			integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+			sdkmath.ZeroInt(),
 		)
 	}
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
