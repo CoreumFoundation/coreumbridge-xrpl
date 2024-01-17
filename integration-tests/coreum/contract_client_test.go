@@ -2869,7 +2869,9 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	)
 	require.NoError(t, err)
 	denom := assetfttypes.BuildDenom(msgIssue.Subunit, coreumIssuerAddress)
-	_, err = contractClient.RegisterCoreumToken(ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount)
+	_, err = contractClient.RegisterCoreumToken(
+		ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount, sdkmath.ZeroInt(),
+	)
 	require.NoError(t, err)
 	registeredToken, err := contractClient.GetCoreumTokenByDenom(ctx, denom)
 	require.NoError(t, err)

@@ -1393,6 +1393,7 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 		tokenDecimals,
 		sendingPrecision,
 		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
 
 	// send TrustSet to be able to receive coins from the bridge
