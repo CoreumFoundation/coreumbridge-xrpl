@@ -64,3 +64,21 @@ pub fn set_token_bridging_fee(
 
     Ok(())
 }
+
+// Helper function to update the max holding amount of a token
+pub fn set_token_max_holding_amount(
+    current_bridged_amount: Uint128,
+    max_holding_amount: &mut Uint128,
+    target_max_holding_amount: Option<Uint128>,
+) -> Result<(), ContractError> {
+    if let Some(target_max_holding_amount) = target_max_holding_amount {
+        // We check that the new max holding amount is not lower than the current amount of tokens the bridge holds
+        if current_bridged_amount > target_max_holding_amount {
+            return Err(ContractError::InvalidTargetMaxHoldingAmount {});
+        }
+
+        *max_holding_amount = target_max_holding_amount;
+    }
+
+    Ok(())
+}

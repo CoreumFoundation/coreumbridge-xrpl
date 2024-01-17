@@ -120,6 +120,7 @@ type XRPLToken struct {
 	SendingPrecision int32       `json:"sending_precision"`
 	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
 	State            TokenState  `json:"state"`
+	BridgingFee      sdkmath.Int `json:"bridging_fee"`
 }
 
 // CoreumToken is coreum token registered on the contract.
@@ -132,6 +133,7 @@ type CoreumToken struct {
 	SendingPrecision int32       `json:"sending_precision"`
 	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
 	State            TokenState  `json:"state"`
+	BridgingFee      sdkmath.Int `json:"bridging_fee"`
 }
 
 // XRPLToCoreumTransferEvidence is evidence with values represented sending from XRPL to coreum.
@@ -282,16 +284,18 @@ type claimFeesRequest struct {
 }
 
 type updateXRPLTokenRequest struct {
-	Issuer           string      `json:"issuer"`
-	Currency         string      `json:"currency"`
-	State            *TokenState `json:"state,omitempty"`
-	SendingPrecision *int32      `json:"sending_precision,omitempty"`
+	Issuer           string       `json:"issuer"`
+	Currency         string       `json:"currency"`
+	State            *TokenState  `json:"state,omitempty"`
+	SendingPrecision *int32       `json:"sending_precision,omitempty"`
+	BridgingFee      *sdkmath.Int `json:"bridging_fee,omitempty"`
 }
 
 type updateCoreumTokenRequest struct {
-	Denom            string      `json:"denom"`
-	State            *TokenState `json:"state,omitempty"`
-	SendingPrecision *int32      `json:"sending_precision,omitempty"`
+	Denom            string       `json:"denom"`
+	State            *TokenState  `json:"state,omitempty"`
+	SendingPrecision *int32       `json:"sending_precision,omitempty"`
+	BridgingFee      *sdkmath.Int `json:"bridging_fee,omitempty"`
 }
 
 type claimRefundRequest struct {
@@ -830,6 +834,7 @@ func (c *ContractClient) UpdateXRPLToken(
 	issuer, currency string,
 	state *TokenState,
 	sendingPrecision *int32,
+	bridgingFee *sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]updateXRPLTokenRequest{
@@ -838,6 +843,7 @@ func (c *ContractClient) UpdateXRPLToken(
 				Currency:         currency,
 				State:            state,
 				SendingPrecision: sendingPrecision,
+				BridgingFee:      bridgingFee,
 			},
 		},
 	})
@@ -855,6 +861,7 @@ func (c *ContractClient) UpdateCoreumToken(
 	denom string,
 	state *TokenState,
 	sendingPrecision *int32,
+	bridgingFee *sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]updateCoreumTokenRequest{
@@ -862,6 +869,7 @@ func (c *ContractClient) UpdateCoreumToken(
 				Denom:            denom,
 				State:            state,
 				SendingPrecision: sendingPrecision,
+				BridgingFee:      bridgingFee,
 			},
 		},
 	})
