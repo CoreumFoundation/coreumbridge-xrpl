@@ -2996,7 +2996,12 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 		Address: coreumRecipient.String(),
 		Denom:   registeredToken.Denom,
 	})
-	require.Equal(t, coreumRecipientBalanceRes.Balance.Amount.String(), bridgeContractBalanceBeforeRes.Balance.Amount.String())
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		coreumRecipientBalanceRes.Balance.Amount.String(),
+		bridgeContractBalanceBeforeRes.Balance.Amount.String(),
+	)
 }
 
 func TestRecoverXRPLTokeRegistration(t *testing.T) {
