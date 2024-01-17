@@ -27,7 +27,6 @@ import (
 	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
 	coreumchainconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
 	coreumchainconstant "github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
@@ -213,11 +212,10 @@ type Runner struct {
 	RetryableHTTPClient      *toolshttp.RetryableClient
 	XRPLRPCClient            *xrpl.RPCClient
 	XRPLAccountScanner       *xrpl.AccountScanner
+	XRPLKeyringTxSigner      *xrpl.KeyringTxSigner
 	CoreumContractClient     *coreum.ContractClient
 	CoreumChainNetworkConfig coreumchainconfig.NetworkConfig
 	ClientCtx                coreumchainclient.Context
-
-	BridgeClient *client.BridgeClient
 
 	Processes Processes
 	Processor *processes.Processor
@@ -302,9 +300,8 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring, setCoreumSDK
 	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
 	if kr != nil {
 		xrplKeyringTxSigner = xrpl.NewKeyringTxSigner(kr)
+		rnr.XRPLKeyringTxSigner = xrplKeyringTxSigner
 	}
-	bridgeClient := client.NewBridgeClient(zapLogger, clientContext, contractClient, xrplRPCClient, xrplKeyringTxSigner)
-	rnr.BridgeClient = bridgeClient
 
 	var relayerAddress sdk.AccAddress
 	if kr != nil {
@@ -371,11 +368,6 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring, setCoreumSDK
 	}
 
 	return rnr, nil
-}
-
-// GetBridgeClient returns BridgeClient.
-func (r *Runner) GetBridgeClient() *client.BridgeClient {
-	return r.BridgeClient
 }
 
 // StartAllProcesses starts all processes.
