@@ -1041,6 +1041,27 @@ $ set-xrpl-trust-set 1e80 %s %s --key-name sender
 	return cmd
 }
 
+// VersionCommand returns a CLI command to interactively print the application binary version information.
+func VersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the application binary version information",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			logger, err := getConsoleLogger()
+			if err != nil {
+				return err
+			}
+			logger.Info(
+				cmd.Context(),
+				"Version Info",
+				zap.String("Git Tag", runner.VersionTag),
+				zap.String("Git Commit", runner.GitCommit),
+			)
+			return nil
+		},
+	}
+}
+
 func readAddressFromKeyNameFlag(cmd *cobra.Command, clientCtx client.Context) (sdk.AccAddress, error) {
 	keyName, err := cmd.Flags().GetString(FlagKeyName)
 	if err != nil {
