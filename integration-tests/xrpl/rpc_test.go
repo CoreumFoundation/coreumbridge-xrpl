@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -17,8 +18,15 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
+// autumn noble forward love absurd dumb jar cotton jealous accuse iron vocal play pencil surprise tape embark forget hurdle frost input expect odor afford
+// rGJZKSdgsDXaP1s2whS9JDd76xxBRaCnka
+// rGJZKSdgsDXaP1s2whS9JDd76xxBRaCnka
+// rGJZKSdgsDXaP1s2whS9JDd76xxBRaCnka
+
 func TestXRPAndIssuedTokensPayment(t *testing.T) {
 	t.Parallel()
+
+	sdk.GetConfig().GetFullBIP44Path()
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 

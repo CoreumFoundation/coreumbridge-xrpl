@@ -34,6 +34,8 @@ var (
 )
 
 const (
+	// XRPLHDPath is the hd path used to derive xrpl keys.
+	XRPLHDPath = "m/44'/144'/0'/0/0"
 	// XRPLIssuedTokenDecimals is XRPL decimals used on the coreum.
 	XRPLIssuedTokenDecimals = 15
 	// XRPCurrencyDecimals is XRP decimals used on the coreum.
