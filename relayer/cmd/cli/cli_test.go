@@ -20,6 +20,7 @@ import (
 	"github.com/golang/mock/gomock"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
@@ -177,6 +178,7 @@ func TestRegisterCoreumTokenCmd(t *testing.T) {
 		strconv.Itoa(decimals),
 		strconv.Itoa(sendingPrecision),
 		strconv.Itoa(maxHoldingAmount),
+		"1",
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
@@ -189,8 +191,199 @@ func TestRegisterCoreumTokenCmd(t *testing.T) {
 		uint32(decimals),
 		int32(sendingPrecision),
 		sdkmath.NewInt(int64(maxHoldingAmount)),
+		sdkmath.NewInt(1),
 	)
 	executeCmd(t, cli.RegisterCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestUpdateCoreumTokenCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	addKeyToTestKeyring(t, keyringDir, keyName)
+	denom := "denom"
+
+	tests := []struct {
+		name string
+		args []string
+		mock func(m *MockBridgeClient)
+	}{
+		{
+			name: "no_additional_flags",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					nil,
+					nil,
+					nil,
+				)
+			},
+		},
+		{
+			name: "negative_sending_precision",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(-2),
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == -2
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "zero_sending_precision",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(0),
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 0
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "positive_sending_precision",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(2),
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 2
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "token_state_update",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagTokenState), string(coreum.TokenStateEnabled),
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					mock.MatchedBy(func(v *coreum.TokenState) bool {
+						return *v == coreum.TokenStateEnabled
+					}),
+					nil,
+					nil,
+				)
+			},
+		},
+		{
+			name: "sending_precision_and_token_state_update",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(2),
+				flagWithPrefix(cli.FlagTokenState), string(coreum.TokenStateEnabled),
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					mock.MatchedBy(func(v *coreum.TokenState) bool {
+						return *v == coreum.TokenStateEnabled
+					}),
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 2
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "bridging_fee_update",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagBridgingFee), "9999",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					nil,
+					nil,
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "9999"
+					}),
+				)
+			},
+		},
+		{
+			name: "sending_precision_and_bridging_fee_update",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(2),
+				flagWithPrefix(cli.FlagBridgingFee), "9999",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 2
+					}),
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "9999"
+					}),
+				)
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			// no additional args
+			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
+			bridgeClientMock := NewMockBridgeClient(ctrl)
+			tt.mock(bridgeClientMock)
+			executeCmd(t, cli.UpdateCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)), tt.args...)
+		})
+	}
 }
 
 func TestRegisterXRPLTokenCmd(t *testing.T) {
@@ -211,6 +404,7 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 		currency.String(),
 		strconv.Itoa(sendingPrecision),
 		strconv.Itoa(maxHoldingAmount),
+		"1",
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
@@ -223,8 +417,216 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 		currency,
 		int32(sendingPrecision),
 		sdkmath.NewInt(int64(maxHoldingAmount)),
+		sdkmath.NewInt(1),
 	)
 	executeCmd(t, cli.RegisterXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestUpdateXRPLTokenCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	addKeyToTestKeyring(t, keyringDir, keyName)
+	issuer := "rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D"
+	currency := "434F524500000000000000000000000000000000"
+
+	tests := []struct {
+		name string
+		args []string
+		mock func(m *MockBridgeClient)
+	}{
+		{
+			name: "no_additional_flags",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					nil,
+					nil,
+					nil,
+				)
+			},
+		},
+		{
+			name: "negative_sending_precision",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(-2),
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == -2
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "zero_sending_precision",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(0),
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 0
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "positive_sending_precision",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(2),
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 2
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "token_state_update",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagTokenState), string(coreum.TokenStateEnabled),
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					mock.MatchedBy(func(v *coreum.TokenState) bool {
+						return *v == coreum.TokenStateEnabled
+					}),
+					nil,
+					nil,
+				)
+			},
+		},
+		{
+			name: "sending_precision_and_token_state_update",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(2),
+				flagWithPrefix(cli.FlagTokenState), string(coreum.TokenStateEnabled),
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					mock.MatchedBy(func(v *coreum.TokenState) bool {
+						return *v == coreum.TokenStateEnabled
+					}),
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 2
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "bridging_fee_update",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagBridgingFee), "9999",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					nil,
+					nil,
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "9999"
+					}),
+				)
+			},
+		},
+		{
+			name: "sending_precision_and_bridging_fee_update",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(2),
+				flagWithPrefix(cli.FlagBridgingFee), "9999",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 2
+					}),
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "9999"
+					}),
+				)
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			// no additional args
+			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
+			bridgeClientMock := NewMockBridgeClient(ctrl)
+			tt.mock(bridgeClientMock)
+			executeCmd(t, cli.UpdateXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)), tt.args...)
+		})
+	}
 }
 
 func TestRegisteredTokensCmd(t *testing.T) {
