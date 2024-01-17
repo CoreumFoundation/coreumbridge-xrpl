@@ -46,6 +46,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 	registeredXRPLCurrency, err := rippledata.NewCurrency("RCP")
 	require.NoError(t, err)
 
+	bridgingFee := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 24)
 	xrplIssuerAddress := chains.XRPL.GenAccount(ctx, t, 1)
 	// enable to be able to send to any address
 	runnerEnv.EnableXRPLAccountRippling(ctx, t, xrplIssuerAddress)
@@ -56,12 +57,17 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 		registeredXRPLCurrency,
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		bridgingFee,
 	)
 
-	valueToSendFromXRPLtoCoreum, err := rippledata.NewValue("1e10", false)
+	// we will send 1.5e10 and 0.1 will be deducted as fee when sending from xrpl
+	// and 0.4e10 will be deducted as fees when sending back from coreum to xrpl.
+	valueSentFromCoreum, err := rippledata.NewValue("1.5e10", false)
+	require.NoError(t, err)
+	valueToBeOnXRPL, err := rippledata.NewValue("1.4e10", false)
 	require.NoError(t, err)
 	amountToSendFromXRPLtoCoreum := rippledata.Amount{
-		Value:    valueToSendFromXRPLtoCoreum,
+		Value:    valueSentFromCoreum,
 		Currency: registeredXRPLCurrency,
 		Issuer:   xrplIssuerAddress,
 	}
@@ -76,15 +82,15 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 			registeredXRPLToken.CoreumDenom,
 			integrationtests.ConvertStringWithDecimalsToSDKInt(
 				t,
-				valueToSendFromXRPLtoCoreum.String(),
+				valueToBeOnXRPL.String(),
 				xrpl.XRPLIssuedTokenDecimals,
 			),
 		),
 	)
 
-	// send the full amount in 4 transactions to XRPL
+	// send back the full amount in 4 transactions to XRPL
 	amountToSend := integrationtests.ConvertStringWithDecimalsToSDKInt(
-		t, valueToSendFromXRPLtoCoreum.String(), xrpl.XRPLIssuedTokenDecimals,
+		t, valueToBeOnXRPL.String(), xrpl.XRPLIssuedTokenDecimals,
 	).QuoRaw(4)
 
 	// send 2 transactions without the trust set to be reverted
@@ -128,6 +134,19 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 		ctx, t, xrplRecipientAddress, xrplIssuerAddress, registeredXRPLCurrency,
 	)
 	require.Equal(t, "5000000000", balance.Value.String())
+
+	// assert bridging fee is deducted.
+	for _, runner := range runnerEnv.Runners {
+		keyInfo, err := runner.ClientCtx.Keyring().Key("coreum-relayer")
+		require.NoError(t, err)
+		address, err := keyInfo.GetAddress()
+		require.NoError(t, err)
+		fees, err := runnerEnv.ContractClient.GetFeesCollected(ctx, address)
+		require.NoError(t, err)
+		require.Len(t, fees, 1)
+		expectedFees := bridgingFee.Mul(sdk.NewInt(5)).Quo(sdk.NewInt(int64(envCfg.RelayersCount)))
+		require.EqualValues(t, expectedFees.String(), fees.AmountOf(registeredXRPLToken.CoreumDenom).String())
+	}
 }
 
 func TestSendXRPTokenFromXRPLToCoreumAndBack(t *testing.T) {
@@ -242,6 +261,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithMaliciousRelayer(t *testing.
 		registeredXRPLCurrency,
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		sdkmath.ZeroInt(),
 	)
 
 	valueToSendFromXRPLtoCoreum, err := rippledata.NewValue("1e10", false)
@@ -323,6 +343,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithTicketsReallocation(t *testi
 		registeredXRPLCurrency,
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		sdkmath.ZeroInt(),
 	)
 
 	valueToSendFromXRPLtoCoreum, err := rippledata.NewValue("1e10", false)
@@ -435,6 +456,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		sendingPrecision,
 		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -446,6 +468,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		xrpl.ConvertCurrencyToString(registeredXRPLHexCurrency),
 		sendingPrecision,
 		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -573,6 +596,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithAmountGreaterThanMax(t *tes
 		registeredXRPLCurrency,
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 16),
+		sdkmath.ZeroInt(),
 	)
 
 	lowValueToSendFromXRPLtoCoreum, err := rippledata.NewValue("1", false)
@@ -662,6 +686,7 @@ func TestRecoverXRPLOriginatedTokenRegistrationAndSendFromXRPLToCoreumAndBack(t 
 		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
@@ -789,6 +814,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	// register Coreum originated token
 	require.NoError(t, err)
 	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
+
 	registeredCoreumOriginatedToken := runnerEnv.RegisterCoreumOriginatedToken(
 		ctx,
 		t,
@@ -796,6 +822,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 		tokenDecimals,
 		sendingPrecision,
 		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
 
 	// send TrustSet to be able to receive coins from the bridge
@@ -968,6 +995,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 		tokenDecimals,
 		sendingPrecision,
 		maxHoldingAmount,
+		sdk.ZeroInt(),
 	)
 
 	// send TrustSet to be able to receive coins from the bridge
@@ -1033,6 +1061,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 		registeredXRPLCurrency,
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		sdkmath.ZeroInt(),
 	)
 
 	valueToSendFromXRPLtoCoreum, err := rippledata.NewValue("1e10", false)
@@ -1178,7 +1207,13 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	require.NoError(t, err)
 	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
 	_, err = runnerEnv.ContractClient.RegisterCoreumToken(
-		ctx, runnerEnv.ContractOwner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount,
+		ctx,
+		runnerEnv.ContractOwner,
+		denom,
+		tokenDecimals,
+		sendingPrecision,
+		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 	registeredCoreumOriginatedToken, err := runnerEnv.ContractClient.GetCoreumTokenByDenom(ctx, denom)
