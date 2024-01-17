@@ -203,31 +203,31 @@ func (mr *MockBridgeClientMockRecorder) SetXRPLTrustSet(arg0, arg1, arg2 interfa
 }
 
 // UpdateCoreumToken mocks base method.
-func (m *MockBridgeClient) UpdateCoreumToken(arg0 context.Context, arg1 types.AccAddress, arg2 string, arg3 *coreum.TokenState, arg4 *int32) error {
+func (m *MockBridgeClient) UpdateCoreumToken(arg0 context.Context, arg1 types.AccAddress, arg2 string, arg3 *coreum.TokenState, arg4 *int32, arg5 *math.Int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateCoreumToken", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "UpdateCoreumToken", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateCoreumToken indicates an expected call of UpdateCoreumToken.
-func (mr *MockBridgeClientMockRecorder) UpdateCoreumToken(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockBridgeClientMockRecorder) UpdateCoreumToken(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCoreumToken", reflect.TypeOf((*MockBridgeClient)(nil).UpdateCoreumToken), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCoreumToken", reflect.TypeOf((*MockBridgeClient)(nil).UpdateCoreumToken), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // UpdateXRPLToken mocks base method.
-func (m *MockBridgeClient) UpdateXRPLToken(arg0 context.Context, arg1 types.AccAddress, arg2, arg3 string, arg4 *coreum.TokenState, arg5 *int32) error {
+func (m *MockBridgeClient) UpdateXRPLToken(arg0 context.Context, arg1 types.AccAddress, arg2, arg3 string, arg4 *coreum.TokenState, arg5 *int32, arg6 *math.Int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateXRPLToken", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "UpdateXRPLToken", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateXRPLToken indicates an expected call of UpdateXRPLToken.
-func (mr *MockBridgeClientMockRecorder) UpdateXRPLToken(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+func (mr *MockBridgeClientMockRecorder) UpdateXRPLToken(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateXRPLToken", reflect.TypeOf((*MockBridgeClient)(nil).UpdateXRPLToken), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateXRPLToken", reflect.TypeOf((*MockBridgeClient)(nil).UpdateXRPLToken), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // MockProcessor is a mock of Processor interface.
