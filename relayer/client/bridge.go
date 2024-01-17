@@ -302,6 +302,7 @@ func (b *BridgeClient) RegisterCoreumToken(
 	decimals uint32,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
+	bridgingFee sdkmath.Int,
 ) (coreum.CoreumToken, error) {
 	b.log.Info(
 		ctx,
