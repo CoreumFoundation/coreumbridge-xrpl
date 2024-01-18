@@ -758,7 +758,9 @@ func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 
 	// register from the owner
-	_, err := contractClient.RegisterXRPLToken(ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount)
+	_, err := contractClient.RegisterXRPLToken(
+		ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount, sdk.ZeroInt(),
+	)
 	require.NoError(t, err)
 
 	xrplTokens, err := contractClient.GetXRPLTokens(ctx)
