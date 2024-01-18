@@ -744,7 +744,6 @@ func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
 		relayers[1].CoreumAddress,
 		xrplToCoreumTransferEvidence,
 	)
-	require.Error(t, err)
 	require.True(t, coreum.IsRecipientBlockedError(err))
 }
 

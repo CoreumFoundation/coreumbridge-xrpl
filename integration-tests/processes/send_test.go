@@ -12,6 +12,8 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -128,6 +130,63 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 		ctx, t, xrplRecipientAddress, xrplIssuerAddress, registeredXRPLCurrency,
 	)
 	require.Equal(t, "5000000000", balance.Value.String())
+}
+
+func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerProcesses()
+	runnerEnv.AllocateTickets(ctx, t, uint32(200))
+
+	coreumModuleAccount := authtypes.NewModuleAddress(govtypes.ModuleName)
+	coreumRecipient := chains.Coreum.GenAccount()
+
+	registeredXRPLCurrency, err := rippledata.NewCurrency("RCP")
+	require.NoError(t, err)
+
+	xrplIssuerAddress := chains.XRPL.GenAccount(ctx, t, 1)
+	// enable to be able to send to any address
+	runnerEnv.EnableXRPLAccountRippling(ctx, t, xrplIssuerAddress)
+	registeredXRPLToken := runnerEnv.RegisterXRPLOriginatedToken(
+		ctx,
+		t,
+		xrplIssuerAddress,
+		registeredXRPLCurrency,
+		int32(6),
+		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+	)
+
+	valueToSendFromXRPLtoCoreum, err := rippledata.NewValue("1e10", false)
+	require.NoError(t, err)
+	amountToSendFromXRPLtoCoreum := rippledata.Amount{
+		Value:    valueToSendFromXRPLtoCoreum,
+		Currency: registeredXRPLCurrency,
+		Issuer:   xrplIssuerAddress,
+	}
+
+	// send to normal account, then module account and then normal account again, the first and last sends must succeed.
+	runnerEnv.SendFromXRPLToCoreum(ctx, t, xrplIssuerAddress.String(), amountToSendFromXRPLtoCoreum, coreumRecipient)
+	runnerEnv.SendFromXRPLToCoreum(ctx, t, xrplIssuerAddress.String(), amountToSendFromXRPLtoCoreum, coreumModuleAccount)
+	runnerEnv.SendFromXRPLToCoreum(ctx, t, xrplIssuerAddress.String(), amountToSendFromXRPLtoCoreum, coreumRecipient)
+
+	runnerEnv.AwaitCoreumBalance(
+		ctx,
+		t,
+		chains.Coreum,
+		coreumRecipient,
+		sdk.NewCoin(
+			registeredXRPLToken.CoreumDenom,
+			integrationtests.ConvertStringWithDecimalsToSDKInt(
+				t,
+				valueToSendFromXRPLtoCoreum.String(),
+				xrpl.XRPLIssuedTokenDecimals,
+			).MulRaw(2),
+		),
+	)
 }
 
 func TestSendXRPTokenFromXRPLToCoreumAndBack(t *testing.T) {
