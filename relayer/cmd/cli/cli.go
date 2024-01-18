@@ -62,6 +62,8 @@ const (
 	FlagTokenState = "token-state"
 	// FlagSendingPrecision is sending precision flag.
 	FlagSendingPrecision = "sending-precision"
+	// FlagBridgingFee is bridging fee flag.
+	FlagBridgingFee = "bridging-fee"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -120,6 +122,7 @@ type BridgeClient interface {
 		denom string,
 		state *coreum.TokenState,
 		sendingPrecision *int32,
+		bridgingFee *sdkmath.Int,
 	) error
 	UpdateXRPLToken(
 		ctx context.Context,
@@ -127,6 +130,7 @@ type BridgeClient interface {
 		issuer, currency string,
 		state *coreum.TokenState,
 		sendingPrecision *int32,
+		bridgingFee *sdkmath.Int,
 	) error
 	GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error)
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
@@ -172,7 +176,7 @@ func InitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -225,7 +229,7 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 			// scan helps to wait for any input infinitely and just then call the relayer. That handles
 			// the relayer restart in the container. Because after the restart the container is detached, relayer
 			// requests the keyring password and fail immediately.
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -274,7 +278,7 @@ func RelayerKeyInfoCmd() *cobra.Command {
 			}
 
 			ctx := cmd.Context()
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -349,7 +353,7 @@ $ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
 				return errors.Wrap(err, "failed to get client context")
 			}
 
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -365,7 +369,7 @@ $ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
 			if err != nil {
 				return err
 			}
-			log.Info(ctx, "XRPL bridge address", zap.Any("address", xrplBridgeAddress.String()))
+			log.Info(ctx, "XRPL bridge address", zap.String("address", xrplBridgeAddress.String()))
 
 			filePath := args[0]
 			initOnly, err := cmd.Flags().GetBool(FlagInitOnly)
@@ -373,7 +377,7 @@ $ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
 				return errors.Wrapf(err, "failed to get %s", FlagInitOnly)
 			}
 			if initOnly {
-				log.Info(ctx, "Initializing default bootstrapping config", zap.Any("path", filePath))
+				log.Info(ctx, "Initializing default bootstrapping config", zap.String("path", filePath))
 				if err := bridgeclient.InitBootstrappingConfig(filePath); err != nil {
 					return err
 				}
@@ -442,12 +446,12 @@ func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 				return err
 			}
 
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
-
 			log.Info(ctx, "Got contract config", zap.Any("config", cfg))
+
 			return nil
 		},
 	}
@@ -533,7 +537,7 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --key-name owner
 
 			bridgingFee, ok := sdkmath.NewIntFromString(args[4])
 			if !ok {
-				return errors.Wrapf(err, "invalid bridgeFee: %s", args[4])
+				return errors.Wrapf(err, "invalid bridgingFee: %s", args[4])
 			}
 
 			bridgeClient, err := bcp(cmd)
@@ -568,7 +572,7 @@ func UpdateCoreumTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 		Long: strings.TrimSpace(
 			`Updates Coreum token in the bridge contract.
 Example:
-$ update-coreum-token ucore --state enabled --sendingPrecision 2 --key-name owner
+$ update-coreum-token ucore --state enabled --sending-precision 2 --key-name owner
 `,
 		),
 		Args: cobra.ExactArgs(1),
@@ -584,7 +588,7 @@ $ update-coreum-token ucore --state enabled --sendingPrecision 2 --key-name owne
 			}
 			denom := args[0]
 
-			state, sendingPrecision, err := readUpdateTokenFlags(cmd)
+			state, sendingPrecision, bridgingFee, err := readUpdateTokenFlags(cmd)
 			if err != nil {
 				return err
 			}
@@ -604,6 +608,7 @@ $ update-coreum-token ucore --state enabled --sendingPrecision 2 --key-name owne
 				denom,
 				tokenState,
 				sendingPrecision,
+				bridgingFee,
 			)
 		},
 	}
@@ -660,7 +665,7 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				return errors.Wrapf(err, "invalid maxHoldingAmount: %s", args[3])
 			}
 
-			bridgeFee, ok := sdkmath.NewIntFromString(args[4])
+			bridgingFee, ok := sdkmath.NewIntFromString(args[4])
 			if !ok {
 				return errors.Wrapf(err, "invalid bridgeFee: %s", args[4])
 			}
@@ -676,7 +681,7 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				currency,
 				int32(sendingPrecision),
 				maxHoldingAmount,
-				bridgeFee,
+				bridgingFee,
 			)
 			return err
 		},
@@ -697,7 +702,7 @@ func UpdateXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 		Long: strings.TrimSpace(
 			`Updates XRPL token in the bridge contract.
 Example:
-$ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 --state enabled --sendingPrecision 2 --key-name owner
+$ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 --state enabled --sending-precision 2 --key-name owner
 `,
 		),
 		Args: cobra.ExactArgs(2),
@@ -714,7 +719,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 			issuer := args[0]
 			currency := args[1]
 
-			state, sendingPrecision, err := readUpdateTokenFlags(cmd)
+			state, sendingPrecision, bridgingFee, err := readUpdateTokenFlags(cmd)
 			if err != nil {
 				return err
 			}
@@ -734,6 +739,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 				issuer, currency,
 				tokenState,
 				sendingPrecision,
+				bridgingFee,
 			)
 		},
 	}
@@ -761,7 +767,7 @@ func RegisteredTokensCmd(bcp BridgeClientProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -919,7 +925,7 @@ func CoreumBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -964,7 +970,7 @@ func XRPLBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 				)
 			})
 
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -1041,6 +1047,40 @@ $ set-xrpl-trust-set 1e80 %s %s --key-name sender
 	return cmd
 }
 
+// VersionCommand returns a CLI command to interactively print the application binary version information.
+func VersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the application binary version information",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			log, err := getConsoleLogger()
+			if err != nil {
+				return err
+			}
+			log.Info(
+				cmd.Context(),
+				"Version Info",
+				zap.String("Git Tag", runner.VersionTag),
+				zap.String("Git Commit", runner.GitCommit),
+			)
+			return nil
+		},
+	}
+}
+
+// GetCLILogger returns the console logger initialised with the default logger config but with set `yaml` format.
+func GetCLILogger() (*logger.ZapLogger, error) {
+	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig{
+		Level:  "info",
+		Format: logger.YamlConsoleLoggerFormat,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return zapLogger, nil
+}
+
 func readAddressFromKeyNameFlag(cmd *cobra.Command, clientCtx client.Context) (sdk.AccAddress, error) {
 	keyName, err := cmd.Flags().GetString(FlagKeyName)
 	if err != nil {
@@ -1112,22 +1152,42 @@ func addUpdateTokenFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().Int32(
 		FlagSendingPrecision,
 		0, "Token sending precision")
+	cmd.PersistentFlags().String(
+		FlagBridgingFee,
+		"", "Token bridging fee")
 }
 
-func readUpdateTokenFlags(cmd *cobra.Command) (*string, *int32, error) {
+func readUpdateTokenFlags(cmd *cobra.Command) (*string, *int32, *sdkmath.Int, error) {
 	var (
 		state *string
 		err   error
 	)
 	if state, err = getFlagStringIfPresent(cmd, FlagTokenState); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var sendingPrecision *int32
 	if sendingPrecision, err = getFlagInt32IfPresent(cmd, FlagSendingPrecision); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return state, sendingPrecision, nil
+	var (
+		bridgingFeeString *string
+		bridgingFee       *sdkmath.Int
+	)
+
+	bridgingFeeString, err = getFlagStringIfPresent(cmd, FlagBridgingFee)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if bridgingFeeString != nil {
+		bridgingFeeInt, ok := sdkmath.NewIntFromString(*bridgingFeeString)
+		if !ok {
+			return nil, nil, nil, errors.Errorf("failed to convert string to sdkmath.Int, string:%s", *bridgingFeeString)
+		}
+		bridgingFee = &bridgingFeeInt
+	}
+
+	return state, sendingPrecision, bridgingFee, nil
 }
 
 func convertStateStringTokenState(state *string) (*coreum.TokenState, error) {

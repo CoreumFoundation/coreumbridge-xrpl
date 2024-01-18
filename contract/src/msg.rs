@@ -4,7 +4,12 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[allow(unused_imports)]
 use crate::state::{Config, CoreumToken, XRPLToken};
-use crate::{evidence::Evidence, operation::Operation, relayer::Relayer, state::TokenState};
+use crate::{
+    evidence::Evidence,
+    operation::Operation,
+    relayer::Relayer,
+    state::{BridgeState, TokenState},
+};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -74,6 +79,7 @@ pub enum ExecuteMsg {
         state: Option<TokenState>,
         sending_precision: Option<i32>,
         bridging_fee: Option<Uint128>,
+        max_holding_amount: Option<Uint128>,
     },
     // All fields that can be updatable for Coreum tokens will be updated with this message.
     // They are all optional, so any fields that have to be updated can be included in the message.
@@ -82,6 +88,7 @@ pub enum ExecuteMsg {
         state: Option<TokenState>,
         sending_precision: Option<i32>,
         bridging_fee: Option<Uint128>,
+        max_holding_amount: Option<Uint128>,
     },
     // Claim refund. User who can claim amounts due to failed transactions can do it with this message.
     ClaimRefund {
@@ -90,6 +97,16 @@ pub enum ExecuteMsg {
     // Any relayer can claim fees at any point in time. They need to provide what they want to claim.
     ClaimRelayerFees {
         amounts: Vec<Coin>,
+    },
+    // A relayer or the owner can halt the bridge operations if an issue is detected
+    HaltBridge {},
+    // Owner can resume the bridge that is in halted state
+    ResumeBridge {},
+    // Owner can trigger a rotate keys, removing and/or adding relayers
+    RotateKeys {
+        account_sequence: Option<u64>,
+        new_relayers: Vec<Relayer>,
+        new_evidence_threshold: u32,
     },
 }
 
@@ -122,6 +139,8 @@ pub enum QueryMsg {
         offset: Option<u64>,
         limit: Option<u32>,
     },
+    #[returns(BridgeStateResponse)]
+    BridgeState {},
 }
 
 #[cw_serde]
@@ -158,4 +177,9 @@ pub struct PendingRefundsResponse {
 pub struct PendingRefund {
     pub id: String,
     pub coin: Coin,
+}
+
+#[cw_serde]
+pub struct BridgeStateResponse {
+    pub state: BridgeState,
 }

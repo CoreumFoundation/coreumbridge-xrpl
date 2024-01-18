@@ -11,6 +11,7 @@ import (
 	"github.com/CoreumFoundation/coreum-tools/pkg/run"
 	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
+	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 )
 
@@ -66,6 +67,7 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.CoreumBalancesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.XRPLBalancesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.SetXRPLTrustSetCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.VersionCommand())
 
 	return cmd, nil
 }
@@ -76,7 +78,18 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 		return nil, err
 	}
 
-	return rnr.BridgeClient, nil
+	log, err := cli.GetCLILogger()
+	if err != nil {
+		return nil, err
+	}
+	// for the bridge client we use the CLI logger
+	return bridgeclient.NewBridgeClient(
+		log,
+		rnr.ClientCtx,
+		rnr.CoreumContractClient,
+		rnr.XRPLRPCClient,
+		rnr.XRPLKeyringTxSigner,
+	), nil
 }
 
 func processorProvider(cmd *cobra.Command) (cli.Processor, error) {

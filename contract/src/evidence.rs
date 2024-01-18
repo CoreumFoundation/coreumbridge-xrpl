@@ -4,6 +4,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     error::ContractError,
+    relayer::Relayer,
     state::{CONFIG, PROCESSED_TXS, TX_EVIDENCES},
 };
 
@@ -58,6 +59,10 @@ pub enum OperationResult {
         issuer: String,
         currency: String,
     },
+    RotateKeys {
+        new_relayers: Vec<Relayer>,
+        new_evidence_threshold: u32,
+    },
     #[serde(rename = "coreum_to_xrpl_transfer")]
     CoreumToXRPLTransfer {},
 }
@@ -69,6 +74,7 @@ impl OperationResult {
             OperationResult::TicketsAllocation { .. } => "tickets_allocation",
             OperationResult::TrustSet { .. } => "trust_set",
             OperationResult::CoreumToXRPLTransfer {} => "coreum_to_xrpl_transfer",
+            OperationResult::RotateKeys { .. } => "rotate_keys",
         }
     }
 }
@@ -153,6 +159,8 @@ impl Evidence {
                             return Err(ContractError::InvalidTransactionResultEvidence {});
                         }
                     }
+                    // Key rotation operations can be done with both account_sequence and ticket_sequence
+                    OperationResult::RotateKeys { .. } => {}
                 }
 
                 Ok(())

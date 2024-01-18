@@ -3,7 +3,7 @@ use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
 
-use crate::contract::MAX_TICKETS;
+use crate::contract::{MAX_RELAYERS, MAX_TICKETS};
 
 #[derive(Error, Debug)]
 pub enum ContractError {
@@ -158,6 +158,9 @@ pub enum ContractError {
     #[error("InvalidTargetTokenState: A token state can only be updated to enabled or disabled")]
     InvalidTargetTokenState {},
 
+    #[error("InvalidTargetMaxHoldingAmount: Max holding amount can't be less than the current amount of tokens held in the bridge")]
+    InvalidTargetMaxHoldingAmount {},
+
     #[error("InvalidTransferRate: The transfer rate sent is invalid, it must be more than 1000000000 (0%) and less or equal than 2000000000 (100%)")]
     InvalidTransferRate {},
 
@@ -172,4 +175,22 @@ pub enum ContractError {
         denom
     )]
     NotEnoughFeesToClaim { denom: String, amount: Uint128 },
+
+    #[error("NotOwnerOrRelayer: The sender is not the owner of the contract or a relayer. Unauthorized.")]
+    NotOwnerOrRelayer {},
+
+    #[error("ThresholdZero: Evidence threshold can't be 0")]
+    ThresholdZero {},
+
+    #[error(
+        "TooManyRelayers: too many relayers provided, max allowed is {}",
+        MAX_RELAYERS
+    )]
+    TooManyRelayers {},
+
+    #[error("BridgeHalted: The bridge is currently halted and this operation is not authorized")]
+    BridgeHalted {},
+
+    #[error("RotateKeysOngoing: Can't perform this operation while there is a rotate key operation ongoing")]
+    RotateKeysOngoing {},
 }
