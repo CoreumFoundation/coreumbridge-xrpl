@@ -3,7 +3,7 @@ use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
 
-use crate::contract::MAX_TICKETS;
+use crate::contract::{MAX_RELAYERS, MAX_TICKETS};
 
 #[derive(Error, Debug)]
 pub enum ContractError {
@@ -175,4 +175,22 @@ pub enum ContractError {
         denom
     )]
     NotEnoughFeesToClaim { denom: String, amount: Uint128 },
+
+    #[error("NotOwnerOrRelayer: The sender is not the owner of the contract or a relayer. Unauthorized.")]
+    NotOwnerOrRelayer {},
+
+    #[error("ThresholdZero: Evidence threshold can't be 0")]
+    ThresholdZero {},
+
+    #[error(
+        "TooManyRelayers: too many relayers provided, max allowed is {}",
+        MAX_RELAYERS
+    )]
+    TooManyRelayers {},
+
+    #[error("BridgeHalted: The bridge is currently halted and this operation is not authorized")]
+    BridgeHalted {},
+
+    #[error("RotateKeysOngoing: Can't perform this operation while there is a rotate key operation ongoing")]
+    RotateKeysOngoing {},
 }

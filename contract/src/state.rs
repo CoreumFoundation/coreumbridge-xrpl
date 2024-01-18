@@ -23,6 +23,7 @@ pub enum TopKey {
     PendingRefunds = b'b',
     FeesCollected = b'c',
     FeeRemainders = b'd',
+    PendingRotateKeys = b'e',
 }
 
 impl TopKey {
@@ -42,6 +43,15 @@ pub struct Config {
     pub used_ticket_sequence_threshold: u32,
     pub trust_set_limit_amount: Uint128,
     pub bridge_xrpl_address: String,
+    pub bridge_state: BridgeState,
+}
+
+#[cw_serde]
+pub enum BridgeState {
+    // Bridge is active and working
+    Active,
+    // Bridge is halted and no operations can be executed until it's reactivated by owner (if there are no pending rotate keys operation on going)
+    Halted,
 }
 
 #[cw_serde]
@@ -133,7 +143,7 @@ pub const COREUM_TOKENS: IndexedMap<String, CoreumToken, CoreumTokensIndexes> = 
     },
 );
 
-// Evidences, when enough evidences are collected, the transaction hashes are stored in EXECUTED_EVIDENCE_OPERATIONS.
+// Evidences, when enough evidences are collected, the transaction hashes are stored in PROCESSED_TXS.
 pub const TX_EVIDENCES: Map<String, Evidences> = Map::new(TopKey::TxEvidences.as_str());
 // This will contain the transaction hashes of operations that have been executed (reached threshold) so that when the same hash is sent again they aren't executed again
 pub const PROCESSED_TXS: Map<String, Empty> = Map::new(TopKey::ProcessedTxs.as_str());
@@ -148,7 +158,8 @@ pub const USED_TICKETS_COUNTER: Item<u32> = Item::new(TopKey::UsedTickets.as_str
 pub const PENDING_OPERATIONS: Map<u64, Operation> = Map::new(TopKey::PendingOperations.as_str());
 // Flag to know if we are currently waiting for new_tickets to be allocated
 pub const PENDING_TICKET_UPDATE: Item<bool> = Item::new(TopKey::PendingTicketUpdate.as_str());
-
+// Flag to know if we are currently waiting for a rotate keys operation to be completed
+pub const PENDING_ROTATE_KEYS: Item<bool> = Item::new(TopKey::PendingRotateKeys.as_str());
 // Amounts for rejected/invalid transactions on XRPL for each Coreum user that they can reclaim manually.
 // Key is the tuple (user_address, pending_refund_id)
 pub struct PendingRefundsIndexes<'a> {
@@ -195,6 +206,9 @@ pub enum ContractActions {
     UpdateXRPLToken,
     UpdateCoreumToken,
     ClaimRefunds,
+    HaltBridge,
+    ResumeBridge,
+    RotateKeys,
 }
 
 impl ContractActions {
@@ -213,6 +227,9 @@ impl ContractActions {
             ContractActions::ClaimRefunds => "claim_refunds",
             ContractActions::UpdateXRPLToken => "update_xrpl_token",
             ContractActions::UpdateCoreumToken => "update_coreum_token",
+            ContractActions::HaltBridge => "halt_bridge",
+            ContractActions::ResumeBridge => "resume_bridge",
+            ContractActions::RotateKeys => "rotate_keys",
         }
     }
 }
