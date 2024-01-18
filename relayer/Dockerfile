@@ -1,6 +1,6 @@
 FROM --platform=$BUILDPLATFORM golang:1.21.2-alpine3.18 as builder
 
-RUN apk add --no-cache make
+RUN apk add --no-cache make git
 
 COPY relayer/go.mod relayer/go.sum /code/relayer/
 
@@ -10,10 +10,14 @@ RUN go mod download
 
 COPY Makefile /code/Makefile
 COPY relayer /code/relayer
+COPY .git /code/.git
 
 WORKDIR /code
 
-RUN make build-relayer
+ARG GOOS=linux
+ARG GOARCH=amd64
+
+RUN make build-relayer GOOS=${GOOS} GOARCH=${GOARCH}
 
 FROM --platform=$TARGETPLATFORM  alpine:3.18
 

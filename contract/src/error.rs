@@ -158,6 +158,9 @@ pub enum ContractError {
     #[error("InvalidTargetTokenState: A token state can only be updated to enabled or disabled")]
     InvalidTargetTokenState {},
 
+    #[error("InvalidTargetMaxHoldingAmount: Max holding amount can't be less than the current amount of tokens held in the bridge")]
+    InvalidTargetMaxHoldingAmount {},
+
     #[error("InvalidTransferRate: The transfer rate sent is invalid, it must be more than 1000000000 (0%) and less or equal than 2000000000 (100%)")]
     InvalidTransferRate {},
 
