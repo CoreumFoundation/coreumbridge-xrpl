@@ -62,20 +62,12 @@ encoding it into the hexadecimal currency notation used in XRPL. This will be us
 that token on the XRPL side.
 Check [workflow](#register-token) for more details.
 
-##### Max holding amount and sending precision update
+##### Token update
 
-It is possible to update both `max holding amount` and `sending precision` for both XRPL and Coreum originated tokens. The
-owner can do it by calling the contract.
-The contract updates the `sending precision` in the token registry and removes all pending evidences with
-`sending from XRPL to coreum` type data from the evidence queue. We need it to avoid evidence inconsistency, since an
-evidence could be accepted by the contract with old `sending precision`, and never got fully confirmed with the new.
-The full rescan will help to check and submit such evidence one more time after the removal.
-The new `maxHoldingAmount` must be greater that the current amount.
+It is possible to update the token `state`, `sending precision`, `max holding amount` and `bridging fee`. The owner can do it by calling the contract for both
+XRPL and Coreum originated tokens.
 
-##### Token enabling/disabling
-
-Any token can be disabled and enabled at any time by the contract owner. Any new workflow with the disabled token is
-prohibited by the contract, the pending operations should be completed.
+In the case of Token state, a token can be Enabled/Disabled only if it's not in Inactive/Processing State (for the first case it requires a recovery operation and for the second one it's in the middle of TrustSet operation). In the case of `sending precision`, the owner can change it to another valid sending precision value. For `max holding amount`, the owner can change it to another max holding amount as long as the bridge holds equal or less than the new value. In the case of `bridging fee`, the owner can change it to any value.
 
 #### Operation queues
 
@@ -113,9 +105,11 @@ idempotent. And let some operations be safely re-processed at any time.
 The XRPL tickets allow us to execute a transaction with non-sequential sequence numbers, hence we can execute multiple
 transactions in parallel. Any workflow can allocate a ticket and the ticket allocation mechanism either returns a ticket
 number or errors out, in case of lack of the free tickets. The ticket re-allocation will be triggered by the tx
-comfirmation (Submit XRPL transaction last step) once the used tickets count is greater than the allowed threshold. The
+confirmation (Submit XRPL transaction last step) once the used tickets count is greater than the allowed threshold. The
 contract initiates the `submit-increase-tickets` operation to increase the amount. Once the operation is confirmed, the
-contract increases the free slots on the contract as well (based on the tx result).
+contract increases the free slots on the contract as well (based on the tx result). In the case the `submit-increase-tickets` operation
+is rejected, another `submit-increase-tickets` operation will initiated by the contract. If no tickets are available, the contract will
+finish execution but notify with an event that it has run out of tickets. If this happens, the contract owner must initiate the ticket recovery workflow.
 
 Check [workflow](#allocate-ticket) for more details.
 
@@ -185,22 +179,24 @@ If all validation pass, the contract creates a sending operation with receivedIn
 
 ###### Fee re-config
 
-The owner can change a token bridging fees at any time. Since a price of a token can change, there is a possibility that
+The owner can change a token bridging fees at any time. Since the price of a token can change, there is a possibility that
 the owner wants to adjust the bridging fee for that token.
+
+##### Kill switch
+
+It is possible for any relayer or owner to halt the bridge contract at any time. The reason for it might be
+unexpected behavior on any bridge component. Only the owner can resume the bridge.
 
 #### Keys rotation
 
 All accounts that can interact with the contract or multi-signing account are registered on the contract. And can be
 rotated using the key rotation workflow. The workflow is triggered by the owner. The owner provides
-the new relayer Coreum addresses, XRPL public keys and signing/evidence threshold.
-It is possible to start the keys rotation workflow in case the contract is disabled, but there is not keys rotation
-in-process. That option gives and owner an ability to rotate the keys in case the contract is disabled because of the
-malicious relayer, or the malicious relayer disabled it. Check [workflow](#rotate-keys) for more details.
-
-##### Kill switch
-
-It is possible for any relayer or owner to disable the bridge contract at any time. The reason for it might be
-unexpected behavior on any bridge component.x
+the new relayer Coreum addresses, XRPL public keys, signing/evidence threshold and an optional account sequence (in case there is
+no ticket available). This action will automatically halt the bridge in case it is not halted yet and start the key rotation workflow.
+During this workflow execution, no operations are allowed on the contract except for key rotation evidences from the
+relayers. If there is a key rotation in process, the owner cannot trigger another key rotation. Once the key rotation operation has been 
+confirmed by the relayers, the owner can trigger another key rotation (if needed/it failed) and/or resume the bridge.
+This option gives the owner an ability to rotate the keys in case of a malicious relayer, or if the malicious relayer halted it. Check [workflow](#rotate-keys) for more details.
 
 ### Relayer
 
@@ -292,12 +288,12 @@ func roundWithSendingPrecision (ratValue Rat, sendingPrecision int) Rat{
    denominator := ratValue.Denominator
 
    case: sendingPrecision > 0:
-     nominator = (nominator / (denominator / 1e(sendingPrecision)) * (denominator / 1esendingPrecision)
+     nominator = (nominator / (denominator / 1e(sendingPrecision))) * (denominator / 1esendingPrecision)
    case: sendingPrecision == 0:
      nominator = nominator / denominator
    denominator = 1
      case sendingPrecision < 0:
-   nominator = (nominator / denominator / 1e(-1*sendingPrecision) * 1e(-1*sendingPrecision)
+   nominator = (nominator / denominator / 1e(-1*sendingPrecision)) * 1e(-1*sendingPrecision)
      denominator = 1
 
    return Rat{nominator, denominator}
