@@ -5005,7 +5005,7 @@ mod tests {
                     issuer: bridge_xrpl_address.to_owned(),
                     currency: coreum_token.xrpl_currency.to_owned(),
                     amount: Uint128::new(300000000000000),
-                    max_amount: Uint128::new(300000000000000), 
+                    max_amount: Uint128::new(300000000000000),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
