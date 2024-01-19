@@ -92,7 +92,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
 				xrplTxSignerMock := NewMockXRPLTxSigner(ctrl)
-				tx, err := processes.BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress, allocateTicketsOperation)
+				tx, err := processes.BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress, allocateTicketsOperation, 2)
 				require.NoError(t, err)
 				xrplTxSignerMock.EXPECT().MultiSign(tx, xrplTxSignerKeyName).Return(allocateTicketOperationValidSigners[0], nil)
 
@@ -119,7 +119,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					AccountInfo(gomock.Any(), bridgeXRPLAddress).
 					Return(bridgeXRPLSignerAccountWithSigners, nil)
 				expectedTx, err := processes.BuildTicketCreateTxForMultiSigning(
-					bridgeXRPLAddress, allocateTicketOperationWithSignatures,
+					bridgeXRPLAddress, allocateTicketOperationWithSignatures, 2,
 				)
 				require.NoError(t, err)
 				require.NoError(t, rippledata.SetSigners(expectedTx, allocateTicketOperationValidSigners...))
@@ -197,7 +197,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			},
 			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
 				xrplTxSignerMock := NewMockXRPLTxSigner(ctrl)
-				tx, err := processes.BuildTrustSetTxForMultiSigning(bridgeXRPLAddress, trustSetOperation)
+				tx, err := processes.BuildTrustSetTxForMultiSigning(bridgeXRPLAddress, trustSetOperation, 2)
 				require.NoError(t, err)
 				xrplTxSignerMock.EXPECT().MultiSign(tx, xrplTxSignerKeyName).Return(trustSetOperationValidSigners[0], nil)
 
@@ -223,7 +223,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					EXPECT().
 					AccountInfo(gomock.Any(), bridgeXRPLAddress).
 					Return(bridgeXRPLSignerAccountWithSigners, nil)
-				expectedTx, err := processes.BuildTrustSetTxForMultiSigning(bridgeXRPLAddress, trustSetOperationWithSignatures)
+				expectedTx, err := processes.BuildTrustSetTxForMultiSigning(bridgeXRPLAddress, trustSetOperationWithSignatures, 2)
 				require.NoError(t, err)
 				require.NoError(t, rippledata.SetSigners(expectedTx, trustSetOperationValidSigners...))
 				xrplRPCClientMock.
@@ -271,7 +271,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
 				xrplTxSignerMock := NewMockXRPLTxSigner(ctrl)
 				tx, err := processes.BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
-					bridgeXRPLAddress, coreumToXRPLTokenTransferOperation,
+					bridgeXRPLAddress, coreumToXRPLTokenTransferOperation, 2,
 				)
 				require.NoError(t, err)
 				xrplTxSignerMock.
@@ -302,7 +302,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					AccountInfo(gomock.Any(), bridgeXRPLAddress).
 					Return(bridgeXRPLSignerAccountWithSigners, nil)
 				expectedTx, err := processes.BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
-					bridgeXRPLAddress, coreumToXRPLTokenTransferOperationWithSignatures,
+					bridgeXRPLAddress, coreumToXRPLTokenTransferOperationWithSignatures, 2,
 				)
 				require.NoError(t, err)
 				require.NoError(t, rippledata.SetSigners(expectedTx, coreumToXRPLTokenTransferOperationValidSigners...))
@@ -547,7 +547,7 @@ func multiSignAllocateTicketsOperation(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
 ) rippledata.Signer {
-	tx, err := processes.BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress, operation)
+	tx, err := processes.BuildTicketCreateTxForMultiSigning(bridgeXRPLAddress, operation, 2)
 	require.NoError(t, err)
 	signer, err := relayerXRPLSigner.MultiSign(tx)
 	require.NoError(t, err)
@@ -561,7 +561,7 @@ func multiSignTrustSetOperation(
 	bridgeXRPLAcc rippledata.Account,
 	operation coreum.Operation,
 ) rippledata.Signer {
-	tx, err := processes.BuildTrustSetTxForMultiSigning(bridgeXRPLAcc, operation)
+	tx, err := processes.BuildTrustSetTxForMultiSigning(bridgeXRPLAcc, operation, 2)
 	require.NoError(t, err)
 	signer, err := relayerXRPLSigner.MultiSign(tx)
 	require.NoError(t, err)
@@ -575,7 +575,7 @@ func multiSignCoreumToXRPLXRPLOriginatedTokeTransferOperation(
 	bridgeXRPLAcc rippledata.Account,
 	operation coreum.Operation,
 ) rippledata.Signer {
-	tx, err := processes.BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAcc, operation)
+	tx, err := processes.BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(bridgeXRPLAcc, operation, 2)
 	require.NoError(t, err)
 	signer, err := relayerXRPLSigner.MultiSign(tx)
 	require.NoError(t, err)

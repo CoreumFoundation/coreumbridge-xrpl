@@ -225,7 +225,7 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 		return err
 	}
 	if !quorumIsReached {
-		return s.registerTxSignature(ctx, operation)
+		return s.registerTxSignature(ctx, operation, bridgeSigners)
 	}
 
 	txRes, err := s.xrplRPCClient.Submit(ctx, tx)
@@ -323,7 +323,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 				SigningPubKey: &xrplPubKey,
 			},
 		}
-		tx, err := s.buildXRPLTxFromOperation(operation)
+		tx, err := s.buildXRPLTxFromOperation(operation, bridgeSigners.XRPLWeightsQuorum)
 		if err != nil {
 			return nil, false, err
 		}
@@ -362,7 +362,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		return nil, false, nil
 	}
 	// build tx one more time to be sure that it is not affected
-	tx, err := s.buildXRPLTxFromOperation(operation)
+	tx, err := s.buildXRPLTxFromOperation(operation, bridgeSigners.XRPLWeightsQuorum)
 	if err != nil {
 		return nil, false, err
 	}
@@ -427,8 +427,12 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 	return false, nil
 }
 
-func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation coreum.Operation) error {
-	tx, err := s.buildXRPLTxFromOperation(operation)
+func (s *XRPLTxSubmitter) registerTxSignature(
+	ctx context.Context,
+	operation coreum.Operation,
+	bridgeSigners BridgeSigners,
+) error {
+	tx, err := s.buildXRPLTxFromOperation(operation, bridgeSigners.XRPLWeightsQuorum)
 	if err != nil {
 		return err
 	}
@@ -458,14 +462,18 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 	return errors.Wrap(err, "failed to register transaction signature")
 }
 
-func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (MultiSignableTransaction, error) {
+func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(
+	operation coreum.Operation,
+	xrplWeightsQuorum uint32,
+) (MultiSignableTransaction, error) {
 	switch {
 	case isAllocateTicketsOperation(operation):
-		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
+		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation, xrplWeightsQuorum)
 	case isTrustSetOperation(operation):
-		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
+		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation, xrplWeightsQuorum)
 	case isCoreumToXRPLTransfer(operation):
-		return BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
+		return BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
+			s.cfg.BridgeXRPLAddress, operation, xrplWeightsQuorum)
 	default:
 		return nil, errors.Errorf("failed to process operation, unable to determine operation type, operation:%+v", operation)
 	}

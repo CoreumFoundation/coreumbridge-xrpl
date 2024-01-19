@@ -12,6 +12,7 @@ import (
 func BuildTicketCreateTxForMultiSigning(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
+	xrplWeightsQuorum uint32,
 ) (*rippledata.TicketCreate, error) {
 	tx := rippledata.TicketCreate{
 		TxBase: rippledata.TxBase{
@@ -28,7 +29,7 @@ func BuildTicketCreateTxForMultiSigning(
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	fee, err := xrpl.GetTxFee(&tx)
+	fee, err := xrpl.GetTxFee(xrplWeightsQuorum)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +42,7 @@ func BuildTicketCreateTxForMultiSigning(
 func BuildTrustSetTxForMultiSigning(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
+	xrplWeightsQuorum uint32,
 ) (*rippledata.TrustSet, error) {
 	trustSetType := operation.OperationType.TrustSet
 	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
@@ -62,7 +64,7 @@ func BuildTrustSetTxForMultiSigning(
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	fee, err := xrpl.GetTxFee(&tx)
+	fee, err := xrpl.GetTxFee(xrplWeightsQuorum)
 	if err != nil {
 		return nil, err
 	}
@@ -76,6 +78,7 @@ func BuildTrustSetTxForMultiSigning(
 func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
+	xrplWeightsQuorum uint32,
 ) (*rippledata.Payment, error) {
 	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
 	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
@@ -87,7 +90,7 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 		return nil, err
 	}
 
-	tx, err := buildPaymentTx(bridgeXRPLAddress, operation, value)
+	tx, err := buildPaymentTx(bridgeXRPLAddress, operation, xrplWeightsQuorum, value)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +101,7 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 func buildPaymentTx(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
+	xrplWeightsQuorum uint32,
 	value rippledata.Amount,
 ) (rippledata.Payment, error) {
 	recipient, err := rippledata.NewAccountFromAddress(operation.OperationType.CoreumToXRPLTransfer.Recipient)
@@ -120,7 +124,7 @@ func buildPaymentTx(
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	fee, err := xrpl.GetTxFee(&tx)
+	fee, err := xrpl.GetTxFee(xrplWeightsQuorum)
 	if err != nil {
 		return rippledata.Payment{}, err
 	}

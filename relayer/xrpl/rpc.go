@@ -333,7 +333,7 @@ func (c *RPCClient) AutoFillTx(ctx context.Context, tx rippledata.Transaction, s
 	}
 	// update base settings
 	base := tx.GetBase()
-	fee, err := GetTxFee(tx)
+	fee, err := GetTxFee(2)
 	if err != nil {
 		return err
 	}
