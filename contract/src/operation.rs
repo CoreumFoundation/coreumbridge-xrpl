@@ -42,6 +42,7 @@ pub enum OperationType {
         issuer: String,
         currency: String,
         amount: Uint128,
+        max_amount: Uint128,
         transfer_fee: Uint128,
         sender: Addr,
         recipient: String,

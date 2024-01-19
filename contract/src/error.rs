@@ -1,4 +1,4 @@
-use cosmwasm_std::{DivideByZeroError, OverflowError, StdError, Uint128};
+use cosmwasm_std::{DivideByZeroError, OverflowError, StdError, Uint128, CheckedMultiplyFractionError};
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
@@ -18,6 +18,9 @@ pub enum ContractError {
 
     #[error(transparent)]
     DivideByZeroError(#[from] DivideByZeroError),
+
+    #[error(transparent)]
+    CheckedMultiplyFractionError(#[from] CheckedMultiplyFractionError),
 
     #[error("Payment error: {0}")]
     Payment(#[from] PaymentError),
