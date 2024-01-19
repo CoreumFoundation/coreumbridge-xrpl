@@ -1923,6 +1923,7 @@ mod tests {
                 issuer: bridge_xrpl_address.to_owned(),
                 currency: coreum_originated_token.xrpl_currency.to_owned(),
                 amount: amount_truncated_and_converted,
+                max_amount: amount_truncated_and_converted,
                 transfer_fee: Uint128::zero(),
                 sender: Addr::unchecked(sender.address()),
                 recipient: xrpl_receiver_address.to_owned(),
@@ -2382,6 +2383,7 @@ mod tests {
                 issuer: bridge_xrpl_address.to_owned(),
                 currency: coreum_originated_token.xrpl_currency.to_owned(),
                 amount: amount_truncated_and_converted,
+                max_amount: amount_truncated_and_converted,
                 transfer_fee: Uint128::zero(),
                 sender: Addr::unchecked(sender.address()),
                 recipient: xrpl_receiver_address.to_owned(),
@@ -2797,6 +2799,7 @@ mod tests {
                     issuer: XRP_ISSUER.to_owned(),
                     currency: XRP_CURRENCY.to_owned(),
                     amount: amount_to_send_back,
+                    max_amount: amount_to_send_back,
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -3083,6 +3086,7 @@ mod tests {
                     issuer: xrpl_originated_token.issuer.to_owned(),
                     currency: xrpl_originated_token.currency.to_owned(),
                     amount: amount_to_send_back,
+                    max_amount: amount_to_send_back,
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -3357,6 +3361,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(query_pending_operations.operations.len(), 2);
+        let amount = amount_to_send
+            .checked_sub(Uint128::one()) //Truncated amount
+            .unwrap()
+            .checked_mul(Uint128::new(10u128.pow(9))) // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
+            .unwrap();
         assert_eq!(
             query_pending_operations.operations[0],
             Operation {
@@ -3367,11 +3376,8 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: multisig_address.to_owned(),
                     currency: coreum_originated_token.xrpl_currency.to_owned(),
-                    amount: amount_to_send
-                        .checked_sub(Uint128::one()) //Truncated amount
-                        .unwrap()
-                        .checked_mul(Uint128::new(10u128.pow(9))) // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
-                        .unwrap(),
+                    amount: amount.to_owned(),
+                    max_amount: amount.to_owned(),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -3389,11 +3395,8 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: multisig_address,
                     currency: coreum_originated_token.xrpl_currency.to_owned(),
-                    amount: amount_to_send
-                        .checked_sub(Uint128::one()) //Truncated amount
-                        .unwrap()
-                        .checked_mul(Uint128::new(10u128.pow(9))) // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
-                        .unwrap(),
+                    amount: amount.to_owned(),
+                    max_amount: amount.to_owned(),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address,
@@ -4910,6 +4913,7 @@ mod tests {
                     issuer: test_token_xrpl.issuer.to_owned(),
                     currency: test_token_xrpl.currency.to_owned(),
                     amount: Uint128::new(999999999900000),
+                    max_amount: Uint128::new(999999999900000),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -5001,6 +5005,7 @@ mod tests {
                     issuer: bridge_xrpl_address.to_owned(),
                     currency: coreum_token.xrpl_currency.to_owned(),
                     amount: Uint128::new(300000000000000),
+                    max_amount: Uint128::new(300000000000000),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -5075,6 +5080,7 @@ mod tests {
                     issuer: bridge_xrpl_address.to_owned(),
                     currency: coreum_token.xrpl_currency.to_owned(),
                     amount: Uint128::new(600000000000000),
+                    max_amount: Uint128::new(600000000000000),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -5651,6 +5657,7 @@ mod tests {
                     issuer: test_tokens[0].issuer.to_owned(),
                     currency: test_tokens[0].currency.to_owned(),
                     amount: Uint128::new(99999999900001),
+                    max_amount: Uint128::new(100000000050001 - test_tokens[0].bridging_fee.u128()), // There is no truncation being done because sending precision is 15
                     transfer_fee: Uint128::new(100000),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
@@ -5710,6 +5717,7 @@ mod tests {
                     issuer: test_tokens[1].issuer.to_owned(),
                     currency: test_tokens[1].currency.to_owned(),
                     amount: Uint128::new(66666666600000),
+                    max_amount: Uint128::new(99999999900000), // 100000000000001 - 50000 -> 99999999950001 -> truncate -> 99999999900000
                     transfer_fee: Uint128::new(33333333272223),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
@@ -5768,6 +5776,7 @@ mod tests {
                     issuer: test_tokens[2].issuer.to_owned(),
                     currency: test_tokens[2].currency.to_owned(),
                     amount: Uint128::new(50000000000000),
+                    max_amount: Uint128::new(100000000050001 - test_tokens[2].bridging_fee.u128()), // There is no truncation being done because sending precision is 15
                     transfer_fee: Uint128::new(50000000000001),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),

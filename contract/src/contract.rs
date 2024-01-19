@@ -878,8 +878,9 @@ fn send_to_xrpl(
 
     let decimals;
     let amount_to_send;
-    let amount_after_fees;
+    let amount_after_transfer_rate;
     let mut transfer_fee = Uint128::zero();
+    let max_amount;
     let remainder;
     let issuer;
     let currency;
@@ -908,12 +909,27 @@ fn send_to_xrpl(
                 amount_after_bridge_fees(funds.amount, xrpl_token.bridging_fee)?;
 
             // We calculate the amount to send after applying the transfer rate (if any)
-            (amount_after_fees, transfer_fee) =
+            (amount_after_transfer_rate, transfer_fee) =
                 amount_after_transfer_fees(amount_after_bridge_fees, xrpl_token.transfer_rate)?;
 
             // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
-            (amount_to_send, remainder) =
-                truncate_amount(xrpl_token.sending_precision, decimals, amount_after_fees)?;
+            (amount_to_send, remainder) = truncate_amount(
+                xrpl_token.sending_precision,
+                decimals,
+                amount_after_transfer_rate,
+            )?;
+
+            // If the token has no transfer rate, the max amount will be the amount to send
+            // If it has, the max amount will be the amount after bridge fees, truncated to the sending precision
+            if xrpl_token.transfer_rate.is_some() {
+                (max_amount, _) = truncate_amount(
+                    xrpl_token.sending_precision,
+                    decimals,
+                    amount_after_bridge_fees,
+                )?;
+            } else {
+                max_amount = amount_to_send;
+            }
 
             handle_fee_collection(
                 deps.storage,
@@ -966,6 +982,9 @@ fn send_to_xrpl(
             {
                 return Err(ContractError::MaximumBridgedAmountReached {});
             }
+
+            // Coreum originated tokens never have transfer rate so the max amount will be the same as amount to send
+            max_amount = amount_to_send;
         }
     }
 
@@ -980,6 +999,7 @@ fn send_to_xrpl(
             issuer,
             currency,
             amount: amount_to_send,
+            max_amount,
             transfer_fee,
             sender: info.sender.to_owned(),
             recipient: recipient.to_owned(),
