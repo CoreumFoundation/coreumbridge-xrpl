@@ -15,7 +15,9 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	cosmoserrors "github.com/cosmos/cosmos-sdk/types/errors"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -720,6 +722,87 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		sdk.ZeroInt(),
 		registeredToken.CoreumDenom,
 	)
+}
+
+func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	moduleAccountRecipient := authtypes.NewModuleAddress(govtypes.ModuleName)
+	relayers := genRelayers(ctx, t, chains, 2)
+
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		len(relayers),
+		3,
+		defaultTrustSetLimitAmount,
+		xrpl.GenPrivKeyTxSigner().Account().String(),
+	)
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	// fund owner to cover issuance fees
+	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount,
+	})
+
+	issuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
+	issuer := issuerAcc.String()
+	currency := "RCR"
+	sendingPrecision := int32(15)
+	maxHoldingAmount := sdk.NewIntFromUint64(10000)
+
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
+
+	// register from the owner
+	_, err := contractClient.RegisterXRPLToken(
+		ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount, sdk.ZeroInt(),
+	)
+	require.NoError(t, err)
+
+	xrplTokens, err := contractClient.GetXRPLTokens(ctx)
+	require.NoError(t, err)
+	// find registered token
+	var registeredToken coreum.XRPLToken
+	for _, token := range xrplTokens {
+		if token.Issuer == issuer && token.Currency == currency {
+			registeredToken = token
+			break
+		}
+	}
+	require.Equal(t, issuer, registeredToken.Issuer)
+	require.Equal(t, currency, registeredToken.Currency)
+	require.NotEmpty(t, registeredToken.CoreumDenom)
+
+	// activate token
+	activateXRPLToken(ctx, t, contractClient, relayers, issuer, currency)
+
+	// create an evidence of transfer tokens from XRPL to Coreum
+	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+		TxHash:    genXRPLTxHash(t),
+		Issuer:    issuerAcc.String(),
+		Currency:  currency,
+		Amount:    sdkmath.NewInt(10),
+		Recipient: moduleAccountRecipient,
+	}
+
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(
+		ctx,
+		relayers[0].CoreumAddress,
+		xrplToCoreumTransferEvidence,
+	)
+	require.NoError(t, err)
+
+	// sending to module account is blocked.
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(
+		ctx,
+		relayers[1].CoreumAddress,
+		xrplToCoreumTransferEvidence,
+	)
+	require.True(t, coreum.IsRecipientBlockedError(err))
 }
 
 //nolint:tparallel // the test is parallel, but test cases are not
