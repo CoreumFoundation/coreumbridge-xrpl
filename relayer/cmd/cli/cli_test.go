@@ -25,6 +25,7 @@ import (
 
 	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
+	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -59,7 +60,7 @@ func TestStartCmd(t *testing.T) {
 func TestKeyringCmds(t *testing.T) {
 	unsealConfig()
 
-	cmd, err := cli.KeyringCmd()
+	cmd, err := cli.KeyringCmd("coreum", constant.CoinType)
 	require.NoError(t, err)
 
 	configPath := t.TempDir()
