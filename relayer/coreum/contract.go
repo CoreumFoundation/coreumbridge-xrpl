@@ -307,23 +307,17 @@ type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
 }
 
 // TODO(dzmitryhil) refactor this.
-type xrplTransactionEvidenceTrustSetOperationResult struct {
-	/*Issuer   string `json:"issuer"`
-	Currency string `json:"currency"`*/
-}
+/*type xrplTransactionEvidenceTrustSetOperationResult struct{}
 
-type xrplTransactionEvidenceCoreumToXRPLTransferOperationResult struct{}
+type xrplTransactionEvidenceCoreumToXRPLTransferOperationResult struct{}*/
 
-//nolint:lll // breaking this down will make it less readable.
 type xrplTransactionEvidenceOperationResult struct {
-	TicketsAllocation    *xrplTransactionEvidenceTicketsAllocationOperationResult    `json:"tickets_allocation,omitempty"`
-	TrustSet             *xrplTransactionEvidenceTrustSetOperationResult             `json:"trust_set,omitempty"`
-	CoreumToXRPLTransfer *xrplTransactionEvidenceCoreumToXRPLTransferOperationResult `json:"coreum_to_xrpl_transfer,omitempty"`
+	TicketsAllocation *xrplTransactionEvidenceTicketsAllocationOperationResult `json:"tickets_allocation,omitempty"`
 }
 
 type xrplTransactionResultEvidence struct {
 	XRPLTransactionResultEvidence
-	OperationResult xrplTransactionEvidenceOperationResult `json:"operation_result"`
+	OperationResult *xrplTransactionEvidenceOperationResult `json:"operation_result,omitempty"`
 }
 
 type evidence struct {
@@ -641,7 +635,7 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
-				OperationResult: xrplTransactionEvidenceOperationResult{
+				OperationResult: &xrplTransactionEvidenceOperationResult{
 					TicketsAllocation: &xrplTransactionEvidenceTicketsAllocationOperationResult{
 						Tickets: evd.Tickets,
 					},
@@ -671,9 +665,6 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
-				OperationResult: xrplTransactionEvidenceOperationResult{
-					TrustSet: &xrplTransactionEvidenceTrustSetOperationResult{},
-				},
 			},
 		},
 	}
@@ -700,9 +691,6 @@ func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
-				OperationResult: xrplTransactionEvidenceOperationResult{
-					CoreumToXRPLTransfer: &xrplTransactionEvidenceCoreumToXRPLTransferOperationResult{},
-				},
 			},
 		},
 	}

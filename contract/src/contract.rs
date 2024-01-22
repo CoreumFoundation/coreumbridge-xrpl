@@ -490,21 +490,6 @@ fn save_evidence(
     // 2. The bridge is halted -> Only rotate keys evidences allowed if there is a rotate keys ongoing
     let config = CONFIG.load(deps.storage)?;
 
-    if config.bridge_state == BridgeState::Halted {
-        if !PENDING_ROTATE_KEYS.load(deps.storage)? {
-            return Err(ContractError::BridgeHalted {});
-        }
-
-        // If evidence is not a rotate keys we won't accept this operation
-        match evidence {
-            Evidence::XRPLTransactionResult {
-                operation_result: OperationResult::KeysRotation {},
-                ..
-            } => (),
-            _ => return Err(ContractError::BridgeHalted {}),
-        }
-    }
-
     evidence.validate_basic()?;
 
     assert_relayer(deps.as_ref(), &sender)?;
@@ -521,6 +506,9 @@ fn save_evidence(
             amount,
             recipient,
         } => {
+            if config.bridge_state == BridgeState::Halted {
+                return Err(ContractError::BridgeHalted {});
+            }
             deps.api.addr_validate(recipient.as_ref())?;
 
             // This means the token is not a Coreum originated token (the issuer is not the XRPL multisig address)
@@ -644,17 +632,29 @@ fn save_evidence(
             let operation_id = account_sequence.unwrap_or_else(|| ticket_sequence.unwrap());
             let operation = check_operation_exists(deps.storage, operation_id)?;
 
+            if config.bridge_state == BridgeState::Halted {
+                if !PENDING_ROTATE_KEYS.load(deps.storage)? {
+                    return Err(ContractError::BridgeHalted {});
+                }
+
+                // If the evidence is not for a key rotation operation we return an error
+                match &operation.operation_type {
+                    OperationType::RotateKeys { .. } => (),
+                    _ => return Err(ContractError::BridgeHalted {}),
+                }
+            }
+
             if threshold_reached {
                 match &operation.operation_type {
                     OperationType::AllocateTickets { .. } => match operation_result.to_owned() {
-                        OperationResult::TicketsAllocation { tickets } => {
+                        Some(OperationResult::TicketsAllocation { tickets }) => {
                             handle_ticket_allocation_confirmation(
                                 deps.storage,
                                 tickets.to_owned(),
                                 transaction_result.to_owned(),
                             )?;
                         }
-                        _ => return Err(ContractError::InvalidOperationResult {}),
+                        None => return Err(ContractError::InvalidOperationResult {}),
                     },
                     OperationType::TrustSet {
                         issuer, currency, ..
@@ -710,7 +710,6 @@ fn save_evidence(
 
             response = response
                 .add_attribute("action", ContractActions::XRPLTransactionResult.as_str())
-                .add_attribute("operation_result", operation_result.as_str())
                 .add_attribute("operation_id", operation_id.to_string())
                 .add_attribute("transaction_result", transaction_result.as_str())
                 .add_attribute("threshold_reached", threshold_reached.to_string());
