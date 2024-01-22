@@ -43,7 +43,6 @@ pub enum OperationType {
         currency: String,
         amount: Uint128,
         max_amount: Uint128,
-        transfer_fee: Uint128,
         sender: Addr,
         recipient: String,
     },
@@ -128,7 +127,6 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
             issuer,
             currency,
             amount,
-            transfer_fee,
             sender,
             ..
         } => {
@@ -140,7 +138,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                     if transaction_result.eq(&TransactionResult::Accepted) {
                         let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
                             coin: coin(
-                                amount.checked_add(transfer_fee)?.u128(),
+                                amount.u128(),
                                 xrpl_token.coreum_denom,
                             ),
                         }));

@@ -4,7 +4,7 @@ use crate::{
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
     fees::{
-        amount_after_bridge_fees, amount_after_transfer_fees, handle_fee_collection,
+        amount_after_bridge_fees, handle_fee_collection,
         substract_relayer_fees,
     },
     msg::{
@@ -64,13 +64,6 @@ const XRP_DECIMALS: u32 = 6;
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
 pub const XRPL_TOKENS_DECIMALS: u32 = 15;
-// This is equal to 0% fee
-// If it is 1000000001 it means the fee will be 0.0000001%
-// If it is 1500000000 it means the fee will be 50% and so on.
-// We will use this value to calculate the fee to be applied to the amount being sent.
-// For more info check https://xrpl.org/transfer-fees.html#technical-details
-pub const XRPL_ZERO_TRANSFER_RATE: Uint128 = Uint128::new(1000000000);
-
 pub const XRP_CURRENCY: &str = "XRP";
 pub const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
 
@@ -157,7 +150,6 @@ pub fn instantiate(
         // The XRP token is enabled from the start because it doesn't need approval to be received on the XRPL side.
         state: TokenState::Enabled,
         bridging_fee: XRP_DEFAULT_FEE,
-        transfer_rate: None,
     };
 
     let key = build_xrpl_token_key(XRP_ISSUER.to_string(), XRP_CURRENCY.to_string());
@@ -204,7 +196,6 @@ pub fn execute(
             sending_precision,
             max_holding_amount,
             bridging_fee,
-            transfer_rate,
         } => register_xrpl_token(
             deps,
             env,
@@ -214,7 +205,6 @@ pub fn execute(
             sending_precision,
             max_holding_amount,
             bridging_fee,
-            transfer_rate,
         ),
         ExecuteMsg::SaveEvidence { evidence } => save_evidence(
             deps.into_empty(),
@@ -235,14 +225,12 @@ pub fn execute(
         ExecuteMsg::RecoverXRPLTokenRegistration {
             issuer,
             currency,
-            transfer_rate,
         } => recover_xrpl_token_registration(
             deps.into_empty(),
             env.block.time.seconds(),
             info.sender,
             issuer,
             currency,
-            transfer_rate,
         ),
         ExecuteMsg::SaveSignature {
             operation_id,
@@ -388,7 +376,6 @@ fn register_xrpl_token(
     sending_precision: i32,
     max_holding_amount: Uint128,
     bridging_fee: Uint128,
-    transfer_rate: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
     assert_bridge_active(deps.as_ref().into_empty())?;
@@ -396,8 +383,6 @@ fn register_xrpl_token(
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
 
     validate_sending_precision(sending_precision, XRPL_TOKENS_DECIMALS)?;
-
-    validate_transfer_rate(transfer_rate)?;
 
     // We want to check that exactly the issue fee was sent, not more.
     check_issue_fee(&deps, &info)?;
@@ -450,7 +435,6 @@ fn register_xrpl_token(
         // Registered tokens will start in processing until TrustSet operation is accepted/rejected
         state: TokenState::Processing,
         bridging_fee,
-        transfer_rate,
     };
 
     XRPL_TOKENS.save(deps.storage, key, &token)?;
@@ -798,7 +782,6 @@ fn recover_xrpl_token_registration(
     sender: Addr,
     issuer: String,
     currency: String,
-    transfer_rate: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
     assert_bridge_active(deps.as_ref())?;
@@ -813,9 +796,6 @@ fn recover_xrpl_token_registration(
     if token.state.ne(&TokenState::Inactive) {
         return Err(ContractError::XRPLTokenNotInactive {});
     }
-
-    // Check transfer rate is a valid value
-    validate_transfer_rate(transfer_rate)?;
 
     // Put the state back to Processing since we are going to try to activate it again.
     token.state = TokenState::Processing;
@@ -878,7 +858,6 @@ fn send_to_xrpl(
 
     let decimals;
     let amount_to_send;
-    let amount_after_transfer_rate;
     let mut transfer_fee = Uint128::zero();
     let max_amount;
     let remainder;
@@ -908,28 +887,12 @@ fn send_to_xrpl(
             let amount_after_bridge_fees =
                 amount_after_bridge_fees(funds.amount, xrpl_token.bridging_fee)?;
 
-            // We calculate the amount to send after applying the transfer rate (if any)
-            (amount_after_transfer_rate, transfer_fee) =
-                amount_after_transfer_fees(amount_after_bridge_fees, xrpl_token.transfer_rate)?;
-
             // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
             (amount_to_send, remainder) = truncate_amount(
                 xrpl_token.sending_precision,
                 decimals,
-                amount_after_transfer_rate,
+                amount_after_bridge_fees,
             )?;
-
-            // If the token has no transfer rate, the max amount will be the amount to send
-            // If it has, the max amount will be the amount after bridge fees, truncated to the sending precision
-            if xrpl_token.transfer_rate.is_some() {
-                (max_amount, _) = truncate_amount(
-                    xrpl_token.sending_precision,
-                    decimals,
-                    amount_after_bridge_fees,
-                )?;
-            } else {
-                max_amount = amount_to_send;
-            }
 
             handle_fee_collection(
                 deps.storage,
@@ -1000,7 +963,6 @@ fn send_to_xrpl(
             currency,
             amount: amount_to_send,
             max_amount,
-            transfer_fee,
             sender: info.sender.to_owned(),
             recipient: recipient.to_owned(),
         },
@@ -1415,17 +1377,6 @@ pub fn validate_sending_precision(
 
     if sending_precision > decimals.try_into().unwrap() {
         return Err(ContractError::TokenSendingPrecisionTooHigh {});
-    }
-    Ok(())
-}
-
-fn validate_transfer_rate(transfer_rate: Option<Uint128>) -> Result<(), ContractError> {
-    if let Some(transfer_rate) = transfer_rate {
-        if transfer_rate.le(&Uint128::new(1000000000))
-            || transfer_rate.gt(&Uint128::new(2000000000))
-        {
-            return Err(ContractError::InvalidTransferRate {});
-        }
     }
     Ok(())
 }
