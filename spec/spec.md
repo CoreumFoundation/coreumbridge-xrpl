@@ -106,9 +106,9 @@ The XRPL tickets allow us to execute a transaction with non-sequential sequence 
 transactions in parallel. Any workflow can allocate a ticket and the ticket allocation mechanism either returns a ticket
 number or errors out, in case of lack of the free tickets. The ticket re-allocation will be triggered by the tx
 confirmation (Submit XRPL transaction last step) once the used tickets count is greater than the allowed threshold. The
-contract initiates the `submit-increase-tickets` operation to increase the amount. Once the operation is confirmed, the
-contract increases the free slots on the contract as well (based on the tx result). In the case the `submit-increase-tickets` operation
-is rejected, another `submit-increase-tickets` operation will initiated by the contract. If no tickets are available, the contract will
+contract initiates the `allocate-new-tickets` operation to increase the amount. Once the operation is confirmed, the
+contract increases the free slots on the contract as well (based on the tx result). In the case the `allocate-new-tickets` operation
+is rejected, another `allocate-new-tickets` operation will initiated by the contract. If no tickets are available, the contract will
 finish execution but notify with an event that it has run out of tickets. If this happens, the contract owner must initiate the ticket recovery workflow.
 
 Check [workflow](#allocate-ticket) for more details.
