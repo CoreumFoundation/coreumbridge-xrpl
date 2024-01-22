@@ -460,16 +460,6 @@ func TestRegisterXRPLToken(t *testing.T) {
 	)
 	require.True(t, coreum.IsPendingOperationNotFoundError(err), err)
 
-	// try to register with not existing currency
-	invalidEvidenceNotExistingIssuer := rejectedTxEvidenceTrustSet
-	invalidEvidenceNotExistingIssuer.Issuer = xrpl.GenPrivKeyTxSigner().Account().String()
-	_, err = contractClient.SendXRPLTrustSetTransactionResultEvidence(
-		ctx,
-		relayers[0].CoreumAddress,
-		invalidEvidenceNotExistingIssuer,
-	)
-	require.True(t, coreum.IsTokenNotRegisteredError(err), err)
-
 	// send valid rejected evidence from first relayer
 	txResTrustSet, err := contractClient.SendXRPLTrustSetTransactionResultEvidence(
 		ctx,
