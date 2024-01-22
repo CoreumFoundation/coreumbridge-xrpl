@@ -498,7 +498,7 @@ fn save_evidence(
         // If evidence is not a rotate keys we won't accept this operation
         match evidence {
             Evidence::XRPLTransactionResult {
-                operation_result: OperationResult::KeyRotation { .. },
+                operation_result: OperationResult::KeysRotation {},
                 ..
             } => (),
             _ => return Err(ContractError::BridgeHalted {}),
@@ -670,7 +670,7 @@ fn save_evidence(
                 }
                 OperationResult::TicketsAllocation { .. } => {}
                 OperationResult::CoreumToXRPLTransfer {} => {}
-                OperationResult::KeyRotation {} => {}
+                OperationResult::KeysRotation {} => {}
             }
 
             if threshold_reached {
@@ -708,7 +708,7 @@ fn save_evidence(
                             &mut response,
                         )?;
                     }
-                    OperationResult::KeyRotation {} => {
+                    OperationResult::KeysRotation {} => {
                         let pending_operation =
                             PENDING_OPERATIONS.load(deps.storage, operation_id)?;
 

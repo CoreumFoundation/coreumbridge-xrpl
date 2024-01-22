@@ -55,7 +55,7 @@ pub enum OperationResult {
         tickets: Option<Vec<u64>>,
     },
     TrustSet {},
-    KeyRotation {},
+    KeysRotation {},
     #[serde(rename = "coreum_to_xrpl_transfer")]
     CoreumToXRPLTransfer {},
 }
@@ -67,7 +67,7 @@ impl OperationResult {
             OperationResult::TicketsAllocation { .. } => "tickets_allocation",
             OperationResult::TrustSet { .. } => "trust_set",
             OperationResult::CoreumToXRPLTransfer {} => "coreum_to_xrpl_transfer",
-            OperationResult::KeyRotation { .. } => "key_rotation",
+            OperationResult::KeysRotation { .. } => "keys_rotation",
         }
     }
 }
@@ -153,7 +153,7 @@ impl Evidence {
                         }
                     }
                     // Key rotation operations can be done with both account_sequence and ticket_sequence
-                    OperationResult::KeyRotation {} => {}
+                    OperationResult::KeysRotation {} => {}
                 }
 
                 Ok(())
