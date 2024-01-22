@@ -4,7 +4,6 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     error::ContractError,
-    relayer::Relayer,
     state::{CONFIG, PROCESSED_TXS, TX_EVIDENCES},
 };
 
@@ -55,14 +54,8 @@ pub enum OperationResult {
     TicketsAllocation {
         tickets: Option<Vec<u64>>,
     },
-    TrustSet {
-        issuer: String,
-        currency: String,
-    },
-    RotateKeys {
-        new_relayers: Vec<Relayer>,
-        new_evidence_threshold: u32,
-    },
+    TrustSet {},
+    KeyRotation {},
     #[serde(rename = "coreum_to_xrpl_transfer")]
     CoreumToXRPLTransfer {},
 }
@@ -74,7 +67,7 @@ impl OperationResult {
             OperationResult::TicketsAllocation { .. } => "tickets_allocation",
             OperationResult::TrustSet { .. } => "trust_set",
             OperationResult::CoreumToXRPLTransfer {} => "coreum_to_xrpl_transfer",
-            OperationResult::RotateKeys { .. } => "rotate_keys",
+            OperationResult::KeyRotation { .. } => "key_rotation",
         }
     }
 }
@@ -149,18 +142,18 @@ impl Evidence {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
                     }
-                    OperationResult::TrustSet { .. } => {
+                    OperationResult::TrustSet {} => {
                         if account_sequence.is_some() {
                             return Err(ContractError::InvalidTransactionResultEvidence {});
                         }
                     }
-                    OperationResult::CoreumToXRPLTransfer { .. } => {
+                    OperationResult::CoreumToXRPLTransfer {} => {
                         if account_sequence.is_some() {
                             return Err(ContractError::InvalidTransactionResultEvidence {});
                         }
                     }
                     // Key rotation operations can be done with both account_sequence and ticket_sequence
-                    OperationResult::RotateKeys { .. } => {}
+                    OperationResult::KeyRotation {} => {}
                 }
 
                 Ok(())

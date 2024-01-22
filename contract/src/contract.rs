@@ -498,7 +498,7 @@ fn save_evidence(
         // If evidence is not a rotate keys we won't accept this operation
         match evidence {
             Evidence::XRPLTransactionResult {
-                operation_result: OperationResult::RotateKeys { .. },
+                operation_result: OperationResult::KeyRotation { .. },
                 ..
             } => (),
             _ => return Err(ContractError::BridgeHalted {}),
@@ -643,12 +643,21 @@ fn save_evidence(
         } => {
             let operation_id =
                 check_operation_exists(deps.storage, account_sequence, ticket_sequence)?;
-
             // custom state validation of the transaction results for operations
             // TODO(keyleu) clean up at end of development unifying operations that we don't need to check
             match &operation_result {
-                OperationResult::TrustSet { issuer, currency } => {
-                    let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
+                OperationResult::TrustSet {} => {
+                    let pending_operation = PENDING_OPERATIONS.load(deps.storage, operation_id)?;
+
+                    // We check that the operation is indeed a TrustSet operation
+                    let (issuer, currency) = match pending_operation.operation_type {
+                        OperationType::TrustSet {
+                            issuer, currency, ..
+                        } => (issuer, currency),
+                        _ => return Err(ContractError::InvalidOperationResult {}),
+                    };
+
+                    let key = build_xrpl_token_key(issuer, currency);
 
                     // We validate that the token is indeed registered and is in the processing state
                     let token = XRPL_TOKENS
@@ -660,8 +669,8 @@ fn save_evidence(
                     }
                 }
                 OperationResult::TicketsAllocation { .. } => {}
-                OperationResult::CoreumToXRPLTransfer { .. } => {}
-                OperationResult::RotateKeys { .. } => {}
+                OperationResult::CoreumToXRPLTransfer {} => {}
+                OperationResult::KeyRotation {} => {}
             }
 
             if threshold_reached {
@@ -673,11 +682,21 @@ fn save_evidence(
                             transaction_result.to_owned(),
                         )?;
                     }
-                    OperationResult::TrustSet { issuer, currency } => {
+                    OperationResult::TrustSet {} => {
+                        let pending_operation =
+                            PENDING_OPERATIONS.load(deps.storage, operation_id)?;
+
+                        let (issuer, currency) = match pending_operation.operation_type {
+                            OperationType::TrustSet {
+                                issuer, currency, ..
+                            } => (issuer, currency),
+                            _ => return Err(ContractError::InvalidOperationResult {}),
+                        };
+
                         handle_trust_set_confirmation(
                             deps.storage,
-                            issuer.to_owned(),
-                            currency.to_owned(),
+                            issuer,
+                            currency,
                             transaction_result.to_owned(),
                         )?;
                     }
@@ -689,14 +708,24 @@ fn save_evidence(
                             &mut response,
                         )?;
                     }
-                    OperationResult::RotateKeys {
-                        new_relayers,
-                        new_evidence_threshold,
-                    } => {
+                    OperationResult::KeyRotation {} => {
+                        let pending_operation =
+                            PENDING_OPERATIONS.load(deps.storage, operation_id)?;
+
+                        // We check that the operation is indeed a TrustSet operation
+                        let (new_relayers, new_evidence_threshold) =
+                            match pending_operation.operation_type {
+                                OperationType::RotateKeys {
+                                    new_relayers,
+                                    new_evidence_threshold,
+                                } => (new_relayers, new_evidence_threshold),
+                                _ => return Err(ContractError::InvalidOperationResult {}),
+                            };
+
                         handle_rotate_keys_confirmation(
                             deps.storage,
-                            new_relayers.to_owned(),
-                            new_evidence_threshold.to_owned(),
+                            new_relayers,
+                            new_evidence_threshold,
                             transaction_result.to_owned(),
                         )?;
                     }

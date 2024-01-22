@@ -1355,10 +1355,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: OperationResult::TrustSet {},
                 },
             },
             &[],
@@ -1487,10 +1484,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: OperationResult::TrustSet {},
                 },
             },
             &[],
@@ -1506,10 +1500,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: OperationResult::TrustSet {},
                 },
             },
             &[],
@@ -2951,10 +2942,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: OperationResult::TrustSet {},
                 },
             },
             &[],
@@ -3656,10 +3644,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token1.issuer.clone(),
-                        currency: test_token1.currency.clone(),
-                    },
+                    operation_result: OperationResult::TrustSet {},
                 },
             },
             &[],
@@ -3785,10 +3770,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token2.issuer.clone(),
-                        currency: test_token2.currency.clone(),
-                    },
+                    operation_result: OperationResult::TrustSet {},
                 },
             },
             &[],
@@ -3981,10 +3963,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token3.issuer.clone(),
-                        currency: test_token3.currency.clone(),
-                    },
+                    operation_result: OperationResult::TrustSet {},
                 },
             },
             &[],
@@ -4672,10 +4651,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(1),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: test_token_xrpl.issuer.to_owned(),
-                            currency: test_token_xrpl.currency.to_owned(),
-                        },
+                        operation_result: OperationResult::TrustSet {},
                     },
                 },
                 &vec![],
@@ -5518,7 +5494,7 @@ mod tests {
 
         // Accept TrustSet for all of them
         let mut ticket_sequence = 1;
-        for token in test_tokens.iter() {
+        for _ in test_tokens.iter() {
             let tx_hash = generate_hash();
             for relayer in relayer_accounts.iter() {
                 wasm.execute::<ExecuteMsg>(
@@ -5529,10 +5505,7 @@ mod tests {
                             account_sequence: None,
                             ticket_sequence: Some(ticket_sequence),
                             transaction_result: TransactionResult::Accepted,
-                            operation_result: OperationResult::TrustSet {
-                                issuer: token.issuer.to_owned(),
-                                currency: token.currency.to_owned(),
-                            },
+                            operation_result: OperationResult::TrustSet {},
                         },
                     },
                     &vec![],
@@ -6649,10 +6622,7 @@ mod tests {
                             .unwrap(),
                     ),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: token.issuer.clone(),
-                        currency: token.currency.clone(),
-                    },
+                    operation_result: OperationResult::TrustSet {},
                 },
             },
             &[],
@@ -6811,10 +6781,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(u64::try_from(index).unwrap() + 1),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: token.issuer.clone(),
-                            currency: token.currency.clone(),
-                        },
+                        operation_result: OperationResult::TrustSet {},
                     },
                 },
                 &[],
@@ -7242,10 +7209,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(1),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: xrpl_token.issuer.to_owned(),
-                            currency: xrpl_token.currency.to_owned(),
-                        },
+                        operation_result: OperationResult::TrustSet {},
                     },
                 },
                 &vec![],
@@ -8611,10 +8575,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(1),
                         transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::RotateKeys {
-                            new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
-                            new_evidence_threshold: 2,
-                        },
+                        operation_result: OperationResult::KeyRotation {},
                     },
                 },
                 &vec![],
@@ -8689,10 +8650,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(2),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::RotateKeys {
-                            new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
-                            new_evidence_threshold: 2,
-                        },
+                        operation_result: OperationResult::KeyRotation {},
                     },
                 },
                 &vec![],
@@ -9071,10 +9029,7 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::RotateKeys {
-                        new_relayers: vec![new_relayer.to_owned()],
-                        new_evidence_threshold: 1,
-                    },
+                    operation_result: OperationResult::KeyRotation {},
                 },
             },
             &[],
@@ -9231,10 +9186,7 @@ mod tests {
                 account_sequence: Some(account_sequence),
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Accepted,
-                operation_result: OperationResult::TrustSet {
-                    issuer: generate_xrpl_address(),
-                    currency: "USD".to_string(),
-                },
+                operation_result: OperationResult::TrustSet {},
             },
         ];
 
@@ -9541,16 +9493,6 @@ mod tests {
                 transaction_result: transaction_result.to_owned(),
                 operation_result: OperationResult::TicketsAllocation {
                     tickets: Some(vec![1, 2, 3]),
-                },
-            },
-            Evidence::XRPLTransactionResult {
-                tx_hash: hash.to_owned(),
-                account_sequence: operation_id,
-                ticket_sequence: None,
-                transaction_result: transaction_result.to_owned(),
-                operation_result: OperationResult::TrustSet {
-                    issuer: generate_xrpl_address(),
-                    currency: "USD".to_string(),
                 },
             },
         ];
