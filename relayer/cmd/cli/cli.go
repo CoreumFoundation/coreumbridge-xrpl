@@ -260,11 +260,29 @@ func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
 	cmd := keys.Commands(DefaultHomeDir)
 	for _, childCmd := range cmd.Commands() {
 		childCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+			clientCtx = clientCtx.WithKeyringDir(filepath.Join(DefaultHomeDir, "keyring-"+suffix))
+
+			keyringBackend, err := cmd.Flags().GetString(flags.FlagKeyringBackend)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+			kr, err := client.NewKeyringFromBackend(clientCtx, keyringBackend)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+			clientCtx = clientCtx.WithKeyring(kr)
+
+			if err := client.SetCmdClientContext(cmd, clientCtx); err != nil {
+				return errors.WithStack(err)
+			}
 			return setCoreumConfigFromHomeFlag(cmd)
 		}
 	}
 	cmd.Use += "-" + suffix
-	cmd.Flag(flags.FlagKeyringDir).DefValue = filepath.Join(DefaultHomeDir, suffix)
 
 	return cmd, nil
 }
