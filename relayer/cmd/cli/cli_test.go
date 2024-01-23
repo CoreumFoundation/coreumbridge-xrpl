@@ -952,7 +952,7 @@ func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
 	defer ctrl.Finish()
 
 	keyringDir := t.TempDir()
-	keyName := "sender"
+	keyName := "relayer"
 	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
 
@@ -976,7 +976,7 @@ func TestClaimRelayerFees(t *testing.T) {
 	defer ctrl.Finish()
 
 	keyringDir := t.TempDir()
-	keyName := "sender"
+	keyName := "relayer"
 	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
 

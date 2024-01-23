@@ -1431,7 +1431,7 @@ func ClaimRelayerFeesCmd(bcp BridgeClientProvider) *cobra.Command {
 		Long: strings.TrimSpace(
 			`Claims relayer fees.
 Example:
-$ claim-relayer-fees --key-name address --amount 1000ucore,100ibc/0718CC536BB057AC79D5616B8EA1B9540EC1F2170718CAFF6F0083C966FFF1707
+$ claim-relayer-fees --key-name address --amount 1000ucore,100ibc/0718CC536BB057AC79
 `,
 		),
 		Args: cobra.ExactArgs(0),
@@ -1462,15 +1462,14 @@ $ claim-relayer-fees --key-name address --amount 1000ucore,100ibc/0718CC536BB057
 					return err
 				}
 				return bridgeClient.ClaimRelayerFees(ctx, address, amount)
-
-			} else {
-				feesCollected, err := bridgeClient.GetFeesCollected(ctx, address)
-				if err != nil {
-					return err
-				}
-
-				return bridgeClient.ClaimRelayerFees(ctx, address, feesCollected)
 			}
+
+			feesCollected, err := bridgeClient.GetFeesCollected(ctx, address)
+			if err != nil {
+				return err
+			}
+
+			return bridgeClient.ClaimRelayerFees(ctx, address, feesCollected)
 		},
 	}
 	addKeyringFlags(cmd)
