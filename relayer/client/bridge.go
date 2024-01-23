@@ -89,6 +89,12 @@ type ContractClient interface {
 		sendingPrecision *int32,
 		bridgingFee *sdkmath.Int,
 	) (*sdk.TxResponse, error)
+	GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error)
+	ClaimRefund(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		pendingRefundID string,
+	) (*sdk.TxResponse, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -634,6 +640,15 @@ func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Accou
 	}
 
 	return balances, nil
+}
+
+func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error) {
+	return b.contractClient.GetPendingRefunds(ctx, address)
+}
+
+func (b *BridgeClient) ClaimPendingRefund(ctx context.Context, address sdk.AccAddress, refundID string) error {
+	_, err := b.contractClient.ClaimRefund(ctx, address, refundID)
+	return err
 }
 
 func (b *BridgeClient) buildRelayersFromBootstrappingConfig(

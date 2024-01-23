@@ -55,6 +55,20 @@ func (mr *MockBridgeClientMockRecorder) Bootstrap(arg0, arg1, arg2, arg3 interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockBridgeClient)(nil).Bootstrap), arg0, arg1, arg2, arg3)
 }
 
+// ClaimPendingRefund mocks base method.
+func (m *MockBridgeClient) ClaimPendingRefund(arg0 context.Context, arg1 types.AccAddress, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClaimPendingRefund", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClaimPendingRefund indicates an expected call of ClaimPendingRefund.
+func (mr *MockBridgeClientMockRecorder) ClaimPendingRefund(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimPendingRefund", reflect.TypeOf((*MockBridgeClient)(nil).ClaimPendingRefund), arg0, arg1, arg2)
+}
+
 // GetAllTokens mocks base method.
 func (m *MockBridgeClient) GetAllTokens(arg0 context.Context) ([]coreum.CoreumToken, []coreum.XRPLToken, error) {
 	m.ctrl.T.Helper()
@@ -99,6 +113,21 @@ func (m *MockBridgeClient) GetCoreumBalances(arg0 context.Context, arg1 types.Ac
 func (mr *MockBridgeClientMockRecorder) GetCoreumBalances(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCoreumBalances", reflect.TypeOf((*MockBridgeClient)(nil).GetCoreumBalances), arg0, arg1)
+}
+
+// GetPendingRefunds mocks base method.
+func (m *MockBridgeClient) GetPendingRefunds(arg0 context.Context, arg1 types.AccAddress) ([]coreum.PendingRefund, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPendingRefunds", arg0, arg1)
+	ret0, _ := ret[0].([]coreum.PendingRefund)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPendingRefunds indicates an expected call of GetPendingRefunds.
+func (mr *MockBridgeClientMockRecorder) GetPendingRefunds(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingRefunds", reflect.TypeOf((*MockBridgeClient)(nil).GetPendingRefunds), arg0, arg1)
 }
 
 // GetXRPLBalances mocks base method.

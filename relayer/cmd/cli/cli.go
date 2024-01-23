@@ -64,6 +64,8 @@ const (
 	FlagSendingPrecision = "sending-precision"
 	// FlagBridgingFee is bridging fee flag.
 	FlagBridgingFee = "bridging-fee"
+	// FlagRefundID is id of a pending refund.
+	FlagRefundID = "refund-id"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -134,6 +136,8 @@ type BridgeClient interface {
 	) error
 	GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error)
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
+	GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error)
+	ClaimPendingRefund(ctx context.Context, address sdk.AccAddress, pendingRefundID string) error
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
@@ -1047,8 +1051,8 @@ $ set-xrpl-trust-set 1e80 %s %s --key-name sender
 	return cmd
 }
 
-// VersionCommand returns a CLI command to interactively print the application binary version information.
-func VersionCommand() *cobra.Command {
+// VersionCommandCmd returns a CLI command to interactively print the application binary version information.
+func VersionCommandCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print the application binary version information",
@@ -1066,6 +1070,108 @@ func VersionCommand() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// GetPendingRefundsCmd gets the pending refunds of and address.
+func GetPendingRefundsCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pending-refunds [address]",
+		Short: "Get pending refunds of an address",
+		Long: strings.TrimSpace(
+			`Get pending refunds.
+Example:
+$ pending-refunds core14e57zzux440wz2zl4gcj0xq2kc27jep7zucvz2
+`,
+		),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			address, err := sdk.AccAddressFromBech32(args[0])
+			if err != nil {
+				return err
+			}
+
+			refunds, err := bridgeClient.GetPendingRefunds(ctx, address)
+			if err != nil {
+				return err
+			}
+
+			logger, err := getConsoleLogger()
+			if err != nil {
+				return err
+			}
+
+			logger.Info(ctx, "pending refunds", zap.Any("refunds", refunds))
+			return nil
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
+// ClaimRefundCmd claims pending refund.
+func ClaimRefundCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "claim-refund",
+		Short: "Claim pending refund, either all pending refunds or with a refund id.",
+		Long: strings.TrimSpace(
+			`Claims pending refunds.
+Example:
+$ claim-refund --key-name address --pending-refund-id 1705664693-2
+`,
+		),
+		Args: cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			address, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+			if err != nil {
+				return err
+			}
+
+			refundID, err := cmd.Flags().GetString(FlagRefundID)
+			if err != nil {
+				return err
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			if refundID != "" {
+				return bridgeClient.ClaimPendingRefund(ctx, address, refundID)
+			} else {
+				refunds, err := bridgeClient.GetPendingRefunds(ctx, address)
+				if err != nil {
+					return err
+				}
+
+				for _, refund := range refunds {
+					bridgeClient.ClaimPendingRefund(ctx, address, refund.ID)
+				}
+				return nil
+			}
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+	cmd.PersistentFlags().String(FlagRefundID, "", "pending refund id")
+
+	return cmd
 }
 
 // GetCLILogger returns the console logger initialised with the default logger config but with set `yaml` format.

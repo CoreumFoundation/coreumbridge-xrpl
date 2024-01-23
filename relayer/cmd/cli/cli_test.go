@@ -722,7 +722,73 @@ func TestSetXRPLTrustSetCmd(t *testing.T) {
 	executeCmd(t, cli.SetXRPLTrustSetCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
+func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "sender"
+	addKeyToTestKeyring(t, keyringDir, keyName)
+	address := readKeyFromTestKeyring(t, keyringDir, keyName)
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	refundID := "sample-1"
+	bridgeClientMock.EXPECT().ClaimPendingRefund(
+		gomock.Any(),
+		address,
+		refundID,
+	).Return(nil)
+	args := []string{"--" + cli.FlagKeyName, keyName, "--" + cli.FlagRefundID, refundID}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestClaimPendingRefundCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "sender"
+	addKeyToTestKeyring(t, keyringDir, keyName)
+	address := readKeyFromTestKeyring(t, keyringDir, keyName)
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	refundID := "sample-1"
+	pendingRefunds := []coreum.PendingRefund{{ID: refundID, Coin: sdk.NewCoin("coin1", sdk.NewInt(10))}}
+	bridgeClientMock.EXPECT().GetPendingRefunds(
+		gomock.Any(),
+		address,
+	).Return(pendingRefunds, nil)
+	bridgeClientMock.EXPECT().ClaimPendingRefund(
+		gomock.Any(),
+		address,
+		refundID,
+	).Return(nil)
+	args := []string{"--" + cli.FlagKeyName, keyName}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestGetPendingRefundsCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	account := coreum.GenAccount()
+	bridgeClientMock.EXPECT().GetPendingRefunds(gomock.Any(), account).Return([]coreum.PendingRefund{}, nil)
+	executeCmd(t, cli.GetPendingRefundsCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
+}
+
 func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {
+	return executeCmdWithOutputOption(t, cmd, "text", args...)
+}
+
+func executeCmdWithJSONOutput(t *testing.T, cmd *cobra.Command, args ...string) string {
+	return executeCmdWithOutputOption(t, cmd, "json", args...)
+}
+
+func executeCmdWithOutputOption(t *testing.T, cmd *cobra.Command, outOpt string, args ...string) string {
 	t.Helper()
 
 	cmd.SetArgs(args)
@@ -739,7 +805,7 @@ func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {
 		WithTxConfig(encodingConfig.TxConfig).
 		WithLegacyAmino(encodingConfig.Amino).
 		WithInput(os.Stdin).
-		WithOutputFormat("text")
+		WithOutputFormat(outOpt)
 	ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
@@ -759,6 +825,24 @@ func addKeyToTestKeyring(t *testing.T, keyringDir, keyName string) {
 	cmd := keys.AddKeyCommand()
 	krflags.AddKeyringFlags(cmd.PersistentFlags())
 	executeCmd(t, cmd, args...)
+}
+
+func readKeyFromTestKeyring(t *testing.T, keyringDir, keyName string) sdk.AccAddress {
+	cmd := keys.ShowKeysCmd()
+	krflags.AddKeyringFlags(cmd.PersistentFlags())
+	args := []string{
+		keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	output := executeCmdWithJSONOutput(t, cmd, args...)
+	var addressStruct struct {
+		Address string `json:"address"`
+	}
+	err := json.Unmarshal([]byte(output), &addressStruct)
+	require.NoError(t, err)
+	address, err := sdk.AccAddressFromBech32(addressStruct.Address)
+	require.NoError(t, err)
+	return address
 }
 
 func testKeyringFlags(keyringDir string) []string {
