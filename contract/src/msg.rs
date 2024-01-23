@@ -63,6 +63,12 @@ pub enum ExecuteMsg {
     #[serde(rename = "send_to_xrpl")]
     SendToXRPL {
         recipient: String,
+        // This optional field is only allowed for XRPL originated tokens and is used together with attached funds to work with XRPL transfer rate.
+        // How it works:
+        // 1. If the token is not XRPL originated, if this is sent, we will return an error
+        // 2. If the token is XRPL originated, if this is not sent, amount = max_amount = coins sent
+        // 3. If the token is XRPL originated, if this is sent, amount = this amount, max_amount = coins sent
+        amount: Option<Uint128>,
     },
     // All fields that can be updatable for XRPL originated tokens will be updated with this message
     // They are all optional, so any fields that have to be updated can be included in the message.

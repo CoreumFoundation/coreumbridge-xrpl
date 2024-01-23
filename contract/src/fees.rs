@@ -1,4 +1,4 @@
-use cosmwasm_std::{coin, Addr, Coin, Decimal, Storage, Uint128};
+use cosmwasm_std::{coin, Addr, Coin, Storage, Uint128};
 
 use crate::{
     error::ContractError,

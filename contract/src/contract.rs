@@ -3,10 +3,7 @@ use std::collections::VecDeque;
 use crate::{
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
-    fees::{
-        amount_after_bridge_fees, handle_fee_collection,
-        substract_relayer_fees,
-    },
+    fees::{amount_after_bridge_fees, handle_fee_collection, substract_relayer_fees},
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
         FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefund,
@@ -222,22 +219,21 @@ pub fn execute(
             account_sequence,
             number_of_tickets,
         ),
-        ExecuteMsg::RecoverXRPLTokenRegistration {
-            issuer,
-            currency,
-        } => recover_xrpl_token_registration(
-            deps.into_empty(),
-            env.block.time.seconds(),
-            info.sender,
-            issuer,
-            currency,
-        ),
+        ExecuteMsg::RecoverXRPLTokenRegistration { issuer, currency } => {
+            recover_xrpl_token_registration(
+                deps.into_empty(),
+                env.block.time.seconds(),
+                info.sender,
+                issuer,
+                currency,
+            )
+        }
         ExecuteMsg::SaveSignature {
             operation_id,
             signature,
         } => save_signature(deps.into_empty(), info.sender, operation_id, signature),
-        ExecuteMsg::SendToXRPL { recipient } => {
-            send_to_xrpl(deps.into_empty(), env, info, recipient)
+        ExecuteMsg::SendToXRPL { recipient, amount } => {
+            send_to_xrpl(deps.into_empty(), env, info, recipient, amount)
         }
         ExecuteMsg::UpdateXRPLToken {
             issuer,
@@ -848,6 +844,7 @@ fn send_to_xrpl(
     env: Env,
     info: MessageInfo,
     recipient: String,
+    amount: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_bridge_active(deps.as_ref())?;
     // Check that we are only sending 1 type of coin
@@ -858,7 +855,6 @@ fn send_to_xrpl(
 
     let decimals;
     let amount_to_send;
-    let mut transfer_fee = Uint128::zero();
     let max_amount;
     let remainder;
     let issuer;
@@ -883,9 +879,21 @@ fn send_to_xrpl(
                 false => XRPL_TOKENS_DECIMALS,
             };
 
+            // If amount was sent, we need to validate that it's less or equal than funds sent
+            // and use it as the amount to send instead of the funds amount (which will be used as max amount)
+            let amount_before_bridge_fees = match amount {
+                Some(amount) => {
+                    if amount.gt(&funds.amount) {
+                        return Err(ContractError::AmountGreaterThanMaxAmount {});
+                    }
+                    amount
+                }
+                None => funds.amount,
+            };
+
             // We calculate the amount after applying the bridging fees for that token
             let amount_after_bridge_fees =
-                amount_after_bridge_fees(funds.amount, xrpl_token.bridging_fee)?;
+                amount_after_bridge_fees(amount_before_bridge_fees, xrpl_token.bridging_fee)?;
 
             // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
             (amount_to_send, remainder) = truncate_amount(
@@ -893,6 +901,15 @@ fn send_to_xrpl(
                 decimals,
                 amount_after_bridge_fees,
             )?;
+
+            // If amount was sent, funds attached are the max amount and still need to be truncated
+            // If it wasn't sent, max amount will always be the same as amount sent
+            if amount.is_some() {
+                (max_amount, _) =
+                    truncate_amount(xrpl_token.sending_precision, decimals, funds.amount)?;
+            } else {
+                max_amount = amount_to_send;
+            }
 
             handle_fee_collection(
                 deps.storage,
@@ -910,6 +927,10 @@ fn send_to_xrpl(
 
             if coreum_token.state.ne(&TokenState::Enabled) {
                 return Err(ContractError::TokenNotEnabled {});
+            }
+
+            if amount.is_some() {
+                return Err(ContractError::AmountFieldNotAllowedForCoreumOriginatedTokens {});
             }
 
             let config = CONFIG.load(deps.storage)?;

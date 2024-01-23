@@ -193,4 +193,10 @@ pub enum ContractError {
 
     #[error("RotateKeysOngoing: Can't perform this operation while there is a rotate key operation ongoing")]
     RotateKeysOngoing {},
+
+    #[error("AmountFieldNotAllowedForCoreumOriginatedTokens: Optional amount field is only used for XRPL originated tokens being bridged back")]
+    AmountFieldNotAllowedForCoreumOriginatedTokens {},
+
+    #[error("AmountGreaterThanMaxAmount: Amount can't be greater than max amount")]
+    AmountGreaterThanMaxAmount {},
 }
