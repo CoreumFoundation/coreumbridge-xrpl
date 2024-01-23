@@ -308,23 +308,18 @@ type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
 	Tickets []uint32 `json:"tickets"`
 }
 
-type xrplTransactionEvidenceTrustSetOperationResult struct {
-	Issuer   string `json:"issuer"`
-	Currency string `json:"currency"`
-}
+// TODO(dzmitryhil) refactor this.
+/*type xrplTransactionEvidenceTrustSetOperationResult struct{}
 
-type xrplTransactionEvidenceCoreumToXRPLTransferOperationResult struct{}
+type xrplTransactionEvidenceCoreumToXRPLTransferOperationResult struct{}*/
 
-//nolint:lll // breaking this down will make it less readable.
 type xrplTransactionEvidenceOperationResult struct {
-	TicketsAllocation    *xrplTransactionEvidenceTicketsAllocationOperationResult    `json:"tickets_allocation,omitempty"`
-	TrustSet             *xrplTransactionEvidenceTrustSetOperationResult             `json:"trust_set,omitempty"`
-	CoreumToXRPLTransfer *xrplTransactionEvidenceCoreumToXRPLTransferOperationResult `json:"coreum_to_xrpl_transfer,omitempty"`
+	TicketsAllocation *xrplTransactionEvidenceTicketsAllocationOperationResult `json:"tickets_allocation,omitempty"`
 }
 
 type xrplTransactionResultEvidence struct {
 	XRPLTransactionResultEvidence
-	OperationResult xrplTransactionEvidenceOperationResult `json:"operation_result"`
+	OperationResult *xrplTransactionEvidenceOperationResult `json:"operation_result,omitempty"`
 }
 
 type evidence struct {
@@ -642,7 +637,7 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
-				OperationResult: xrplTransactionEvidenceOperationResult{
+				OperationResult: &xrplTransactionEvidenceOperationResult{
 					TicketsAllocation: &xrplTransactionEvidenceTicketsAllocationOperationResult{
 						Tickets: evd.Tickets,
 					},
@@ -672,12 +667,6 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
-				OperationResult: xrplTransactionEvidenceOperationResult{
-					TrustSet: &xrplTransactionEvidenceTrustSetOperationResult{
-						Issuer:   evd.Issuer,
-						Currency: evd.Currency,
-					},
-				},
 			},
 		},
 	}
@@ -704,9 +693,6 @@ func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
-				OperationResult: xrplTransactionEvidenceOperationResult{
-					CoreumToXRPLTransfer: &xrplTransactionEvidenceCoreumToXRPLTransferOperationResult{},
-				},
 			},
 		},
 	}
@@ -1324,6 +1310,11 @@ func IsAssetFTGlobalFreezingError(err error) bool {
 // IsAssetFTWhitelistedLimitExceededError returns true if error is whitelisted limit exceeded.
 func IsAssetFTWhitelistedLimitExceededError(err error) bool {
 	return isError(err, "whitelisted limit exceeded")
+}
+
+// IsRecipientBlockedError returns true if error is the recipient is blocked.
+func IsRecipientBlockedError(err error) bool {
+	return isError(err, "is not allowed to receive funds: unauthorized")
 }
 
 func isError(err error, errorString string) bool {
