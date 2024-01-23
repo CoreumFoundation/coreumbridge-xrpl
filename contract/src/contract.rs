@@ -849,7 +849,7 @@ fn send_to_xrpl(
     validate_xrpl_address(recipient.to_owned())?;
 
     let decimals;
-    let amount_to_send;
+    let mut amount_to_send;
     let max_amount;
     let remainder;
     let issuer;
@@ -874,21 +874,9 @@ fn send_to_xrpl(
                 false => XRPL_TOKENS_DECIMALS,
             };
 
-            // If amount was sent, we need to validate that it's less or equal than funds sent
-            // and use it as the amount to send instead of the funds amount (which will be used as max amount)
-            let amount_before_bridge_fees = match amount {
-                Some(amount) => {
-                    if amount.gt(&funds.amount) {
-                        return Err(ContractError::AmountGreaterThanMaxAmount {});
-                    }
-                    amount
-                }
-                None => funds.amount,
-            };
-
             // We calculate the amount after applying the bridging fees for that token
             let amount_after_bridge_fees =
-                amount_after_bridge_fees(amount_before_bridge_fees, xrpl_token.bridging_fee)?;
+                amount_after_bridge_fees(funds.amount, xrpl_token.bridging_fee)?;
 
             // We don't need any decimal conversion because the token is an XRPL originated token and they are issued with same decimals
             (amount_to_send, remainder) = truncate_amount(
@@ -897,11 +885,17 @@ fn send_to_xrpl(
                 amount_after_bridge_fees,
             )?;
 
-            // If amount was sent, funds attached are the max amount and still need to be truncated
-            // If it wasn't sent, max amount will always be the same as amount sent
+            // If amount was sent, we must check that it's less or equal than amount_to_send after bridge fees are applied and both values are truncated
             if amount.is_some() {
-                (max_amount, _) =
-                    truncate_amount(xrpl_token.sending_precision, decimals, funds.amount)?;
+                let (truncated_amount, _) =
+                    truncate_amount(xrpl_token.sending_precision, decimals, amount.unwrap())?;
+
+                if truncated_amount.gt(&amount_to_send) {
+                    return Err(ContractError::AmountGreaterThanMaxAmount {});
+                }
+
+                max_amount = amount_to_send;
+                amount_to_send = truncated_amount;
             } else {
                 max_amount = amount_to_send;
             }

@@ -1806,20 +1806,23 @@ mod tests {
         let amount_to_send = Uint128::new(1000001);
 
         // If we try to send an amount in the optional field it should fail.
-        let send_error = wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::SendToXRPL {
-                recipient: xrpl_receiver_address.to_owned(),
-                amount: Some(Uint128::new(100)),
-            },
-            &coins(amount_to_send.u128(), denom.to_owned()),
-            &sender,
-        )
-        .unwrap_err();
+        let send_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                    amount: Some(Uint128::new(100)),
+                },
+                &coins(amount_to_send.u128(), denom.to_owned()),
+                &sender,
+            )
+            .unwrap_err();
 
-        assert!(send_error
-            .to_string()
-            .contains(ContractError::AmountFieldNotAllowedForCoreumOriginatedTokens {}.to_string().as_str()));
+        assert!(send_error.to_string().contains(
+            ContractError::AmountFieldNotAllowedForCoreumOriginatedTokens {}
+                .to_string()
+                .as_str()
+        ));
 
         // Try to bridge the token to the xrpl receiver address so that we can send it back.
         wasm.execute::<ExecuteMsg>(
@@ -2776,21 +2779,22 @@ mod tests {
         );
 
         // Sending a CoreumToXRPLTransfer evidence with account sequence should fail.
-        let invalid_evidence = wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::SaveEvidence {
-                evidence: Evidence::XRPLTransactionResult {
-                    tx_hash: Some(generate_hash()),
-                    account_sequence: Some(1),
-                    ticket_sequence: None,
-                    transaction_result: TransactionResult::Accepted,
-                    operation_result: None,
+        let invalid_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(generate_hash()),
+                        account_sequence: Some(1),
+                        ticket_sequence: None,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: None,
+                    },
                 },
-            },
-            &vec![],
-            relayer_account,
-        )
-        .unwrap_err();
+                &vec![],
+                relayer_account,
+            )
+            .unwrap_err();
 
         assert!(invalid_evidence.to_string().contains(
             ContractError::InvalidTransactionResultEvidence {}
@@ -3041,6 +3045,9 @@ mod tests {
             .as_str()
         ));
 
+        // We will send a successful transfer to XRPL considering the token has no transfer rate
+        // HOLA
+
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -3256,6 +3263,152 @@ mod tests {
             .unwrap();
         assert_eq!(request_balance.balance, Uint128::zero().to_string());
 
+        // Let's test sending a token with optional amount
+
+        let max_amount = Uint128::new(10000);
+        let amount = Some(Uint128::new(6000));
+
+        // Store balance first so we can check it later
+        let request_initial_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom_xrpl_origin_token.to_owned(),
+            })
+            .unwrap();
+
+        // If we send amount that is higher than max amount, it should fail
+        let max_amount_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                    amount: Some(max_amount.checked_add(Uint128::one()).unwrap()),
+                },
+                &coins(max_amount.u128(), denom_xrpl_origin_token.to_owned()),
+                sender,
+            )
+            .unwrap_err();
+
+        assert!(max_amount_error.to_string().contains(
+            ContractError::AmountGreaterThanMaxAmount {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Send it correctly
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+                amount,
+            },
+            &coins(max_amount.u128(), denom_xrpl_origin_token.to_owned()),
+            sender,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+        assert_eq!(
+            query_pending_operations.operations[0],
+            Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
+                ticket_sequence: Some(6),
+                account_sequence: None,
+                signatures: vec![],
+                operation_type: OperationType::CoreumToXRPLTransfer {
+                    issuer: xrpl_originated_token.issuer.to_owned(),
+                    currency: xrpl_originated_token.currency.to_owned(),
+                    amount: amount.unwrap(),
+                    max_amount,
+                    sender: Addr::unchecked(sender.address()),
+                    recipient: xrpl_receiver_address.to_owned(),
+                },
+            }
+        );
+
+        // If we reject the operation, the refund should be stored for the amount of funds that were sent
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: None,
+                    ticket_sequence: Some(6),
+                    transaction_result: TransactionResult::Rejected,
+                    operation_result: None,
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap();
+
+        // Check balances and pending refunds are all correct
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom_xrpl_origin_token.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            request_balance.balance,
+            request_initial_balance
+                .balance
+                .parse::<u128>()
+                .unwrap()
+                .checked_sub(max_amount.u128())
+                .unwrap()
+                .to_string()
+        );
+
+        // Let's check the pending refunds for the sender and also check that pagination works correctly.
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(sender.address()),
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
+        assert_eq!(
+            query_pending_refunds.pending_refunds[0].coin,
+            coin(max_amount.u128(), denom_xrpl_origin_token.to_owned())
+        );
+
+        // Claim it back
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimRefund {
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+            },
+            &[],
+            &sender,
+        )
+        .unwrap();
+
+        // Check balance again
+        let request_balance = asset_ft
+            .query_balance(&QueryBalanceRequest {
+                account: sender.address(),
+                denom: denom_xrpl_origin_token.to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(request_balance.balance, request_initial_balance.balance);
+
         // *** Test sending Coreum originated tokens to XRPL
 
         // Let's issue a token to the sender and register it.
@@ -3362,7 +3515,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
-                ticket_sequence: Some(6),
+                ticket_sequence: Some(7),
                 account_sequence: None,
                 signatures: vec![],
                 operation_type: OperationType::CoreumToXRPLTransfer {
@@ -3380,7 +3533,7 @@ mod tests {
             query_pending_operations.operations[1],
             Operation {
                 id: query_pending_operations.operations[1].id.to_owned(),
-                ticket_sequence: Some(7),
+                ticket_sequence: Some(8),
                 account_sequence: None,
                 signatures: vec![],
                 operation_type: OperationType::CoreumToXRPLTransfer {
@@ -3401,7 +3554,7 @@ mod tests {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: Some(generate_hash()),
                     account_sequence: None,
-                    ticket_sequence: Some(6),
+                    ticket_sequence: Some(7),
                     transaction_result: TransactionResult::Rejected,
                     operation_result: None,
                 },
@@ -3417,7 +3570,7 @@ mod tests {
                 evidence: Evidence::XRPLTransactionResult {
                     tx_hash: Some(generate_hash()),
                     account_sequence: None,
-                    ticket_sequence: Some(7),
+                    ticket_sequence: Some(8),
                     transaction_result: TransactionResult::Rejected,
                     operation_result: None,
                 },
@@ -4936,6 +5089,129 @@ mod tests {
             vec![coin(136666, xrpl_token.coreum_denom.to_owned())] // 96666 from before + 40000
         );
 
+        // Let's bridge some tokens again but this time with the optional amount, to check that bridge fees are collected correctly and
+        // when rejected, full amount without bridge fees is available to be claimed back by user.
+        let amount = Some(Uint128::new(700000000020000));
+
+        // If we send an amount, that after truncation and bridge fees is higher than max amount, it should fail
+        let max_amount_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                    amount: Some(Uint128::new(1000000000010000)),
+                },
+                &coins(1000000000020000, xrpl_token.coreum_denom.to_owned()), // After fees and truncation -> 1000000000000000 > 999999999900000
+                &receiver,
+            )
+            .unwrap_err();
+
+        assert!(max_amount_error.to_string().contains(
+            ContractError::AmountGreaterThanMaxAmount {}
+                .to_string()
+                .as_str()
+        ));
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: xrpl_receiver_address.to_owned(),
+                amount, // This will be truncated to 700000000000000
+            },
+            &coins(1000000000020000, xrpl_token.coreum_denom.to_owned()), // This should charge the bridging fee -> 999999999970000 and then truncate the rest -> 999999999900000
+            &receiver,
+        )
+        .unwrap();
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+        assert_eq!(
+            query_pending_operations.operations[0],
+            Operation {
+                id: query_pending_operations.operations[0].id.to_owned(),
+                ticket_sequence: Some(3),
+                account_sequence: None,
+                signatures: vec![],
+                operation_type: OperationType::CoreumToXRPLTransfer {
+                    issuer: test_token_xrpl.issuer.to_owned(),
+                    currency: test_token_xrpl.currency.to_owned(),
+                    amount: Uint128::new(700000000000000),
+                    max_amount: Uint128::new(999999999900000),
+                    sender: Addr::unchecked(receiver.address()),
+                    recipient: xrpl_receiver_address.to_owned(),
+                },
+            }
+        );
+
+        let query_fees_collected = wasm
+            .query::<QueryMsg, FeesCollectedResponse>(
+                &contract_addr,
+                &QueryMsg::FeesCollected {
+                    relayer_address: Addr::unchecked(relayer_accounts[0].address()),
+                },
+            )
+            .unwrap();
+
+        // Each relayer is getting 120000 (+2 from remainder) / 3 -> 120002 / 3 = 40000 and 2 token will stay in the remainders for next collection
+        assert_eq!(
+            query_fees_collected.fees_collected,
+            vec![coin(176666, xrpl_token.coreum_denom.to_owned())] // 136666 from before + 40000
+        );
+
+        // If we reject the operation, 999999999900000 (max_amount after bridge fees and truncation) should be able to be claimed back by the user
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: query_pending_operations.operations[0].account_sequence,
+                        ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
+                        transaction_result: TransactionResult::Rejected,
+                        operation_result: None,
+                    },
+                },
+                &[],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(receiver.address()),
+                    offset: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
+        assert_eq!(
+            query_pending_refunds.pending_refunds[0].coin,
+            coin(999999999900000, xrpl_token.coreum_denom.to_owned())
+        );
+
+        // Let's claim it back
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ClaimRefund {
+                pending_refund_id: query_pending_refunds.pending_refunds[0].id.to_owned(),
+            },
+            &[],
+            &receiver,
+        )
+        .unwrap();
+
         // Now let's bridge tokens from Coreum to XRPL and verify that the fees are collected correctly in each step and accumulated with the previous ones
 
         // Trying to send less than the bridging fees should fail
@@ -4980,7 +5256,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
-                ticket_sequence: Some(3),
+                ticket_sequence: Some(4),
                 account_sequence: None,
                 signatures: vec![],
                 operation_type: OperationType::CoreumToXRPLTransfer {
@@ -5007,7 +5283,7 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(136666, xrpl_token.coreum_denom.to_owned()),
+                coin(176666, xrpl_token.coreum_denom.to_owned()),
                 coin(100003, coreum_token_denom.to_owned())
             ]
         );
@@ -5055,7 +5331,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
-                ticket_sequence: Some(4),
+                ticket_sequence: Some(5),
                 account_sequence: None,
                 signatures: vec![],
                 operation_type: OperationType::CoreumToXRPLTransfer {
@@ -5082,7 +5358,7 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(136666, xrpl_token.coreum_denom.to_owned()),
+                coin(176666, xrpl_token.coreum_denom.to_owned()),
                 coin(200003, coreum_token_denom.to_owned()) // 100003 + 100000
             ]
         );
@@ -5164,7 +5440,7 @@ mod tests {
         assert_eq!(
             query_fees_collected.fees_collected,
             vec![
-                coin(136666, xrpl_token.coreum_denom.to_owned()),
+                coin(176666, xrpl_token.coreum_denom.to_owned()),
                 coin(300006, coreum_token_denom.to_owned()) // 200003 from before + 100003
             ]
         );
@@ -5177,7 +5453,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
-                        coin(136666, xrpl_token.coreum_denom.to_owned()),
+                        coin(176666, xrpl_token.coreum_denom.to_owned()),
                         coin(300007, coreum_token_denom.to_owned()), // +1
                     ],
                 },
@@ -5201,7 +5477,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
-                        coin(136666, xrpl_token.coreum_denom.to_owned()),
+                        coin(176666, xrpl_token.coreum_denom.to_owned()),
                         coin(300006, coreum_token_denom.to_owned()),
                         coin(1, coreum_token_denom.to_owned()), // Extra token claim that is too much
                     ],
@@ -5226,7 +5502,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::ClaimRelayerFees {
                     amounts: vec![
-                        coin(136666, xrpl_token.coreum_denom.to_owned()),
+                        coin(176666, xrpl_token.coreum_denom.to_owned()),
                         coin(300005, coreum_token_denom.to_owned()),
                     ],
                 },
@@ -5300,7 +5576,7 @@ mod tests {
                 })
                 .unwrap();
 
-            assert_eq!(request_balance_token1.balance, "136666".to_string()); // 410000 / 3 = 136666
+            assert_eq!(request_balance_token1.balance, "176666".to_string()); // 530000 / 3 = 183333
             assert_eq!(request_balance_token2.balance, "300006".to_string()); // 900020 / 3 = 300006
         }
 

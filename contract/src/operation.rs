@@ -134,7 +134,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
         OperationType::CoreumToXRPLTransfer {
             issuer,
             currency,
-            amount,
+            max_amount,
             sender,
             ..
         } => {
@@ -142,20 +142,20 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
             let key = build_xrpl_token_key(issuer, currency.to_owned());
             match XRPL_TOKENS.may_load(storage, key)? {
                 Some(xrpl_token) => {
-                    // If transaction was accepted and the token that was sent back was an XRPL originated token, we must burn the token amount and transfer_fee
+                    // If transaction was accepted and the token that was sent back was an XRPL originated token, we must burn the token amount
                     if transaction_result.eq(&TransactionResult::Accepted) {
                         let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
-                            coin: coin(amount.u128(), xrpl_token.coreum_denom),
+                            coin: coin(max_amount.u128(), xrpl_token.coreum_denom),
                         }));
 
                         *response = response.to_owned().add_message(burn_msg);
                     } else {
-                        // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
+                        // If transaction was rejected, we must store the amount so that sender can claim it back
                         store_pending_refund(
                             storage,
                             pending_operation.id,
                             sender,
-                            coin(amount.u128(), xrpl_token.coreum_denom),
+                            coin(max_amount.u128(), xrpl_token.coreum_denom),
                         )?;
                     }
                 }
@@ -173,7 +173,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                                 let amount_to_send_back = convert_amount_decimals(
                                     XRPL_TOKENS_DECIMALS,
                                     token.decimals,
-                                    amount,
+                                    max_amount,
                                 )?;
                                 // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
                                 store_pending_refund(
