@@ -644,6 +644,16 @@ fn save_evidence(
                 }
             }
 
+            // Validation for certain operation types that can't have account sequences
+            match &operation.operation_type {
+                OperationType::TrustSet { .. } | OperationType::CoreumToXRPLTransfer { .. } => {
+                    if account_sequence.is_some() {
+                        return Err(ContractError::InvalidTransactionResultEvidence {});
+                    }
+                }
+                _ => (),
+            }
+
             if threshold_reached {
                 match &operation.operation_type {
                     OperationType::AllocateTickets { .. } => match operation_result.to_owned() {
@@ -710,6 +720,7 @@ fn save_evidence(
 
             response = response
                 .add_attribute("action", ContractActions::XRPLTransactionResult.as_str())
+                .add_attribute("operation_type", operation.operation_type.as_str())
                 .add_attribute("operation_id", operation_id.to_string())
                 .add_attribute("transaction_result", transaction_result.as_str())
                 .add_attribute("threshold_reached", threshold_reached.to_string());

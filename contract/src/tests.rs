@@ -2798,6 +2798,29 @@ mod tests {
             }
         );
 
+        // Sending a CoreumToXRPLTransfer evidence with account sequence should fail.
+        let invalid_evidence = wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: None,
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap_err();
+
+        assert!(invalid_evidence.to_string().contains(
+            ContractError::InvalidTransactionResultEvidence {}
+                .to_string()
+                .as_str()
+        ));
+
         // Send successful evidence to remove from queue (tokens should be released on XRPL to the receiver)
         wasm.execute::<ExecuteMsg>(
             &contract_addr,

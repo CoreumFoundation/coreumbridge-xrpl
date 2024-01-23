@@ -49,6 +49,18 @@ pub enum OperationType {
     },
 }
 
+// For responses
+impl OperationType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OperationType::AllocateTickets { .. } => "allocate_tickets",
+            OperationType::TrustSet { .. } => "trust_set",
+            OperationType::RotateKeys { .. } => "rotate_keys",
+            OperationType::CoreumToXRPLTransfer { .. } => "coreum_to_xrpl_transfer",
+        }
+    }
+}
+
 pub fn check_operation_exists(
     storage: &mut dyn Storage,
     operation_id: u64,
