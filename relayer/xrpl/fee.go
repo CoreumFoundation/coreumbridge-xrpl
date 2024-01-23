@@ -6,8 +6,10 @@ import (
 )
 
 // XRPLFee is static fee we use for the XRPL transaction submission.
-// Currently, it is fixed as a constant but might be updated in the future.
-const XRPLFee = "100"
+// According to https://xrpl.org/transaction-cost.html multisigned transaction require fee equal to
+// 10 drops * (1 + Number of Signatures Provided).
+// For simplicity, we assume that there are maximum 32 signatures.
+const XRPLFee = "330"
 
 // GetTxFee returns the fee required for the transaction.
 func GetTxFee(_ rippledata.Transaction) (rippledata.Value, error) {

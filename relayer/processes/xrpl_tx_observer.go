@@ -161,10 +161,19 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 		return nil
 	}
 
-	if coreum.IsAssetFTWhitelistedLimitExceededError(err) {
+	if coreum.IsAssetFTStateError(err) {
 		o.log.Info(
 			ctx,
 			"The evidence saving is failed because of the asset FT rules, the evidence is skipped",
+			zap.Any("evidence", evidence),
+		)
+		return nil
+	}
+
+	if coreum.IsRecipientBlockedError(err) {
+		o.log.Info(
+			ctx,
+			"The evidence saving is failed because of the recipient address is blocked, the evidence is skipped",
 			zap.Any("evidence", evidence),
 		)
 		return nil

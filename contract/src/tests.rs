@@ -1061,9 +1061,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -1269,9 +1269,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -1355,10 +1355,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -1426,9 +1423,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -1444,9 +1441,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -1487,10 +1484,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -1506,10 +1500,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -1785,9 +1776,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..11).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -1923,6 +1914,7 @@ mod tests {
                 issuer: bridge_xrpl_address.to_owned(),
                 currency: coreum_originated_token.xrpl_currency.to_owned(),
                 amount: amount_truncated_and_converted,
+                max_amount: amount_truncated_and_converted,
                 transfer_fee: Uint128::zero(),
                 sender: Addr::unchecked(sender.address()),
                 recipient: xrpl_receiver_address.to_owned(),
@@ -1938,7 +1930,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2127,7 +2119,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2382,6 +2374,7 @@ mod tests {
                 issuer: bridge_xrpl_address.to_owned(),
                 currency: coreum_originated_token.xrpl_currency.to_owned(),
                 amount: amount_truncated_and_converted,
+                max_amount: amount_truncated_and_converted,
                 transfer_fee: Uint128::zero(),
                 sender: Addr::unchecked(sender.address()),
                 recipient: xrpl_receiver_address.to_owned(),
@@ -2397,7 +2390,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2508,7 +2501,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2723,9 +2716,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..12).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -2797,12 +2790,36 @@ mod tests {
                     issuer: XRP_ISSUER.to_owned(),
                     currency: XRP_CURRENCY.to_owned(),
                     amount: amount_to_send_back,
+                    max_amount: amount_to_send_back,
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
             }
         );
+
+        // Sending a CoreumToXRPLTransfer evidence with account sequence should fail.
+        let invalid_evidence = wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: None,
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap_err();
+
+        assert!(invalid_evidence.to_string().contains(
+            ContractError::InvalidTransactionResultEvidence {}
+                .to_string()
+                .as_str()
+        ));
 
         // Send successful evidence to remove from queue (tokens should be released on XRPL to the receiver)
         wasm.execute::<ExecuteMsg>(
@@ -2813,7 +2830,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(1),
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2868,7 +2885,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(2),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2948,10 +2965,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -3083,6 +3097,7 @@ mod tests {
                     issuer: xrpl_originated_token.issuer.to_owned(),
                     currency: xrpl_originated_token.currency.to_owned(),
                     amount: amount_to_send_back,
+                    max_amount: amount_to_send_back,
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -3099,7 +3114,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(4),
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -3157,7 +3172,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(5),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -3357,6 +3372,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(query_pending_operations.operations.len(), 2);
+        let amount = amount_to_send
+            .checked_sub(Uint128::one()) //Truncated amount
+            .unwrap()
+            .checked_mul(Uint128::new(10u128.pow(9))) // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
+            .unwrap();
         assert_eq!(
             query_pending_operations.operations[0],
             Operation {
@@ -3367,11 +3387,8 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: multisig_address.to_owned(),
                     currency: coreum_originated_token.xrpl_currency.to_owned(),
-                    amount: amount_to_send
-                        .checked_sub(Uint128::one()) //Truncated amount
-                        .unwrap()
-                        .checked_mul(Uint128::new(10u128.pow(9))) // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
-                        .unwrap(),
+                    amount: amount.to_owned(),
+                    max_amount: amount.to_owned(),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -3389,11 +3406,8 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: multisig_address,
                     currency: coreum_originated_token.xrpl_currency.to_owned(),
-                    amount: amount_to_send
-                        .checked_sub(Uint128::one()) //Truncated amount
-                        .unwrap()
-                        .checked_mul(Uint128::new(10u128.pow(9))) // XRPL Decimals - Coreum Decimals -> (15 - 6) = 9
-                        .unwrap(),
+                    amount: amount.to_owned(),
+                    max_amount: amount.to_owned(),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address,
@@ -3410,7 +3424,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(6),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -3426,7 +3440,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(7),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -3591,9 +3605,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..9).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -3653,10 +3667,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token1.issuer.clone(),
-                        currency: test_token1.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -3782,10 +3793,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token2.issuer.clone(),
-                        currency: test_token2.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -3978,10 +3986,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token3.issuer.clone(),
-                        currency: test_token3.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -4589,9 +4594,9 @@ mod tests {
                         account_sequence: Some(1),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TicketsAllocation {
+                        operation_result: Some(OperationResult::TicketsAllocation {
                             tickets: Some((1..16).collect()),
-                        },
+                        }),
                     },
                 },
                 &vec![],
@@ -4669,10 +4674,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(1),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: test_token_xrpl.issuer.to_owned(),
-                            currency: test_token_xrpl.currency.to_owned(),
-                        },
+                        operation_result: None,
                     },
                 },
                 &vec![],
@@ -4910,6 +4912,7 @@ mod tests {
                     issuer: test_token_xrpl.issuer.to_owned(),
                     currency: test_token_xrpl.currency.to_owned(),
                     amount: Uint128::new(999999999900000),
+                    max_amount: Uint128::new(999999999900000),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -4928,7 +4931,7 @@ mod tests {
                         account_sequence: query_pending_operations.operations[0].account_sequence,
                         ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -5001,6 +5004,7 @@ mod tests {
                     issuer: bridge_xrpl_address.to_owned(),
                     currency: coreum_token.xrpl_currency.to_owned(),
                     amount: Uint128::new(300000000000000),
+                    max_amount: Uint128::new(300000000000000),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -5037,7 +5041,7 @@ mod tests {
                         account_sequence: query_pending_operations.operations[0].account_sequence,
                         ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -5075,6 +5079,7 @@ mod tests {
                     issuer: bridge_xrpl_address.to_owned(),
                     currency: coreum_token.xrpl_currency.to_owned(),
                     amount: Uint128::new(600000000000000),
+                    max_amount: Uint128::new(600000000000000),
                     transfer_fee: Uint128::zero(),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -5111,7 +5116,7 @@ mod tests {
                         account_sequence: query_pending_operations.operations[0].account_sequence,
                         ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -5416,9 +5421,9 @@ mod tests {
                         account_sequence: Some(1),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TicketsAllocation {
+                        operation_result: Some(OperationResult::TicketsAllocation {
                             tickets: Some((1..12).collect()),
-                        },
+                        }),
                     },
                 },
                 &vec![],
@@ -5512,7 +5517,7 @@ mod tests {
 
         // Accept TrustSet for all of them
         let mut ticket_sequence = 1;
-        for token in test_tokens.iter() {
+        for _ in test_tokens.iter() {
             let tx_hash = generate_hash();
             for relayer in relayer_accounts.iter() {
                 wasm.execute::<ExecuteMsg>(
@@ -5523,10 +5528,7 @@ mod tests {
                             account_sequence: None,
                             ticket_sequence: Some(ticket_sequence),
                             transaction_result: TransactionResult::Accepted,
-                            operation_result: OperationResult::TrustSet {
-                                issuer: token.issuer.to_owned(),
-                                currency: token.currency.to_owned(),
-                            },
+                            operation_result: None,
                         },
                     },
                     &vec![],
@@ -5651,6 +5653,7 @@ mod tests {
                     issuer: test_tokens[0].issuer.to_owned(),
                     currency: test_tokens[0].currency.to_owned(),
                     amount: Uint128::new(99999999900001),
+                    max_amount: Uint128::new(100000000050001 - test_tokens[0].bridging_fee.u128()), // There is no truncation being done because sending precision is 15
                     transfer_fee: Uint128::new(100000),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
@@ -5710,6 +5713,7 @@ mod tests {
                     issuer: test_tokens[1].issuer.to_owned(),
                     currency: test_tokens[1].currency.to_owned(),
                     amount: Uint128::new(66666666600000),
+                    max_amount: Uint128::new(99999999900000), // 100000000000001 - 50000 -> 99999999950001 -> truncate -> 99999999900000
                     transfer_fee: Uint128::new(33333333272223),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
@@ -5768,6 +5772,7 @@ mod tests {
                     issuer: test_tokens[2].issuer.to_owned(),
                     currency: test_tokens[2].currency.to_owned(),
                     amount: Uint128::new(50000000000000),
+                    max_amount: Uint128::new(100000000050001 - test_tokens[2].bridging_fee.u128()), // There is no truncation being done because sending precision is 15
                     transfer_fee: Uint128::new(50000000000001),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
@@ -5852,7 +5857,7 @@ mod tests {
                         account_sequence: query_pending_operations.operations[1].account_sequence,
                         ticket_sequence: query_pending_operations.operations[1].ticket_sequence,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -5914,7 +5919,7 @@ mod tests {
                         account_sequence: query_pending_operations.operations[2].account_sequence,
                         ticket_sequence: query_pending_operations.operations[2].ticket_sequence,
                         transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -6165,7 +6170,9 @@ mod tests {
                         account_sequence: Some(account_sequence + 1),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::TicketsAllocation { tickets: None },
+                        operation_result: Some(OperationResult::TicketsAllocation {
+                            tickets: None,
+                        }),
                     },
                 },
                 &vec![],
@@ -6272,7 +6279,7 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::TicketsAllocation { tickets: None },
+                    operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
                 },
             },
             &vec![],
@@ -6288,7 +6295,7 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::TicketsAllocation { tickets: None },
+                    operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
                 },
             },
             &vec![],
@@ -6359,9 +6366,9 @@ mod tests {
                         account_sequence: Some(account_sequence),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TicketsAllocation {
+                        operation_result: Some(OperationResult::TicketsAllocation {
                             tickets: Some(tickets.clone()),
-                        },
+                        }),
                     },
                 },
                 &vec![],
@@ -6384,7 +6391,7 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Invalid,
-                    operation_result: OperationResult::TicketsAllocation { tickets: None },
+                    operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
                 },
             },
             &vec![],
@@ -6400,7 +6407,7 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Invalid,
-                    operation_result: OperationResult::TicketsAllocation { tickets: None },
+                    operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
                 },
             },
             &vec![],
@@ -6450,9 +6457,9 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some(tickets.clone()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -6468,9 +6475,9 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some(tickets.clone()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -6555,9 +6562,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -6640,10 +6647,7 @@ mod tests {
                             .unwrap(),
                     ),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: token.issuer.clone(),
-                        currency: token.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -6767,9 +6771,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -6802,10 +6806,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(u64::try_from(index).unwrap() + 1),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: token.issuer.clone(),
-                            currency: token.currency.clone(),
-                        },
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -6852,7 +6853,9 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(3),
                         transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::TicketsAllocation { tickets: None },
+                        operation_result: Some(OperationResult::TicketsAllocation {
+                            tickets: None,
+                        }),
                     },
                 },
                 &vec![],
@@ -6939,9 +6942,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..7).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -7022,7 +7025,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Invalid,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -7118,9 +7121,9 @@ mod tests {
                         account_sequence: Some(1),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TicketsAllocation {
+                        operation_result: Some(OperationResult::TicketsAllocation {
                             tickets: Some((1..6).collect()),
-                        },
+                        }),
                     },
                 },
                 &vec![],
@@ -7233,10 +7236,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(1),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: xrpl_token.issuer.to_owned(),
-                            currency: xrpl_token.currency.to_owned(),
-                        },
+                        operation_result: None,
                     },
                 },
                 &vec![],
@@ -7922,7 +7922,7 @@ mod tests {
                                 .unwrap(),
                         ),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &vec![],
@@ -8210,9 +8210,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..11).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -8334,7 +8334,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -8462,9 +8462,9 @@ mod tests {
                         account_sequence: Some(1),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TicketsAllocation {
+                        operation_result: Some(OperationResult::TicketsAllocation {
                             tickets: Some((1..6).collect()),
-                        },
+                        }),
                     },
                 },
                 &vec![],
@@ -8602,10 +8602,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(1),
                         transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::RotateKeys {
-                            new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
-                            new_evidence_threshold: 2,
-                        },
+                        operation_result: None,
                     },
                 },
                 &vec![],
@@ -8680,10 +8677,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(2),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::RotateKeys {
-                            new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
-                            new_evidence_threshold: 2,
-                        },
+                        operation_result: None,
                     },
                 },
                 &vec![],
@@ -9062,10 +9056,7 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::RotateKeys {
-                        new_relayers: vec![new_relayer.to_owned()],
-                        new_evidence_threshold: 1,
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -9170,62 +9161,52 @@ mod tests {
                 account_sequence: None,
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Rejected,
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(tickets.clone()),
-                },
+                }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: Some(tx_hash.clone()),
                 account_sequence: Some(account_sequence),
                 ticket_sequence: Some(2),
                 transaction_result: TransactionResult::Rejected,
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(tickets.clone()),
-                },
+                }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: None,
                 account_sequence: Some(account_sequence),
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Rejected,
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(tickets.clone()),
-                },
+                }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: Some(tx_hash.clone()),
                 account_sequence: Some(account_sequence),
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Rejected,
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(tickets.clone()),
-                },
+                }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: Some(tx_hash.clone()),
                 account_sequence: Some(account_sequence),
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Invalid,
-                operation_result: OperationResult::TicketsAllocation { tickets: None },
+                operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: None,
                 account_sequence: Some(account_sequence),
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Invalid,
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(tickets),
-                },
-            },
-            Evidence::XRPLTransactionResult {
-                tx_hash: Some(tx_hash.clone()),
-                account_sequence: Some(account_sequence),
-                ticket_sequence: None,
-                transaction_result: TransactionResult::Accepted,
-                operation_result: OperationResult::TrustSet {
-                    issuer: generate_xrpl_address(),
-                    currency: "USD".to_string(),
-                },
+                }),
             },
         ];
 
@@ -9236,7 +9217,6 @@ mod tests {
             ContractError::InvalidTicketAllocationEvidence {},
             ContractError::InvalidFailedTransactionResultEvidence {},
             ContractError::InvalidTicketAllocationEvidence {},
-            ContractError::InvalidTransactionResultEvidence {},
         ];
 
         wasm.execute::<ExecuteMsg>(
@@ -9473,7 +9453,7 @@ mod tests {
         let hash = Some(generate_hash());
         let operation_id = Some(1);
         let transaction_result = TransactionResult::Accepted;
-        let operation_result = OperationResult::CoreumToXRPLTransfer {};
+        let operation_result = None;
         // Create multiple evidences changing only 1 field to verify that all of them have different hashes
         let xrpl_transaction_result_evidences = vec![
             Evidence::XRPLTransactionResult {
@@ -9523,26 +9503,16 @@ mod tests {
                 account_sequence: operation_id,
                 ticket_sequence: None,
                 transaction_result: transaction_result.to_owned(),
-                operation_result: OperationResult::TicketsAllocation { tickets: None },
+                operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.to_owned(),
                 account_sequence: operation_id,
                 ticket_sequence: None,
                 transaction_result: transaction_result.to_owned(),
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(vec![1, 2, 3]),
-                },
-            },
-            Evidence::XRPLTransactionResult {
-                tx_hash: hash.to_owned(),
-                account_sequence: operation_id,
-                ticket_sequence: None,
-                transaction_result: transaction_result.to_owned(),
-                operation_result: OperationResult::TrustSet {
-                    issuer: generate_xrpl_address(),
-                    currency: "USD".to_string(),
-                },
+                }),
             },
         ];
 
