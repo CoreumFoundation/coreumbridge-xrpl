@@ -1061,9 +1061,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -1269,9 +1269,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -1355,10 +1355,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -1426,9 +1423,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -1444,9 +1441,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -1487,10 +1484,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -1506,10 +1500,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -1785,9 +1776,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..11).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -1939,7 +1930,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2128,7 +2119,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2399,7 +2390,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2510,7 +2501,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2725,9 +2716,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..12).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -2807,6 +2798,29 @@ mod tests {
             }
         );
 
+        // Sending a CoreumToXRPLTransfer evidence with account sequence should fail.
+        let invalid_evidence = wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: None,
+                },
+            },
+            &vec![],
+            relayer_account,
+        )
+        .unwrap_err();
+
+        assert!(invalid_evidence.to_string().contains(
+            ContractError::InvalidTransactionResultEvidence {}
+                .to_string()
+                .as_str()
+        ));
+
         // Send successful evidence to remove from queue (tokens should be released on XRPL to the receiver)
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -2816,7 +2830,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(1),
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2871,7 +2885,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(2),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -2951,10 +2965,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token.issuer.clone(),
-                        currency: test_token.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -3103,7 +3114,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(4),
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -3161,7 +3172,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(5),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -3413,7 +3424,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(6),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -3429,7 +3440,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: Some(7),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -3594,9 +3605,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..9).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -3656,10 +3667,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token1.issuer.clone(),
-                        currency: test_token1.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -3785,10 +3793,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token2.issuer.clone(),
-                        currency: test_token2.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -3981,10 +3986,7 @@ mod tests {
                     account_sequence: None,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: test_token3.issuer.clone(),
-                        currency: test_token3.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -4592,9 +4594,9 @@ mod tests {
                         account_sequence: Some(1),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TicketsAllocation {
+                        operation_result: Some(OperationResult::TicketsAllocation {
                             tickets: Some((1..16).collect()),
-                        },
+                        }),
                     },
                 },
                 &vec![],
@@ -4672,10 +4674,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(1),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: test_token_xrpl.issuer.to_owned(),
-                            currency: test_token_xrpl.currency.to_owned(),
-                        },
+                        operation_result: None,
                     },
                 },
                 &vec![],
@@ -4932,7 +4931,7 @@ mod tests {
                         account_sequence: query_pending_operations.operations[0].account_sequence,
                         ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -5042,7 +5041,7 @@ mod tests {
                         account_sequence: query_pending_operations.operations[0].account_sequence,
                         ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -5117,7 +5116,7 @@ mod tests {
                         account_sequence: query_pending_operations.operations[0].account_sequence,
                         ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -5422,9 +5421,9 @@ mod tests {
                         account_sequence: Some(1),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TicketsAllocation {
+                        operation_result: Some(OperationResult::TicketsAllocation {
                             tickets: Some((1..12).collect()),
-                        },
+                        }),
                     },
                 },
                 &vec![],
@@ -5518,7 +5517,7 @@ mod tests {
 
         // Accept TrustSet for all of them
         let mut ticket_sequence = 1;
-        for token in test_tokens.iter() {
+        for _ in test_tokens.iter() {
             let tx_hash = generate_hash();
             for relayer in relayer_accounts.iter() {
                 wasm.execute::<ExecuteMsg>(
@@ -5529,10 +5528,7 @@ mod tests {
                             account_sequence: None,
                             ticket_sequence: Some(ticket_sequence),
                             transaction_result: TransactionResult::Accepted,
-                            operation_result: OperationResult::TrustSet {
-                                issuer: token.issuer.to_owned(),
-                                currency: token.currency.to_owned(),
-                            },
+                            operation_result: None,
                         },
                     },
                     &vec![],
@@ -5861,7 +5857,7 @@ mod tests {
                         account_sequence: query_pending_operations.operations[1].account_sequence,
                         ticket_sequence: query_pending_operations.operations[1].ticket_sequence,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -5923,7 +5919,7 @@ mod tests {
                         account_sequence: query_pending_operations.operations[2].account_sequence,
                         ticket_sequence: query_pending_operations.operations[2].ticket_sequence,
                         transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -6174,7 +6170,9 @@ mod tests {
                         account_sequence: Some(account_sequence + 1),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::TicketsAllocation { tickets: None },
+                        operation_result: Some(OperationResult::TicketsAllocation {
+                            tickets: None,
+                        }),
                     },
                 },
                 &vec![],
@@ -6281,7 +6279,7 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::TicketsAllocation { tickets: None },
+                    operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
                 },
             },
             &vec![],
@@ -6297,7 +6295,7 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::TicketsAllocation { tickets: None },
+                    operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
                 },
             },
             &vec![],
@@ -6368,9 +6366,9 @@ mod tests {
                         account_sequence: Some(account_sequence),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TicketsAllocation {
+                        operation_result: Some(OperationResult::TicketsAllocation {
                             tickets: Some(tickets.clone()),
-                        },
+                        }),
                     },
                 },
                 &vec![],
@@ -6393,7 +6391,7 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Invalid,
-                    operation_result: OperationResult::TicketsAllocation { tickets: None },
+                    operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
                 },
             },
             &vec![],
@@ -6409,7 +6407,7 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Invalid,
-                    operation_result: OperationResult::TicketsAllocation { tickets: None },
+                    operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
                 },
             },
             &vec![],
@@ -6459,9 +6457,9 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some(tickets.clone()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -6477,9 +6475,9 @@ mod tests {
                     account_sequence: Some(account_sequence),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some(tickets.clone()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -6564,9 +6562,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -6649,10 +6647,7 @@ mod tests {
                             .unwrap(),
                     ),
                     transaction_result: TransactionResult::Rejected,
-                    operation_result: OperationResult::TrustSet {
-                        issuer: token.issuer.clone(),
-                        currency: token.currency.clone(),
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -6776,9 +6771,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..4).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -6811,10 +6806,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(u64::try_from(index).unwrap() + 1),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: token.issuer.clone(),
-                            currency: token.currency.clone(),
-                        },
+                        operation_result: None,
                     },
                 },
                 &[],
@@ -6861,7 +6853,9 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(3),
                         transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::TicketsAllocation { tickets: None },
+                        operation_result: Some(OperationResult::TicketsAllocation {
+                            tickets: None,
+                        }),
                     },
                 },
                 &vec![],
@@ -6948,9 +6942,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..7).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -7031,7 +7025,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Invalid,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -7127,9 +7121,9 @@ mod tests {
                         account_sequence: Some(1),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TicketsAllocation {
+                        operation_result: Some(OperationResult::TicketsAllocation {
                             tickets: Some((1..6).collect()),
-                        },
+                        }),
                     },
                 },
                 &vec![],
@@ -7242,10 +7236,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(1),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TrustSet {
-                            issuer: xrpl_token.issuer.to_owned(),
-                            currency: xrpl_token.currency.to_owned(),
-                        },
+                        operation_result: None,
                     },
                 },
                 &vec![],
@@ -7931,7 +7922,7 @@ mod tests {
                                 .unwrap(),
                         ),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::CoreumToXRPLTransfer {},
+                        operation_result: None,
                     },
                 },
                 &vec![],
@@ -8219,9 +8210,9 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::TicketsAllocation {
+                    operation_result: Some(OperationResult::TicketsAllocation {
                         tickets: Some((1..11).collect()),
-                    },
+                    }),
                 },
             },
             &vec![],
@@ -8343,7 +8334,7 @@ mod tests {
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::CoreumToXRPLTransfer {},
+                    operation_result: None,
                 },
             },
             &vec![],
@@ -8471,9 +8462,9 @@ mod tests {
                         account_sequence: Some(1),
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::TicketsAllocation {
+                        operation_result: Some(OperationResult::TicketsAllocation {
                             tickets: Some((1..6).collect()),
-                        },
+                        }),
                     },
                 },
                 &vec![],
@@ -8611,10 +8602,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(1),
                         transaction_result: TransactionResult::Rejected,
-                        operation_result: OperationResult::RotateKeys {
-                            new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
-                            new_evidence_threshold: 2,
-                        },
+                        operation_result: None,
                     },
                 },
                 &vec![],
@@ -8689,10 +8677,7 @@ mod tests {
                         account_sequence: None,
                         ticket_sequence: Some(2),
                         transaction_result: TransactionResult::Accepted,
-                        operation_result: OperationResult::RotateKeys {
-                            new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
-                            new_evidence_threshold: 2,
-                        },
+                        operation_result: None,
                     },
                 },
                 &vec![],
@@ -9071,10 +9056,7 @@ mod tests {
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
-                    operation_result: OperationResult::RotateKeys {
-                        new_relayers: vec![new_relayer.to_owned()],
-                        new_evidence_threshold: 1,
-                    },
+                    operation_result: None,
                 },
             },
             &[],
@@ -9179,62 +9161,52 @@ mod tests {
                 account_sequence: None,
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Rejected,
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(tickets.clone()),
-                },
+                }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: Some(tx_hash.clone()),
                 account_sequence: Some(account_sequence),
                 ticket_sequence: Some(2),
                 transaction_result: TransactionResult::Rejected,
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(tickets.clone()),
-                },
+                }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: None,
                 account_sequence: Some(account_sequence),
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Rejected,
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(tickets.clone()),
-                },
+                }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: Some(tx_hash.clone()),
                 account_sequence: Some(account_sequence),
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Rejected,
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(tickets.clone()),
-                },
+                }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: Some(tx_hash.clone()),
                 account_sequence: Some(account_sequence),
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Invalid,
-                operation_result: OperationResult::TicketsAllocation { tickets: None },
+                operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: None,
                 account_sequence: Some(account_sequence),
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Invalid,
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(tickets),
-                },
-            },
-            Evidence::XRPLTransactionResult {
-                tx_hash: Some(tx_hash.clone()),
-                account_sequence: Some(account_sequence),
-                ticket_sequence: None,
-                transaction_result: TransactionResult::Accepted,
-                operation_result: OperationResult::TrustSet {
-                    issuer: generate_xrpl_address(),
-                    currency: "USD".to_string(),
-                },
+                }),
             },
         ];
 
@@ -9245,7 +9217,6 @@ mod tests {
             ContractError::InvalidTicketAllocationEvidence {},
             ContractError::InvalidFailedTransactionResultEvidence {},
             ContractError::InvalidTicketAllocationEvidence {},
-            ContractError::InvalidTransactionResultEvidence {},
         ];
 
         wasm.execute::<ExecuteMsg>(
@@ -9482,7 +9453,7 @@ mod tests {
         let hash = Some(generate_hash());
         let operation_id = Some(1);
         let transaction_result = TransactionResult::Accepted;
-        let operation_result = OperationResult::CoreumToXRPLTransfer {};
+        let operation_result = None;
         // Create multiple evidences changing only 1 field to verify that all of them have different hashes
         let xrpl_transaction_result_evidences = vec![
             Evidence::XRPLTransactionResult {
@@ -9532,26 +9503,16 @@ mod tests {
                 account_sequence: operation_id,
                 ticket_sequence: None,
                 transaction_result: transaction_result.to_owned(),
-                operation_result: OperationResult::TicketsAllocation { tickets: None },
+                operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.to_owned(),
                 account_sequence: operation_id,
                 ticket_sequence: None,
                 transaction_result: transaction_result.to_owned(),
-                operation_result: OperationResult::TicketsAllocation {
+                operation_result: Some(OperationResult::TicketsAllocation {
                     tickets: Some(vec![1, 2, 3]),
-                },
-            },
-            Evidence::XRPLTransactionResult {
-                tx_hash: hash.to_owned(),
-                account_sequence: operation_id,
-                ticket_sequence: None,
-                transaction_result: transaction_result.to_owned(),
-                operation_result: OperationResult::TrustSet {
-                    issuer: generate_xrpl_address(),
-                    currency: "USD".to_string(),
-                },
+                }),
             },
         ];
 
