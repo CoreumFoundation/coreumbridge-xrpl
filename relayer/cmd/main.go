@@ -95,7 +95,7 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 	// for the bridge client we use the CLI logger
 	return bridgeclient.NewBridgeClient(
 		log,
-		rnr.ClientCtx,
+		rnr.CoreumClientCtx,
 		rnr.CoreumContractClient,
 		rnr.XRPLRPCClient,
 		rnr.XRPLKeyringTxSigner,

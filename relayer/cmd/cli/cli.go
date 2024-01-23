@@ -18,6 +18,7 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
@@ -157,7 +158,16 @@ func GetRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get client context")
 	}
-	rnr, err := runner.NewRunner(cmd.Context(), cfg, clientCtx.Keyring, true)
+	xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), "xrpl")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to configure xrpl keyring")
+	}
+	coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), "coreum")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to configure coreum keyring")
+	}
+
+	rnr, err := runner.NewRunner(cmd.Context(), xrplClientCtx.Keyring, coreumClientCtx.Keyring, cfg, true)
 	if err != nil {
 		return nil, err
 	}
@@ -250,6 +260,29 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 	return cmd
 }
 
+// WithKeyring adds suffix-specific keyring to the context.
+func WithKeyring(clientCtx client.Context, flagSet *pflag.FlagSet, suffix string) (client.Context, error) {
+	keyringDir, err := flagSet.GetString(flags.FlagKeyringDir)
+	if err != nil {
+		return client.Context{}, errors.WithStack(err)
+	}
+	if keyringDir == "" {
+		keyringDir = filepath.Join(clientCtx.HomeDir, "keyring")
+	}
+	keyringDir += "-" + suffix
+	clientCtx = clientCtx.WithKeyringDir(keyringDir)
+
+	keyringBackend, err := flagSet.GetString(flags.FlagKeyringBackend)
+	if err != nil {
+		return client.Context{}, errors.WithStack(err)
+	}
+	kr, err := client.NewKeyringFromBackend(clientCtx, keyringBackend)
+	if err != nil {
+		return client.Context{}, errors.WithStack(err)
+	}
+	return clientCtx.WithKeyring(kr), nil
+}
+
 // KeyringCmd returns cosmos keyring cmd inti with the correct keys home.
 func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
 	// We need to set CoinType to Coreum value before initializing keys commands because keys.Commands() sets default
@@ -264,17 +297,11 @@ func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
 			if err != nil {
 				return errors.WithStack(err)
 			}
-			clientCtx = clientCtx.WithKeyringDir(filepath.Join(DefaultHomeDir, "keyring-"+suffix))
 
-			keyringBackend, err := cmd.Flags().GetString(flags.FlagKeyringBackend)
+			clientCtx, err = WithKeyring(clientCtx, cmd.Flags(), suffix)
 			if err != nil {
-				return errors.WithStack(err)
+				return err
 			}
-			kr, err := client.NewKeyringFromBackend(clientCtx, keyringBackend)
-			if err != nil {
-				return errors.WithStack(err)
-			}
-			clientCtx = clientCtx.WithKeyring(kr)
 
 			if err := client.SetCmdClientContext(cmd, clientCtx); err != nil {
 				return errors.WithStack(err)

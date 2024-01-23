@@ -488,7 +488,8 @@ func createDevRunner(
 	t.Helper()
 
 	encodingConfig := coreumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
-	kr := keyring.NewInMemory(encodingConfig.Codec)
+	xrplKeyring := keyring.NewInMemory(encodingConfig.Codec)
+	coreumKeyring := keyring.NewInMemory(encodingConfig.Codec)
 
 	relayerRunnerCfg := runner.DefaultConfig()
 	relayerRunnerCfg.LoggingConfig.Level = "info"
@@ -500,7 +501,7 @@ func createDevRunner(
 	pass := uuid.NewString()
 	armor, err := coreumKr.ExportPrivKeyArmor(keyInfo.Name, pass)
 	require.NoError(t, err)
-	require.NoError(t, kr.ImportPrivKey(relayerRunnerCfg.Coreum.RelayerKeyName, armor, pass))
+	require.NoError(t, coreumKeyring.ImportPrivKey(relayerRunnerCfg.Coreum.RelayerKeyName, armor, pass))
 
 	// reimport XRPL key
 	xrplKr := chains.XRPL.GetSignerKeyring()
@@ -508,7 +509,7 @@ func createDevRunner(
 	require.NoError(t, err)
 	armor, err = xrplKr.ExportPrivKeyArmor(keyInfo.Name, pass)
 	require.NoError(t, err)
-	require.NoError(t, kr.ImportPrivKey(relayerRunnerCfg.XRPL.MultiSignerKeyName, armor, pass))
+	require.NoError(t, xrplKeyring.ImportPrivKey(relayerRunnerCfg.XRPL.MultiSignerKeyName, armor, pass))
 
 	relayerRunnerCfg.XRPL.RPC.URL = chains.XRPL.Config().RPCAddress
 	// make the scanner fast
@@ -520,7 +521,7 @@ func createDevRunner(
 	// make operation fetcher fast
 	relayerRunnerCfg.Processes.XRPLTxSubmitter.RepeatDelay = 500 * time.Millisecond
 
-	relayerRunner, err := runner.NewRunner(ctx, relayerRunnerCfg, kr, false)
+	relayerRunner, err := runner.NewRunner(ctx, xrplKeyring, coreumKeyring, relayerRunnerCfg, false)
 	require.NoError(t, err)
 	return relayerRunner
 }

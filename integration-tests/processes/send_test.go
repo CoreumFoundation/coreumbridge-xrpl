@@ -140,7 +140,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 
 	// assert bridging fee is deducted.
 	for _, runner := range runnerEnv.Runners {
-		keyInfo, err := runner.ClientCtx.Keyring().Key("coreum-relayer")
+		keyInfo, err := runner.CoreumClientCtx.Keyring().Key("coreum-relayer")
 		require.NoError(t, err)
 		address, err := keyInfo.GetAddress()
 		require.NoError(t, err)

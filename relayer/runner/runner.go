@@ -215,7 +215,7 @@ type Runner struct {
 	XRPLKeyringTxSigner      *xrpl.KeyringTxSigner
 	CoreumContractClient     *coreum.ContractClient
 	CoreumChainNetworkConfig coreumchainconfig.NetworkConfig
-	ClientCtx                coreumchainclient.Context
+	CoreumClientCtx          coreumchainclient.Context
 
 	Processes Processes
 	Processor *processes.Processor
@@ -224,7 +224,13 @@ type Runner struct {
 // NewRunner return new runner from the config.
 //
 //nolint:funlen // the func contains sequential object initialisation
-func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring, setCoreumSDKConfig bool) (*Runner, error) {
+func NewRunner(
+	ctx context.Context,
+	xrplKeyring keyring.Keyring,
+	coreumKeyring keyring.Keyring,
+	cfg Config,
+	setCoreumSDKConfig bool,
+) (*Runner, error) {
 	rnr := &Runner{}
 	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig(cfg.LoggingConfig))
 	if err != nil {
@@ -241,10 +247,6 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring, setCoreumSDK
 	coreumClientContextCfg.TimeoutConfig.TxStatusPollInterval = cfg.Coreum.Contract.TxStatusPollInterval
 
 	clientContext := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics)
-	if kr != nil {
-		clientContext = clientContext.WithKeyring(kr)
-	}
-
 	if cfg.Coreum.Network.ChainID != "" {
 		coreumChainNetworkConfig, err := coreumchainconfig.NetworkConfigByChainID(
 			coreumchainconstant.ChainID(cfg.Coreum.Network.ChainID),
@@ -289,23 +291,23 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring, setCoreumSDK
 		clientContext = clientContext.WithGRPCClient(grpcClient)
 	}
 
-	contractClient := coreum.NewContractClient(contractClientCfg, zapLogger, clientContext)
+	coreumClientCtx := clientContext.WithKeyring(coreumKeyring)
+	contractClient := coreum.NewContractClient(contractClientCfg, zapLogger, coreumClientCtx)
 	rnr.CoreumContractClient = contractClient
-	rnr.ClientCtx = clientContext
 
 	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
 	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, zapLogger, retryableXRPLRPCHTTPClient)
 	rnr.XRPLRPCClient = xrplRPCClient
 
 	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
-	if kr != nil {
-		xrplKeyringTxSigner = xrpl.NewKeyringTxSigner(kr)
+	if xrplKeyring != nil {
+		xrplKeyringTxSigner = xrpl.NewKeyringTxSigner(xrplKeyring)
 		rnr.XRPLKeyringTxSigner = xrplKeyringTxSigner
 	}
 
 	var relayerAddress sdk.AccAddress
-	if kr != nil {
-		relayerAddress, err = getAddressFromKeyring(kr, cfg.Coreum.RelayerKeyName)
+	if coreumKeyring != nil {
+		relayerAddress, err = getAddressFromKeyring(coreumKeyring, cfg.Coreum.RelayerKeyName)
 		// is some cases the relayer key might not be set in the keyring
 		if err != nil && !strings.Contains(err.Error(), "key not found") {
 			return nil, err
@@ -366,6 +368,8 @@ func NewRunner(ctx context.Context, cfg Config, kr keyring.Keyring, setCoreumSDK
 			},
 		}
 	}
+
+	rnr.CoreumClientCtx = coreumClientCtx
 
 	return rnr, nil
 }
