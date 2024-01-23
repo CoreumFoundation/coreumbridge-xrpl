@@ -1153,17 +1153,20 @@ $ claim-refund --key-name address --pending-refund-id 1705664693-2
 
 			if refundID != "" {
 				return bridgeClient.ClaimPendingRefund(ctx, address, refundID)
-			} else {
-				refunds, err := bridgeClient.GetPendingRefunds(ctx, address)
+			}
+
+			refunds, err := bridgeClient.GetPendingRefunds(ctx, address)
+			if err != nil {
+				return err
+			}
+
+			for _, refund := range refunds {
+				err := bridgeClient.ClaimPendingRefund(ctx, address, refund.ID)
 				if err != nil {
 					return err
 				}
-
-				for _, refund := range refunds {
-					bridgeClient.ClaimPendingRefund(ctx, address, refund.ID)
-				}
-				return nil
 			}
+			return nil
 		},
 	}
 	addKeyringFlags(cmd)

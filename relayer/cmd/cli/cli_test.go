@@ -727,7 +727,7 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 	defer ctrl.Finish()
 
 	keyringDir := t.TempDir()
-	keyName := "sender"
+	keyName := "claimer"
 	addKeyToTestKeyring(t, keyringDir, keyName)
 	address := readKeyFromTestKeyring(t, keyringDir, keyName)
 
@@ -748,7 +748,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 	defer ctrl.Finish()
 
 	keyringDir := t.TempDir()
-	keyName := "sender"
+	keyName := "claimer"
 	addKeyToTestKeyring(t, keyringDir, keyName)
 	address := readKeyFromTestKeyring(t, keyringDir, keyName)
 

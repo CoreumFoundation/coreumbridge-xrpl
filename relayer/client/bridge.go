@@ -642,10 +642,12 @@ func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Accou
 	return balances, nil
 }
 
+// GetPendingRefunds queries for the pending refunds of an addreess.
 func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error) {
 	return b.contractClient.GetPendingRefunds(ctx, address)
 }
 
+// ClaimPendingRefund claims pending refund.
 func (b *BridgeClient) ClaimPendingRefund(ctx context.Context, address sdk.AccAddress, refundID string) error {
 	_, err := b.contractClient.ClaimRefund(ctx, address, refundID)
 	return err
