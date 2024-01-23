@@ -3046,7 +3046,6 @@ mod tests {
         ));
 
         // We will send a successful transfer to XRPL considering the token has no transfer rate
-        // HOLA
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
