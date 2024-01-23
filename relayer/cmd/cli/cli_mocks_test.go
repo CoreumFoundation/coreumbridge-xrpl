@@ -69,6 +69,20 @@ func (mr *MockBridgeClientMockRecorder) ClaimRefund(arg0, arg1, arg2 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimRefund", reflect.TypeOf((*MockBridgeClient)(nil).ClaimRefund), arg0, arg1, arg2)
 }
 
+// ClaimRelayerFees mocks base method.
+func (m *MockBridgeClient) ClaimRelayerFees(arg0 context.Context, arg1 types.AccAddress, arg2 types.Coins) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClaimRelayerFees", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClaimRelayerFees indicates an expected call of ClaimRelayerFees.
+func (mr *MockBridgeClientMockRecorder) ClaimRelayerFees(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimRelayerFees", reflect.TypeOf((*MockBridgeClient)(nil).ClaimRelayerFees), arg0, arg1, arg2)
+}
+
 // GetAllTokens mocks base method.
 func (m *MockBridgeClient) GetAllTokens(arg0 context.Context) ([]coreum.CoreumToken, []coreum.XRPLToken, error) {
 	m.ctrl.T.Helper()
@@ -113,6 +127,21 @@ func (m *MockBridgeClient) GetCoreumBalances(arg0 context.Context, arg1 types.Ac
 func (mr *MockBridgeClientMockRecorder) GetCoreumBalances(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCoreumBalances", reflect.TypeOf((*MockBridgeClient)(nil).GetCoreumBalances), arg0, arg1)
+}
+
+// GetFeesCollected mocks base method.
+func (m *MockBridgeClient) GetFeesCollected(arg0 context.Context, arg1 types.Address) (types.Coins, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFeesCollected", arg0, arg1)
+	ret0, _ := ret[0].(types.Coins)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFeesCollected indicates an expected call of GetFeesCollected.
+func (mr *MockBridgeClientMockRecorder) GetFeesCollected(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFeesCollected", reflect.TypeOf((*MockBridgeClient)(nil).GetFeesCollected), arg0, arg1)
 }
 
 // GetPendingRefunds mocks base method.

@@ -45,6 +45,8 @@ func init() {
 var DefaultHomeDir string
 
 const (
+	// FlagAmount is the amount flag.
+	FlagAmount = "amount"
 	// FlagHome is home flag.
 	FlagHome = "home"
 	// FlagKeyName is key name flag.
@@ -151,6 +153,12 @@ type BridgeClient interface {
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
 	GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error)
 	ClaimRefund(ctx context.Context, address sdk.AccAddress, pendingRefundID string) error
+	GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error)
+	ClaimRelayerFees(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		amounts sdk.Coins,
+	) error
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
@@ -1365,6 +1373,110 @@ $ claim-refund --%s claimer --%s 1705664693-2
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 	cmd.PersistentFlags().String(FlagRefundID, "", "pending refund id")
+
+	return cmd
+}
+
+// GetRelayerFeesCmd gets the fees of a relayer.
+func GetRelayerFeesCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "relayer-fees [address]",
+		Short: "Get the relayer fees of a relayer address",
+		Long: strings.TrimSpace(
+			`Get pending refunds.
+Example:
+$ relayer-fees core14e57zzux440wz2zl4gcj0xq2kc27jep7zucvz2
+`,
+		),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			address, err := sdk.AccAddressFromBech32(args[0])
+			if err != nil {
+				return err
+			}
+
+			relayerFees, err := bridgeClient.GetFeesCollected(ctx, address)
+			if err != nil {
+				return err
+			}
+
+			logger, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			logger.Info(ctx, "relayer fees", zap.String("fees", relayerFees.String()))
+			return nil
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
+// ClaimRelayerFeesCmd claims relayer fees.
+func ClaimRelayerFeesCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "claim-relayer-fees",
+		Short: "Claim pending relayer fees,  either all or specific amount.",
+		Long: strings.TrimSpace(
+			`Claims relayer fees.
+Example:
+$ claim-relayer-fees --key-name address --amount 1000ucore,100ibc/0718CC536BB057AC79D5616B8EA1B9540EC1F2170718CAFF6F0083C966FFF1707
+`,
+		),
+		Args: cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			address, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+			if err != nil {
+				return err
+			}
+
+			amountStr, err := cmd.Flags().GetString(FlagAmount)
+			if err != nil {
+				return err
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			if amountStr != "" {
+				amount, err := sdk.ParseCoinsNormalized(amountStr)
+				if err != nil {
+					return err
+				}
+				return bridgeClient.ClaimRelayerFees(ctx, address, amount)
+
+			} else {
+				feesCollected, err := bridgeClient.GetFeesCollected(ctx, address)
+				if err != nil {
+					return err
+				}
+
+				return bridgeClient.ClaimRelayerFees(ctx, address, feesCollected)
+			}
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+	cmd.PersistentFlags().String(FlagAmount, "", "specific amount to be collected")
 
 	return cmd
 }

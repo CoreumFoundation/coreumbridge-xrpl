@@ -947,6 +947,69 @@ func TestGetPendingRefundsCmd(t *testing.T) {
 	executeCmd(t, cli.GetPendingRefundsCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
 }
 
+func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "sender"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	amount := sdk.NewCoins(sdk.NewCoin("ucore", sdk.NewInt(100)))
+	bridgeClientMock.EXPECT().ClaimRelayerFees(
+		gomock.Any(),
+		address,
+		amount,
+	).Return(nil)
+	args := []string{
+		"--" + cli.FlagKeyName, keyName,
+		"--" + cli.FlagAmount, amount.String(),
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	executeCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestClaimRelayerFees(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "sender"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	fees, err := sdk.ParseCoinsNormalized("100mycoin,100ucore")
+	require.NoError(t, err)
+	bridgeClientMock.EXPECT().GetFeesCollected(
+		gomock.Any(),
+		address,
+	).Return(fees, nil)
+	bridgeClientMock.EXPECT().ClaimRelayerFees(
+		gomock.Any(),
+		address,
+		fees,
+	).Return(nil)
+	args := []string{"--" + cli.FlagKeyName, keyName}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	executeCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestGetRelayerFees(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	account := coreum.GenAccount()
+	fees, err := sdk.ParseCoinsNormalized("100ucore,100mycoin")
+	require.NoError(t, err)
+	bridgeClientMock.EXPECT().GetFeesCollected(gomock.Any(), account).Return(fees, nil)
+	executeCmd(t, cli.GetRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
+}
+
 func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {
 	return executeCmdWithOutputOption(t, cmd, "text", args...)
 }

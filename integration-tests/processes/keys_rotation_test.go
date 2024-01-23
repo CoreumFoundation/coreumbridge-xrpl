@@ -213,7 +213,7 @@ func TestKeysRotation(t *testing.T) {
 	relayerAddress, err := sdk.AccAddressFromBech32(initialRunnerEnv.BootstrappingConfig.Relayers[1].CoreumAddress)
 	require.NoError(t, err)
 	amountToClaim := sdk.NewCoin(registeredCoreumOriginatedToken.Denom, relayerToFee[relayerAddress.String()])
-	require.NoError(t, initialRunnerEnv.BridgeClient.ClaimFees(
+	require.NoError(t, initialRunnerEnv.BridgeClient.ClaimRelayerFees(
 		ctx, relayerAddress, sdk.NewCoins(amountToClaim)),
 	)
 

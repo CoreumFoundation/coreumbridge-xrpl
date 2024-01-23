@@ -98,10 +98,10 @@ type ContractClient interface {
 		pendingRefundID string,
 	) (*sdk.TxResponse, error)
 	GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error)
-	ClaimFees(
+	ClaimRelayerFees(
 		ctx context.Context,
 		sender sdk.AccAddress,
-		amounts []sdk.Coin,
+		amounts sdk.Coins,
 	) (*sdk.TxResponse, error)
 	RotateKeys(
 		ctx context.Context,
@@ -716,11 +716,11 @@ func (b *BridgeClient) GetFeesCollected(ctx context.Context, address sdk.Address
 	return b.contractClient.GetFeesCollected(ctx, address)
 }
 
-// ClaimFees calls the contract to claim the fees for a given relayer.
-func (b *BridgeClient) ClaimFees(
+// ClaimRelayerFees calls the contract to claim the fees for a given relayer.
+func (b *BridgeClient) ClaimRelayerFees(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	amounts []sdk.Coin,
+	amounts sdk.Coins,
 ) error {
 	b.log.Info(
 		ctx,
@@ -728,7 +728,7 @@ func (b *BridgeClient) ClaimFees(
 		zap.Any("amounts", amounts),
 	)
 
-	txRes, err := b.contractClient.ClaimFees(ctx, sender, amounts)
+	txRes, err := b.contractClient.ClaimRelayerFees(ctx, sender, amounts)
 	if err != nil {
 		return err
 	}
