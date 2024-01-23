@@ -470,21 +470,6 @@ fn save_evidence(
     // 2. The bridge is halted -> Only rotate keys evidences allowed if there is a rotate keys ongoing
     let config = CONFIG.load(deps.storage)?;
 
-    if config.bridge_state == BridgeState::Halted {
-        if !PENDING_ROTATE_KEYS.load(deps.storage)? {
-            return Err(ContractError::BridgeHalted {});
-        }
-
-        // If evidence is not a rotate keys we won't accept this operation
-        match evidence {
-            Evidence::XRPLTransactionResult {
-                operation_result: OperationResult::RotateKeys { .. },
-                ..
-            } => (),
-            _ => return Err(ContractError::BridgeHalted {}),
-        }
-    }
-
     evidence.validate_basic()?;
 
     assert_relayer(deps.as_ref(), &sender)?;
@@ -501,6 +486,9 @@ fn save_evidence(
             amount,
             recipient,
         } => {
+            if config.bridge_state == BridgeState::Halted {
+                return Err(ContractError::BridgeHalted {});
+            }
             deps.api.addr_validate(recipient.as_ref())?;
 
             // This means the token is not a Coreum originated token (the issuer is not the XRPL multisig address)
@@ -621,55 +609,54 @@ fn save_evidence(
             transaction_result,
             operation_result,
         } => {
-            let operation_id =
-                check_operation_exists(deps.storage, account_sequence, ticket_sequence)?;
+            let operation_id = account_sequence.unwrap_or_else(|| ticket_sequence.unwrap());
+            let operation = check_operation_exists(deps.storage, operation_id)?;
 
-            // custom state validation of the transaction results for operations
-            // TODO(keyleu) clean up at end of development unifying operations that we don't need to check
-            match &operation_result {
-                OperationResult::TrustSet { issuer, currency } => {
-                    let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
+            if config.bridge_state == BridgeState::Halted {
+                if !PENDING_ROTATE_KEYS.load(deps.storage)? {
+                    return Err(ContractError::BridgeHalted {});
+                }
 
-                    // We validate that the token is indeed registered and is in the processing state
-                    let token = XRPL_TOKENS
-                        .load(deps.storage, key)
-                        .map_err(|_| ContractError::TokenNotRegistered {})?;
+                // If the evidence is not for a key rotation operation we return an error
+                match &operation.operation_type {
+                    OperationType::RotateKeys { .. } => (),
+                    _ => return Err(ContractError::BridgeHalted {}),
+                }
+            }
 
-                    if token.state.ne(&TokenState::Processing) {
-                        return Err(ContractError::XRPLTokenNotInProcessing {});
+            // Validation for certain operation types that can't have account sequences
+            match &operation.operation_type {
+                OperationType::TrustSet { .. } | OperationType::CoreumToXRPLTransfer { .. } => {
+                    if account_sequence.is_some() {
+                        return Err(ContractError::InvalidTransactionResultEvidence {});
                     }
                 }
-                OperationResult::TicketsAllocation { .. } => {}
-                OperationResult::CoreumToXRPLTransfer { .. } => {}
-                OperationResult::RotateKeys { .. } => {}
+                _ => (),
             }
 
             if threshold_reached {
-                match &operation_result {
-                    OperationResult::TicketsAllocation { tickets } => {
-                        handle_ticket_allocation_confirmation(
-                            deps.storage,
-                            tickets.to_owned(),
-                            transaction_result.to_owned(),
-                        )?;
-                    }
-                    OperationResult::TrustSet { issuer, currency } => {
+                match &operation.operation_type {
+                    OperationType::AllocateTickets { .. } => match operation_result.to_owned() {
+                        Some(OperationResult::TicketsAllocation { tickets }) => {
+                            handle_ticket_allocation_confirmation(
+                                deps.storage,
+                                tickets.to_owned(),
+                                transaction_result.to_owned(),
+                            )?;
+                        }
+                        None => return Err(ContractError::InvalidOperationResult {}),
+                    },
+                    OperationType::TrustSet {
+                        issuer, currency, ..
+                    } => {
                         handle_trust_set_confirmation(
                             deps.storage,
-                            issuer.to_owned(),
-                            currency.to_owned(),
-                            transaction_result.to_owned(),
+                            issuer,
+                            currency,
+                            &transaction_result,
                         )?;
                     }
-                    OperationResult::CoreumToXRPLTransfer {} => {
-                        handle_coreum_to_xrpl_transfer_confirmation(
-                            deps.storage,
-                            transaction_result.to_owned(),
-                            operation_id,
-                            &mut response,
-                        )?;
-                    }
-                    OperationResult::RotateKeys {
+                    OperationType::RotateKeys {
                         new_relayers,
                         new_evidence_threshold,
                     } => {
@@ -678,6 +665,14 @@ fn save_evidence(
                             new_relayers.to_owned(),
                             new_evidence_threshold.to_owned(),
                             transaction_result.to_owned(),
+                        )?;
+                    }
+                    OperationType::CoreumToXRPLTransfer { .. } => {
+                        handle_coreum_to_xrpl_transfer_confirmation(
+                            deps.storage,
+                            transaction_result.to_owned(),
+                            operation_id,
+                            &mut response,
                         )?;
                     }
                 }
@@ -705,7 +700,7 @@ fn save_evidence(
 
             response = response
                 .add_attribute("action", ContractActions::XRPLTransactionResult.as_str())
-                .add_attribute("operation_result", operation_result.as_str())
+                .add_attribute("operation_type", operation.operation_type.as_str())
                 .add_attribute("operation_id", operation_id.to_string())
                 .add_attribute("transaction_result", transaction_result.as_str())
                 .add_attribute("threshold_reached", threshold_reached.to_string());
