@@ -177,10 +177,27 @@ The contract receives the `send-to-XRPL` request for a user, executes the formul
 the `receivedIntAmount = 0` or `amount + currentBridgedAmount > max allowed bridged value` (only applied for Coreum originated tokens) returns an error.
 If all validation pass, the contract creates a sending operation with receivedIntAmount, and relayers fees.
 
-###### Fee re-config
+###### Bridging fee re-config
 
 The owner can change a token bridging fees at any time. Since the price of a token can change, there is a possibility that
 the owner wants to adjust the bridging fee for that token.
+
+###### XRPL base fee re-config
+
+At the time of the contract instantiation the owner sets the initial `xrpl_base_fee` used for the XRPL transaction fee.
+The formula for the fee is `xrpl_tx_fee = (1 + number of signatures) * xrpl_base_fee`. The fee should be the same for
+all relayers since it influences the operation signature. It is required for the fee to be updated since at some point
+in time the XRPL chain might be under a high load and transactions from the Coreum to XRPL might be not accepted by the
+nodes and get stuck. The fee update process helps to resolve such issues:
+
+* owner calls the contract a provides new `xrpl_base_fee`
+* the contract
+   * updates the `xrpl_base_fee` in config
+   * removes signatures from all pending operations
+   * increment the version of the pending operations
+
+Since the version of the operations is updated and `xrpl_base_fee` is changed (increased for example) the relayers will
+resign the transaction and a new fee will be used for the XRPL node to execute the transaction.
 
 ##### Kill switch
 
@@ -194,7 +211,7 @@ rotated using the key rotation workflow. The workflow is triggered by the owner.
 the new relayer Coreum addresses, XRPL public keys, signing/evidence threshold and an optional account sequence (in case there is
 no ticket available). This action will automatically halt the bridge in case it is not halted yet and start the key rotation workflow.
 During this workflow execution, no operations are allowed on the contract except for key rotation evidences from the
-relayers. If there is a key rotation in process, the owner cannot trigger another key rotation. Once the key rotation operation has been 
+relayers. If there is a key rotation in process, the owner cannot trigger another key rotation. Once the key rotation operation has been
 confirmed by the relayers, the owner can trigger another key rotation (if needed/it failed) and/or resume the bridge.
 This option gives the owner an ability to rotate the keys in case of a malicious relayer, or if the malicious relayer halted it. Check [workflow](#rotate-keys) for more details.
 
