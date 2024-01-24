@@ -291,8 +291,9 @@ func WithKeyring(clientCtx client.Context, flagSet *pflag.FlagSet, suffix string
 }
 
 // KeyringCmd returns cosmos keyring cmd inti with the correct keys home.
+// Based on provided suffix and coinType it uses keyring dedicated to xrpl or coreum.
 func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
-	// We need to set CoinType to Coreum value before initializing keys commands because keys.Commands() sets default
+	// We need to set CoinType before initializing keys commands because keys.Commands() sets default
 	// flag value from sdk config. See github.com/cosmos/cosmos-sdk@v0.47.5/client/keys/add.go:78
 	sdk.GetConfig().SetCoinType(coinType)
 
