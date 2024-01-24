@@ -60,7 +60,7 @@ func TestStartCmd(t *testing.T) {
 func TestKeyringCmds(t *testing.T) {
 	unsealConfig()
 
-	cmd, err := cli.KeyringCmd("coreum", constant.CoinType)
+	cmd, err := cli.KeyringCmd(coreum.KeyringSuffix, constant.CoinType)
 	require.NoError(t, err)
 
 	configPath := t.TempDir()

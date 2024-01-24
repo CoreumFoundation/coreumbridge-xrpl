@@ -14,6 +14,7 @@ import (
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -51,13 +52,13 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.InitCmd())
 	cmd.AddCommand(cli.StartCmd(processorProvider))
 
-	keyringCoreumCmd, err := cli.KeyringCmd("coreum", constant.CoinType)
+	keyringCoreumCmd, err := cli.KeyringCmd(coreum.KeyringSuffix, constant.CoinType)
 	if err != nil {
 		return nil, err
 	}
 	cmd.AddCommand(keyringCoreumCmd)
 
-	keyringXRPLCmd, err := cli.KeyringCmd("xrpl", xrpl.XRPLCoinType)
+	keyringXRPLCmd, err := cli.KeyringCmd(xrpl.KeyringSuffix, xrpl.XRPLCoinType)
 	if err != nil {
 		return nil, err
 	}

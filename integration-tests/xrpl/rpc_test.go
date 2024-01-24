@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -20,8 +19,6 @@ import (
 
 func TestXRPAndIssuedTokensPayment(t *testing.T) {
 	t.Parallel()
-
-	sdk.GetConfig().GetFullBIP44Path()
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
