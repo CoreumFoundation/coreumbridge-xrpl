@@ -1819,7 +1819,7 @@ mod tests {
             .unwrap_err();
 
         assert!(send_error.to_string().contains(
-            ContractError::DeliverAmountFieldNotAllowedForCoreumOriginatedTokens {}
+            ContractError::DeliverAmountIsProhibited {}
                 .to_string()
                 .as_str()
         ));
@@ -3288,11 +3288,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(max_amount_error.to_string().contains(
-            ContractError::DeliverAmountGreaterThanMaxAmount {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(max_amount_error
+            .to_string()
+            .contains(ContractError::InvalidDeliverAmount {}.to_string().as_str()));
 
         // Send it correctly
         wasm.execute::<ExecuteMsg>(
@@ -5105,11 +5103,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(max_amount_error.to_string().contains(
-            ContractError::DeliverAmountGreaterThanMaxAmount {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(max_amount_error
+            .to_string()
+            .contains(ContractError::InvalidDeliverAmount {}.to_string().as_str()));
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,

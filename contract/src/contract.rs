@@ -889,7 +889,7 @@ fn send_to_xrpl(
             // If deliver_amount was sent, we must check that it's less or equal than amount_to_send after bridge fees (without truncating) are applied
             if deliver_amount.is_some() {
                 if deliver_amount.unwrap().gt(&amount_after_bridge_fees) {
-                    return Err(ContractError::DeliverAmountGreaterThanMaxAmount {});
+                    return Err(ContractError::InvalidDeliverAmount {});
                 }
                 let (truncated_amount, _) = truncate_amount(
                     xrpl_token.sending_precision,
@@ -922,9 +922,7 @@ fn send_to_xrpl(
             }
 
             if deliver_amount.is_some() {
-                return Err(
-                    ContractError::DeliverAmountFieldNotAllowedForCoreumOriginatedTokens {},
-                );
+                return Err(ContractError::DeliverAmountIsProhibited {});
             }
 
             let config = CONFIG.load(deps.storage)?;
