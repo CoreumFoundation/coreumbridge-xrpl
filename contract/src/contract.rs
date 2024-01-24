@@ -885,9 +885,9 @@ fn send_to_xrpl(
                 amount_after_bridge_fees,
             )?;
 
-            // If amount was sent, we must check that it's less or equal than amount_to_send after bridge fees are applied and both values are truncated
+            // If amount was sent, we must check that it's less or equal than amount_to_send after bridge fees are applied
             if amount.is_some() {
-                if amount.unwrap().gt(&amount_to_send) {
+                if amount.unwrap().gt(&amount_after_bridge_fees) {
                     return Err(ContractError::AmountGreaterThanMaxAmount {});
                 }
                 let (truncated_amount, _) =
