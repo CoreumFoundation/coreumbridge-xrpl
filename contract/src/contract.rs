@@ -232,9 +232,10 @@ pub fn execute(
             operation_id,
             signature,
         } => save_signature(deps.into_empty(), info.sender, operation_id, signature),
-        ExecuteMsg::SendToXRPL { recipient, amount } => {
-            send_to_xrpl(deps.into_empty(), env, info, recipient, amount)
-        }
+        ExecuteMsg::SendToXRPL {
+            recipient,
+            deliver_amount,
+        } => send_to_xrpl(deps.into_empty(), env, info, recipient, deliver_amount),
         ExecuteMsg::UpdateXRPLToken {
             issuer,
             currency,
@@ -839,7 +840,7 @@ fn send_to_xrpl(
     env: Env,
     info: MessageInfo,
     recipient: String,
-    amount: Option<Uint128>,
+    deliver_amount: Option<Uint128>,
 ) -> CoreumResult<ContractError> {
     assert_bridge_active(deps.as_ref())?;
     // Check that we are only sending 1 type of coin
@@ -885,13 +886,16 @@ fn send_to_xrpl(
                 amount_after_bridge_fees,
             )?;
 
-            // If amount was sent, we must check that it's less or equal than amount_to_send after bridge fees are applied
-            if amount.is_some() {
-                if amount.unwrap().gt(&amount_after_bridge_fees) {
-                    return Err(ContractError::AmountGreaterThanMaxAmount {});
+            // If deliver_amount was sent, we must check that it's less or equal than amount_to_send after bridge fees (without truncating) are applied
+            if deliver_amount.is_some() {
+                if deliver_amount.unwrap().gt(&amount_after_bridge_fees) {
+                    return Err(ContractError::DeliverAmountGreaterThanMaxAmount {});
                 }
-                let (truncated_amount, _) =
-                    truncate_amount(xrpl_token.sending_precision, decimals, amount.unwrap())?;
+                let (truncated_amount, _) = truncate_amount(
+                    xrpl_token.sending_precision,
+                    decimals,
+                    deliver_amount.unwrap(),
+                )?;
 
                 max_amount = amount_to_send;
                 amount_to_send = truncated_amount;
@@ -917,8 +921,10 @@ fn send_to_xrpl(
                 return Err(ContractError::TokenNotEnabled {});
             }
 
-            if amount.is_some() {
-                return Err(ContractError::AmountFieldNotAllowedForCoreumOriginatedTokens {});
+            if deliver_amount.is_some() {
+                return Err(
+                    ContractError::DeliverAmountFieldNotAllowedForCoreumOriginatedTokens {},
+                );
             }
 
             let config = CONFIG.load(deps.storage)?;

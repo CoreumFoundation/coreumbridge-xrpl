@@ -1811,7 +1811,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: xrpl_receiver_address.to_owned(),
-                    amount: Some(Uint128::new(100)),
+                    deliver_amount: Some(Uint128::new(100)),
                 },
                 &coins(amount_to_send.u128(), denom.to_owned()),
                 &sender,
@@ -1819,7 +1819,7 @@ mod tests {
             .unwrap_err();
 
         assert!(send_error.to_string().contains(
-            ContractError::AmountFieldNotAllowedForCoreumOriginatedTokens {}
+            ContractError::DeliverAmountFieldNotAllowedForCoreumOriginatedTokens {}
                 .to_string()
                 .as_str()
         ));
@@ -1829,7 +1829,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(amount_to_send.u128(), denom.to_owned()),
             &sender,
@@ -2076,7 +2076,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(amount_to_send.u128(), denom.to_owned()),
             &sender,
@@ -2290,7 +2290,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(amount_to_send.u128(), denom.to_owned()),
             &sender,
@@ -2459,7 +2459,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(amount_to_send.u128(), denom.to_owned()),
             &sender,
@@ -2744,7 +2744,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(amount_to_send_back.u128(), denom_xrp.to_owned()),
             sender,
@@ -2851,7 +2851,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(amount_to_send_back.u128(), denom_xrp.to_owned()),
             sender,
@@ -3002,7 +3002,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: xrpl_receiver_address.to_owned(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &vec![
                     coin(1, FEE_DENOM),
@@ -3027,7 +3027,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: "invalid_address".to_owned(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(
                     amount_to_send_back.u128(),
@@ -3051,7 +3051,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(
                 amount_to_send_back.u128(),
@@ -3138,7 +3138,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(
                 amount_to_send_back.u128(),
@@ -3265,7 +3265,7 @@ mod tests {
         // Let's test sending a token with optional amount
 
         let max_amount = Uint128::new(10000);
-        let amount = Some(Uint128::new(6000));
+        let deliver_amount = Some(Uint128::new(6000));
 
         // Store balance first so we can check it later
         let request_initial_balance = asset_ft
@@ -3281,7 +3281,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: xrpl_receiver_address.to_owned(),
-                    amount: Some(max_amount.checked_add(Uint128::one()).unwrap()),
+                    deliver_amount: Some(max_amount.checked_add(Uint128::one()).unwrap()),
                 },
                 &coins(max_amount.u128(), denom_xrpl_origin_token.to_owned()),
                 sender,
@@ -3289,7 +3289,7 @@ mod tests {
             .unwrap_err();
 
         assert!(max_amount_error.to_string().contains(
-            ContractError::AmountGreaterThanMaxAmount {}
+            ContractError::DeliverAmountGreaterThanMaxAmount {}
                 .to_string()
                 .as_str()
         ));
@@ -3299,7 +3299,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount,
+                deliver_amount,
             },
             &coins(max_amount.u128(), denom_xrpl_origin_token.to_owned()),
             sender,
@@ -3324,7 +3324,7 @@ mod tests {
                 operation_type: OperationType::CoreumToXRPLTransfer {
                     issuer: xrpl_originated_token.issuer.to_owned(),
                     currency: xrpl_originated_token.currency.to_owned(),
-                    amount: amount.unwrap(),
+                    amount: deliver_amount.unwrap(),
                     max_amount,
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
@@ -3458,7 +3458,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(amount_to_send.u128(), denom.to_owned()),
             &sender,
@@ -3469,7 +3469,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(amount_to_send.u128(), denom.to_owned()),
             &sender,
@@ -4473,7 +4473,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: generate_xrpl_address(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(2, denom1.to_owned()),
             &signer,
@@ -4485,7 +4485,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: generate_xrpl_address(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(1, denom1.to_owned()),
             &signer,
@@ -4498,7 +4498,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: generate_xrpl_address(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(1, denom1.to_owned()),
                 &signer,
@@ -4528,7 +4528,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: generate_xrpl_address(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(100000, denom2.to_owned()),
                 &signer,
@@ -4546,7 +4546,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: generate_xrpl_address(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(3990000, denom2.to_owned()),
             &signer,
@@ -4559,7 +4559,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: generate_xrpl_address(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(100000, denom2.to_owned()),
                 &signer,
@@ -4578,7 +4578,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: generate_xrpl_address(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(1000000, denom2.to_owned()),
                 &signer,
@@ -4607,7 +4607,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: generate_xrpl_address(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(2000000000000, denom3.to_owned()),
             &signer,
@@ -4620,7 +4620,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: generate_xrpl_address(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(200000000000, denom3.to_owned()),
                 &signer,
@@ -4639,7 +4639,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: generate_xrpl_address(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(1000000000000, denom3.to_owned()),
                 &signer,
@@ -5020,7 +5020,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(1000000000020000, xrpl_token.coreum_denom.to_owned()), // This should charge the bridging fee -> 999999999970000 and then truncate the rest -> 999999999900000
             &receiver,
@@ -5090,7 +5090,7 @@ mod tests {
 
         // Let's bridge some tokens again but this time with the optional amount, to check that bridge fees are collected correctly and
         // when rejected, full amount without bridge fees is available to be claimed back by user.
-        let amount = Some(Uint128::new(700000000020000));
+        let deliver_amount = Some(Uint128::new(700000000020000));
 
         // If we send an amount, that after truncation and bridge fees is higher than max amount, it should fail
         let max_amount_error = wasm
@@ -5098,7 +5098,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: xrpl_receiver_address.to_owned(),
-                    amount: Some(Uint128::new(1000000000010000)),
+                    deliver_amount: Some(Uint128::new(1000000000010000)),
                 },
                 &coins(1000000000020000, xrpl_token.coreum_denom.to_owned()), // After fees and truncation -> 1000000000000000 > 999999999900000
                 &receiver,
@@ -5106,7 +5106,7 @@ mod tests {
             .unwrap_err();
 
         assert!(max_amount_error.to_string().contains(
-            ContractError::AmountGreaterThanMaxAmount {}
+            ContractError::DeliverAmountGreaterThanMaxAmount {}
                 .to_string()
                 .as_str()
         ));
@@ -5115,7 +5115,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount, // This will be truncated to 700000000000000
+                deliver_amount, // This will be truncated to 700000000000000
             },
             &coins(1000000000020000, xrpl_token.coreum_denom.to_owned()), // This should charge the bridging fee -> 999999999970000 and then truncate the rest -> 999999999900000
             &receiver,
@@ -5219,7 +5219,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: xrpl_receiver_address.to_owned(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(100, coreum_token_denom.to_owned()),
                 &receiver,
@@ -5236,7 +5236,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(600010, coreum_token_denom.to_owned()), // This should charge briding fee -> 300010 and then truncate the rest -> 300000
             &receiver,
@@ -5311,7 +5311,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(900000, coreum_token_denom.to_owned()), // This charge the entire bridging fee (300000) and truncate nothing
             &receiver,
@@ -6615,7 +6615,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(1, denom.to_owned()),
             &sender,
@@ -6656,7 +6656,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(1, denom.to_owned()),
             &sender,
@@ -7004,7 +7004,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: generate_xrpl_address(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(1, xrpl_token_denom.to_owned()),
                 &signer,
@@ -7073,7 +7073,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: generate_xrpl_address(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(1, coreum_token_denom.to_owned()),
                 &signer,
@@ -7512,7 +7512,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: generate_xrpl_address(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(current_max_amount, coreum_token_denom.to_owned()),
             &signer,
@@ -7911,7 +7911,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
                 recipient: xrpl_receiver_address.to_owned(),
-                amount: None,
+                deliver_amount: None,
             },
             &coins(100, denom.to_owned()),
             &sender,
@@ -8475,7 +8475,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: generate_xrpl_address(),
-                    amount: None,
+                    deliver_amount: None,
                 },
                 &coins(1, FEE_DENOM),
                 &signer,

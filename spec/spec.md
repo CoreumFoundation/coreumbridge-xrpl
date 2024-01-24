@@ -165,7 +165,7 @@ receivedIntAmount = amountAfterRounding * 1e(15-tokenDecimalsInCoreum)
 The contract receives the `send-to-XRPL` request for a user, executes the formula and checks, if after the calculation
 the `receivedIntAmount = 0` or `amount + currentBridgedAmount > max allowed bridged value` (only applied for Coreum originated tokens) returns an error.
 If all validation pass, the contract creates a sending operation with receivedIntAmount, and distributes relayers fees.
-The `send-to-XRPL` request has an optional field `amount` that is used to indicate that the amount to be sent on XRPL is less than the amount sent to the contract.
+The `send-to-XRPL` request has an optional field `deliver_amount` that is used to indicate that the amount to be sent on XRPL is less than the amount sent to the contract.
 This is a way to deal with tokens that have a transfer fee. The fees will be calculated normally but the operation created will adjust the amount and max amount that 
 needs to be considered for the transaction on XRPL.
 
