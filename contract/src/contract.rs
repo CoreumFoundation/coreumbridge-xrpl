@@ -285,6 +285,9 @@ pub fn execute(
             bridging_fee,
             max_holding_amount,
         ),
+        ExecuteMsg::UpdateXRPLBaseFee { xrpl_base_fee } => {
+            update_xrpl_base_fee(deps.into_empty(), info.sender, xrpl_base_fee)
+        }
         ExecuteMsg::ClaimRefund { pending_refund_id } => {
             claim_pending_refund(deps.into_empty(), info.sender, pending_refund_id)
         }
@@ -1099,6 +1102,45 @@ fn update_coreum_token(
     Ok(Response::new()
         .add_attribute("action", ContractActions::UpdateCoreumToken.as_str())
         .add_attribute("denom", denom))
+}
+
+fn update_xrpl_base_fee(
+    deps: DepsMut,
+    sender: Addr,
+    xrpl_base_fee: u64,
+) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    // Update the value in config
+    let mut config = CONFIG.load(deps.storage)?;
+    config.xrpl_base_fee = xrpl_base_fee;
+    CONFIG.save(deps.storage, &config)?;
+
+    // Let's collect all operations in storage and update them
+    let operations: Vec<(u64, Operation)> = PENDING_OPERATIONS
+        .range(deps.storage, None, None, Order::Ascending)
+        .filter_map(|v| v.ok())
+        .collect();
+
+    // For each operation in PENDING_OPERATIONS we increase the version by 1 and delete all signatures
+    for operation in operations.iter() {
+        PENDING_OPERATIONS.save(
+            deps.storage,
+            operation.0,
+            &Operation {
+                id: operation.1.id.to_owned(),
+                version: operation.1.version + 1,
+                ticket_sequence: operation.1.ticket_sequence,
+                account_sequence: operation.1.account_sequence,
+                signatures: vec![],
+                operation_type: operation.1.operation_type.to_owned(),
+            },
+        )?;
+    }
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::UpdateXRPLBaseFee.as_str())
+        .add_attribute("new_xrpl_base_fee", xrpl_base_fee.to_string()))
 }
 
 fn claim_relayer_fees(
