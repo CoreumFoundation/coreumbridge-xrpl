@@ -9348,6 +9348,22 @@ mod tests {
             assert_eq!(pending_operation.signatures.len(), 3);
         }
 
+        // If we trigger an XRPL base fee by some who is not the owner, it should fail.
+        let owner_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateXRPLBaseFee { xrpl_base_fee: 600 },
+                &vec![],
+                &relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(owner_error.to_string().contains(
+            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
+                .to_string()
+                .as_str()
+        ));
+
         // If we trigger an XRPL base fee update, all signatures must be gone, and pending operations must be in version 2
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
