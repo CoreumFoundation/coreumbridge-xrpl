@@ -52,6 +52,7 @@ pub fn register_used_ticket(
                     ticket_to_update,
                     &Operation {
                         id: format!("{}-{}", timestamp, ticket_to_update),
+                        version: 1,
                         ticket_sequence: Some(ticket_to_update),
                         account_sequence: None,
                         signatures: vec![],

@@ -17,6 +17,10 @@ use crate::{
 #[cw_serde]
 pub struct Operation {
     pub id: String,
+    // version will be used to handle changes in xrpl_base_fee.
+    // If xrpl_base_fee changes, the version of operation will be increased by 1 (it's always created with an initial version = 1)
+    // This way, relayers can know if they need to provide the signature again, for this version
+    pub version: u64,
     pub ticket_sequence: Option<u64>,
     pub account_sequence: Option<u64>,
     pub signatures: Vec<Signature>,
@@ -84,6 +88,8 @@ pub fn create_pending_operation(
     // We need to use both timestamp and operation_id to ensure uniqueness of IDs, since operation_id can be reused in case of invalid transactions
     let operation = Operation {
         id: format!("{}-{}", timestamp, operation_id),
+        // Operations are initially created with version 1
+        version: 1,
         ticket_sequence,
         account_sequence,
         signatures: vec![],

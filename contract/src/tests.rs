@@ -76,6 +76,7 @@ mod tests {
         trust_set_limit_amount: Uint128,
         issue_fee: Vec<Coin>,
         bridge_xrpl_address: String,
+        xrpl_base_fee: u64,
     ) -> String {
         let wasm_byte_code = std::fs::read("../build/coreumbridge_xrpl.wasm").unwrap();
         let code_id = wasm
@@ -92,6 +93,7 @@ mod tests {
                 used_ticket_sequence_threshold,
                 trust_set_limit_amount,
                 bridge_xrpl_address,
+                xrpl_base_fee,
             },
             None,
             "coreumbridge-xrpl".into(),
@@ -217,6 +219,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
         assert!(!contract_addr.is_empty());
 
@@ -231,6 +234,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 300,
                 },
                 None,
                 "label".into(),
@@ -256,6 +260,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 300,
                 },
                 None,
                 "label".into(),
@@ -281,6 +286,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 300,
                 },
                 None,
                 "label".into(),
@@ -307,6 +313,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: invalid_address.to_owned(),
+                    xrpl_base_fee: 300,
                 },
                 None,
                 "label".into(),
@@ -334,6 +341,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 300,
                 },
                 None,
                 "label".into(),
@@ -357,6 +365,7 @@ mod tests {
                     used_ticket_sequence_threshold: 1,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 300,
                 },
                 None,
                 "label".into(),
@@ -382,6 +391,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 300,
                 },
                 None,
                 "label".into(),
@@ -415,6 +425,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 300,
                 },
                 None,
                 "label".into(),
@@ -487,6 +498,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         // Query current owner
@@ -575,6 +587,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             multisig_address.to_owned(),
+            300,
         );
 
         let query_config = wasm
@@ -589,7 +602,8 @@ mod tests {
                 used_ticket_sequence_threshold: 50,
                 trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                 bridge_xrpl_address: multisig_address,
-                bridge_state: BridgeState::Active
+                bridge_state: BridgeState::Active,
+                xrpl_base_fee: 300,
             }
         );
     }
@@ -619,6 +633,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         let query_xrpl_tokens = wasm
@@ -670,6 +685,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         let test_tokens = vec![
@@ -826,6 +842,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         let test_tokens = vec![
@@ -1238,6 +1255,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         let test_token = XRPLToken {
@@ -1400,6 +1418,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         // Set up enough tickets first to allow registering tokens.
@@ -1753,6 +1772,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
+            300,
         );
 
         // Add enough tickets for all our test operations
@@ -2675,6 +2695,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         let query_xrpl_tokens = wasm
@@ -2783,6 +2804,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(1),
                 account_sequence: None,
                 signatures: vec![],
@@ -2799,21 +2821,22 @@ mod tests {
         );
 
         // Sending a CoreumToXRPLTransfer evidence with account sequence should fail.
-        let invalid_evidence = wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::SaveEvidence {
-                evidence: Evidence::XRPLTransactionResult {
-                    tx_hash: Some(generate_hash()),
-                    account_sequence: Some(1),
-                    ticket_sequence: None,
-                    transaction_result: TransactionResult::Accepted,
-                    operation_result: None,
+        let invalid_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(generate_hash()),
+                        account_sequence: Some(1),
+                        ticket_sequence: None,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: None,
+                    },
                 },
-            },
-            &vec![],
-            relayer_account,
-        )
-        .unwrap_err();
+                &vec![],
+                relayer_account,
+            )
+            .unwrap_err();
 
         assert!(invalid_evidence.to_string().contains(
             ContractError::InvalidTransactionResultEvidence {}
@@ -3090,6 +3113,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(4),
                 account_sequence: None,
                 signatures: vec![],
@@ -3381,6 +3405,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(6),
                 account_sequence: None,
                 signatures: vec![],
@@ -3400,6 +3425,7 @@ mod tests {
             query_pending_operations.operations[1],
             Operation {
                 id: query_pending_operations.operations[1].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(7),
                 account_sequence: None,
                 signatures: vec![],
@@ -3555,6 +3581,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         // *** Test with XRPL originated tokens ***
@@ -4570,6 +4597,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
+            300,
         );
 
         // Recover enough tickets
@@ -4905,6 +4933,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(2),
                 account_sequence: None,
                 signatures: vec![],
@@ -4997,6 +5026,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(3),
                 account_sequence: None,
                 signatures: vec![],
@@ -5072,6 +5102,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(4),
                 account_sequence: None,
                 signatures: vec![],
@@ -5397,6 +5428,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         // Recover enough tickets
@@ -5646,6 +5678,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(4),
                 account_sequence: None,
                 signatures: vec![],
@@ -5706,6 +5739,7 @@ mod tests {
             query_pending_operations.operations[1],
             Operation {
                 id: query_pending_operations.operations[1].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(5),
                 account_sequence: None,
                 signatures: vec![],
@@ -5765,6 +5799,7 @@ mod tests {
             query_pending_operations.operations[2],
             Operation {
                 id: query_pending_operations.operations[2].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(6),
                 account_sequence: None,
                 signatures: vec![],
@@ -6030,6 +6065,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         // Querying current pending operations and available tickets should return empty results.
@@ -6149,6 +6185,7 @@ mod tests {
             query_pending_operations.operations,
             [Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: None,
                 account_sequence: Some(account_sequence),
                 signatures: vec![], // No signatures yet
@@ -6540,6 +6577,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         // We successfully recover 3 tickets to perform operations
@@ -6689,6 +6727,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(
                     query_pending_operations.operations[0]
                         .ticket_sequence
@@ -6749,6 +6788,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         // We successfully recover 3 tickets
@@ -6833,6 +6873,7 @@ mod tests {
             query_pending_operations.operations,
             [Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(3),
                 account_sequence: None,
                 signatures: vec![],
@@ -6919,6 +6960,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
+            300,
         );
 
         // Add enough tickets to test that ticket is correctly returned
@@ -7097,6 +7139,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         // Recover enough tickets for testing
@@ -8187,6 +8230,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
+            300,
         );
 
         // Add enough tickets for all our test operations
@@ -8438,6 +8482,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         // Recover enough tickets for testing
@@ -8559,6 +8604,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(1),
                 account_sequence: None,
                 signatures: vec![],
@@ -8656,6 +8702,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: Some(2),
                 account_sequence: None,
                 signatures: vec![],
@@ -8779,6 +8826,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
+            300,
         );
 
         // Halt the bridge and check that we can't send any operations except allowed ones
@@ -8989,6 +9037,7 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
+                version: 1,
                 ticket_sequence: None,
                 account_sequence: Some(1),
                 signatures: vec![],
@@ -9149,6 +9198,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         let tx_hash = generate_hash();
@@ -9277,6 +9327,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
+            300,
         );
 
         // Try transfering from user that is not owner, should fail

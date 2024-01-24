@@ -44,6 +44,7 @@ pub struct Config {
     pub trust_set_limit_amount: Uint128,
     pub bridge_xrpl_address: String,
     pub bridge_state: BridgeState,
+    pub xrpl_base_fee: u64,
 }
 
 #[cw_serde]

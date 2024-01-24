@@ -127,6 +127,7 @@ pub fn instantiate(
         trust_set_limit_amount: msg.trust_set_limit_amount,
         bridge_xrpl_address: msg.bridge_xrpl_address,
         bridge_state: BridgeState::Active,
+        xrpl_base_fee: msg.xrpl_base_fee,
     };
 
     CONFIG.save(deps.storage, &config)?;
