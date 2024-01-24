@@ -15,7 +15,8 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client"
 	krflags "github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/client/keys"
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
 	rippledata "github.com/rubblelabs/ripple/data"
@@ -97,8 +98,9 @@ func TestRelayerKeyInfoCmd(t *testing.T) {
 	// add required keys
 	keyringDir := t.TempDir()
 	runnerDefaultCfg := runner.DefaultConfig()
-	addKeyToTestKeyring(t, keyringDir, runnerDefaultCfg.XRPL.MultiSignerKeyName)
-	addKeyToTestKeyring(t, keyringDir, runnerDefaultCfg.Coreum.RelayerKeyName)
+	addKeyToTestKeyring(t, keyringDir, runnerDefaultCfg.XRPL.MultiSignerKeyName, xrpl.KeyringSuffix, xrpl.XRPLHDPath)
+	addKeyToTestKeyring(t, keyringDir, runnerDefaultCfg.Coreum.RelayerKeyName, coreum.KeyringSuffix,
+		sdk.GetConfig().GetFullBIP44Path())
 
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.RelayerKeyInfoCmd(), args...)
@@ -112,7 +114,7 @@ func TestBootstrapCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "deployer"
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, xrpl.KeyringSuffix, xrpl.XRPLHDPath)
 
 	// call bootstrap with init only
 	args := []string{
@@ -150,7 +152,7 @@ func TestRecoverTicketsCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner" //nolint:goconst // testing only variable
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, xrpl.KeyringSuffix, xrpl.XRPLHDPath)
 
 	args := []string{
 		flagWithPrefix(cli.FlagKeyName), keyName,
@@ -168,7 +170,7 @@ func TestRegisterCoreumTokenCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	denom := "denom"
 	decimals := 10
@@ -203,7 +205,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 	denom := "denom"
 
 	tests := []struct {
@@ -446,7 +448,7 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	issuer := xrpl.GenPrivKeyTxSigner().Account()
 	currency, err := rippledata.NewCurrency("CRN")
@@ -482,7 +484,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 	issuer := "rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D"
 	currency := "434F524500000000000000000000000000000000"
 
@@ -755,7 +757,7 @@ func TestSendFromCoreumToXRPLCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "sender"
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	recipient := xrpl.GenPrivKeyTxSigner().Account()
 	amount := sdk.NewInt64Coin("denom", 1000)
@@ -804,7 +806,7 @@ func TestSetXRPLTrustSetCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "sender"
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, xrpl.KeyringSuffix, xrpl.XRPLHDPath)
 
 	value, err := rippledata.NewValue("100", false)
 	require.NoError(t, err)
@@ -862,14 +864,29 @@ func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {
 	return buf.String()
 }
 
-func addKeyToTestKeyring(t *testing.T, keyringDir, keyName string) {
-	args := []string{
+func addKeyToTestKeyring(t *testing.T, keyringDir, keyName, suffix, hdPath string) {
+	keyringDir += "-" + suffix
+	encodingConfig := config.NewEncodingConfig(coreumapp.ModuleBasics)
+	clientCtx := client.Context{}.
+		WithCodec(encodingConfig.Codec).
+		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
+		WithTxConfig(encodingConfig.TxConfig).
+		WithLegacyAmino(encodingConfig.Amino).
+		WithInput(os.Stdin).
+		WithOutputFormat("text").
+		WithKeyringDir(keyringDir)
+
+	kr, err := client.NewKeyringFromBackend(clientCtx, keyring.BackendTest)
+	require.NoError(t, err)
+
+	_, _, err = kr.NewMnemonic(
 		keyName,
-	}
-	args = append(args, testKeyringFlags(keyringDir)...)
-	cmd := keys.AddKeyCommand()
-	krflags.AddKeyringFlags(cmd.PersistentFlags())
-	executeCmd(t, cmd, args...)
+		keyring.English,
+		hdPath,
+		"",
+		hd.Secp256k1,
+	)
+	require.NoError(t, err)
 }
 
 func testKeyringFlags(keyringDir string) []string {

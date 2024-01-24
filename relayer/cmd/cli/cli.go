@@ -266,7 +266,7 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 
 // WithKeyring adds suffix-specific keyring to the context.
 func WithKeyring(clientCtx client.Context, flagSet *pflag.FlagSet, suffix string) (client.Context, error) {
-	if flagSet.Lookup(flags.FlagKeyringDir) == nil || flagSet.Lookup(flags.FlagKeyringDir) == nil {
+	if flagSet.Lookup(flags.FlagKeyringDir) == nil || flagSet.Lookup(flags.FlagKeyringBackend) == nil {
 		return clientCtx, nil
 	}
 	keyringDir, err := flagSet.GetString(flags.FlagKeyringDir)
@@ -585,12 +585,12 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
 				return errors.Wrap(err, "failed to get client context")
 			}
 
-			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
 			if err != nil {
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, xrplClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -658,12 +658,12 @@ $ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s own
 				return errors.Wrap(err, "failed to get client context")
 			}
 
-			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
 			if err != nil {
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, xrplClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -722,12 +722,12 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				return errors.Wrap(err, "failed to get client context")
 			}
 
-			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
 			if err != nil {
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, xrplClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -799,12 +799,12 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 				return errors.Wrap(err, "failed to get client context")
 			}
 
-			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
 			if err != nil {
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, xrplClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -899,12 +899,12 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender
 				return errors.Wrap(err, "failed to get client context")
 			}
 
-			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
 			if err != nil {
 				return err
 			}
 
-			sender, err := readAddressFromKeyNameFlag(cmd, xrplClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
