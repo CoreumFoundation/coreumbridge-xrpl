@@ -315,6 +315,7 @@ type updateXRPLTokenRequest struct {
 	Currency         string       `json:"currency"`
 	State            *TokenState  `json:"state,omitempty"`
 	SendingPrecision *int32       `json:"sending_precision,omitempty"`
+	MaxHoldingAmount *sdkmath.Int `json:"max_holding_amount,omitempty"`
 	BridgingFee      *sdkmath.Int `json:"bridging_fee,omitempty"`
 }
 
@@ -322,6 +323,7 @@ type updateCoreumTokenRequest struct {
 	Denom            string       `json:"denom"`
 	State            *TokenState  `json:"state,omitempty"`
 	SendingPrecision *int32       `json:"sending_precision,omitempty"`
+	MaxHoldingAmount *sdkmath.Int `json:"max_holding_amount,omitempty"`
 	BridgingFee      *sdkmath.Int `json:"bridging_fee,omitempty"`
 }
 
@@ -868,6 +870,7 @@ func (c *ContractClient) UpdateXRPLToken(
 	issuer, currency string,
 	state *TokenState,
 	sendingPrecision *int32,
+	maxHoldingAmount *sdkmath.Int,
 	bridgingFee *sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
@@ -877,6 +880,7 @@ func (c *ContractClient) UpdateXRPLToken(
 				Currency:         currency,
 				State:            state,
 				SendingPrecision: sendingPrecision,
+				MaxHoldingAmount: maxHoldingAmount,
 				BridgingFee:      bridgingFee,
 			},
 		},
@@ -895,6 +899,7 @@ func (c *ContractClient) UpdateCoreumToken(
 	denom string,
 	state *TokenState,
 	sendingPrecision *int32,
+	maxHoldingAmount *sdkmath.Int,
 	bridgingFee *sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
@@ -903,6 +908,7 @@ func (c *ContractClient) UpdateCoreumToken(
 				Denom:            denom,
 				State:            state,
 				SendingPrecision: sendingPrecision,
+				MaxHoldingAmount: maxHoldingAmount,
 				BridgingFee:      bridgingFee,
 			},
 		},
@@ -1389,6 +1395,11 @@ func IsBridgeHaltedError(err error) bool {
 // IsRotateKeysOngoingError returns true if error is `RotateKeysOngoing`.
 func IsRotateKeysOngoingError(err error) bool {
 	return isError(err, "RotateKeysOngoing")
+}
+
+// IsInvalidTargetMaxHoldingAmountError returns true if error is `InvalidTargetMaxHoldingAmount`.
+func IsInvalidTargetMaxHoldingAmountError(err error) bool {
+	return isError(err, "InvalidTargetMaxHoldingAmount")
 }
 
 // ******************** Asset FT errors ********************

@@ -453,9 +453,20 @@ func (r *RunnerEnv) UpdateCoreumToken(
 	denom string,
 	state *coreum.TokenState,
 	sendingPrecision *int32,
+	maxHoldingAmount *sdkmath.Int,
 	bridgingFee *sdkmath.Int,
 ) {
-	require.NoError(t, r.BridgeClient.UpdateCoreumToken(ctx, sender, denom, state, sendingPrecision, bridgingFee))
+	require.NoError(
+		t,
+		r.BridgeClient.UpdateCoreumToken(
+			ctx,
+			sender,
+			denom,
+			state,
+			sendingPrecision,
+			maxHoldingAmount,
+			bridgingFee,
+		))
 }
 
 // UpdateCoreumToken updates XRPL token.
@@ -466,9 +477,21 @@ func (r *RunnerEnv) UpdateXRPLToken(
 	issuer, currency string,
 	state *coreum.TokenState,
 	sendingPrecision *int32,
+	maxHoldingAmount *sdkmath.Int,
 	bridgingFee *sdkmath.Int,
 ) {
-	require.NoError(t, r.BridgeClient.UpdateXRPLToken(ctx, sender, issuer, currency, state, sendingPrecision, bridgingFee))
+	require.NoError(
+		t,
+		r.BridgeClient.UpdateXRPLToken(
+			ctx,
+			sender,
+			issuer,
+			currency,
+			state,
+			sendingPrecision,
+			maxHoldingAmount,
+			bridgingFee,
+		))
 }
 
 func genCoreumRelayers(
