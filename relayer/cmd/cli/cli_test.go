@@ -225,6 +225,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					nil,
 					nil,
 					nil,
+					nil,
 				)
 			},
 		},
@@ -244,6 +245,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == -2
 					}),
+					nil,
 					nil,
 				)
 			},
@@ -265,6 +267,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 						return *v == 0
 					}),
 					nil,
+					nil,
 				)
 			},
 		},
@@ -285,6 +288,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 						return *v == 2
 					}),
 					nil,
+					nil,
 				)
 			},
 		},
@@ -303,6 +307,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *coreum.TokenState) bool {
 						return *v == coreum.TokenStateEnabled
 					}),
+					nil,
 					nil,
 					nil,
 				)
@@ -328,6 +333,52 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 						return *v == 2
 					}),
 					nil,
+					nil,
+				)
+			},
+		},
+		{
+			name: "max_holding_amount_update",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagMaxHoldingAmount), "77",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					nil,
+					nil,
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "77"
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "sending_precision_and_max_holding_amount_update",
+			args: []string{
+				denom,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(2),
+				flagWithPrefix(cli.FlagMaxHoldingAmount), "77",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateCoreumToken(
+					gomock.Any(),
+					gomock.Any(),
+					denom,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 2
+					}),
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "77"
+					}),
+					nil,
 				)
 			},
 		},
@@ -343,6 +394,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					gomock.Any(),
 					gomock.Any(),
 					denom,
+					nil,
 					nil,
 					nil,
 					mock.MatchedBy(func(v *sdkmath.Int) bool {
@@ -368,6 +420,7 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == 2
 					}),
+					nil,
 					mock.MatchedBy(func(v *sdkmath.Int) bool {
 						return v.String() == "9999"
 					}),
@@ -454,6 +507,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					nil,
 					nil,
 					nil,
+					nil,
 				)
 			},
 		},
@@ -475,6 +529,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == -2
 					}),
+					nil,
 					nil,
 				)
 			},
@@ -498,6 +553,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 						return *v == 0
 					}),
 					nil,
+					nil,
 				)
 			},
 		},
@@ -520,6 +576,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 						return *v == 2
 					}),
 					nil,
+					nil,
 				)
 			},
 		},
@@ -540,6 +597,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *coreum.TokenState) bool {
 						return *v == coreum.TokenStateEnabled
 					}),
+					nil,
 					nil,
 					nil,
 				)
@@ -567,6 +625,56 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 						return *v == 2
 					}),
 					nil,
+					nil,
+				)
+			},
+		},
+		{
+			name: "max_holding_amount_update",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagMaxHoldingAmount), "66",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					nil,
+					nil,
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "66"
+					}),
+					nil,
+				)
+			},
+		},
+		{
+			name: "sending_precision_and_max_holding_amount_update",
+			args: []string{
+				issuer,
+				currency,
+				flagWithPrefix(cli.FlagSendingPrecision), strconv.Itoa(2),
+				flagWithPrefix(cli.FlagMaxHoldingAmount), "66",
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().UpdateXRPLToken(
+					gomock.Any(),
+					gomock.Any(),
+					issuer,
+					currency,
+					nil,
+					mock.MatchedBy(func(v *int32) bool {
+						return *v == 2
+					}),
+					mock.MatchedBy(func(v *sdkmath.Int) bool {
+						return v.String() == "66"
+					}),
+					nil,
 				)
 			},
 		},
@@ -584,6 +692,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					gomock.Any(),
 					issuer,
 					currency,
+					nil,
 					nil,
 					nil,
 					mock.MatchedBy(func(v *sdkmath.Int) bool {
@@ -611,6 +720,7 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 					mock.MatchedBy(func(v *int32) bool {
 						return *v == 2
 					}),
+					nil,
 					mock.MatchedBy(func(v *sdkmath.Int) bool {
 						return v.String() == "9999"
 					}),
