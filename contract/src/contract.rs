@@ -293,14 +293,12 @@ pub fn execute(
         ExecuteMsg::HaltBridge {} => halt_bridge(deps.into_empty(), info.sender),
         ExecuteMsg::ResumeBridge {} => resume_bridge(deps.into_empty(), info.sender),
         ExecuteMsg::RotateKeys {
-            account_sequence,
             new_relayers,
             new_evidence_threshold,
         } => rotate_keys(
             deps.into_empty(),
             env,
             info.sender,
-            account_sequence,
             new_relayers,
             new_evidence_threshold,
         ),
@@ -487,7 +485,7 @@ fn save_evidence(
 ) -> CoreumResult<ContractError> {
     // Evidences can only be sent under 2 conditions:
     // 1. The bridge is active -> All evidences are accepted
-    // 2. The bridge is halted -> Only rotate keys evidences allowed if there is a rotate keys ongoing
+    // 2. The bridge is halted -> Only ticket allocation and rotate keys evidences (if there is a rotate keys ongoing) are allowed
     let config = CONFIG.load(deps.storage)?;
 
     evidence.validate_basic()?;
@@ -633,13 +631,14 @@ fn save_evidence(
             let operation = check_operation_exists(deps.storage, operation_id)?;
 
             if config.bridge_state == BridgeState::Halted {
-                if !PENDING_ROTATE_KEYS.load(deps.storage)? {
-                    return Err(ContractError::BridgeHalted {});
-                }
-
-                // If the evidence is not for a key rotation operation we return an error
                 match &operation.operation_type {
-                    OperationType::RotateKeys { .. } => (),
+                    // We allow rotate key evidences if there is a rotate keys operation ongoing and allocate ticket evidences
+                    OperationType::RotateKeys { .. } => {
+                        if !PENDING_ROTATE_KEYS.load(deps.storage)? {
+                            return Err(ContractError::BridgeHalted {});
+                        }
+                    }
+                    OperationType::AllocateTickets { .. } => (),
                     _ => return Err(ContractError::BridgeHalted {}),
                 }
             }
@@ -742,7 +741,6 @@ fn recover_tickets(
     number_of_tickets: Option<u32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
-    assert_bridge_active(deps.as_ref())?;
 
     let available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
 
@@ -1177,7 +1175,6 @@ fn rotate_keys(
     deps: DepsMut,
     env: Env,
     sender: Addr,
-    account_sequence: Option<u64>,
     new_relayers: Vec<Relayer>,
     new_evidence_threshold: u32,
 ) -> CoreumResult<ContractError> {
@@ -1194,26 +1191,13 @@ fn rotate_keys(
     // Validate the new relayer set so that we are sure that the new set is valid (e.g. no duplicated relayers, etc.)
     validate_relayers(deps.as_ref(), &new_relayers, new_evidence_threshold)?;
 
-    // Create the pending operation for key rotation
-    // If an account sequence is sent we will use it, otherwise we will use a ticket
-    let acc_seq;
-    let ticket;
-    match account_sequence {
-        Some(account_sequence) => {
-            acc_seq = Some(account_sequence);
-            ticket = None;
-        }
-        None => {
-            acc_seq = None;
-            ticket = Some(allocate_ticket(deps.storage)?);
-        }
-    }
+    let ticket = allocate_ticket(deps.storage)?;
 
     create_pending_operation(
         deps.storage,
         env.block.time.seconds(),
-        ticket,
-        acc_seq,
+        Some(ticket),
+        None,
         OperationType::RotateKeys {
             new_relayers,
             new_evidence_threshold,

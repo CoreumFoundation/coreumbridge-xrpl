@@ -2799,21 +2799,22 @@ mod tests {
         );
 
         // Sending a CoreumToXRPLTransfer evidence with account sequence should fail.
-        let invalid_evidence = wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::SaveEvidence {
-                evidence: Evidence::XRPLTransactionResult {
-                    tx_hash: Some(generate_hash()),
-                    account_sequence: Some(1),
-                    ticket_sequence: None,
-                    transaction_result: TransactionResult::Accepted,
-                    operation_result: None,
+        let invalid_evidence = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(generate_hash()),
+                        account_sequence: Some(1),
+                        ticket_sequence: None,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: None,
+                    },
                 },
-            },
-            &vec![],
-            relayer_account,
-        )
-        .unwrap_err();
+                &vec![],
+                relayer_account,
+            )
+            .unwrap_err();
 
         assert!(invalid_evidence.to_string().contains(
             ContractError::InvalidTransactionResultEvidence {}
@@ -8519,7 +8520,6 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RotateKeys {
-                account_sequence: None,
                 new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                 new_evidence_threshold: 2,
             },
@@ -8533,7 +8533,6 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::RotateKeys {
-                    account_sequence: None,
                     new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                     new_evidence_threshold: 2,
                 },
@@ -8634,7 +8633,6 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RotateKeys {
-                account_sequence: None,
                 new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                 new_evidence_threshold: 2,
             },
@@ -8792,6 +8790,36 @@ mod tests {
 
         assert_eq!(query_bridge_state.state, BridgeState::Halted);
 
+        // Setting up some tickets should be allowed
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(10),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: Some(OperationResult::TicketsAllocation {
+                        tickets: Some((1..11).collect()),
+                    }),
+                },
+            },
+            &vec![],
+            &relayer_account,
+        )
+        .unwrap();
+
         // Trying to register tokens should fail
         let bridge_halted_error = wasm
             .execute::<ExecuteMsg>(
@@ -8824,23 +8852,6 @@ mod tests {
                     transfer_rate: None,
                 },
                 &query_issue_fee(&asset_ft),
-                &signer,
-            )
-            .unwrap_err();
-
-        assert!(bridge_halted_error
-            .to_string()
-            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
-
-        // Recover tickets should also fail
-        let bridge_halted_error = wasm
-            .execute::<ExecuteMsg>(
-                &contract_addr,
-                &ExecuteMsg::RecoverTickets {
-                    account_sequence: 1,
-                    number_of_tickets: Some(5),
-                },
-                &vec![],
                 &signer,
             )
             .unwrap_err();
@@ -8963,11 +8974,10 @@ mod tests {
             xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
-        // We perform a key rotation using an account sequence
+        // We perform a key rotation
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RotateKeys {
-                account_sequence: Some(1),
                 new_relayers: vec![new_relayer.clone()],
                 new_evidence_threshold: 1,
             },
@@ -8989,8 +8999,8 @@ mod tests {
             query_pending_operations.operations[0],
             Operation {
                 id: query_pending_operations.operations[0].id.to_owned(),
-                ticket_sequence: None,
-                account_sequence: Some(1),
+                ticket_sequence: Some(1),
+                account_sequence: None,
                 signatures: vec![],
                 operation_type: OperationType::RotateKeys {
                     new_relayers: vec![new_relayer.clone()],
