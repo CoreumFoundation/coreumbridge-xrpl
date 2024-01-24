@@ -207,13 +207,13 @@ the owner wants to adjust the bridging fee for that token.
 
 ###### XRPL base fee re-config
 
-And the time of the contract instantiation the owner sets the initial `xrpl_base_fee` used for the XRPL transaction fee.
+At the time of the contract instantiation the owner sets the initial `xrpl_base_fee` used for the XRPL transaction fee.
 The formula for the fee is `xrpl_tx_fee = (1 + number of signatures) * xrpl_base_fee`. The fee should be the same for
 all relayers since it influences the operation signature. It is required for the fee to be updated since at some point
 in time the XRPL chain might be under a high load and transactions from the Coreum to XRPL might be not accepted by the
-nodes and stuck. The fee update process helps to resolve such issues:
+nodes and get stuck. The fee update process helps to resolve such issues:
 
-* owner calls the contract a provides new`xrpl_base_fee`
+* owner calls the contract a provides new `xrpl_base_fee`
 * the contract
     * updates the `xrpl_base_fee` in config
     * removes signatures from all pending operations
