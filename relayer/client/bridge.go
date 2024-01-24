@@ -162,6 +162,23 @@ func DefaultBootstrappingConfig() BootstrappingConfig {
 	}
 }
 
+// KeysRotationConfig the struct contains the setting for the keys rotation.
+type KeysRotationConfig struct {
+	Relayers          []RelayerConfig `yaml:"relayers"`
+	EvidenceThreshold int             `yaml:"evidence_threshold"`
+}
+
+// DefaultKeysRotationConfig return default KeysRotationConfig.
+func DefaultKeysRotationConfig() KeysRotationConfig {
+	return KeysRotationConfig{
+		Relayers: []RelayerConfig{
+			// keep one empty relayer for a template
+			{},
+		},
+		EvidenceThreshold: 0,
+	}
+}
+
 // BridgeClient is the service responsible for the bridge bootstrapping.
 type BridgeClient struct {
 	log            logger.Logger
@@ -652,22 +669,20 @@ func (b *BridgeClient) ResumeBridge(
 func (b *BridgeClient) RotateKeys(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	newRelayers []RelayerConfig,
-	newEvidenceThreshold int,
+	cfg KeysRotationConfig,
 ) error {
 	b.log.Info(
 		ctx,
 		"Rotating Keys",
-		zap.Any("newRelayers", newRelayers),
-		zap.Int("newEvidenceThreshold", newEvidenceThreshold),
+		zap.Any("cfg", cfg),
 	)
 
-	relayers, _, err := b.buildContractRelayersFromRelayersConfig(ctx, newRelayers)
+	relayers, _, err := b.buildContractRelayersFromRelayersConfig(ctx, cfg.Relayers)
 	if err != nil {
 		return err
 	}
 
-	txRes, err := b.contractClient.RotateKeys(ctx, sender, relayers, newEvidenceThreshold)
+	txRes, err := b.contractClient.RotateKeys(ctx, sender, relayers, cfg.EvidenceThreshold)
 	if err != nil {
 		return err
 	}
@@ -891,16 +906,55 @@ func ComputeXRPLBrideAccountBalance(signersCount int) float64 {
 
 // InitBootstrappingConfig creates default bootstrapping config yaml file.
 func InitBootstrappingConfig(filePath string) error {
+	return saveConfigToFile(filePath, DefaultBootstrappingConfig())
+}
+
+// ReadBootstrappingConfig reads config bootstrapping yaml file.
+func ReadBootstrappingConfig(filePath string) (BootstrappingConfig, error) {
+	fileBytes, err := readConfigFromFile(filePath)
+	if err != nil {
+		return BootstrappingConfig{}, err
+	}
+
+	var config BootstrappingConfig
+	if err := yaml.Unmarshal(fileBytes, &config); err != nil {
+		return BootstrappingConfig{}, errors.Wrapf(err, "failed to unmarshal file to yaml, path:%s", filePath)
+	}
+
+	return config, nil
+}
+
+// InitKeysRotationConfig creates empty keys rotation config yaml file.
+func InitKeysRotationConfig(filePath string) error {
+	return saveConfigToFile(filePath, DefaultKeysRotationConfig())
+}
+
+// ReadKeysRotationConfig reads keys rotation config yaml file.
+func ReadKeysRotationConfig(filePath string) (KeysRotationConfig, error) {
+	fileBytes, err := readConfigFromFile(filePath)
+	if err != nil {
+		return KeysRotationConfig{}, err
+	}
+
+	var config KeysRotationConfig
+	if err := yaml.Unmarshal(fileBytes, &config); err != nil {
+		return KeysRotationConfig{}, errors.Wrapf(err, "failed to unmarshal file to yaml, path:%s", filePath)
+	}
+
+	return config, nil
+}
+
+func saveConfigToFile(filePath string, srt any) error {
 	if err := os.MkdirAll(filepath.Dir(filePath), 0o700); err != nil {
 		return errors.Errorf("failed to create dirs by path:%s", filePath)
 	}
 
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create config file, path:%s", filePath)
+		return errors.Wrapf(err, "failed to create file, path:%s", filePath)
 	}
 	defer file.Close()
-	yamlStringConfig, err := yaml.Marshal(DefaultBootstrappingConfig())
+	yamlStringConfig, err := yaml.Marshal(srt)
 	if err != nil {
 		return errors.Wrap(err, "failed convert default config to yaml")
 	}
@@ -911,24 +965,18 @@ func InitBootstrappingConfig(filePath string) error {
 	return nil
 }
 
-// ReadBootstrappingConfig reads config yaml file.
-func ReadBootstrappingConfig(filePath string) (BootstrappingConfig, error) {
+func readConfigFromFile(filePath string) ([]byte, error) {
 	file, err := os.OpenFile(filePath, os.O_RDONLY, 0o600)
 	defer file.Close() //nolint:staticcheck //we accept the error ignoring
 	if errors.Is(err, os.ErrNotExist) {
-		return BootstrappingConfig{}, errors.Errorf("config file does not exist, path:%s", filePath)
+		return nil, errors.Errorf("config file does not exist, path:%s", filePath)
 	}
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
-		return BootstrappingConfig{}, errors.Wrapf(err, "failed to read bytes from file does not exist, path:%s", filePath)
+		return nil, errors.Wrapf(err, "failed to read bytes from file does not exist, path:%s", filePath)
 	}
 
-	var config BootstrappingConfig
-	if err := yaml.Unmarshal(fileBytes, &config); err != nil {
-		return BootstrappingConfig{}, errors.Wrapf(err, "failed to unmarshal file to yaml, path:%s", filePath)
-	}
-
-	return config, nil
+	return fileBytes, nil
 }
 
 func (b *BridgeClient) autoFillSignSubmitAndAwaitXRPLTx(

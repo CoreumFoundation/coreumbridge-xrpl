@@ -160,6 +160,20 @@ func (mr *MockBridgeClientMockRecorder) RegisterXRPLToken(arg0, arg1, arg2, arg3
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterXRPLToken", reflect.TypeOf((*MockBridgeClient)(nil).RegisterXRPLToken), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
+// RotateKeys mocks base method.
+func (m *MockBridgeClient) RotateKeys(arg0 context.Context, arg1 types.AccAddress, arg2 client.KeysRotationConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RotateKeys", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RotateKeys indicates an expected call of RotateKeys.
+func (mr *MockBridgeClientMockRecorder) RotateKeys(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RotateKeys", reflect.TypeOf((*MockBridgeClient)(nil).RotateKeys), arg0, arg1, arg2)
+}
+
 // SendFromCoreumToXRPL mocks base method.
 func (m *MockBridgeClient) SendFromCoreumToXRPL(arg0 context.Context, arg1 types.AccAddress, arg2 types.Coin, arg3 data.Account) error {
 	m.ctrl.T.Helper()

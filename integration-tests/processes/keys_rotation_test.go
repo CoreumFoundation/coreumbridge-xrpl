@@ -121,8 +121,10 @@ func TestKeysRotation(t *testing.T) {
 	require.NoError(t, initialRunnerEnv.BridgeClient.RotateKeys(
 		ctx,
 		initialRunnerEnv.ContractOwner,
-		updatedRelayers,
-		newSigningThreshold,
+		bridgeclient.KeysRotationConfig{
+			Relayers:          updatedRelayers,
+			EvidenceThreshold: newSigningThreshold,
+		},
 	))
 
 	initialRunnerEnv.AwaitNoPendingOperations(ctx, t)

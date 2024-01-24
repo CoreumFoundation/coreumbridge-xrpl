@@ -61,6 +61,7 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.UpdateCoreumTokenCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.RegisterXRPLTokenCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.UpdateXRPLTokenCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.RotateKeysCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.RegisteredTokensCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.SendFromCoreumToXRPLCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.SendFromXRPLToCoreumCmd(bridgeClientProvider))
