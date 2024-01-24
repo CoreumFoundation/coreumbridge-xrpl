@@ -175,7 +175,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                                     token.decimals,
                                     max_amount,
                                 )?;
-                                // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
+                                // If transaction was rejected, we must store the amount so that sender can claim it back.
                                 store_pending_refund(
                                     storage,
                                     pending_operation.id,
