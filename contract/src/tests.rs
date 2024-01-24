@@ -9171,6 +9171,211 @@ mod tests {
             .unwrap();
 
         assert_eq!(query_bridge_state.state, BridgeState::Halted);
+
+        // Triggering a fee update during halted bridge should work
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateXRPLBaseFee { xrpl_base_fee: 600 },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn updating_xrpl_base_fee() {
+        let app = CoreumTestApp::new();
+        let accounts_number = 4;
+        let accounts = app
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
+            .unwrap();
+
+        let signer = accounts.get((accounts_number - 1) as usize).unwrap();
+        let xrpl_addresses: Vec<String> = (0..3).map(|_| generate_xrpl_address()).collect();
+        let xrpl_pub_keys: Vec<String> = (0..3).map(|_| generate_xrpl_pub_key()).collect();
+
+        let mut relayer_accounts = vec![];
+        let mut relayers = vec![];
+
+        for i in 0..accounts_number - 1 {
+            relayer_accounts.push(accounts.get(i as usize).unwrap());
+            relayers.push(Relayer {
+                coreum_address: Addr::unchecked(accounts.get(i as usize).unwrap().address()),
+                xrpl_address: xrpl_addresses[i as usize].to_string(),
+                xrpl_pub_key: xrpl_pub_keys[i as usize].to_string(),
+            });
+        }
+        let wasm = Wasm::new(&app);
+        let asset_ft = AssetFT::new(&app);
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            relayers.to_owned(),
+            3,
+            9,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+            query_issue_fee(&asset_ft),
+            generate_xrpl_address(),
+            300,
+        );
+
+        // Add enough tickets for all our tests
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(10),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let tx_hash = generate_hash();
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLTransactionResult {
+                        tx_hash: Some(tx_hash.to_owned()),
+                        account_sequence: Some(1),
+                        ticket_sequence: None,
+                        transaction_result: TransactionResult::Accepted,
+                        operation_result: Some(OperationResult::TicketsAllocation {
+                            tickets: Some((1..11).collect()),
+                        }),
+                    },
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
+        }
+
+        // We are going to create a few pending operations and add signatures to them
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterXRPLToken {
+                issuer: generate_xrpl_address(),
+                currency: "USD".to_string(),
+                sending_precision: 15,
+                max_holding_amount: Uint128::new(100000),
+                bridging_fee: Uint128::zero(),
+                transfer_rate: None,
+            },
+            &query_issue_fee(&asset_ft),
+            &signer,
+        )
+        .unwrap();
+
+        // Register COREUM to send some
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterCoreumToken {
+                denom: FEE_DENOM.to_string(),
+                decimals: 6,
+                sending_precision: 6,
+                max_holding_amount: Uint128::new(100000),
+                bridging_fee: Uint128::zero(),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: generate_xrpl_address(),
+            },
+            &coins(1, FEE_DENOM.to_string()),
+            &signer,
+        )
+        .unwrap();
+
+        // Finally also add a Key Rotation, which will verify that we can update the base fee while the bridge is halted
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RotateKeys {
+                account_sequence: None,
+                new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
+                new_evidence_threshold: 2,
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Verify that we have 3 pending operations
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 3);
+
+        // Add some signatures to each pending operation
+        let correct_signature_example = "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string();
+        for pending_operation in query_pending_operations.operations.iter() {
+            for relayer in relayer_accounts.iter() {
+                wasm.execute::<ExecuteMsg>(
+                    &contract_addr,
+                    &ExecuteMsg::SaveSignature {
+                        operation_id: pending_operation.ticket_sequence.unwrap(),
+                        signature: correct_signature_example.to_owned(),
+                    },
+                    &vec![],
+                    relayer,
+                )
+                .unwrap();
+            }
+        }
+
+        // Verify that all pending operations are in version 1 and have three signatures each
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        for pending_operation in query_pending_operations.operations.iter() {
+            assert_eq!(pending_operation.version, 1);
+            assert_eq!(pending_operation.signatures.len(), 3);
+        }
+
+        // If we trigger an XRPL base fee update, all signatures must be gone, and pending operations must be in version 2
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateXRPLBaseFee { xrpl_base_fee: 600 },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Let's query all pending operations again to verify
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {},
+            )
+            .unwrap();
+
+        for pending_operation in query_pending_operations.operations.iter() {
+            assert_eq!(pending_operation.version, 2);
+            assert!(pending_operation.signatures.is_empty());
+        }
+
+        // Let's also verify that the XRPL base fee has been updated
+        let query_config = wasm
+            .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
+            .unwrap();
+
+        assert_eq!(query_config.xrpl_base_fee, 600);
     }
 
     #[test]
