@@ -216,12 +216,9 @@ pub fn execute(
             bridging_fee,
             transfer_rate,
         ),
-        ExecuteMsg::SaveEvidence { evidence } => save_evidence(
-            deps.into_empty(),
-            env.block.time.seconds(),
-            info.sender,
-            evidence,
-        ),
+        ExecuteMsg::SaveEvidence { evidence } => {
+            save_evidence(deps.into_empty(), env, info.sender, evidence)
+        }
         ExecuteMsg::RecoverTickets {
             account_sequence,
             number_of_tickets,
@@ -481,7 +478,7 @@ fn register_xrpl_token(
 
 fn save_evidence(
     deps: DepsMut,
-    timestamp: u64,
+    env: Env,
     sender: Addr,
     evidence: Evidence,
 ) -> CoreumResult<ContractError> {
@@ -510,6 +507,11 @@ fn save_evidence(
                 return Err(ContractError::BridgeHalted {});
             }
             deps.api.addr_validate(recipient.as_ref())?;
+
+            // If the recipient of the operation is the bridge contract address, we error
+            if recipient.eq(&env.contract.address) {
+                return Err(ContractError::ContractCannotBeRecipient {});
+            }
 
             // This means the token is not a Coreum originated token (the issuer is not the XRPL multisig address)
             if issuer.ne(&config.bridge_xrpl_address) {
@@ -704,7 +706,7 @@ fn save_evidence(
                     // we don't have available tickets left and we will notify with an attribute.
                     // NOTE: This will only happen in the particular case of a rejected ticket allocation
                     // operation.
-                    if !register_used_ticket(deps.storage, timestamp)? {
+                    if !register_used_ticket(deps.storage, env.block.time.seconds())? {
                         response = response.add_attribute(
                             "adding_ticket_allocation_operation_success",
                             false.to_string(),
@@ -870,6 +872,11 @@ fn send_to_xrpl(
 
     // Check that the recipient is a valid XRPL address.
     validate_xrpl_address(recipient.to_owned())?;
+
+    let config = CONFIG.load(deps.storage)?;
+    if recipient.eq(&config.bridge_xrpl_address) {
+        return Err(ContractError::BridgeMultisigCannotBeRecipient {});
+    }
 
     let decimals;
     let amount_to_send;
