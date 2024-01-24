@@ -89,6 +89,22 @@ type ContractClient interface {
 		sendingPrecision *int32,
 		bridgingFee *sdkmath.Int,
 	) (*sdk.TxResponse, error)
+	RotateKeys(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		newRelayers []coreum.Relayer,
+		newEvidenceThreshold int,
+	) (*sdk.TxResponse, error)
+	ResumeBridge(
+		ctx context.Context,
+		sender sdk.AccAddress,
+	) (*sdk.TxResponse, error)
+	GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error)
+	ClaimFees(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		amounts []sdk.Coin,
+	) (*sdk.TxResponse, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -111,8 +127,8 @@ type XRPLTxSigner interface {
 	Sign(tx rippledata.Transaction, keyName string) error
 }
 
-// RelayerBootstrappingConfig is relayer config used for the bootstrapping.
-type RelayerBootstrappingConfig struct {
+// RelayerConfig is relayer config used for the bootstrapping and keys rotation.
+type RelayerConfig struct {
 	CoreumAddress string `yaml:"coreum_address"`
 	XRPLAddress   string `yaml:"xrpl_address"`
 	XRPLPubKey    string `yaml:"xrpl_pub_key"`
@@ -120,14 +136,14 @@ type RelayerBootstrappingConfig struct {
 
 // BootstrappingConfig the struct contains the setting for the bridge XRPL account creation and contract deployment.
 type BootstrappingConfig struct {
-	Owner                       string                       `yaml:"owner"`
-	Admin                       string                       `yaml:"admin"`
-	Relayers                    []RelayerBootstrappingConfig `yaml:"relayers"`
-	EvidenceThreshold           int                          `yaml:"evidence_threshold"`
-	UsedTicketSequenceThreshold int                          `yaml:"used_ticket_sequence_threshold"`
-	TrustSetLimitAmount         string                       `yaml:"trust_set_limit_amount"`
-	ContractByteCodePath        string                       `yaml:"contract_bytecode_path"`
-	SkipXRPLBalanceValidation   bool                         `yaml:"-"`
+	Owner                       string          `yaml:"owner"`
+	Admin                       string          `yaml:"admin"`
+	Relayers                    []RelayerConfig `yaml:"relayers"`
+	EvidenceThreshold           int             `yaml:"evidence_threshold"`
+	UsedTicketSequenceThreshold int             `yaml:"used_ticket_sequence_threshold"`
+	TrustSetLimitAmount         string          `yaml:"trust_set_limit_amount"`
+	ContractByteCodePath        string          `yaml:"contract_bytecode_path"`
+	SkipXRPLBalanceValidation   bool            `yaml:"-"`
 }
 
 // DefaultBootstrappingConfig returns default BootstrappingConfig.
@@ -135,7 +151,7 @@ func DefaultBootstrappingConfig() BootstrappingConfig {
 	return BootstrappingConfig{
 		Owner:                       "",
 		Admin:                       "",
-		Relayers:                    []RelayerBootstrappingConfig{{}},
+		Relayers:                    []RelayerConfig{{}},
 		EvidenceThreshold:           0,
 		UsedTicketSequenceThreshold: 150,
 		TrustSetLimitAmount:         sdkmath.NewIntWithDecimal(1, 35).String(),
@@ -194,7 +210,7 @@ func (b *BridgeClient) Bootstrap(
 		}
 	}
 	// validate the config and fill required objects
-	relayers, xrplSignerEntries, err := b.buildRelayersFromBootstrappingConfig(ctx, cfg)
+	relayers, xrplSignerEntries, err := b.buildContractRelayersFromRelayersConfig(ctx, cfg.Relayers)
 	if err != nil {
 		return nil, err
 	}
@@ -594,6 +610,94 @@ func (b *BridgeClient) UpdateXRPLToken(
 	return nil
 }
 
+// ResumeBridge resumes bridge after the halt.
+func (b *BridgeClient) ResumeBridge(
+	ctx context.Context,
+	sender sdk.AccAddress,
+) error {
+	b.log.Info(
+		ctx,
+		"Resuming bridge",
+	)
+
+	txRes, err := b.contractClient.ResumeBridge(ctx, sender)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully sent tx to resume bridge",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
+}
+
+// RotateKeys start bridge keys rotation process.
+func (b *BridgeClient) RotateKeys(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	newRelayers []RelayerConfig,
+	newEvidenceThreshold int,
+) error {
+	b.log.Info(
+		ctx,
+		"Rotating Keys",
+		zap.Any("newRelayers", newRelayers),
+		zap.Int("newEvidenceThreshold", newEvidenceThreshold),
+	)
+
+	relayers, _, err := b.buildContractRelayersFromRelayersConfig(ctx, newRelayers)
+	if err != nil {
+		return err
+	}
+
+	txRes, err := b.contractClient.RotateKeys(ctx, sender, relayers, newEvidenceThreshold)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully sent tx to rotate keys",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
+}
+
+// GetFeesCollected returns the fees collected by a relayer.
+func (b *BridgeClient) GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error) {
+	return b.contractClient.GetFeesCollected(ctx, address)
+}
+
+// ClaimFees calls the contract to claim the fees for a given relayer.
+func (b *BridgeClient) ClaimFees(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	amounts []sdk.Coin,
+) error {
+	b.log.Info(
+		ctx,
+		"Claiming relayer fees",
+		zap.Any("amounts", amounts),
+	)
+
+	txRes, err := b.contractClient.ClaimFees(ctx, sender, amounts)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully claimed relayer fees",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
+}
+
 // GetCoreumBalances returns all coreum account balances.
 func (b *BridgeClient) GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error) {
 	bankClient := banktypes.NewQueryClient(b.clientCtx)
@@ -636,14 +740,14 @@ func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Accou
 	return balances, nil
 }
 
-func (b *BridgeClient) buildRelayersFromBootstrappingConfig(
+func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
 	ctx context.Context,
-	cfg BootstrappingConfig,
+	relayers []RelayerConfig,
 ) ([]coreum.Relayer, []rippledata.SignerEntry, error) {
 	coreumAuthClient := authtypes.NewQueryClient(b.clientCtx)
-	relayers := make([]coreum.Relayer, 0, len(cfg.Relayers))
+	contractRelayers := make([]coreum.Relayer, 0, len(relayers))
 	xrplSignerEntries := make([]rippledata.SignerEntry, 0)
-	for _, relayer := range cfg.Relayers {
+	for _, relayer := range relayers {
 		if _, err := coreumAuthClient.Account(ctx, &authtypes.QueryAccountRequest{
 			Address: relayer.CoreumAddress,
 		}); err != nil {
@@ -671,7 +775,7 @@ func (b *BridgeClient) buildRelayersFromBootstrappingConfig(
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to parse relayerCoreumAddress:%s", relayer.CoreumAddress)
 		}
-		relayers = append(relayers, coreum.Relayer{
+		contractRelayers = append(contractRelayers, coreum.Relayer{
 			CoreumAddress: relayerCoreumAddress,
 			XRPLAddress:   relayer.XRPLAddress,
 			XRPLPubKey:    relayer.XRPLPubKey,
@@ -684,7 +788,7 @@ func (b *BridgeClient) buildRelayersFromBootstrappingConfig(
 		})
 	}
 
-	return relayers, xrplSignerEntries, nil
+	return contractRelayers, xrplSignerEntries, nil
 }
 
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(

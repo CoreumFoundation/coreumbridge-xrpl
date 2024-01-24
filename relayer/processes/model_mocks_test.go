@@ -113,6 +113,21 @@ func (mr *MockContractClientMockRecorder) SendCoreumToXRPLTransferTransactionRes
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoreumToXRPLTransferTransactionResultEvidence", reflect.TypeOf((*MockContractClient)(nil).SendCoreumToXRPLTransferTransactionResultEvidence), arg0, arg1, arg2)
 }
 
+// SendKeysRotationTransactionResultEvidence mocks base method.
+func (m *MockContractClient) SendKeysRotationTransactionResultEvidence(arg0 context.Context, arg1 types.AccAddress, arg2 coreum.XRPLTransactionResultKeysRotationEvidence) (*types.TxResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendKeysRotationTransactionResultEvidence", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*types.TxResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendKeysRotationTransactionResultEvidence indicates an expected call of SendKeysRotationTransactionResultEvidence.
+func (mr *MockContractClientMockRecorder) SendKeysRotationTransactionResultEvidence(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendKeysRotationTransactionResultEvidence", reflect.TypeOf((*MockContractClient)(nil).SendKeysRotationTransactionResultEvidence), arg0, arg1, arg2)
+}
+
 // SendXRPLTicketsAllocationTransactionResultEvidence mocks base method.
 func (m *MockContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(arg0 context.Context, arg1 types.AccAddress, arg2 coreum.XRPLTransactionResultTicketsAllocationEvidence) (*types.TxResponse, error) {
 	m.ctrl.T.Helper()
