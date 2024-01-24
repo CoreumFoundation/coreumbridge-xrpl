@@ -664,9 +664,20 @@ func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAdd
 
 // ClaimPendingRefund claims pending refund.
 func (b *BridgeClient) ClaimPendingRefund(ctx context.Context, address sdk.AccAddress, refundID string) error {
-	b.log.Info(ctx, "claiming pending refund", zap.String("address", address.String()), zap.String("refundID", refundID))
-	_, err := b.contractClient.ClaimRefund(ctx, address, refundID)
-	return err
+	b.log.Info(ctx, "claiming pending refund",
+		zap.String("address", address.String()),
+		zap.String("refundID", refundID))
+	txRes, err := b.contractClient.ClaimRefund(ctx, address, refundID)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(ctx, "finished execution of claiming pending refund",
+		zap.String("address", address.String()),
+		zap.String("refundID", refundID),
+		zap.String("txHash", txRes.TxHash),
+	)
+	return nil
 }
 
 func (b *BridgeClient) buildRelayersFromBootstrappingConfig(
