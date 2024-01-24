@@ -49,19 +49,27 @@ pub enum OperationType {
     },
 }
 
+// For responses
+impl OperationType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OperationType::AllocateTickets { .. } => "allocate_tickets",
+            OperationType::TrustSet { .. } => "trust_set",
+            OperationType::RotateKeys { .. } => "rotate_keys",
+            OperationType::CoreumToXRPLTransfer { .. } => "coreum_to_xrpl_transfer",
+        }
+    }
+}
+
 pub fn check_operation_exists(
     storage: &mut dyn Storage,
-    account_sequence: Option<u64>,
-    ticket_sequence: Option<u64>,
-) -> Result<u64, ContractError> {
-    // Get the sequence or ticket number (priority for sequence number)
-    let operation_id = account_sequence.unwrap_or_else(|| ticket_sequence.unwrap());
+    operation_id: u64,
+) -> Result<Operation, ContractError> {
+    let operation = PENDING_OPERATIONS
+        .load(storage, operation_id)
+        .map_err(|_| ContractError::PendingOperationNotFound {})?;
 
-    if !PENDING_OPERATIONS.has(storage, operation_id) {
-        return Err(ContractError::PendingOperationNotFound {});
-    }
-
-    Ok(operation_id)
+    Ok(operation)
 }
 
 pub fn create_pending_operation(
@@ -92,11 +100,11 @@ pub fn create_pending_operation(
 
 pub fn handle_trust_set_confirmation(
     storage: &mut dyn Storage,
-    issuer: String,
-    currency: String,
-    transaction_result: TransactionResult,
+    issuer: &String,
+    currency: &String,
+    transaction_result: &TransactionResult,
 ) -> Result<(), ContractError> {
-    let key = build_xrpl_token_key(issuer, currency);
+    let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
 
     let mut token = XRPL_TOKENS
         .load(storage, key.clone())

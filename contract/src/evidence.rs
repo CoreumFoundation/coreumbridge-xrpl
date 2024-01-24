@@ -4,7 +4,6 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     error::ContractError,
-    relayer::Relayer,
     state::{CONFIG, PROCESSED_TXS, TX_EVIDENCES},
 };
 
@@ -25,7 +24,7 @@ pub enum Evidence {
         account_sequence: Option<u64>,
         ticket_sequence: Option<u64>,
         transaction_result: TransactionResult,
-        operation_result: OperationResult,
+        operation_result: Option<OperationResult>,
     },
 }
 
@@ -52,31 +51,7 @@ impl TransactionResult {
 
 #[cw_serde]
 pub enum OperationResult {
-    TicketsAllocation {
-        tickets: Option<Vec<u64>>,
-    },
-    TrustSet {
-        issuer: String,
-        currency: String,
-    },
-    RotateKeys {
-        new_relayers: Vec<Relayer>,
-        new_evidence_threshold: u32,
-    },
-    #[serde(rename = "coreum_to_xrpl_transfer")]
-    CoreumToXRPLTransfer {},
-}
-
-// For convenience in the responses.
-impl OperationResult {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            OperationResult::TicketsAllocation { .. } => "tickets_allocation",
-            OperationResult::TrustSet { .. } => "trust_set",
-            OperationResult::CoreumToXRPLTransfer {} => "coreum_to_xrpl_transfer",
-            OperationResult::RotateKeys { .. } => "rotate_keys",
-        }
-    }
+    TicketsAllocation { tickets: Option<Vec<u64>> },
 }
 
 impl Evidence {
@@ -133,9 +108,8 @@ impl Evidence {
                     return Err(ContractError::InvalidFailedTransactionResultEvidence {});
                 }
 
-                // TODO(keyleu) clean up at end of development unifying operations that we don't need to check
                 match operation_result {
-                    OperationResult::TicketsAllocation { tickets } => {
+                    Some(OperationResult::TicketsAllocation { tickets }) => {
                         if (transaction_result.eq(&TransactionResult::Invalid)
                             || transaction_result.eq(&TransactionResult::Rejected))
                             && tickets.is_some()
@@ -149,18 +123,7 @@ impl Evidence {
                             return Err(ContractError::InvalidTicketAllocationEvidence {});
                         }
                     }
-                    OperationResult::TrustSet { .. } => {
-                        if account_sequence.is_some() {
-                            return Err(ContractError::InvalidTransactionResultEvidence {});
-                        }
-                    }
-                    OperationResult::CoreumToXRPLTransfer { .. } => {
-                        if account_sequence.is_some() {
-                            return Err(ContractError::InvalidTransactionResultEvidence {});
-                        }
-                    }
-                    // Key rotation operations can be done with both account_sequence and ticket_sequence
-                    OperationResult::RotateKeys { .. } => {}
+                    None => {}
                 }
 
                 Ok(())

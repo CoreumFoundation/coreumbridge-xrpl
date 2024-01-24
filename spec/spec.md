@@ -8,8 +8,7 @@ The spec describes the technical solution of the XRPL two-way bridge.
 
 ### XRPL multi-signing account
 
-The account holds the tokens issued on the XRPL on its balance. Depending on the workflow it either uses the received
-tokens
+The account holds the tokens issued on the XRPL on its balance. Depending on the workflow it either uses the received tokens
 balance to send to XRPL accounts (in case the account is not an issuer) or mints and sends the tokens to XRPL accounts (
 in case it is the Coreum token representation issued by the address). The account uses the multi-signing and public keys
 associated with each relayer from the contract for the transaction signing.
@@ -28,30 +27,26 @@ registered can't be bridged.
 ##### XRPL originated tokens registration
 
 All tokens issued on XRPL that can be bridged from the XRPL to the Coreum and back must have a representation on the
-Coreum. Such tokens should be registered by owner on the contract side with the `XRPL issuer`, `XRPL currency`, `fees`,
-`sending precision` and `max holding amount`. The `token decimals` (always 15) will be set by the contract.
-The `sending precision` and
-`max holding amount` should be provided taking into account the [Amount rounding handling](#amount-rounding-handling).
-The token's `denom` is unique and is built by the contract using the `XRPL issuer`, `XRPL currency`, `block time` hash
-and `xrpl` prefix.
+Coreum. Such tokens should be registered by owner on the contract side with the `XRPL issuer`, `XRPL currency`, `bridging fees`,
+`sending precision`, `max holding amount` and an optional `transfer rate` if applicable. The `token decimals` (always 15) will be set by the contract.
+The `sending precision` and `max holding amount` should be provided taking into account the [Amount rounding handling](#amount-rounding-handling).
+The token's `denom` is unique and is built by the contract using the `XRPL issuer`, `XRPL currency`, `block time` hash and `xrpl` prefix.
 Required features for the issuance are `minting`, `burning`, and `IBC`. During the registration, the contract issues a
-token and will be responsible for its minting when a token is bridged from the XRPL to Coreum. After the registration,
-the contract triggers
-the `submit-trust-set-for-xrpl-token` operation to allow the multi-signing account to receive that token. The value of
+token and will be responsible for its minting when a token is bridged from the XRPL to Coreum. After the registration, the token is put in `Processing` state
+and the contract triggers the `submit-trust-set-for-xrpl-token` operation to allow the multi-signing account to receive that token. If this operation succeeds, the token
+will be `Enabled`, if it fails, it will be put to `Inactive` state awaiting a token registration recovery operation by the owner. The value of
 the trustset limit amount will be provided during constract instantiation and saved in the config of the contract.
 Check [register-token workflow](#register-token) for more details.
 
 ##### XRP token registration
 
 The XRP token is registered in the token registry on the contract instantiation. That token use the constant issuer
-`rrrrrrrrrrrrrrrrrrrrrhoLvTp` and currency `XRP` token. That token can be enabled or disabled by the owner similar to
-other
-tokens. Similar to XRPL originated tokens the XRP token has the `sending precision` and `max holding amount` which we
-set
+`rrrrrrrrrrrrrrrrrrrrrhoLvTp` and currency `XRP` token. That token can be enabled or disabled by the owner similar to other
+tokens. Similar to XRPL originated tokens the XRP token has the `sending precision` and `max holding amount` which we set
 to default values on the contact instantiation.
 The XRP token has a bit of a different nature than other tokens. That token doesn't need approval (TrustSet) to be
-received and is used by the multi-signing account to pay fees. Since the balance for fees and received balance are not
-separated, the relayers check that there is enough balance on the multi-signing account minus the balance issued on the
+received and is used by the multi-signing account to pay fees. XRP doesn't have a transfer rate either. Since the balance for fees and received
+balance are not separated, the relayers check that there is enough balance on the multi-signing account minus the balance issued on the
 contract minus some tokens on top (to cover pending transactions) to cover the fees before the transaction submission.
 That doesn't guarantee that relayers don't spend locked coins, but minimises that risk. The additional monitoring of
 that fee-balance might also minimise that risk.
@@ -60,24 +55,17 @@ that fee-balance might also minimise that risk.
 
 All tokens issued on the Coreum that can be bridged from the Coreum to XRPL and back must have a representation on the
 XRPL, managed by the multi-signing account. Such tokens should be registered by owner on the contract side with the
-`coreum denom`, `token decimals`, `sending precision`, `max holding amount` and `fees`. The `sending precision` and
+`coreum denom`, `token decimals`, `sending precision`, `max holding amount` and `bridging fees`. The `sending precision` and
 `max holding amount` should be provided taking into account the [Amount rounding handling](#amount-rounding-handling).
-The `XRPL currency` will be uniquely generated by the contract using the `denom`, `decimals`, `block time` hash with
-a `coreum` prefix and
+The `XRPL currency` will be uniquely generated by the contract using the `denom`, `decimals`, `block time` hash with a `coreum` prefix and
 encoding it into the hexadecimal currency notation used in XRPL. This will be used as a representation of
 that token on the XRPL side.
 Check [workflow](#register-token) for more details.
 
-##### Max holding amount and sending precision update
+##### Token update
 
-It is possible to update both `max holding amount` and `sending precision` for both XRPL and Coreum originated tokens.
-The
-owner can do it by calling the contract.
-The contract updates the `sending precision` in the token registry and removes all pending evidences with
-`sending from XRPL to coreum` type data from the evidence queue. We need it to avoid evidence inconsistency, since an
-evidence could be accepted by the contract with old `sending precision`, and never got fully confirmed with the new.
-The full rescan will help to check and submit such evidence one more time after the removal.
-The new `maxHoldingAmount` must be greater that the current amount.
+It is possible to update the token `state`, `sending precision`, `max holding amount` and `bridging fee`. The owner can do it by calling the contract for both
+XRPL and Coreum originated tokens.
 
 ##### Token enabling/disabling
 
@@ -98,8 +86,7 @@ the queue and passes its data to the next step of a workflow.
 The signing queue is a queue that contains bridge operations that should be signed before sending to XRPL and later
 sent. The signing queue is a part of each operation. Each operation has a type, associated ID (unique identifier/hash
 of the operation data in the scope of type), and a list of signatures. Each relayer picks such operation, signs it and
-provides the signature for it with the operation version. The version helps to invalidate the previously provided
-signatures. The operation keeps receiving signatures and shares them with other relayers (using the
+provides the signature for it. The operation keeps receiving signatures and shares them with other relayers (using the
 contract). Each relayer validates the provided signatures, filters valid, and checks whether it's possible to submit the
 transaction. If it is possible it builds the transaction with valid signatures (the operation ID is in the memo) and
 submits the transaction to the XRPL. If multiple relayers execute the same transaction and at the same time they receive
@@ -121,9 +108,11 @@ idempotent. And let some operations be safely re-processed at any time.
 The XRPL tickets allow us to execute a transaction with non-sequential sequence numbers, hence we can execute multiple
 transactions in parallel. Any workflow can allocate a ticket and the ticket allocation mechanism either returns a ticket
 number or errors out, in case of lack of the free tickets. The ticket re-allocation will be triggered by the tx
-comfirmation (Submit XRPL transaction last step) once the used tickets count is greater than the allowed threshold. The
-contract initiates the `submit-increase-tickets` operation to increase the amount. Once the operation is confirmed, the
-contract increases the free slots on the contract as well (based on the tx result).
+confirmation (Submit XRPL transaction last step) once the used tickets count is greater than the allowed threshold. The
+contract initiates the `allocate-new-tickets` operation to increase the amount. Once the operation is confirmed, the
+contract increases the free slots on the contract as well (based on the tx result). In the case the `allocate-new-tickets` operation
+is rejected, another `allocate-new-tickets` operation will initiated by the contract. If no tickets are available, the contract will
+finish execution but notify with an event that it has run out of tickets. If this happens, the contract owner must initiate the ticket recovery workflow.
 
 Check [workflow](#allocate-ticket) for more details.
 
@@ -131,8 +120,7 @@ Check [workflow](#allocate-ticket) for more details.
 
 ##### Sending of tokens from XRPL
 
-The contract receives a `save-evidence` request with an `XRPL-to-coreum-transfer` evidence and starts the
-corresponding [workflow](#send-from-xrpl-to-coreum).
+The contract receives a `save-evidence` request with an `XRPL-to-coreum-transfer` evidence and starts the corresponding [workflow](#send-from-xrpl-to-coreum).
 
 ##### Sending of tokens to XRPL
 
@@ -146,16 +134,12 @@ the [workflow](#send-from-coreum-to-xrpl).
 Each token in the registry contains the fee config which consists of a bridging fee and a transfer fee. The bridging fee
 is the fee that relayers earn for the transaction relaying. That fee covers their costs and provides some profit on top.
 The transfer fee is an optional fee that is charged on XRPL on top of each transfer and is based on the transfer
-rate which is a percentage. That fee will be used to send the locked tokens back in case they are locked either on the
-contract or on the multi-signing address.
-For more information regarding the transfer fee
-check [Transfer Fees](https://xrpl.org/transfer-fees.html#technical-details).
+rate which is a percentage. That fee will be used to send the locked tokens back in case they are locked either on the contract or on the multi-signing address.
+For more information regarding the transfer fee check [Transfer Fees](https://xrpl.org/transfer-fees.html#technical-details).
 Both fees will be taken from the amount a user sends.
-The bridging fees are distributed across the relayer addresses after the execution of the sending, and locked until a
-relayer manually requests it. After such a request the
+The bridging fees are distributed across the relayer addresses after the execution of the sending, and locked until a relayer manually requests it. After such a request the
 accumulated bridging fee will be distributed equally to the current relayer addresses.
-The transfer fee (if applied) is burnt/sent back once we receive the evidences that the operation was
-successful/rejected on the XRPL.
+The transfer fee (if applied) is burnt/sent back once we receive the evidences that the operation was successful/rejected on the XRPL.
 
 ###### Fee charging from XRPL to Coreum
 
@@ -190,19 +174,16 @@ amountAfterRounding = roundWithSendingPrecision(amountAfterTransferFees)
 receivedIntAmount = amountAfterRounding * 1e(15-tokenDecimalsInCoreum)
 ```
 
-The `transferRate` will only be applied for XRPL originated tokens that are being bridged back and that have
-a `transferRate` set.
-The `transferFees` in the formula above are burnt after the confirmation of each transaction, while the rounding
-remainder of the sending precision operation
+The `transferRate` will only be applied for XRPL originated tokens that are being bridged back and that have a `transferRate` set.
+The `transferFees` in the formula above are burnt after the confirmation of each transaction, while the rounding remainder of the sending precision operation
 is included in the fees for the relayers at the moment of sending.
 The contract receives the `send-to-XRPL` request for a user, executes the formula and checks, if after the calculation
-the `receivedIntAmount = 0` or `amount + currentBridgedAmount > max allowed bridged value` (only applied for Coreum
-originated tokens) returns an error.
+the `receivedIntAmount = 0` or `amount + currentBridgedAmount > max allowed bridged value` (only applied for Coreum originated tokens) returns an error.
 If all validation pass, the contract creates a sending operation with receivedIntAmount, and relayers fees.
 
 ###### Bridging fee re-config
 
-The owner can change a token bridging fees at any time. Since a price of a token can change, there is a possibility that
+The owner can change a token bridging fees at any time. Since the price of a token can change, there is a possibility that
 the owner wants to adjust the bridging fee for that token.
 
 ###### XRPL base fee re-config
@@ -218,23 +199,25 @@ nodes and get stuck. The fee update process helps to resolve such issues:
     * updates the `xrpl_base_fee` in config
     * removes signatures from all pending operations
     * increment the version of the pending operations
-    
+
 Since the version of the operations is updated and `xrpl_base_fee` is changed (increased for example) the relayers will
 resign the transaction and a new fee will be used for the XRPL node to execute the transaction.
+
+##### Kill switch
+
+It is possible for any relayer or owner to halt the bridge contract at any time. The reason for it might be
+unexpected behavior on any bridge component. Only the owner can resume the bridge.
 
 #### Keys rotation
 
 All accounts that can interact with the contract or multi-signing account are registered on the contract. And can be
 rotated using the key rotation workflow. The workflow is triggered by the owner. The owner provides
-the new relayer Coreum addresses, XRPL public keys and signing/evidence threshold.
-It is possible to start the keys rotation workflow in case the contract is disabled, but there is not keys rotation
-in-process. That option gives and owner an ability to rotate the keys in case the contract is disabled because of the
-malicious relayer, or the malicious relayer disabled it. Check [workflow](#rotate-keys) for more details.
-
-##### Kill switch
-
-It is possible for any relayer or owner to disable the bridge contract at any time. The reason for it might be
-unexpected behavior on any bridge component.x
+the new relayer Coreum addresses, XRPL public keys, signing/evidence threshold and an optional account sequence (in case there is
+no ticket available). This action will automatically halt the bridge in case it is not halted yet and start the key rotation workflow.
+During this workflow execution, no operations are allowed on the contract except for key rotation evidences from the
+relayers. If there is a key rotation in process, the owner cannot trigger another key rotation. Once the key rotation operation has been 
+confirmed by the relayers, the owner can trigger another key rotation (if needed/it failed) and/or resume the bridge.
+This option gives the owner an ability to rotate the keys in case of a malicious relayer, or if the malicious relayer halted it. Check [workflow](#rotate-keys) for more details.
 
 ### Relayer
 
@@ -328,12 +311,12 @@ func roundWithSendingPrecision (ratValue Rat, sendingPrecision int) Rat{
    denominator := ratValue.Denominator
 
    case: sendingPrecision > 0:
-     nominator = (nominator / (denominator / 1e(sendingPrecision)) * (denominator / 1esendingPrecision)
+     nominator = (nominator / (denominator / 1e(sendingPrecision))) * (denominator / 1esendingPrecision)
    case: sendingPrecision == 0:
      nominator = nominator / denominator
    denominator = 1
      case sendingPrecision < 0:
-   nominator = (nominator / denominator / 1e(-1*sendingPrecision) * 1e(-1*sendingPrecision)
+   nominator = (nominator / denominator / 1e(-1*sendingPrecision)) * 1e(-1*sendingPrecision)
      denominator = 1
 
    return Rat{nominator, denominator}

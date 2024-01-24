@@ -64,6 +64,8 @@ const (
 	FlagSendingPrecision = "sending-precision"
 	// FlagBridgingFee is bridging fee flag.
 	FlagBridgingFee = "bridging-fee"
+	// FlagMaxHoldingAmount is max holding amount flag.
+	FlagMaxHoldingAmount = "max-holding-amount"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -122,6 +124,7 @@ type BridgeClient interface {
 		denom string,
 		state *coreum.TokenState,
 		sendingPrecision *int32,
+		maxHoldingAmount *sdkmath.Int,
 		bridgingFee *sdkmath.Int,
 	) error
 	UpdateXRPLToken(
@@ -130,6 +133,7 @@ type BridgeClient interface {
 		issuer, currency string,
 		state *coreum.TokenState,
 		sendingPrecision *int32,
+		maxHoldingAmount *sdkmath.Int,
 		bridgingFee *sdkmath.Int,
 	) error
 	GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error)
@@ -340,12 +344,11 @@ func BootstrapBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
 		Use:   "bootstrap-bridge [config-path]",
 		Args:  cobra.ExactArgs(1),
 		Short: "Sets up the XRPL bridge account with all required settings and deploys the bridge contract.",
-		Long: strings.TrimSpace(
+		Long: strings.TrimSpace(fmt.Sprintf(
 			`Sets up the XRPL bridge account with all required settings and deploys the bridge contract.
 Example:
-$ bootstrap-bridge bootstrapping.yaml --key-name bridge-account
-`,
-		),
+$ bootstrap-bridge bootstrapping.yaml --%s bridge-account
+`, FlagKeyName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -465,12 +468,11 @@ func RecoverTicketsCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "recovery-tickets",
 		Short: "Recovers 250 tickets in the bridge contract.",
-		Long: strings.TrimSpace(
+		Long: strings.TrimSpace(fmt.Sprintf(
 			`Recovers 250 tickets in the bridge contract.
 Example:
-$ recovery-tickets --key-name owner
-`,
-		),
+$ recovery-tickets --%s owner
+`, FlagKeyName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -502,11 +504,10 @@ func RegisterCoreumTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 		Use:   "register-coreum-token [denom] [decimals] [sendingPrecision] [maxHoldingAmount] [bridgingFee]",
 		Short: "Registers Coreum token in the bridge contract.",
 		Long: strings.TrimSpace(
-			`Registers Coreum token in the bridge contract.
+			fmt.Sprintf(`Registers Coreum token in the bridge contract.
 Example:
-$ register-coreum-token ucore 6 2 500000000000000 4000 --key-name owner
-`,
-		),
+$ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
+`, FlagKeyName)),
 		Args: cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -570,11 +571,10 @@ func UpdateCoreumTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 		Use:   "update-coreum-token [denom]",
 		Short: "Updates Coreum token in the bridge contract.",
 		Long: strings.TrimSpace(
-			`Updates Coreum token in the bridge contract.
+			fmt.Sprintf(`Updates Coreum token in the bridge contract.
 Example:
-$ update-coreum-token ucore --state enabled --sending-precision 2 --key-name owner
-`,
-		),
+$ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s owner
+`, FlagTokenState, FlagSendingPrecision, FlagMaxHoldingAmount, FlagBridgingFee, FlagKeyName)),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -588,7 +588,7 @@ $ update-coreum-token ucore --state enabled --sending-precision 2 --key-name own
 			}
 			denom := args[0]
 
-			state, sendingPrecision, bridgingFee, err := readUpdateTokenFlags(cmd)
+			state, sendingPrecision, maxHoldingAmount, bridgingFee, err := readUpdateTokenFlags(cmd)
 			if err != nil {
 				return err
 			}
@@ -608,6 +608,7 @@ $ update-coreum-token ucore --state enabled --sending-precision 2 --key-name own
 				denom,
 				tokenState,
 				sendingPrecision,
+				maxHoldingAmount,
 				bridgingFee,
 			)
 		},
@@ -628,11 +629,10 @@ func RegisterXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 		Short: "Registers XRPL token in the bridge contract.",
 		//nolint:lll // example
 		Long: strings.TrimSpace(
-			`Registers XRPL token in the bridge contract.
+			fmt.Sprintf(`Registers XRPL token in the bridge contract.
 Example:
-$ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 2 500000000000000 4000 --key-name owner
-`,
-		),
+$ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 2 500000000000000 4000 --%s owner
+`, FlagKeyName)),
 		Args: cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -700,11 +700,10 @@ func UpdateXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 		Short: "Updates XRPL token in the bridge contract.",
 		//nolint:lll // long example
 		Long: strings.TrimSpace(
-			`Updates XRPL token in the bridge contract.
+			fmt.Sprintf(`Updates XRPL token in the bridge contract.
 Example:
-$ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 --state enabled --sending-precision 2 --key-name owner
-`,
-		),
+$ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s owner
+`, FlagTokenState, FlagSendingPrecision, FlagMaxHoldingAmount, FlagBridgingFee, FlagKeyName)),
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -719,7 +718,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 			issuer := args[0]
 			currency := args[1]
 
-			state, sendingPrecision, bridgingFee, err := readUpdateTokenFlags(cmd)
+			state, sendingPrecision, maxHoldingAmount, bridgingFee, err := readUpdateTokenFlags(cmd)
 			if err != nil {
 				return err
 			}
@@ -739,6 +738,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 				issuer, currency,
 				tokenState,
 				sendingPrecision,
+				maxHoldingAmount,
 				bridgingFee,
 			)
 		},
@@ -794,11 +794,10 @@ func SendFromCoreumToXRPLCmd(bcp BridgeClientProvider) *cobra.Command {
 		Use:   "send-from-coreum-to-xrpl [amount] [recipient]",
 		Short: "Sends tokens from the Coreum to XRPL.",
 		Long: strings.TrimSpace(
-			`Sends tokens from the Coreum to XRPL.
+			fmt.Sprintf(`Sends tokens from the Coreum to XRPL.
 Example:
-$ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --key-name sender
-`,
-		),
+$ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender
+`, FlagKeyName)),
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -842,8 +841,13 @@ func SendFromXRPLToCoreumCmd(bcp BridgeClientProvider) *cobra.Command {
 		Long: strings.TrimSpace(
 			fmt.Sprintf(`Sends tokens from the XRPL to Coreum.
 Example:
-$ send-from-xrpl-to-coreum 1000000 %s %s %s  --key-name sender
-`, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), constant.AddressSampleTest),
+$ send-from-xrpl-to-coreum 1000000 %s %s %s --%s sender
+`,
+				xrpl.XRPTokenIssuer.String(),
+				xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
+				constant.AddressSampleTest,
+				FlagKeyName,
+			),
 		),
 		Args: cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -991,8 +995,8 @@ func SetXRPLTrustSetCmd(bcp BridgeClientProvider) *cobra.Command {
 		Long: strings.TrimSpace(
 			fmt.Sprintf(`Sends tokens from the XRPL to Coreum.
 Example:
-$ set-xrpl-trust-set 1e80 %s %s --key-name sender
-`, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency)),
+$ set-xrpl-trust-set 1e80 %s %s --%s sender
+`, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), FlagKeyName),
 		),
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1053,7 +1057,7 @@ func VersionCommand() *cobra.Command {
 		Use:   "version",
 		Short: "Print the application binary version information",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			log, err := getConsoleLogger()
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
@@ -1153,41 +1157,52 @@ func addUpdateTokenFlags(cmd *cobra.Command) {
 		FlagSendingPrecision,
 		0, "Token sending precision")
 	cmd.PersistentFlags().String(
+		FlagMaxHoldingAmount,
+		"", "Token max holding amount")
+	cmd.PersistentFlags().String(
 		FlagBridgingFee,
 		"", "Token bridging fee")
 }
 
-func readUpdateTokenFlags(cmd *cobra.Command) (*string, *int32, *sdkmath.Int, error) {
+func readUpdateTokenFlags(cmd *cobra.Command) (*string, *int32, *sdkmath.Int, *sdkmath.Int, error) {
 	var (
 		state *string
 		err   error
 	)
 	if state, err = getFlagStringIfPresent(cmd, FlagTokenState); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	var sendingPrecision *int32
 	if sendingPrecision, err = getFlagInt32IfPresent(cmd, FlagSendingPrecision); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	var (
-		bridgingFeeString *string
-		bridgingFee       *sdkmath.Int
-	)
-
-	bridgingFeeString, err = getFlagStringIfPresent(cmd, FlagBridgingFee)
+	maxHoldingAmount, err := getFlagSDKIntIfPresent(cmd, FlagMaxHoldingAmount)
 	if err != nil {
-		return nil, nil, nil, err
-	}
-	if bridgingFeeString != nil {
-		bridgingFeeInt, ok := sdkmath.NewIntFromString(*bridgingFeeString)
-		if !ok {
-			return nil, nil, nil, errors.Errorf("failed to convert string to sdkmath.Int, string:%s", *bridgingFeeString)
-		}
-		bridgingFee = &bridgingFeeInt
+		return nil, nil, nil, nil, err
 	}
 
-	return state, sendingPrecision, bridgingFee, nil
+	bridgingFee, err := getFlagSDKIntIfPresent(cmd, FlagBridgingFee)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	return state, sendingPrecision, maxHoldingAmount, bridgingFee, nil
+}
+
+func getFlagSDKIntIfPresent(cmd *cobra.Command, flag string) (*sdkmath.Int, error) {
+	stringVal, err := getFlagStringIfPresent(cmd, flag)
+	if err != nil {
+		return nil, err
+	}
+	if stringVal != nil {
+		bridgingFeeInt, ok := sdkmath.NewIntFromString(*stringVal)
+		if !ok {
+			return nil, errors.Errorf("failed to convert string to sdkmath.Int, string:%s", *stringVal)
+		}
+		return &bridgingFeeInt, nil
+	}
+	return nil, nil //nolint:nilnil // expected result
 }
 
 func convertStateStringTokenState(state *string) (*coreum.TokenState, error) {
@@ -1232,16 +1247,4 @@ func getFlagInt32IfPresent(cmd *cobra.Command, flagName string) (*int32, error) 
 	}
 
 	return &val, nil
-}
-
-// returns the console logger initialised with the default logger config but with set `console` format.
-func getConsoleLogger() (*logger.ZapLogger, error) {
-	cfg := runner.DefaultConfig().LoggingConfig
-	cfg.Format = "console"
-	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig(cfg))
-	if err != nil {
-		return nil, err
-	}
-
-	return zapLogger, nil
 }

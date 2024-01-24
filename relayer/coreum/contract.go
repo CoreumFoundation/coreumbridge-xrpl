@@ -288,6 +288,7 @@ type updateXRPLTokenRequest struct {
 	Currency         string       `json:"currency"`
 	State            *TokenState  `json:"state,omitempty"`
 	SendingPrecision *int32       `json:"sending_precision,omitempty"`
+	MaxHoldingAmount *sdkmath.Int `json:"max_holding_amount,omitempty"`
 	BridgingFee      *sdkmath.Int `json:"bridging_fee,omitempty"`
 }
 
@@ -295,6 +296,7 @@ type updateCoreumTokenRequest struct {
 	Denom            string       `json:"denom"`
 	State            *TokenState  `json:"state,omitempty"`
 	SendingPrecision *int32       `json:"sending_precision,omitempty"`
+	MaxHoldingAmount *sdkmath.Int `json:"max_holding_amount,omitempty"`
 	BridgingFee      *sdkmath.Int `json:"bridging_fee,omitempty"`
 }
 
@@ -306,23 +308,18 @@ type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
 	Tickets []uint32 `json:"tickets"`
 }
 
-type xrplTransactionEvidenceTrustSetOperationResult struct {
-	Issuer   string `json:"issuer"`
-	Currency string `json:"currency"`
-}
+// TODO(dzmitryhil) refactor this.
+/*type xrplTransactionEvidenceTrustSetOperationResult struct{}
 
-type xrplTransactionEvidenceCoreumToXRPLTransferOperationResult struct{}
+type xrplTransactionEvidenceCoreumToXRPLTransferOperationResult struct{}*/
 
-//nolint:lll // breaking this down will make it less readable.
 type xrplTransactionEvidenceOperationResult struct {
-	TicketsAllocation    *xrplTransactionEvidenceTicketsAllocationOperationResult    `json:"tickets_allocation,omitempty"`
-	TrustSet             *xrplTransactionEvidenceTrustSetOperationResult             `json:"trust_set,omitempty"`
-	CoreumToXRPLTransfer *xrplTransactionEvidenceCoreumToXRPLTransferOperationResult `json:"coreum_to_xrpl_transfer,omitempty"`
+	TicketsAllocation *xrplTransactionEvidenceTicketsAllocationOperationResult `json:"tickets_allocation,omitempty"`
 }
 
 type xrplTransactionResultEvidence struct {
 	XRPLTransactionResultEvidence
-	OperationResult xrplTransactionEvidenceOperationResult `json:"operation_result"`
+	OperationResult *xrplTransactionEvidenceOperationResult `json:"operation_result,omitempty"`
 }
 
 type evidence struct {
@@ -640,7 +637,7 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
-				OperationResult: xrplTransactionEvidenceOperationResult{
+				OperationResult: &xrplTransactionEvidenceOperationResult{
 					TicketsAllocation: &xrplTransactionEvidenceTicketsAllocationOperationResult{
 						Tickets: evd.Tickets,
 					},
@@ -670,12 +667,6 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
-				OperationResult: xrplTransactionEvidenceOperationResult{
-					TrustSet: &xrplTransactionEvidenceTrustSetOperationResult{
-						Issuer:   evd.Issuer,
-						Currency: evd.Currency,
-					},
-				},
 			},
 		},
 	}
@@ -702,9 +693,6 @@ func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
-				OperationResult: xrplTransactionEvidenceOperationResult{
-					CoreumToXRPLTransfer: &xrplTransactionEvidenceCoreumToXRPLTransferOperationResult{},
-				},
 			},
 		},
 	}
@@ -834,6 +822,7 @@ func (c *ContractClient) UpdateXRPLToken(
 	issuer, currency string,
 	state *TokenState,
 	sendingPrecision *int32,
+	maxHoldingAmount *sdkmath.Int,
 	bridgingFee *sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
@@ -843,6 +832,7 @@ func (c *ContractClient) UpdateXRPLToken(
 				Currency:         currency,
 				State:            state,
 				SendingPrecision: sendingPrecision,
+				MaxHoldingAmount: maxHoldingAmount,
 				BridgingFee:      bridgingFee,
 			},
 		},
@@ -861,6 +851,7 @@ func (c *ContractClient) UpdateCoreumToken(
 	denom string,
 	state *TokenState,
 	sendingPrecision *int32,
+	maxHoldingAmount *sdkmath.Int,
 	bridgingFee *sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
@@ -869,6 +860,7 @@ func (c *ContractClient) UpdateCoreumToken(
 				Denom:            denom,
 				State:            state,
 				SendingPrecision: sendingPrecision,
+				MaxHoldingAmount: maxHoldingAmount,
 				BridgingFee:      bridgingFee,
 			},
 		},
@@ -1289,6 +1281,11 @@ func IsTokenStateIsImmutableError(err error) bool {
 // IsInvalidTargetTokenStateError returns true if error is `InvalidTargetTokenState`.
 func IsInvalidTargetTokenStateError(err error) bool {
 	return isError(err, "InvalidTargetTokenState")
+}
+
+// IsInvalidTargetMaxHoldingAmountError returns true if error is `InvalidTargetMaxHoldingAmount`.
+func IsInvalidTargetMaxHoldingAmountError(err error) bool {
+	return isError(err, "InvalidTargetMaxHoldingAmount")
 }
 
 // ******************** Asset FT errors ********************
