@@ -1077,17 +1077,18 @@ func GetPendingRefundsCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pending-refunds [address]",
 		Short: "Get pending refunds of an address",
-		Long: strings.TrimSpace(
+		Long: strings.TrimSpace(fmt.Sprintf(
 			`Get pending refunds.
 Example:
-$ pending-refunds core14e57zzux440wz2zl4gcj0xq2kc27jep7zucvz2
-`,
-		),
+$ pending-refunds %s 
+`, constant.AddressSampleTest,
+		)),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
 			bridgeClient, err := bcp(cmd)
+
 			if err != nil {
 				return err
 			}
@@ -1111,8 +1112,6 @@ $ pending-refunds core14e57zzux440wz2zl4gcj0xq2kc27jep7zucvz2
 			return nil
 		},
 	}
-	addKeyringFlags(cmd)
-	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 
 	return cmd
@@ -1123,12 +1122,12 @@ func ClaimRefundCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "claim-refund",
 		Short: "Claim pending refund, either all pending refunds or with a refund id.",
-		Long: strings.TrimSpace(
+		Long: strings.TrimSpace(fmt.Sprintf(
 			`Claims pending refunds.
 Example:
-$ claim-refund --key-name address --pending-refund-id 1705664693-2
-`,
-		),
+$ claim-refund --%s claimer --%s 1705664693-2
+`, FlagKeyName, FlagRefundID,
+		)),
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

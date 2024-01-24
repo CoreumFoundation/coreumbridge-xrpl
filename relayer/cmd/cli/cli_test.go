@@ -738,7 +738,7 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 		address,
 		refundID,
 	).Return(nil)
-	args := []string{"--" + cli.FlagKeyName, keyName, "--" + cli.FlagRefundID, refundID}
+	args := []string{flagWithPrefix(cli.FlagKeyName), keyName, flagWithPrefix(cli.FlagRefundID), refundID}
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
@@ -764,7 +764,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 		address,
 		refundID,
 	).Return(nil)
-	args := []string{"--" + cli.FlagKeyName, keyName}
+	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
