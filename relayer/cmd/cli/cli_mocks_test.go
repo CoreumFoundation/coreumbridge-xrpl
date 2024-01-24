@@ -188,6 +188,20 @@ func (mr *MockBridgeClientMockRecorder) RecoverTickets(arg0, arg1, arg2 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverTickets", reflect.TypeOf((*MockBridgeClient)(nil).RecoverTickets), arg0, arg1, arg2)
 }
 
+// RecoverXRPLTokenRegistration mocks base method.
+func (m *MockBridgeClient) RecoverXRPLTokenRegistration(arg0 context.Context, arg1 types.AccAddress, arg2, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecoverXRPLTokenRegistration", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecoverXRPLTokenRegistration indicates an expected call of RecoverXRPLTokenRegistration.
+func (mr *MockBridgeClientMockRecorder) RecoverXRPLTokenRegistration(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverXRPLTokenRegistration", reflect.TypeOf((*MockBridgeClient)(nil).RecoverXRPLTokenRegistration), arg0, arg1, arg2, arg3)
+}
+
 // RegisterCoreumToken mocks base method.
 func (m *MockBridgeClient) RegisterCoreumToken(arg0 context.Context, arg1 types.AccAddress, arg2 string, arg3 uint32, arg4 int32, arg5, arg6 math.Int) (coreum.CoreumToken, error) {
 	m.ctrl.T.Helper()

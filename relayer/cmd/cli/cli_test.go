@@ -479,6 +479,35 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 	executeCmd(t, cli.RegisterXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
+func TestRecoverXRPLTokenRegistrationCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	addKeyToTestKeyring(t, keyringDir, keyName)
+	owner := readKeyFromTestKeyring(t, keyringDir, keyName)
+
+	issuer := xrpl.GenPrivKeyTxSigner().Account()
+	currency, err := rippledata.NewCurrency("CRN")
+	require.NoError(t, err)
+	args := []string{
+		issuer.String(),
+		currency.String(),
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	bridgeClientMock.EXPECT().RecoverXRPLTokenRegistration(
+		gomock.Any(),
+		owner,
+		issuer.String(),
+		currency.String(),
+	)
+	executeCmd(t, cli.RecoverXRPLTokenRegistrationCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
 func TestUpdateXRPLTokenCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -964,8 +993,8 @@ func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
 		amount,
 	).Return(nil)
 	args := []string{
-		"--" + cli.FlagKeyName, keyName,
-		"--" + cli.FlagAmount, amount.String(),
+		flagWithPrefix(cli.FlagKeyName), keyName,
+		flagWithPrefix(cli.FlagAmount), amount.String(),
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)

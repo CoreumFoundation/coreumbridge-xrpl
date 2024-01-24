@@ -159,6 +159,11 @@ type BridgeClient interface {
 		sender sdk.AccAddress,
 		amounts sdk.Coins,
 	) error
+	RecoverXRPLTokenRegistration(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		issuer, currency string,
+	) error
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
@@ -791,6 +796,53 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				bridgingFee,
 			)
 			return err
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
+// RecoverXRPLTokenRegistrationCmd recovers xrpl token registration.
+func RecoverXRPLTokenRegistrationCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "recover-xrpl-token-registration",
+		Short: "Recovers XRPL token registration.",
+		Long: strings.TrimSpace(fmt.Sprintf(
+			`Recovers XRPL token registration.
+Example:
+$ recover-xrpl-token-registration [issuer] [currency] --%s owner
+`, FlagKeyName)),
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+			if err != nil {
+				return err
+			}
+
+			issuer, err := rippledata.NewAccountFromAddress(args[0])
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[0])
+			}
+
+			currency, err := rippledata.NewCurrency(args[1])
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert currency string to rippledata.Currency: %s", args[1])
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			return bridgeClient.RecoverXRPLTokenRegistration(ctx, owner, issuer.String(), currency.String())
 		},
 	}
 	addKeyringFlags(cmd)

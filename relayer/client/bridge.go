@@ -113,6 +113,11 @@ type ContractClient interface {
 		ctx context.Context,
 		sender sdk.AccAddress,
 	) (*sdk.TxResponse, error)
+	RecoverXRPLTokenRegistration(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		issuer, currency string,
+	) (*sdk.TxResponse, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -428,6 +433,36 @@ func (b *BridgeClient) RegisterXRPLToken(
 	)
 
 	return token, nil
+}
+
+// RecoverXRPLTokenRegistration recovers xrpl token registration.
+func (b *BridgeClient) RecoverXRPLTokenRegistration(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	issuer, currency string,
+) error {
+	b.log.Info(ctx, "Recovering xrpl token registration",
+		zap.String("currency", currency),
+		zap.String("issuer", issuer),
+	)
+	_, err := b.contractClient.RecoverXRPLTokenRegistration(
+		ctx,
+		sender,
+		issuer,
+		currency,
+	)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Recovering xrpl token registraiton was sucessful",
+		zap.String("currency", currency),
+		zap.String("issuer", issuer),
+	)
+
+	return nil
 }
 
 // GetAllTokens returns all registered tokens.
