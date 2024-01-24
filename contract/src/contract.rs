@@ -887,12 +887,11 @@ fn send_to_xrpl(
 
             // If amount was sent, we must check that it's less or equal than amount_to_send after bridge fees are applied and both values are truncated
             if amount.is_some() {
-                let (truncated_amount, _) =
-                    truncate_amount(xrpl_token.sending_precision, decimals, amount.unwrap())?;
-
-                if truncated_amount.gt(&amount_to_send) {
+                if amount.unwrap().gt(&amount_to_send) {
                     return Err(ContractError::AmountGreaterThanMaxAmount {});
                 }
+                let (truncated_amount, _) =
+                    truncate_amount(xrpl_token.sending_precision, decimals, amount.unwrap())?;
 
                 max_amount = amount_to_send;
                 amount_to_send = truncated_amount;
