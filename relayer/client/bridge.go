@@ -79,6 +79,7 @@ type ContractClient interface {
 		issuer, currency string,
 		state *coreum.TokenState,
 		sendingPrecision *int32,
+		maxHoldingAmount *sdkmath.Int,
 		bridgingFee *sdkmath.Int,
 	) (*sdk.TxResponse, error)
 	UpdateCoreumToken(
@@ -87,6 +88,7 @@ type ContractClient interface {
 		denom string,
 		state *coreum.TokenState,
 		sendingPrecision *int32,
+		maxHoldingAmount *sdkmath.Int,
 		bridgingFee *sdkmath.Int,
 	) (*sdk.TxResponse, error)
 }
@@ -517,6 +519,7 @@ func (b *BridgeClient) UpdateCoreumToken(
 	denom string,
 	state *coreum.TokenState,
 	sendingPrecision *int32,
+	maxHoldingAmount *sdkmath.Int,
 	bridgingFee *sdkmath.Int,
 ) error {
 	fields := []zap.Field{
@@ -529,6 +532,9 @@ func (b *BridgeClient) UpdateCoreumToken(
 	if sendingPrecision != nil {
 		fields = append(fields, zap.Int32("sendingPrecision", *sendingPrecision))
 	}
+	if maxHoldingAmount != nil {
+		fields = append(fields, zap.String("maxHoldingAmount", maxHoldingAmount.String()))
+	}
 	if bridgingFee != nil {
 		fields = append(fields, zap.String("bridgingFee", bridgingFee.String()))
 	}
@@ -538,7 +544,9 @@ func (b *BridgeClient) UpdateCoreumToken(
 		fields...,
 	)
 
-	txRes, err := b.contractClient.UpdateCoreumToken(ctx, sender, denom, state, sendingPrecision, bridgingFee)
+	txRes, err := b.contractClient.UpdateCoreumToken(
+		ctx, sender, denom, state, sendingPrecision, maxHoldingAmount, bridgingFee,
+	)
 	if err != nil {
 		return err
 	}
@@ -559,6 +567,7 @@ func (b *BridgeClient) UpdateXRPLToken(
 	issuer, currency string,
 	state *coreum.TokenState,
 	sendingPrecision *int32,
+	maxHoldingAmount *sdkmath.Int,
 	bridgingFee *sdkmath.Int,
 ) error {
 	fields := []zap.Field{
@@ -572,6 +581,9 @@ func (b *BridgeClient) UpdateXRPLToken(
 	if sendingPrecision != nil {
 		fields = append(fields, zap.Int32("sendingPrecision", *sendingPrecision))
 	}
+	if maxHoldingAmount != nil {
+		fields = append(fields, zap.String("maxHoldingAmount", maxHoldingAmount.String()))
+	}
 	if bridgingFee != nil {
 		fields = append(fields, zap.String("bridgingFee", bridgingFee.String()))
 	}
@@ -580,7 +592,9 @@ func (b *BridgeClient) UpdateXRPLToken(
 		"Updating token",
 		fields...,
 	)
-	txRes, err := b.contractClient.UpdateXRPLToken(ctx, sender, issuer, currency, state, sendingPrecision, bridgingFee)
+	txRes, err := b.contractClient.UpdateXRPLToken(
+		ctx, sender, issuer, currency, state, sendingPrecision, maxHoldingAmount, bridgingFee,
+	)
 	if err != nil {
 		return err
 	}
