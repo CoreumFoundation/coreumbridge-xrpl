@@ -510,7 +510,7 @@ fn save_evidence(
 
             // If the recipient of the operation is the bridge contract address, we error
             if recipient.eq(&env.contract.address) {
-                return Err(ContractError::ContractCannotBeRecipient {});
+                return Err(ContractError::ProhibitedRecipient {});
             }
 
             // This means the token is not a Coreum originated token (the issuer is not the XRPL multisig address)
@@ -875,7 +875,7 @@ fn send_to_xrpl(
 
     let config = CONFIG.load(deps.storage)?;
     if recipient.eq(&config.bridge_xrpl_address) {
-        return Err(ContractError::BridgeMultisigCannotBeRecipient {});
+        return Err(ContractError::ProhibitedRecipient {});
     }
 
     let decimals;

@@ -1407,11 +1407,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(bridge_error.to_string().contains(
-            ContractError::ContractCannotBeRecipient {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(bridge_error
+            .to_string()
+            .contains(ContractError::ProhibitedRecipient {}.to_string().as_str()));
 
         // Test with more than 1 relayer
         let contract_addr = store_and_instantiate(
@@ -2835,11 +2833,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(bridge_error.to_string().contains(
-            ContractError::BridgeMultisigCannotBeRecipient {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(bridge_error
+            .to_string()
+            .contains(ContractError::ProhibitedRecipient {}.to_string().as_str()));
 
         // Sending a CoreumToXRPLTransfer evidence with account sequence should fail.
         let invalid_evidence = wasm

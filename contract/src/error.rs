@@ -194,11 +194,6 @@ pub enum ContractError {
     #[error("RotateKeysOngoing: Can't perform this operation while there is a rotate key operation ongoing")]
     RotateKeysOngoing {},
 
-    #[error(
-        "ContractCannotBeRecipient: Bridge contract address cannot be the recipient of a transfer"
-    )]
-    ContractCannotBeRecipient {},
-
-    #[error("BridgeMultisigCannotBeRecipient: XRPL multisig address cannot be the recipient of a transfer")]
-    BridgeMultisigCannotBeRecipient {},
+    #[error("ProhibitedRecipient: The recipient cannot be the bridge")]
+    ProhibitedRecipient {},
 }
