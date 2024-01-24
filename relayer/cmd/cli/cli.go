@@ -1107,7 +1107,7 @@ $ pending-refunds %s
 				return err
 			}
 
-			logger, err := getConsoleLogger()
+			logger, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
