@@ -67,10 +67,7 @@ Check [workflow](#register-token) for more details.
 It is possible to update the token `state`, `sending precision`, `max holding amount` and `bridging fee`. The owner can do it by calling the contract for both
 XRPL and Coreum originated tokens.
 
-##### Token enabling/disabling
-
-Any token can be disabled and enabled at any time by the contract owner. Any new workflow with the disabled token is
-prohibited by the contract, the pending operations should be completed.
+In the case of Token state, a token can be Enabled/Disabled only if it's not in Inactive/Processing State (for the first case it requires a recovery operation and for the second one it's in the middle of TrustSet operation). In the case of `sending precision`, the owner can change it to another valid sending precision value. For `max holding amount`, the owner can change it to another max holding amount as long as the bridge holds equal or less than the new value. In the case of `bridging fee`, the owner can change it to any value.
 
 #### Operation queues
 
@@ -156,8 +153,7 @@ The `roundWithSendingPrecision` is described [here](#amount-rounding-handling) .
 A relayer relays the amount sent as a part of the evidence. The contract
 does a pre-validation of the value. If, after the calculation, the `receivedIntAmount = 0` or
 `receivedIntAmount > max allowed value` returns an error. Once the evidence threshold is reached, the contract executes
-the calculation one more time, and sends the amount to the recipient. The rounding reminder will be added to the bridge
-fees
+the calculation one more time, and sends the amount to the recipient. The rounding reminder will be added to the bridge fees
 that the relayers can claim.
 If a token uses the transfer fee, it's charged when it is briged back in the opposite direction.
 
@@ -196,9 +192,9 @@ nodes and get stuck. The fee update process helps to resolve such issues:
 
 * owner calls the contract a provides new `xrpl_base_fee`
 * the contract
-    * updates the `xrpl_base_fee` in config
-    * removes signatures from all pending operations
-    * increment the version of the pending operations
+   * updates the `xrpl_base_fee` in config
+   * removes signatures from all pending operations
+   * increment the version of the pending operations
 
 Since the version of the operations is updated and `xrpl_base_fee` is changed (increased for example) the relayers will
 resign the transaction and a new fee will be used for the XRPL node to execute the transaction.
@@ -215,7 +211,7 @@ rotated using the key rotation workflow. The workflow is triggered by the owner.
 the new relayer Coreum addresses, XRPL public keys, signing/evidence threshold and an optional account sequence (in case there is
 no ticket available). This action will automatically halt the bridge in case it is not halted yet and start the key rotation workflow.
 During this workflow execution, no operations are allowed on the contract except for key rotation evidences from the
-relayers. If there is a key rotation in process, the owner cannot trigger another key rotation. Once the key rotation operation has been 
+relayers. If there is a key rotation in process, the owner cannot trigger another key rotation. Once the key rotation operation has been
 confirmed by the relayers, the owner can trigger another key rotation (if needed/it failed) and/or resume the bridge.
 This option gives the owner an ability to rotate the keys in case of a malicious relayer, or if the malicious relayer halted it. Check [workflow](#rotate-keys) for more details.
 
@@ -243,13 +239,11 @@ type. As the result some discrepancy might happen, examples:
 
 1. Send low and high amount to Coreum and return high and low back.
    1.1. XRPLUser sends 10 XRPL originated token to coreumUser (bridge account balance: 10, coreumUser balance: 10)
-   1.2. XRPLUser sends 1e17 XRPL originated token to coreumUser (bridge account balance: 1e17, coreumUser balance:
-   1e17 + 10)
+   1.2. XRPLUser sends 1e17 XRPL originated token to coreumUser (bridge account balance: 1e17, coreumUser balance: 1e17 + 10)
    1.3. coreumUser sends 1e17 XRPL originated token to XRPLUser (bridge account balance: 0, XRPLUser balance: 1e17)
    1.3. coreumUser sends 10 XRPL originated token to XRPLUser (bridge account: fail since we have nothing to send)
 
-The same issue might be in case the bridge account holds 1e20 and receive 1 XRPL originated token. The delivered amount
-will
+The same issue might be in case the bridge account holds 1e20 and receive 1 XRPL originated token. The delivered amount will
 contain the 1 XRPL originated token, but the bridge balance will remain the same.
 
 2. Send Coreum originated token to XRPL, mint it there, and send back.
