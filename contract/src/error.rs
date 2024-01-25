@@ -195,6 +195,9 @@ pub enum ContractError {
         "OperationVersionMismatch: Can't add a signature for an operation with a different version"
     )]
     OperationVersionMismatch {},
+    
+    #[error("ProhibitedRecipient: The recipient cannot be the bridge")]
+    ProhibitedRecipient {},
 
     #[error("DeliverAmountIsProhibited: Optional deliver_amount field is only used for XRPL originated tokens (except XRP) being bridged back")]
     DeliverAmountIsProhibited {},
