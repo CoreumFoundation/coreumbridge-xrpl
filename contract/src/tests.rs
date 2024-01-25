@@ -9238,7 +9238,7 @@ mod tests {
         let app = CoreumTestApp::new();
         let accounts_number = 4;
         let accounts = app
-            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
+            .init_accounts(&coins(100_000_000_000_000, FEE_DENOM), accounts_number)
             .unwrap();
 
         let signer = accounts.get((accounts_number - 1) as usize).unwrap();
@@ -9278,7 +9278,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::RecoverTickets {
                 account_sequence: 1,
-                number_of_tickets: Some(10),
+                number_of_tickets: Some(250),
             },
             &vec![],
             &signer,
@@ -9296,7 +9296,7 @@ mod tests {
                         ticket_sequence: None,
                         transaction_result: TransactionResult::Accepted,
                         operation_result: Some(OperationResult::TicketsAllocation {
-                            tickets: Some((1..11).collect()),
+                            tickets: Some((1..251).collect()),
                         }),
                     },
                 },
@@ -9306,7 +9306,7 @@ mod tests {
             .unwrap();
         }
 
-        // We are going to create a few pending operations and add signatures to them
+        // We are going to create the max number of pending operations and add signatures to them to verify that we can update all of them at once
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RegisterXRPLToken {
@@ -9337,17 +9337,20 @@ mod tests {
         )
         .unwrap();
 
-        wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::SendToXRPL {
-                recipient: generate_xrpl_address(),
-            },
-            &coins(1, FEE_DENOM.to_string()),
-            &signer,
-        )
-        .unwrap();
+        // Let's create 247 more so that we get up to 250 in the end
+        for _ in 0..247 {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: generate_xrpl_address(),
+                },
+                &coins(1, FEE_DENOM.to_string()),
+                &signer,
+            )
+            .unwrap();
+        }
 
-        // Finally also add a Key Rotation, which will verify that we can update the base fee while the bridge is halted
+        // Add a Key Rotation, which will verify that we can update the base fee while the bridge is halted
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::RotateKeys {
@@ -9368,7 +9371,7 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(query_pending_operations.operations.len(), 3);
+        assert_eq!(query_pending_operations.operations.len(), 249);
 
         // Add some signatures to each pending operation
         let correct_signature_example = "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string();

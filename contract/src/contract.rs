@@ -249,7 +249,13 @@ pub fn execute(
             operation_id,
             operation_version,
             signature,
-        } => save_signature(deps.into_empty(), info.sender, operation_id, operation_version, signature),
+        } => save_signature(
+            deps.into_empty(),
+            info.sender,
+            operation_id,
+            operation_version,
+            signature,
+        ),
         ExecuteMsg::SendToXRPL { recipient } => {
             send_to_xrpl(deps.into_empty(), env, info, recipient)
         }
@@ -855,7 +861,13 @@ fn save_signature(
 ) -> CoreumResult<ContractError> {
     assert_relayer(deps.as_ref(), &sender)?;
 
-    add_signature(deps, operation_id, operation_version, sender.clone(), signature.clone())?;
+    add_signature(
+        deps,
+        operation_id,
+        operation_version,
+        sender.clone(),
+        signature.clone(),
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::SaveSignature.as_str())
