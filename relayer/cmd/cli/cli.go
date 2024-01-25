@@ -1191,7 +1191,6 @@ $ pending-refunds %s
 			ctx := cmd.Context()
 
 			bridgeClient, err := bcp(cmd)
-
 			if err != nil {
 				return err
 			}

@@ -15,6 +15,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client"
 	krflags "github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -841,7 +842,7 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "claimer"
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 	address := readKeyFromTestKeyring(t, keyringDir, keyName)
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
@@ -862,7 +863,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "claimer"
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 	address := readKeyFromTestKeyring(t, keyringDir, keyName)
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
