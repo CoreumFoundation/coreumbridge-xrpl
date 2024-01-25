@@ -11,8 +11,11 @@ import (
 	"github.com/CoreumFoundation/coreum-tools/pkg/run"
 	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
+	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func main() {
@@ -48,11 +51,19 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 
 	cmd.AddCommand(cli.InitCmd())
 	cmd.AddCommand(cli.StartCmd(processorProvider))
-	keyringCmd, err := cli.KeyringCmd()
+
+	keyringCoreumCmd, err := cli.KeyringCmd(coreum.KeyringSuffix, constant.CoinType)
 	if err != nil {
 		return nil, err
 	}
-	cmd.AddCommand(keyringCmd)
+	cmd.AddCommand(keyringCoreumCmd)
+
+	keyringXRPLCmd, err := cli.KeyringCmd(xrpl.KeyringSuffix, xrpl.XRPLCoinType)
+	if err != nil {
+		return nil, err
+	}
+	cmd.AddCommand(keyringXRPLCmd)
+
 	cmd.AddCommand(cli.RelayerKeyInfoCmd())
 	cmd.AddCommand(cli.BootstrapBridgeCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.ContractConfigCmd(bridgeClientProvider))
@@ -85,7 +96,7 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 	// for the bridge client we use the CLI logger
 	return bridgeclient.NewBridgeClient(
 		log,
-		rnr.ClientCtx,
+		rnr.CoreumClientCtx,
 		rnr.CoreumContractClient,
 		rnr.XRPLRPCClient,
 		rnr.XRPLKeyringTxSigner,
