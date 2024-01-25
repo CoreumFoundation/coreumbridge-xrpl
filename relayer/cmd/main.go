@@ -67,7 +67,7 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.CoreumBalancesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.XRPLBalancesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.SetXRPLTrustSetCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.VersionCommandCmd())
+	cmd.AddCommand(cli.VersionCmd())
 	cmd.AddCommand(cli.GetPendingRefundsCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.ClaimRefundCmd(bridgeClientProvider))
 

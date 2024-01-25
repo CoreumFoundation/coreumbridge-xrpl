@@ -1055,8 +1055,8 @@ $ set-xrpl-trust-set 1e80 %s %s --%s sender
 	return cmd
 }
 
-// VersionCommandCmd returns a CLI command to interactively print the application binary version information.
-func VersionCommandCmd() *cobra.Command {
+// VersionCmd returns a CLI command to interactively print the application binary version information.
+func VersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print the application binary version information",
