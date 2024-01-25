@@ -10,7 +10,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
@@ -105,7 +104,7 @@ func (c XRPLChain) GenEmptyAccount(t *testing.T) rippledata.Account {
 	_, mnemonic, err := kr.NewMnemonic(
 		signerKeyName,
 		keyring.English,
-		sdk.GetConfig().GetFullBIP44Path(),
+		xrpl.XRPLHDPath,
 		"",
 		hd.Secp256k1,
 	)
@@ -118,7 +117,7 @@ func (c XRPLChain) GenEmptyAccount(t *testing.T) rippledata.Account {
 		acc.String(),
 		mnemonic,
 		"",
-		sdk.GetConfig().GetFullBIP44Path(),
+		xrpl.XRPLHDPath,
 		hd.Secp256k1,
 	)
 	require.NoError(t, err)
