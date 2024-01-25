@@ -44,6 +44,7 @@ pub struct Config {
     pub trust_set_limit_amount: Uint128,
     pub bridge_xrpl_address: String,
     pub bridge_state: BridgeState,
+    pub xrpl_base_fee: u64,
 }
 
 #[cw_serde]
@@ -204,6 +205,7 @@ pub enum ContractActions {
     ClaimFees,
     UpdateXRPLToken,
     UpdateCoreumToken,
+    UpdateXRPLBaseFee,
     ClaimRefunds,
     HaltBridge,
     ResumeBridge,
@@ -226,6 +228,7 @@ impl ContractActions {
             ContractActions::ClaimRefunds => "claim_refunds",
             ContractActions::UpdateXRPLToken => "update_xrpl_token",
             ContractActions::UpdateCoreumToken => "update_coreum_token",
+            ContractActions::UpdateXRPLBaseFee => "update_xrpl_base_fee",
             ContractActions::HaltBridge => "halt_bridge",
             ContractActions::ResumeBridge => "resume_bridge",
             ContractActions::RotateKeys => "rotate_keys",
