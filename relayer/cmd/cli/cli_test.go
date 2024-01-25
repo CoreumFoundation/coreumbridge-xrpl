@@ -843,7 +843,7 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 	keyringDir := t.TempDir()
 	keyName := "claimer"
 	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	address := readKeyFromTestKeyring(t, keyringDir, keyName)
+	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	refundID := "sample-1"
@@ -853,7 +853,7 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 		refundID,
 	).Return(nil)
 	args := []string{flagWithPrefix(cli.FlagKeyName), keyName, flagWithPrefix(cli.FlagRefundID), refundID}
-	args = append(args, testKeyringFlags(keyringDir)...)
+	args = append(args, testKeyringFlags(keyringDir+"-"+coreum.KeyringSuffix)...)
 	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
@@ -864,7 +864,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 	keyringDir := t.TempDir()
 	keyName := "claimer"
 	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	address := readKeyFromTestKeyring(t, keyringDir, keyName)
+	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	refundID := "sample-1"
@@ -879,7 +879,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 		refundID,
 	).Return(nil)
 	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
-	args = append(args, testKeyringFlags(keyringDir)...)
+	args = append(args, testKeyringFlags(keyringDir+"-"+coreum.KeyringSuffix)...)
 	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
@@ -956,7 +956,8 @@ func addKeyToTestKeyring(t *testing.T, keyringDir, keyName, suffix, hdPath strin
 	require.NoError(t, err)
 }
 
-func readKeyFromTestKeyring(t *testing.T, keyringDir, keyName string) sdk.AccAddress {
+func readKeyFromTestKeyring(t *testing.T, keyringDir, keyName, suffix string) sdk.AccAddress {
+	keyringDir += "-" + suffix
 	cmd := keys.ShowKeysCmd()
 	krflags.AddKeyringFlags(cmd.PersistentFlags())
 	args := []string{
