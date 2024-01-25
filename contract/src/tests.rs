@@ -20,7 +20,7 @@ mod tests {
     use sha2::{Digest, Sha256};
 
     use crate::contract::MAX_RELAYERS;
-    use crate::msg::{BridgeStateResponse, TransactionEvidences, TransactionsEvidencesResponse};
+    use crate::msg::{BridgeStateResponse, TransactionEvidence, TransactionEvidencesResponse};
     use crate::state::BridgeState;
     use crate::{
         contract::{XRP_CURRENCY, XRP_ISSUER},
@@ -701,57 +701,57 @@ mod tests {
         )
         .unwrap();
 
-        // Let's query all the transactions evidences (we should get two)
-        let query_transactions_evidences = wasm
-            .query::<QueryMsg, TransactionsEvidencesResponse>(
+        // Let's query all the transaction evidences (we should get two)
+        let query_transaction_evidences = wasm
+            .query::<QueryMsg, TransactionEvidencesResponse>(
                 &contract_addr,
-                &QueryMsg::TransactionsEvidences {
+                &QueryMsg::TransactionEvidences {
                     offset: None,
                     limit: None,
                 },
             )
             .unwrap();
 
-        assert_eq!(query_transactions_evidences.transactions_evidences.len(), 2);
+        assert_eq!(query_transaction_evidences.transaction_evidences.len(), 2);
 
         // Let's query all the transactions evidences with pagination
-        let query_transactions_evidences = wasm
-            .query::<QueryMsg, TransactionsEvidencesResponse>(
+        let query_transaction_evidences = wasm
+            .query::<QueryMsg, TransactionEvidencesResponse>(
                 &contract_addr,
-                &QueryMsg::TransactionsEvidences {
+                &QueryMsg::TransactionEvidences {
                     offset: Some(1),
                     limit: None,
                 },
             )
             .unwrap();
 
-        assert_eq!(query_transactions_evidences.transactions_evidences.len(), 1);
+        assert_eq!(query_transaction_evidences.transaction_evidences.len(), 1);
 
-        let query_transactions_evidences = wasm
-            .query::<QueryMsg, TransactionsEvidencesResponse>(
+        let query_transaction_evidences = wasm
+            .query::<QueryMsg, TransactionEvidencesResponse>(
                 &contract_addr,
-                &QueryMsg::TransactionsEvidences {
+                &QueryMsg::TransactionEvidences {
                     offset: None,
                     limit: Some(1),
                 },
             )
             .unwrap();
 
-        assert_eq!(query_transactions_evidences.transactions_evidences.len(), 1);
+        assert_eq!(query_transaction_evidences.transaction_evidences.len(), 1);
 
         // Let's query a transaction evidences by evidence hash and verify that we have an address that provided that evidence
-        let query_transaction_evidences = wasm
-            .query::<QueryMsg, TransactionEvidences>(
+        let query_transaction_evidence = wasm
+            .query::<QueryMsg, TransactionEvidence>(
                 &contract_addr,
-                &QueryMsg::TransactionEvidences {
-                    hash: query_transactions_evidences.transactions_evidences[0]
+                &QueryMsg::TransactionEvidence {
+                    hash: query_transaction_evidences.transaction_evidences[0]
                         .hash
                         .to_owned(),
                 },
             )
             .unwrap();
 
-        assert!(!query_transaction_evidences.relayer_addresses.is_empty());
+        assert!(!query_transaction_evidence.relayer_addresses.is_empty());
     }
 
     #[test]

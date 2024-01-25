@@ -140,10 +140,10 @@ pub enum QueryMsg {
     },
     #[returns(BridgeStateResponse)]
     BridgeState {},
-    #[returns(TransactionEvidences)]
-    TransactionEvidences { hash: String },
-    #[returns(TransactionsEvidencesResponse)]
-    TransactionsEvidences {
+    #[returns(TransactionEvidence)]
+    TransactionEvidence { hash: String },
+    #[returns(TransactionEvidencesResponse)]
+    TransactionEvidences {
         offset: Option<u64>,
         limit: Option<u32>,
     },
@@ -191,12 +191,12 @@ pub struct BridgeStateResponse {
 }
 
 #[cw_serde]
-pub struct TransactionEvidences {
+pub struct TransactionEvidence {
     pub hash: String,
     pub relayer_addresses: Vec<Addr>,
 }
 
 #[cw_serde]
-pub struct TransactionsEvidencesResponse {
-    pub transactions_evidences: Vec<TransactionEvidences>,
+pub struct TransactionEvidencesResponse {
+    pub transaction_evidences: Vec<TransactionEvidence>,
 }

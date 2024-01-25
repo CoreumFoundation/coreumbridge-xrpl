@@ -7,7 +7,7 @@ use crate::{
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
         FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefund,
-        PendingRefundsResponse, QueryMsg, TransactionEvidences, TransactionsEvidencesResponse,
+        PendingRefundsResponse, QueryMsg, TransactionEvidence, TransactionEvidencesResponse,
         XRPLTokensResponse,
     },
     operation::{
@@ -1238,11 +1238,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_json_binary(&query_fees_collected(deps, relayer_address)?)
         }
         QueryMsg::BridgeState {} => to_json_binary(&query_bridge_state(deps)?),
-        QueryMsg::TransactionEvidences { hash } => {
-            to_json_binary(&query_transaction_evidences(deps, hash)?)
+        QueryMsg::TransactionEvidence { hash } => {
+            to_json_binary(&query_transaction_evidence(deps, hash)?)
         }
-        QueryMsg::TransactionsEvidences { offset, limit } => {
-            to_json_binary(&query_transactions_evidences(deps, offset, limit)?)
+        QueryMsg::TransactionEvidences { offset, limit } => {
+            to_json_binary(&query_transaction_evidences(deps, offset, limit)?)
         }
     }
 }
@@ -1347,37 +1347,37 @@ fn query_pending_refunds(
     Ok(PendingRefundsResponse { pending_refunds })
 }
 
-fn query_transaction_evidences(deps: Deps, hash: String) -> StdResult<TransactionEvidences> {
+fn query_transaction_evidence(deps: Deps, hash: String) -> StdResult<TransactionEvidence> {
     let relayer_addresses = TX_EVIDENCES
         .may_load(deps.storage, hash.to_owned())?
         .map(|e| e.relayer_coreum_addresses);
 
-    Ok(TransactionEvidences {
+    Ok(TransactionEvidence {
         hash,
         relayer_addresses: relayer_addresses.unwrap_or_default(),
     })
 }
 
-fn query_transactions_evidences(
+fn query_transaction_evidences(
     deps: Deps,
     offset: Option<u64>,
     limit: Option<u32>,
-) -> StdResult<TransactionsEvidencesResponse> {
+) -> StdResult<TransactionEvidencesResponse> {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let offset = offset.unwrap_or_default();
-    let transactions_evidences: Vec<TransactionEvidences> = TX_EVIDENCES
+    let transaction_evidences: Vec<TransactionEvidence> = TX_EVIDENCES
         .range(deps.storage, None, None, Order::Ascending)
         .skip(offset as usize)
         .take(limit as usize)
         .filter_map(|r| r.ok())
-        .map(|(evidence_hash, e)| TransactionEvidences {
+        .map(|(evidence_hash, e)| TransactionEvidence {
             hash: evidence_hash,
             relayer_addresses: e.relayer_coreum_addresses,
         })
         .collect();
 
-    Ok(TransactionsEvidencesResponse {
-        transactions_evidences,
+    Ok(TransactionEvidencesResponse {
+        transaction_evidences,
     })
 }
 
