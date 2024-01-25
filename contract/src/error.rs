@@ -193,4 +193,7 @@ pub enum ContractError {
 
     #[error("RotateKeysOngoing: Can't perform this operation while there is a rotate key operation ongoing")]
     RotateKeysOngoing {},
+
+    #[error("OperationVersionMismatch: Can't add a signature for an operation with a different version")]
+    OperationVersionMismatch {},
 }

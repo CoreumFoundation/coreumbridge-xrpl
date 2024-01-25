@@ -6243,6 +6243,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveSignature {
                 operation_id: account_sequence,
+                operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
             &vec![],
@@ -6256,6 +6257,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
                     operation_id: account_sequence,
+                    operation_version: 1,
                     signature: correct_signature_example.clone(),
                 },
                 &vec![],
@@ -6275,6 +6277,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
                     operation_id: account_sequence + 1,
+                    operation_version: 1,
                     signature: correct_signature_example.clone(),
                 },
                 &vec![],
@@ -6288,10 +6291,31 @@ mod tests {
                 .as_str()
         ));
 
+        // Provide a signature for an operation with a different version should fail
+        let signature_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveSignature {
+                    operation_id: account_sequence,
+                    operation_version: 2,
+                    signature: correct_signature_example.clone(),
+                },
+                &vec![],
+                relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(signature_error.to_string().contains(
+            ContractError::OperationVersionMismatch {}
+                .to_string()
+                .as_str()
+        ));
+
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
                 operation_id: account_sequence,
+                operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
             &vec![],
@@ -6391,6 +6415,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveSignature {
                 operation_id: account_sequence,
+                operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
             &vec![],
@@ -6402,6 +6427,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveSignature {
                 operation_id: account_sequence,
+                operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
             &vec![],
@@ -9091,6 +9117,7 @@ mod tests {
             &contract_addr,
             &ExecuteMsg::SaveSignature {
                 operation_id: 1,
+                operation_version: 1,
                 signature: "signature".to_owned(),
             },
             &vec![],
@@ -9351,6 +9378,7 @@ mod tests {
                     &contract_addr,
                     &ExecuteMsg::SaveSignature {
                         operation_id: pending_operation.ticket_sequence.unwrap(),
+                        operation_version: 1,
                         signature: correct_signature_example.to_owned(),
                     },
                     &vec![],

@@ -63,6 +63,7 @@ pub enum ExecuteMsg {
     },
     SaveSignature {
         operation_id: u64,
+        operation_version: u64,
         signature: String,
     },
     SaveEvidence {

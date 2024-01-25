@@ -268,8 +268,9 @@ type recoverTicketsRequest struct {
 }
 
 type saveSignatureRequest struct {
-	OperationID uint32 `json:"operation_id"`
-	Signature   string `json:"signature"`
+	OperationID      uint32 `json:"operation_id"`
+	OperationVersion uint32 `json:"operation_version"`
+	Signature        string `json:"signature"`
 }
 
 type sendToXRPLRequest struct {
@@ -744,7 +745,9 @@ func (c *ContractClient) SaveSignature(
 		Body: map[ExecMethod]saveSignatureRequest{
 			ExecMethodSaveSignature: {
 				OperationID: operationID,
-				Signature:   signature,
+				// TODO (dzmitryhil) replace this with correct operation version
+				OperationVersion: 1,
+				Signature:        signature,
 			},
 		},
 	})
