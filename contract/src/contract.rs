@@ -871,11 +871,11 @@ fn send_to_xrpl(
             issuer = xrpl_token.issuer;
             currency = xrpl_token.currency;
             if is_token_xrp(issuer.to_owned(), currency.to_owned()) {
-                decimals = XRP_DECIMALS;
                 // deliver amount cannot be sent for XRP
                 if deliver_amount.is_some() {
                     return Err(ContractError::DeliverAmountIsProhibited {});
                 }
+                decimals = XRP_DECIMALS;
             } else {
                 decimals = XRPL_TOKENS_DECIMALS;
             }
@@ -906,7 +906,7 @@ fn send_to_xrpl(
                 amount_to_send = truncated_amount;
             } else {
                 // If token is XRP, we set the max amount to None because this token cannot have max_amount
-                if decimals == XRP_DECIMALS {
+                if is_token_xrp(issuer.to_owned(), currency.to_owned()) {
                     max_amount = None;
                 } else {
                     max_amount = Some(amount_to_send);
