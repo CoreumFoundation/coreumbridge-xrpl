@@ -191,6 +191,9 @@ pub enum ContractError {
     #[error("RotateKeysOngoing: Can't perform this operation while there is a rotate key operation ongoing")]
     RotateKeysOngoing {},
 
+    #[error("ProhibitedRecipient: The recipient cannot be the bridge")]
+    ProhibitedRecipient {},
+
     #[error("DeliverAmountIsProhibited: Optional deliver_amount field is only used for XRPL originated tokens (except XRP) being bridged back")]
     DeliverAmountIsProhibited {},
 
