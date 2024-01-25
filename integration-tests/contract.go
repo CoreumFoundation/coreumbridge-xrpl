@@ -26,6 +26,7 @@ func DeployAndInstantiateContract(
 	usedTicketSequenceThreshold int,
 	trustSetLimitAmount sdkmath.Int,
 	bridgeXRPLAddress string,
+	xrplBaseFee int,
 ) (sdk.AccAddress, *coreum.ContractClient) {
 	t.Helper()
 

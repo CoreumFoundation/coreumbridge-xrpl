@@ -52,12 +52,14 @@ pub fn register_used_ticket(
                     ticket_to_update,
                     &Operation {
                         id: format!("{}-{}", timestamp, ticket_to_update),
+                        version: 1,
                         ticket_sequence: Some(ticket_to_update),
                         account_sequence: None,
                         signatures: vec![],
                         operation_type: OperationType::AllocateTickets {
                             number: config.used_ticket_sequence_threshold,
                         },
+                        xrpl_base_fee: config.xrpl_base_fee,
                     },
                 )?;
                 PENDING_TICKET_UPDATE.save(storage, &true)?

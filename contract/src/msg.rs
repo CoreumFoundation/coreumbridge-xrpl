@@ -24,6 +24,8 @@ pub struct InstantiateMsg {
     pub trust_set_limit_amount: Uint128,
     // Address of multisig account on the XRPL
     pub bridge_xrpl_address: String,
+    // XRPL base fee used for executing transactions on XRPL
+    pub xrpl_base_fee: u64,
 }
 
 #[cw_ownable_execute]
@@ -55,6 +57,7 @@ pub enum ExecuteMsg {
     },
     SaveSignature {
         operation_id: u64,
+        operation_version: u64,
         signature: String,
     },
     SaveEvidence {
@@ -89,6 +92,12 @@ pub enum ExecuteMsg {
         sending_precision: Option<i32>,
         bridging_fee: Option<Uint128>,
         max_holding_amount: Option<Uint128>,
+    },
+    // Updates the XRPL base fee in config. When this operation is completed, all signatures on current pending operations will be deleted
+    // and we will increase the version of all current pending operations.
+    #[serde(rename = "update_xrpl_base_fee")]
+    UpdateXRPLBaseFee {
+        xrpl_base_fee: u64,
     },
     // Claim refund. User who can claim amounts due to failed transactions can do it with this message.
     ClaimRefund {
