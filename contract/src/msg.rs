@@ -104,7 +104,6 @@ pub enum ExecuteMsg {
     ResumeBridge {},
     // Owner can trigger a rotate keys, removing and/or adding relayers
     RotateKeys {
-        account_sequence: Option<u64>,
         new_relayers: Vec<Relayer>,
         new_evidence_threshold: u32,
     },
