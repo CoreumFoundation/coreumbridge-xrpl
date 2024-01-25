@@ -1,7 +1,6 @@
-use cosmwasm_std::{coin, Addr, Coin, Decimal, Storage, Uint128};
+use cosmwasm_std::{coin, Addr, Coin, Storage, Uint128};
 
 use crate::{
-    contract::XRPL_ZERO_TRANSFER_RATE,
     error::ContractError,
     state::{CONFIG, FEES_COLLECTED, FEE_REMAINDERS},
 };
@@ -15,32 +14,6 @@ pub fn amount_after_bridge_fees(
         .map_err(|_| ContractError::CannotCoverBridgingFees {})?;
 
     Ok(amount_after_bridge_fees)
-}
-
-pub fn amount_after_transfer_fees(
-    amount: Uint128,
-    transfer_rate: Option<Uint128>,
-) -> Result<(Uint128, Uint128), ContractError> {
-    let mut amount_after_transfer_fees = amount;
-    let mut transfer_fee = Uint128::zero();
-
-    if let Some(rate) = transfer_rate {
-        // The formula to calculate how much we can send is the following: amount_to_send = amount / (1 + fee_percentage)
-        // Where, for 5% fee for example, fee_percentage is 0.05 and for 100% fee fee_percentage is 1.
-        // To calculate the right amounts, first we get the rate from the XRPL transfer rate value
-        // For example, if our transfer rate is 2% (1020000000), we will get 2% by doing 1020000000 - 1000000000 = 20000000
-        // and then dividing this by 1000000000 to get the percentage (0.02)
-        // Afterwards we just need to apply the formula to get the amount to send (rounded down) and substract from the initial amount to get the fee that is applied.
-        let rate_value = rate.checked_sub(XRPL_ZERO_TRANSFER_RATE)?;
-        let rate_percentage = Decimal::from_ratio(rate_value, XRPL_ZERO_TRANSFER_RATE);
-
-        let denominator = Decimal::one().checked_add(rate_percentage)?;
-
-        amount_after_transfer_fees = amount.div_floor(denominator);
-        transfer_fee = amount.checked_sub(amount_after_transfer_fees)?;
-    }
-
-    Ok((amount_after_transfer_fees, transfer_fee))
 }
 
 pub fn handle_fee_collection(

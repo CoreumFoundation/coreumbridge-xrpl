@@ -5,7 +5,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
@@ -25,7 +24,7 @@ func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 		keyName,
 		"bring exhibit fancy tomorrow frequent pink athlete win magnet mail staff riot dune luxury slow own arrest unfair beyond trip deliver hazard nerve bicycle",
 		"",
-		sdk.GetConfig().GetFullBIP44Path(),
+		xrpl.XRPLHDPath,
 		hd.Secp256k1,
 	)
 	require.NoError(t, err)
@@ -34,7 +33,7 @@ func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	signerAcc, err := signer.Account(keyName)
 	require.NoError(t, err)
 	// check that account is expected correct
-	require.Equal(t, "rK7uyssdUF8Uw6eNTXhAchN1x8pTi5JM2C", signerAcc.String())
+	require.Equal(t, "rBprNyH2iH7Sqagi268aJuMubPB7XLjL1i", signerAcc.String())
 
 	recipientAccount, err := rippledata.NewAccountFromAddress("rnZfuixFVhyAXWZDnYsCGEg2zGtpg4ZjKn")
 	require.NoError(t, err)
@@ -44,7 +43,7 @@ func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	xrpPaymentTx := buildPaymentTx(recipientAccount, xrpAmount, signerAcc)
 	// check that signature is correct
 	require.NoError(t, signer.Sign(&xrpPaymentTx, keyName))
-	require.Equal(t, "30440220744D7F83BA64809384164814DAED4F54732303C783BCD5433356B4A9962F8E5702205548A956AB57B17B0A93A5E932CB0C2E7BCA060B660222989E6163E1C0C8BF00", xrpPaymentTx.TxnSignature.String())
+	require.Equal(t, "3044022005DD15BDB2054B5F9B295EA3357B490AE99A31BA3EAC21A21B33E4E03E082DFD02202DCC8E915C0FAA026DA5477B9822BB449CB22EADF37F98571841B57DC86F3AAD", xrpPaymentTx.TxnSignature.String())
 
 	valid, err := rippledata.CheckSignature(&xrpPaymentTx)
 	require.NoError(t, err)
@@ -54,7 +53,7 @@ func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	xrpPaymentTx = buildPaymentTx(recipientAccount, xrpAmount, signerAcc)
 	txSigner, err := signer.MultiSign(&xrpPaymentTx, keyName)
 	require.NoError(t, err)
-	require.Equal(t, "304402201F5A4835DA5C525A6FF0F3689139FA1519325B9018E62C44D7903F553671350A02204250230E601C929063634B6B121C2F95E4D8588902487D4F9182BB43F01FAC3C", txSigner.Signer.TxnSignature.String())
+	require.Equal(t, "3045022100B4B3BBD3FC9A475D185C85810012686334F11382F47193DC2C680F6950635712022044C0AD58016A2B469A409C06DBE0FEC1824199125F29CDB7FB887ABB53E43D0F", txSigner.Signer.TxnSignature.String())
 
 	xrpPaymentTx = buildPaymentTx(recipientAccount, xrpAmount, signerAcc)
 	require.NoError(t, rippledata.SetSigners(&xrpPaymentTx, txSigner))
