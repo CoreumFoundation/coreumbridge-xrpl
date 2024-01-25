@@ -95,6 +95,7 @@ type InstantiationConfig struct {
 	UsedTicketSequenceThreshold int
 	TrustSetLimitAmount         sdkmath.Int
 	BridgeXRPLAddress           string
+	XRPLBaseFee                 int
 }
 
 // ContractConfig is contract config.
@@ -232,6 +233,7 @@ type instantiateRequest struct {
 	UsedTicketSequenceThreshold int            `json:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         sdkmath.Int    `json:"trust_set_limit_amount"`
 	BridgeXRPLAddress           string         `json:"bridge_xrpl_address"`
+	XRPLBaseFee                 int            `json:"xrpl_base_fee"`
 }
 
 type transferOwnershipRequest struct {
@@ -444,6 +446,7 @@ func (c *ContractClient) DeployAndInstantiate(
 		UsedTicketSequenceThreshold: config.UsedTicketSequenceThreshold,
 		TrustSetLimitAmount:         config.TrustSetLimitAmount,
 		BridgeXRPLAddress:           config.BridgeXRPLAddress,
+		XRPLBaseFee:                 config.XRPLBaseFee,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal instantiate payload")
