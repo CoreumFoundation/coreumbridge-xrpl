@@ -45,10 +45,6 @@ pub enum ExecuteMsg {
         sending_precision: i32,
         max_holding_amount: Uint128,
         bridging_fee: Uint128,
-        // The Transfer Rate is an integer which represents the amount you must send for the recipient to get 1 billion units of the same token.
-        // A Transfer Rate of 1005000000 is equivalent to a transfer fee of 0.5%. The value of Transfer Rate must be more than 1000000000 ("0%" fee) or
-        // less or equal than 2000000000 (a "100%" fee). If it is not sent there will be no fee.
-        transfer_rate: Option<Uint128>,
     },
     RecoverTickets {
         account_sequence: u64,
@@ -58,8 +54,6 @@ pub enum ExecuteMsg {
     RecoverXRPLTokenRegistration {
         issuer: String,
         currency: String,
-        // If the transfer rate needs to be modified because admin sent it wrong and registration failed, it can be done here.
-        transfer_rate: Option<Uint128>,
     },
     SaveSignature {
         operation_id: u64,
@@ -72,6 +66,12 @@ pub enum ExecuteMsg {
     #[serde(rename = "send_to_xrpl")]
     SendToXRPL {
         recipient: String,
+        // This optional field is only allowed for XRPL originated tokens and is used together with attached funds to work with XRPL transfer rate.
+        // How it works:
+        // 1. If the token is not XRPL originated or XRP, if this is sent, we will return an error
+        // 2. If the token is XRPL originated, if this is not sent, amount = max_amount = funds sent - bridging_fee
+        // 3. If the token is XRPL originated, if this is sent, amount = deliver_amount, max_amount = funds sent - bridging fee
+        deliver_amount: Option<Uint128>,
     },
     // All fields that can be updatable for XRPL originated tokens will be updated with this message
     // They are all optional, so any fields that have to be updated can be included in the message.

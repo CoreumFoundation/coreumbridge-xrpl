@@ -36,7 +36,7 @@ func DeployAndInstantiateContract(
 
 	// fund with issuance fee and some coins to cover fees
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
-		Amount: issueFee.Amount.AddRaw(1_000_000),
+		Amount: issueFee.Amount.AddRaw(2_000_000),
 	})
 
 	contractClient := coreum.NewContractClient(
