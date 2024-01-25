@@ -219,7 +219,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
         assert!(!contract_addr.is_empty());
 
@@ -234,7 +234,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
-                    xrpl_base_fee: 300,
+                    xrpl_base_fee: 10,
                 },
                 None,
                 "label".into(),
@@ -260,7 +260,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
-                    xrpl_base_fee: 300,
+                    xrpl_base_fee: 10,
                 },
                 None,
                 "label".into(),
@@ -286,7 +286,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
-                    xrpl_base_fee: 300,
+                    xrpl_base_fee: 10,
                 },
                 None,
                 "label".into(),
@@ -313,7 +313,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: invalid_address.to_owned(),
-                    xrpl_base_fee: 300,
+                    xrpl_base_fee: 10,
                 },
                 None,
                 "label".into(),
@@ -341,7 +341,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
-                    xrpl_base_fee: 300,
+                    xrpl_base_fee: 10,
                 },
                 None,
                 "label".into(),
@@ -365,7 +365,7 @@ mod tests {
                     used_ticket_sequence_threshold: 1,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
-                    xrpl_base_fee: 300,
+                    xrpl_base_fee: 10,
                 },
                 None,
                 "label".into(),
@@ -391,7 +391,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
-                    xrpl_base_fee: 300,
+                    xrpl_base_fee: 10,
                 },
                 None,
                 "label".into(),
@@ -425,7 +425,7 @@ mod tests {
                     used_ticket_sequence_threshold: 50,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                     bridge_xrpl_address: generate_xrpl_address(),
-                    xrpl_base_fee: 300,
+                    xrpl_base_fee: 10,
                 },
                 None,
                 "label".into(),
@@ -498,7 +498,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
 
         // Query current owner
@@ -587,7 +587,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             multisig_address.to_owned(),
-            300,
+            10,
         );
 
         let query_config = wasm
@@ -603,7 +603,7 @@ mod tests {
                 trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                 bridge_xrpl_address: multisig_address,
                 bridge_state: BridgeState::Active,
-                xrpl_base_fee: 300,
+                xrpl_base_fee: 10,
             }
         );
     }
@@ -633,7 +633,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
 
         let query_xrpl_tokens = wasm
@@ -685,7 +685,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
 
         let test_tokens = vec![
@@ -842,7 +842,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
 
         let test_tokens = vec![
@@ -1255,7 +1255,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
 
         let test_token = XRPLToken {
@@ -1418,7 +1418,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
 
         // Set up enough tickets first to allow registering tokens.
@@ -1772,7 +1772,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
-            300,
+            10,
         );
 
         // Add enough tickets for all our test operations
@@ -2684,7 +2684,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
-        let xrpl_base_fee = 300;
+        let xrpl_base_fee = 10;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -3586,7 +3586,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
 
         // *** Test with XRPL originated tokens ***
@@ -4586,7 +4586,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
-        let xrpl_base_fee = 300;
+        let xrpl_base_fee = 10;
 
         let bridge_xrpl_address = generate_xrpl_address();
         let contract_addr = store_and_instantiate(
@@ -5426,7 +5426,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
-        let xrpl_base_fee = 300;
+        let xrpl_base_fee = 10;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -6067,7 +6067,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
-        let xrpl_base_fee = 300;
+        let xrpl_base_fee = 10;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -6581,7 +6581,7 @@ mod tests {
             bridging_fee: Uint128::zero(),
             transfer_rate: None,
         };
-        let xrpl_base_fee = 300;
+        let xrpl_base_fee = 10;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -6794,7 +6794,7 @@ mod tests {
                 transfer_rate: None,
             },
         ];
-        let xrpl_base_fee = 300;
+        let xrpl_base_fee = 10;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -6979,7 +6979,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
-            300,
+            10,
         );
 
         // Add enough tickets to test that ticket is correctly returned
@@ -7158,7 +7158,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
 
         // Recover enough tickets for testing
@@ -8249,7 +8249,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
-            300,
+            10,
         );
 
         // Add enough tickets for all our test operations
@@ -8486,7 +8486,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
-        let xrpl_base_fee = 300;
+        let xrpl_base_fee = 10;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -8837,7 +8837,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
-        let xrpl_base_fee = 300;
+        let xrpl_base_fee = 10;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -9231,7 +9231,7 @@ mod tests {
         }
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
-        let xrpl_base_fee = 300;
+        let xrpl_base_fee = 10;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -9389,7 +9389,7 @@ mod tests {
                 .as_str()
         ));
 
-        let new_xrpl_base_fee = 600;
+        let new_xrpl_base_fee = 20;
         // If we trigger an XRPL base fee update, all signatures must be gone, and pending operations must be in version 2, and pending operations base fee must be the new one
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -9420,7 +9420,7 @@ mod tests {
             .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
             .unwrap();
 
-        assert_eq!(query_config.xrpl_base_fee, 600);
+        assert_eq!(query_config.xrpl_base_fee, new_xrpl_base_fee);
     }
 
     #[test]
@@ -9448,7 +9448,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
 
         let tx_hash = generate_hash();
@@ -9577,7 +9577,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            10,
         );
 
         // Try transfering from user that is not owner, should fail
