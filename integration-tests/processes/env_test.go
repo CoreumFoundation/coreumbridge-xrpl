@@ -57,6 +57,7 @@ func DefaultRunnerEnvConfig() RunnerEnvConfig {
 type RunnerEnv struct {
 	Cfg                  RunnerEnvConfig
 	bridgeXRPLAddress    rippledata.Account
+	BootstrappingConfig  bridgeclient.BootstrappingConfig
 	ContractClient       *coreum.ContractClient
 	Chains               integrationtests.Chains
 	ContractOwner        sdk.AccAddress
@@ -163,6 +164,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	runnerEnv := &RunnerEnv{
 		Cfg:                  cfg,
 		bridgeXRPLAddress:    bridgeXRPLAddress,
+		BootstrappingConfig:  bootstrappingCfg,
 		ContractClient:       contractClient,
 		Chains:               chains,
 		ContractOwner:        contractOwner,
@@ -318,10 +320,11 @@ func (r *RunnerEnv) SendFromCoreumToXRPL(
 	ctx context.Context,
 	t *testing.T,
 	sender sdk.AccAddress,
-	amount sdk.Coin,
 	recipient rippledata.Account,
+	amount sdk.Coin,
+	deliverAmount *sdkmath.Int,
 ) {
-	require.NoError(t, r.BridgeClient.SendFromCoreumToXRPL(ctx, sender, amount, recipient))
+	require.NoError(t, r.BridgeClient.SendFromCoreumToXRPL(ctx, sender, recipient, amount, deliverAmount))
 }
 
 // SendFromXRPLToCoreum sends tokens form XRPL to Coreum.
