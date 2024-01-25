@@ -1461,6 +1461,28 @@ mod tests {
 
         assert_eq!(request_balance.balance, amount.to_string());
 
+        // If we try to bridge to the contract address, it should fail
+        let bridge_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveEvidence {
+                    evidence: Evidence::XRPLToCoreumTransfer {
+                        tx_hash: generate_hash(),
+                        issuer: test_token.issuer.clone(),
+                        currency: test_token.currency.clone(),
+                        amount: amount.clone(),
+                        recipient: Addr::unchecked(contract_addr.to_owned()),
+                    },
+                },
+                &[],
+                relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(bridge_error
+            .to_string()
+            .contains(ContractError::ProhibitedRecipient {}.to_string().as_str()));
+
         // Test with more than 1 relayer
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -2756,6 +2778,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let multisig_address = generate_xrpl_address();
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -2766,7 +2789,7 @@ mod tests {
             10,
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
-            generate_xrpl_address(),
+            multisig_address.to_owned(),
         );
 
         let query_xrpl_tokens = wasm
@@ -2907,6 +2930,23 @@ mod tests {
                 },
             }
         );
+
+        // If we try to send tokens from Coreum to XRPL using the multisig address as recipient, it should fail.
+        let bridge_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: multisig_address,
+                    deliver_amount: None,
+                },
+                &coins(1, denom_xrp.to_owned()),
+                sender,
+            )
+            .unwrap_err();
+
+        assert!(bridge_error
+            .to_string()
+            .contains(ContractError::ProhibitedRecipient {}.to_string().as_str()));
 
         // Sending a CoreumToXRPLTransfer evidence with account sequence should fail.
         let invalid_evidence = wasm
