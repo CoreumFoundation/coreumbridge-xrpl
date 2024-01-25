@@ -2684,6 +2684,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let xrpl_base_fee = 300;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -2695,7 +2696,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            xrpl_base_fee,
         );
 
         let query_xrpl_tokens = wasm
@@ -2817,6 +2818,7 @@ mod tests {
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
+                xrpl_base_fee,
             }
         );
 
@@ -3126,6 +3128,7 @@ mod tests {
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
+                xrpl_base_fee
             }
         );
 
@@ -3418,6 +3421,7 @@ mod tests {
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
+                xrpl_base_fee
             }
         );
 
@@ -3438,6 +3442,7 @@ mod tests {
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address,
                 },
+                xrpl_base_fee
             }
         );
 
@@ -4581,6 +4586,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let xrpl_base_fee = 300;
 
         let bridge_xrpl_address = generate_xrpl_address();
         let contract_addr = store_and_instantiate(
@@ -4597,7 +4603,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
-            300,
+            xrpl_base_fee,
         );
 
         // Recover enough tickets
@@ -4946,6 +4952,7 @@ mod tests {
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
+                xrpl_base_fee,
             }
         );
 
@@ -5039,6 +5046,7 @@ mod tests {
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
+                xrpl_base_fee
             }
         );
 
@@ -5115,6 +5123,7 @@ mod tests {
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
+                xrpl_base_fee,
             }
         );
 
@@ -5417,6 +5426,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let xrpl_base_fee = 300;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -5428,7 +5438,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            xrpl_base_fee,
         );
 
         // Recover enough tickets
@@ -5690,7 +5700,8 @@ mod tests {
                     transfer_fee: Uint128::new(100000),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
-                }
+                },
+                xrpl_base_fee,
             }
         );
 
@@ -5751,7 +5762,8 @@ mod tests {
                     transfer_fee: Uint128::new(33333333272223),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
-                }
+                },
+                xrpl_base_fee,
             }
         );
 
@@ -5811,7 +5823,8 @@ mod tests {
                     transfer_fee: Uint128::new(50000000000001),
                     sender: Addr::unchecked(signer.address()),
                     recipient: receiver.to_owned(),
-                }
+                },
+                xrpl_base_fee
             }
         );
 
@@ -6054,6 +6067,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let xrpl_base_fee = 300;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -6065,7 +6079,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            xrpl_base_fee,
         );
 
         // Querying current pending operations and available tickets should return empty results.
@@ -6189,7 +6203,8 @@ mod tests {
                 ticket_sequence: None,
                 account_sequence: Some(account_sequence),
                 signatures: vec![], // No signatures yet
-                operation_type: OperationType::AllocateTickets { number: 5 }
+                operation_type: OperationType::AllocateTickets { number: 5 },
+                xrpl_base_fee
             }]
         );
 
@@ -6566,6 +6581,7 @@ mod tests {
             bridging_fee: Uint128::zero(),
             transfer_rate: None,
         };
+        let xrpl_base_fee = 300;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -6577,7 +6593,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            xrpl_base_fee,
         );
 
         // We successfully recover 3 tickets to perform operations
@@ -6740,6 +6756,7 @@ mod tests {
                     currency: token_currency,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
                 },
+                xrpl_base_fee,
             }
         );
     }
@@ -6777,6 +6794,7 @@ mod tests {
                 transfer_rate: None,
             },
         ];
+        let xrpl_base_fee = 300;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -6788,7 +6806,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            xrpl_base_fee,
         );
 
         // We successfully recover 3 tickets
@@ -6877,7 +6895,8 @@ mod tests {
                 ticket_sequence: Some(3),
                 account_sequence: None,
                 signatures: vec![],
-                operation_type: OperationType::AllocateTickets { number: 2 }
+                operation_type: OperationType::AllocateTickets { number: 2 },
+                xrpl_base_fee,
             }]
         );
         assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
@@ -8467,6 +8486,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let xrpl_base_fee = 300;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -8482,7 +8502,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            xrpl_base_fee,
         );
 
         // Recover enough tickets for testing
@@ -8611,7 +8631,8 @@ mod tests {
                 operation_type: OperationType::RotateKeys {
                     new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                     new_evidence_threshold: 2
-                }
+                },
+                xrpl_base_fee,
             }
         );
 
@@ -8709,7 +8730,8 @@ mod tests {
                 operation_type: OperationType::RotateKeys {
                     new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
                     new_evidence_threshold: 2
-                }
+                },
+                xrpl_base_fee,
             }
         );
 
@@ -8815,6 +8837,7 @@ mod tests {
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let xrpl_base_fee = 300;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -8826,7 +8849,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             bridge_xrpl_address.to_owned(),
-            300,
+            xrpl_base_fee,
         );
 
         // Halt the bridge and check that we can't send any operations except allowed ones
@@ -9044,7 +9067,8 @@ mod tests {
                 operation_type: OperationType::RotateKeys {
                     new_relayers: vec![new_relayer.clone()],
                     new_evidence_threshold: 1
-                }
+                },
+                xrpl_base_fee,
             }
         );
 
@@ -9207,6 +9231,7 @@ mod tests {
         }
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
+        let xrpl_base_fee = 300;
 
         let contract_addr = store_and_instantiate(
             &wasm,
@@ -9218,7 +9243,7 @@ mod tests {
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
             generate_xrpl_address(),
-            300,
+            xrpl_base_fee,
         );
 
         // Add enough tickets for all our tests
@@ -9364,10 +9389,13 @@ mod tests {
                 .as_str()
         ));
 
-        // If we trigger an XRPL base fee update, all signatures must be gone, and pending operations must be in version 2
+        let new_xrpl_base_fee = 600;
+        // If we trigger an XRPL base fee update, all signatures must be gone, and pending operations must be in version 2, and pending operations base fee must be the new one
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::UpdateXRPLBaseFee { xrpl_base_fee: 600 },
+            &ExecuteMsg::UpdateXRPLBaseFee {
+                xrpl_base_fee: new_xrpl_base_fee,
+            },
             &vec![],
             &signer,
         )
@@ -9383,6 +9411,7 @@ mod tests {
 
         for pending_operation in query_pending_operations.operations.iter() {
             assert_eq!(pending_operation.version, 2);
+            assert_eq!(pending_operation.xrpl_base_fee, new_xrpl_base_fee);
             assert!(pending_operation.signatures.is_empty());
         }
 

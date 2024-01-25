@@ -1134,6 +1134,7 @@ fn update_xrpl_base_fee(
                 account_sequence: operation.1.account_sequence,
                 signatures: vec![],
                 operation_type: operation.1.operation_type.to_owned(),
+                xrpl_base_fee,
             },
         )?;
     }

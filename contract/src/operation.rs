@@ -9,7 +9,8 @@ use crate::{
     relayer::Relayer,
     signatures::Signature,
     state::{
-        PendingRefund, TokenState, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS, XRPL_TOKENS,
+        PendingRefund, TokenState, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS,
+        XRPL_TOKENS,
     },
     token::build_xrpl_token_key,
 };
@@ -25,6 +26,8 @@ pub struct Operation {
     pub account_sequence: Option<u64>,
     pub signatures: Vec<Signature>,
     pub operation_type: OperationType,
+    // xrpl_base_fee must be part of operation too to avoid race conditions
+    pub xrpl_base_fee: u64,
 }
 
 #[cw_serde]
@@ -83,6 +86,7 @@ pub fn create_pending_operation(
     account_sequence: Option<u64>,
     operation_type: OperationType,
 ) -> Result<(), ContractError> {
+    let config = CONFIG.load(storage)?;
     let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
     // We use a unique ID for operations that will also be used for refunding failed operations
     // We need to use both timestamp and operation_id to ensure uniqueness of IDs, since operation_id can be reused in case of invalid transactions
@@ -94,6 +98,7 @@ pub fn create_pending_operation(
         account_sequence,
         signatures: vec![],
         operation_type,
+        xrpl_base_fee: config.xrpl_base_fee,
     };
 
     if PENDING_OPERATIONS.has(storage, operation_id) {

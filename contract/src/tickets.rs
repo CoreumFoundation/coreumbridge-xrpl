@@ -59,6 +59,7 @@ pub fn register_used_ticket(
                         operation_type: OperationType::AllocateTickets {
                             number: config.used_ticket_sequence_threshold,
                         },
+                        xrpl_base_fee: config.xrpl_base_fee,
                     },
                 )?;
                 PENDING_TICKET_UPDATE.save(storage, &true)?
