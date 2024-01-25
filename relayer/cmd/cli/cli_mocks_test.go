@@ -174,6 +174,20 @@ func (mr *MockBridgeClientMockRecorder) GetXRPLBalances(arg0, arg1 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetXRPLBalances", reflect.TypeOf((*MockBridgeClient)(nil).GetXRPLBalances), arg0, arg1)
 }
 
+// HaltBridge mocks base method.
+func (m *MockBridgeClient) HaltBridge(arg0 context.Context, arg1 types.AccAddress) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HaltBridge", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HaltBridge indicates an expected call of HaltBridge.
+func (mr *MockBridgeClientMockRecorder) HaltBridge(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HaltBridge", reflect.TypeOf((*MockBridgeClient)(nil).HaltBridge), arg0, arg1)
+}
+
 // RecoverTickets mocks base method.
 func (m *MockBridgeClient) RecoverTickets(arg0 context.Context, arg1 types.AccAddress, arg2 uint32) error {
 	m.ctrl.T.Helper()
@@ -230,6 +244,20 @@ func (m *MockBridgeClient) RegisterXRPLToken(arg0 context.Context, arg1 types.Ac
 func (mr *MockBridgeClientMockRecorder) RegisterXRPLToken(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterXRPLToken", reflect.TypeOf((*MockBridgeClient)(nil).RegisterXRPLToken), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+}
+
+// ResumeBridge mocks base method.
+func (m *MockBridgeClient) ResumeBridge(arg0 context.Context, arg1 types.AccAddress) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResumeBridge", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ResumeBridge indicates an expected call of ResumeBridge.
+func (mr *MockBridgeClientMockRecorder) ResumeBridge(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResumeBridge", reflect.TypeOf((*MockBridgeClient)(nil).ResumeBridge), arg0, arg1)
 }
 
 // RotateKeys mocks base method.

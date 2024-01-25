@@ -164,6 +164,14 @@ type BridgeClient interface {
 		sender sdk.AccAddress,
 		issuer, currency string,
 	) error
+	HaltBridge(
+		ctx context.Context,
+		sender sdk.AccAddress,
+	) error
+	ResumeBridge(
+		ctx context.Context,
+		sender sdk.AccAddress,
+	) error
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
@@ -1528,6 +1536,86 @@ $ claim-relayer-fees --key-name address --amount 1000ucore,100ibc/0718CC536BB057
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 	cmd.PersistentFlags().String(FlagAmount, "", "specific amount to be collected")
+
+	return cmd
+}
+
+// HaltBridgeCmd halts the bridge and stops its operation.
+func HaltBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "halt-bridge",
+		Short: "Halts the bridge and stops its operation.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Halts the bridge and stops its operation.
+Example:
+$ halt-bridge --%s owner
+`, FlagKeyName)),
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+			if err != nil {
+				return err
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			return bridgeClient.HaltBridge(
+				ctx,
+				owner,
+			)
+		},
+	}
+
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
+// ResumeBridgeCmd resumes the bridge and restarts its operation.
+func ResumeBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "resume-bridge",
+		Short: "Resume the bridge and restarts its operation.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Resumes the bridge and restarts its operation.
+Example:
+$ resume-bridge --%s owner
+`, FlagKeyName)),
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+			if err != nil {
+				return err
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			return bridgeClient.ResumeBridge(
+				ctx,
+				owner,
+			)
+		},
+	}
+
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
 
 	return cmd
 }

@@ -109,14 +109,18 @@ type ContractClient interface {
 		newRelayers []coreum.Relayer,
 		newEvidenceThreshold int,
 	) (*sdk.TxResponse, error)
-	ResumeBridge(
-		ctx context.Context,
-		sender sdk.AccAddress,
-	) (*sdk.TxResponse, error)
 	RecoverXRPLTokenRegistration(
 		ctx context.Context,
 		sender sdk.AccAddress,
 		issuer, currency string,
+	) (*sdk.TxResponse, error)
+	HaltBridge(
+		ctx context.Context,
+		sender sdk.AccAddress,
+	) (*sdk.TxResponse, error)
+	ResumeBridge(
+		ctx context.Context,
+		sender sdk.AccAddress,
 	) (*sdk.TxResponse, error)
 }
 
@@ -899,6 +903,20 @@ func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
 	}
 
 	return contractRelayers, xrplSignerEntries, nil
+}
+
+// HaltBridge halts the bridg.
+func (b *BridgeClient) HaltBridge(
+	ctx context.Context,
+	sender sdk.AccAddress,
+) error {
+	b.log.Info(ctx, "halting the bridge", zap.String("sender", sender.String()))
+	txRes, err := b.contractClient.HaltBridge(ctx, sender)
+	if err != nil {
+		return err
+	}
+	b.log.Info(ctx, "finished execution of halt-bridge", zap.String("txHash", txRes.TxHash))
+	return nil
 }
 
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(
