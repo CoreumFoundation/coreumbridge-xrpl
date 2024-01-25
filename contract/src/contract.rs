@@ -849,6 +849,11 @@ fn send_to_xrpl(
     // Check that the recipient is a valid XRPL address.
     validate_xrpl_address(recipient.to_owned())?;
 
+    // We check that deliver_amount is not greater than the funds sent
+    if deliver_amount.is_some() && deliver_amount.unwrap().gt(&funds.amount) {
+        return Err(ContractError::InvalidDeliverAmount {});
+    }
+
     let decimals;
     let mut amount_to_send;
     let max_amount;

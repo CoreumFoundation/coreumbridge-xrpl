@@ -65,9 +65,9 @@ pub enum ExecuteMsg {
         recipient: String,
         // This optional field is only allowed for XRPL originated tokens and is used together with attached funds to work with XRPL transfer rate.
         // How it works:
-        // 1. If the token is not XRPL originated, if this is sent, we will return an error
-        // 2. If the token is XRPL originated, if this is not sent, amount = max_amount = funds sent
-        // 3. If the token is XRPL originated, if this is sent, amount = deliver_amount, max_amount = funds sent
+        // 1. If the token is not XRPL originated or XRP, if this is sent, we will return an error
+        // 2. If the token is XRPL originated, if this is not sent, amount = max_amount = funds sent - bridging_fee
+        // 3. If the token is XRPL originated, if this is sent, amount = deliver_amount, max_amount = funds sent - bridging fee
         deliver_amount: Option<Uint128>,
     },
     // All fields that can be updatable for XRPL originated tokens will be updated with this message
