@@ -1894,7 +1894,7 @@ mod tests {
                 issuer: bridge_xrpl_address.to_owned(),
                 currency: coreum_originated_token.xrpl_currency.to_owned(),
                 amount: amount_truncated_and_converted,
-                max_amount: amount_truncated_and_converted,
+                max_amount: Some(amount_truncated_and_converted),
                 sender: Addr::unchecked(sender.address()),
                 recipient: xrpl_receiver_address.to_owned(),
             }
@@ -2355,7 +2355,7 @@ mod tests {
                 issuer: bridge_xrpl_address.to_owned(),
                 currency: coreum_originated_token.xrpl_currency.to_owned(),
                 amount: amount_truncated_and_converted,
-                max_amount: amount_truncated_and_converted,
+                max_amount: Some(amount_truncated_and_converted),
                 sender: Addr::unchecked(sender.address()),
                 recipient: xrpl_receiver_address.to_owned(),
             }
@@ -2738,8 +2738,27 @@ mod tests {
 
         assert_eq!(request_balance.balance, amount_to_send.to_string());
 
-        // Send the XRP back to XRPL successfully
         let xrpl_receiver_address = generate_xrpl_address();
+        // Trying to send XRP back with a deliver_amount should fail
+        let deliver_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                    deliver_amount: Some(Uint128::one()),
+                },
+                &coins(amount_to_send_back.u128(), denom_xrp.to_owned()),
+                sender,
+            )
+            .unwrap_err();
+
+        assert!(deliver_error.to_string().contains(
+            ContractError::DeliverAmountIsProhibited {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Send the XRP back to XRPL successfully
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SendToXRPL {
@@ -2771,7 +2790,7 @@ mod tests {
                     issuer: XRP_ISSUER.to_owned(),
                     currency: XRP_CURRENCY.to_owned(),
                     amount: amount_to_send_back,
-                    max_amount: amount_to_send_back,
+                    max_amount: None,
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -3082,7 +3101,7 @@ mod tests {
                     issuer: xrpl_originated_token.issuer.to_owned(),
                     currency: xrpl_originated_token.currency.to_owned(),
                     amount: amount_to_send_back,
-                    max_amount: amount_to_send_back,
+                    max_amount: Some(amount_to_send_back),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -3323,7 +3342,7 @@ mod tests {
                     issuer: xrpl_originated_token.issuer.to_owned(),
                     currency: xrpl_originated_token.currency.to_owned(),
                     amount: deliver_amount.unwrap(),
-                    max_amount,
+                    max_amount: Some(max_amount),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -3519,7 +3538,7 @@ mod tests {
                     issuer: multisig_address.to_owned(),
                     currency: coreum_originated_token.xrpl_currency.to_owned(),
                     amount: amount.to_owned(),
-                    max_amount: amount.to_owned(),
+                    max_amount: Some(amount.to_owned()),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -3537,7 +3556,7 @@ mod tests {
                     issuer: multisig_address,
                     currency: coreum_originated_token.xrpl_currency.to_owned(),
                     amount: amount.to_owned(),
-                    max_amount: amount.to_owned(),
+                    max_amount: Some(amount.to_owned()),
                     sender: Addr::unchecked(sender.address()),
                     recipient: xrpl_receiver_address,
                 },
@@ -5044,7 +5063,7 @@ mod tests {
                     issuer: test_token_xrpl.issuer.to_owned(),
                     currency: test_token_xrpl.currency.to_owned(),
                     amount: Uint128::new(999999999900000),
-                    max_amount: Uint128::new(999999999900000),
+                    max_amount: Some(Uint128::new(999999999900000)),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -5137,7 +5156,7 @@ mod tests {
                     issuer: test_token_xrpl.issuer.to_owned(),
                     currency: test_token_xrpl.currency.to_owned(),
                     amount: Uint128::new(700000000000000),
-                    max_amount: Uint128::new(999999999900000),
+                    max_amount: Some(Uint128::new(999999999900000)),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -5258,7 +5277,7 @@ mod tests {
                     issuer: bridge_xrpl_address.to_owned(),
                     currency: coreum_token.xrpl_currency.to_owned(),
                     amount: Uint128::new(300000000000000),
-                    max_amount: Uint128::new(300000000000000),
+                    max_amount: Some(Uint128::new(300000000000000)),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },
@@ -5333,7 +5352,7 @@ mod tests {
                     issuer: bridge_xrpl_address.to_owned(),
                     currency: coreum_token.xrpl_currency.to_owned(),
                     amount: Uint128::new(600000000000000),
-                    max_amount: Uint128::new(600000000000000),
+                    max_amount: Some(Uint128::new(600000000000000)),
                     sender: Addr::unchecked(receiver.address()),
                     recipient: xrpl_receiver_address.to_owned(),
                 },

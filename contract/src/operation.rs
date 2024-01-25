@@ -42,7 +42,7 @@ pub enum OperationType {
         issuer: String,
         currency: String,
         amount: Uint128,
-        max_amount: Uint128,
+        max_amount: Option<Uint128>,
         sender: Addr,
         recipient: String,
     },
@@ -134,6 +134,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
         OperationType::CoreumToXRPLTransfer {
             issuer,
             currency,
+            amount,
             max_amount,
             sender,
             ..
@@ -142,10 +143,12 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
             let key = build_xrpl_token_key(issuer, currency.to_owned());
             match XRPL_TOKENS.may_load(storage, key)? {
                 Some(xrpl_token) => {
+                    // if operation was with XRP, max amount might be empty so we will use amount.
+                    let amount_sent = max_amount.unwrap_or(amount);
                     // If transaction was accepted and the token that was sent back was an XRPL originated token, we must burn the token amount
                     if transaction_result.eq(&TransactionResult::Accepted) {
                         let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
-                            coin: coin(max_amount.u128(), xrpl_token.coreum_denom),
+                            coin: coin(amount_sent.u128(), xrpl_token.coreum_denom),
                         }));
 
                         *response = response.to_owned().add_message(burn_msg);
@@ -155,7 +158,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                             storage,
                             pending_operation.id,
                             sender,
-                            coin(max_amount.u128(), xrpl_token.coreum_denom),
+                            coin(amount_sent.u128(), xrpl_token.coreum_denom),
                         )?;
                     }
                 }
@@ -173,7 +176,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                                 let amount_to_send_back = convert_amount_decimals(
                                     XRPL_TOKENS_DECIMALS,
                                     token.decimals,
-                                    max_amount,
+                                    max_amount.unwrap(),
                                 )?;
                                 // If transaction was rejected, we must store the amount so that sender can claim it back.
                                 store_pending_refund(

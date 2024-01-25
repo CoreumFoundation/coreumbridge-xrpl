@@ -870,10 +870,15 @@ fn send_to_xrpl(
 
             issuer = xrpl_token.issuer;
             currency = xrpl_token.currency;
-            decimals = match is_token_xrp(issuer.to_owned(), currency.to_owned()) {
-                true => XRP_DECIMALS,
-                false => XRPL_TOKENS_DECIMALS,
-            };
+            if is_token_xrp(issuer.to_owned(), currency.to_owned()) {
+                decimals = XRP_DECIMALS;
+                // deliver amount cannot be sent for XRP
+                if deliver_amount.is_some() {
+                    return Err(ContractError::DeliverAmountIsProhibited {});
+                }
+            } else {
+                decimals = XRPL_TOKENS_DECIMALS;
+            }
 
             // We calculate the amount after applying the bridging fees for that token
             let amount_after_bridge_fees =
@@ -897,10 +902,15 @@ fn send_to_xrpl(
                     deliver_amount.unwrap(),
                 )?;
 
-                max_amount = amount_to_send;
+                max_amount = Some(amount_to_send);
                 amount_to_send = truncated_amount;
             } else {
-                max_amount = amount_to_send;
+                // If token is XRP, we set the max amount to None because this token cannot have max_amount
+                if decimals == XRP_DECIMALS {
+                    max_amount = None;
+                } else {
+                    max_amount = Some(amount_to_send);
+                }
             }
 
             handle_fee_collection(
@@ -960,7 +970,7 @@ fn send_to_xrpl(
             }
 
             // Coreum originated tokens never have transfer rate so the max amount will be the same as amount to send
-            max_amount = amount_to_send;
+            max_amount = Some(amount_to_send);
         }
     }
 
