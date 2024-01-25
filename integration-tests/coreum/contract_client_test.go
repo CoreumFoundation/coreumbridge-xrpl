@@ -5384,13 +5384,13 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 		},
 	}
 
-	// send form first initial relayer
+	// send from first initial relayer
 	_, err = contractClient.SendKeysRotationTransactionResultEvidence(
 		ctx, initialRelayers[0].CoreumAddress, rejectKeysRotationEvidence,
 	)
 	require.NoError(t, err)
 
-	// send form second initial relayer
+	// send from second initial relayer
 	_, err = contractClient.SendKeysRotationTransactionResultEvidence(
 		ctx, initialRelayers[1].CoreumAddress, rejectKeysRotationEvidence,
 	)
@@ -5429,13 +5429,13 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 		},
 	}
 
-	// send form first initial relayer
+	// send from first initial relayer
 	_, err = contractClient.SendKeysRotationTransactionResultEvidence(
 		ctx, initialRelayers[0].CoreumAddress, acceptKeysRotationEvidence,
 	)
 	require.NoError(t, err)
 
-	// send form second initial relayer
+	// send from second initial relayer
 	_, err = contractClient.SendKeysRotationTransactionResultEvidence(
 		ctx, initialRelayers[1].CoreumAddress, acceptKeysRotationEvidence,
 	)
