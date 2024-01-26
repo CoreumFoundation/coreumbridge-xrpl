@@ -3,6 +3,7 @@ package processes
 import (
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -91,6 +92,54 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 	if err != nil {
 		return nil, err
 	}
+
+	return &tx, nil
+}
+
+// BuildSignerListSetTxForMultiSigning builds SignerListSet transaction operation from the contract operation.
+func BuildSignerListSetTxForMultiSigning(
+	bridgeXRPLAddress rippledata.Account,
+	operation coreum.Operation,
+) (*rippledata.SignerListSet, error) {
+	rotateKeysOperationType := operation.OperationType.RotateKeys
+
+	signerEntries := make([]rippledata.SignerEntry, 0, len(rotateKeysOperationType.NewRelayers))
+	for _, relayer := range rotateKeysOperationType.NewRelayers {
+		xrplRelayerAddress, err := rippledata.NewAccountFromAddress(relayer.XRPLAddress)
+		if err != nil {
+			return nil, errors.Wrapf(
+				err, "faield to convert relayer XRPL address to rippledata.Account, address:%s", relayer.XRPLAddress,
+			)
+		}
+		signerEntries = append(signerEntries, rippledata.SignerEntry{
+			SignerEntry: rippledata.SignerEntryItem{
+				Account:      xrplRelayerAddress,
+				SignerWeight: lo.ToPtr(uint16(1)),
+			},
+		})
+	}
+
+	tx := rippledata.SignerListSet{
+		SignerQuorum: uint32(rotateKeysOperationType.NewEvidenceThreshold),
+		TxBase: rippledata.TxBase{
+			Account:         bridgeXRPLAddress,
+			TransactionType: rippledata.SIGNER_LIST_SET,
+		},
+		SignerEntries: signerEntries,
+	}
+	if operation.TicketSequence != 0 {
+		tx.TicketSequence = &operation.TicketSequence
+	} else {
+		tx.TxBase.Sequence = operation.AccountSequence
+	}
+	// important for the multi-signing
+	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+
+	fee, err := xrpl.GetTxFee(&tx)
+	if err != nil {
+		return nil, err
+	}
+	tx.TxBase.Fee = fee
 
 	return &tx, nil
 }
