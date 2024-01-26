@@ -87,8 +87,9 @@ func TestKeysRotation(t *testing.T) {
 		ctx,
 		t,
 		coreumSenderAddress,
-		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
 		xrplRecipientAddress,
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
+		nil,
 	)
 
 	initialRunnerEnv.AwaitNoPendingOperations(ctx, t)
@@ -170,8 +171,9 @@ func TestKeysRotation(t *testing.T) {
 		ctx,
 		t,
 		coreumSenderAddress,
-		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
 		xrplRecipientAddress,
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
+		nil,
 	)
 
 	initialRunnerEnv.AwaitNoPendingOperations(ctx, t)

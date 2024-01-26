@@ -1,7 +1,6 @@
 package processes
 
 import (
-	"fmt"
 	"math/big"
 
 	sdkmath "cosmossdk.io/math"
@@ -9,12 +8,6 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
-)
-
-const (
-	// XRPLAmountPrec is precision we use to covert float to float string for the amount representation.
-	// That value is value which corelates with the min/max sending precision.
-	XRPLAmountPrec = 16
 )
 
 // ConvertXRPLAmountToCoreumAmount converts the XRPL native token amount from XRPL to coreum amount
@@ -39,17 +32,20 @@ func ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
 	currencyString string,
 ) (rippledata.Amount, error) {
 	if isXRPToken(issuerString, currencyString) {
-		// format with exponent
-		amountString := big.NewFloat(0).SetInt(coreumAmount.BigInt()).Text('g', XRPLAmountPrec)
-		// we don't use the decimals for the XRP values since the `NewValue` function will do it automatically
-		xrplValue, err := rippledata.NewValue(amountString, true)
+		if !coreumAmount.IsInt64() {
+			return rippledata.Amount{}, errors.Errorf(
+				"failed to convert coreum XRP amount to int64, out of bound, value:%s", coreumAmount.String(),
+			)
+		}
+		xrplValue, err := rippledata.NewNativeValue(coreumAmount.Int64())
 		if err != nil {
 			return rippledata.Amount{}, errors.Wrapf(
 				err,
-				"failed to convert amount string to ripple.Value, amount stirng: %s",
-				amountString,
+				"failed to convert int64 to ripple.Value, value: %d",
+				coreumAmount.Int64(),
 			)
 		}
+
 		return rippledata.Amount{
 			Value: xrplValue,
 		}, nil
@@ -79,23 +75,31 @@ func convertCoreumAmountToXRPLAmountWithDecimals(
 	decimals uint32,
 	issuerString, currencyString string,
 ) (rippledata.Amount, error) {
-	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
-	floatAmount := big.NewFloat(0).SetRat(big.NewRat(0, 1).SetFrac(coreumAmount.BigInt(), tenPowerDec))
-	// format with exponent
-	amountString := fmt.Sprintf(
-		"%s/%s/%s",
-		floatAmount.Text('g', XRPLAmountPrec),
-		currencyString,
-		issuerString,
-	)
-	xrplValue, err := rippledata.NewValue(amountString, false)
+	coreumAmountString := coreumAmount.String()
+	offset := int64(0)
+	for i := len(coreumAmountString) - 1; i >= 0; i-- {
+		if string(coreumAmountString[i]) != "0" {
+			break
+		}
+		offset++
+	}
+	intValue := coreumAmount.Quo(sdkmath.NewIntWithDecimal(1, int(offset)))
+	if !intValue.IsInt64() {
+		return rippledata.Amount{}, errors.Errorf(
+			"failed to convert coreum XRPL currency amount to int64, out of bound, value:%s", intValue.String(),
+		)
+	}
+	// include decimals to offset
+	offset -= int64(decimals)
+	xrplValue, err := rippledata.NewNonNativeValue(intValue.Int64(), offset)
 	if err != nil {
 		return rippledata.Amount{}, errors.Wrapf(
 			err,
-			"failed to convert amount string to ripple.Value, amount stirng: %s",
-			amountString,
+			"failed to convert int64 to ripple.Value, value: %d",
+			intValue.Int64(),
 		)
 	}
+
 	currency, err := rippledata.NewCurrency(currencyString)
 	if err != nil {
 		return rippledata.Amount{}, errors.Wrapf(

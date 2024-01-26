@@ -54,7 +54,6 @@ type ContractClient interface {
 		maxHoldingAmount sdkmath.Int,
 		bridgingFee sdkmath.Int,
 	) (*sdk.TxResponse, error)
-
 	RegisterXRPLToken(
 		ctx context.Context,
 		sender sdk.AccAddress,
@@ -72,6 +71,7 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		recipient string,
 		amount sdk.Coin,
+		deliverAmount *sdkmath.Int,
 	) (*sdk.TxResponse, error)
 	UpdateXRPLToken(
 		ctx context.Context,
@@ -97,6 +97,12 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		pendingRefundID string,
 	) (*sdk.TxResponse, error)
+	GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error)
+	ClaimFees(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		amounts []sdk.Coin,
+	) (*sdk.TxResponse, error)
 	RotateKeys(
 		ctx context.Context,
 		sender sdk.AccAddress,
@@ -106,12 +112,6 @@ type ContractClient interface {
 	ResumeBridge(
 		ctx context.Context,
 		sender sdk.AccAddress,
-	) (*sdk.TxResponse, error)
-	GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error)
-	ClaimFees(
-		ctx context.Context,
-		sender sdk.AccAddress,
-		amounts []sdk.Coin,
 	) (*sdk.TxResponse, error)
 }
 
@@ -125,7 +125,7 @@ type XRPLRPCClient interface {
 		ctx context.Context,
 		account rippledata.Account,
 		ledgerIndex any,
-		marker *rippledata.Hash256,
+		marker string,
 	) (xrpl.AccountLinesResult, error)
 }
 
@@ -338,7 +338,7 @@ func (b *BridgeClient) RecoverTickets(
 // RegisterCoreumToken registers Coreum token.
 func (b *BridgeClient) RegisterCoreumToken(
 	ctx context.Context,
-	ownerAddress sdk.AccAddress,
+	owner sdk.AccAddress,
 	denom string,
 	decimals uint32,
 	sendingPrecision int32,
@@ -348,6 +348,7 @@ func (b *BridgeClient) RegisterCoreumToken(
 	b.log.Info(
 		ctx,
 		"Registering Coreum token",
+		zap.String("owner", owner.String()),
 		zap.String("denom", denom),
 		zap.Uint32("decimals", decimals),
 		zap.Int32("sendingPrecision", sendingPrecision),
@@ -356,7 +357,7 @@ func (b *BridgeClient) RegisterCoreumToken(
 	)
 	txRes, err := b.contractClient.RegisterCoreumToken(
 		ctx,
-		ownerAddress,
+		owner,
 		denom,
 		decimals,
 		sendingPrecision,
@@ -384,7 +385,7 @@ func (b *BridgeClient) RegisterCoreumToken(
 // RegisterXRPLToken registers XRPL token.
 func (b *BridgeClient) RegisterXRPLToken(
 	ctx context.Context,
-	ownerAddress sdk.AccAddress,
+	owner sdk.AccAddress,
 	issuer rippledata.Account, currency rippledata.Currency,
 	sendingPrecision int32,
 	maxHoldingAmount sdkmath.Int,
@@ -394,6 +395,7 @@ func (b *BridgeClient) RegisterXRPLToken(
 	b.log.Info(
 		ctx,
 		"Registering XRPL token",
+		zap.String("owner", owner.String()),
 		zap.String("issuer", issuer.String()),
 		zap.String("currency", stringCurrency),
 		zap.Int32("sendingPrecision", sendingPrecision),
@@ -403,7 +405,7 @@ func (b *BridgeClient) RegisterXRPLToken(
 	)
 	txRes, err := b.contractClient.RegisterXRPLToken(
 		ctx,
-		ownerAddress,
+		owner,
 		issuer.String(),
 		stringCurrency,
 		sendingPrecision,
@@ -447,24 +449,31 @@ func (b *BridgeClient) GetAllTokens(ctx context.Context) ([]coreum.CoreumToken, 
 func (b *BridgeClient) SendFromCoreumToXRPL(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	amount sdk.Coin,
 	recipient rippledata.Account,
+	amount sdk.Coin,
+	deliverAmount *sdkmath.Int,
 ) error {
-	b.log.Info(
-		ctx,
-		"Sending tokens form Coreum to XRPL",
+	logFields := []zap.Field{
 		zap.String("sender", sender.String()),
 		zap.String("amount", amount.String()),
 		zap.String("recipient", recipient.String()),
+	}
+	if deliverAmount != nil {
+		logFields = append(logFields, zap.String("deliverAmount", deliverAmount.String()))
+	}
+	b.log.Info(
+		ctx,
+		"Sending tokens form Coreum to XRPL",
+		logFields...,
 	)
-	txRes, err := b.contractClient.SendToXRPL(ctx, sender, recipient.String(), amount)
+	txRes, err := b.contractClient.SendToXRPL(ctx, sender, recipient.String(), amount, deliverAmount)
 	if err != nil {
 		return err
 	}
 
 	b.log.Info(
 		ctx,
-		"Successfully sent tx to send from Coreum to XRPL token",
+		"Successfully sent tx to send from Coreum to XRPL",
 		zap.String("txHash", txRes.TxHash),
 	)
 
@@ -759,17 +768,24 @@ func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Accou
 		Issuer:   xrpl.XRPTokenIssuer,
 	})
 
-	accLines, err := b.xrplRPCClient.AccountLines(ctx, acc, "closed", nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get XRPL account lines, address:%s", acc.String())
-	}
-	for _, line := range accLines.Lines {
-		lineCopy := line
-		balances = append(balances, rippledata.Amount{
-			Value:    &lineCopy.Balance.Value,
-			Currency: lineCopy.Currency,
-			Issuer:   lineCopy.Account,
-		})
+	marker := ""
+	for {
+		accLines, err := b.xrplRPCClient.AccountLines(ctx, acc, "closed", marker)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get XRPL account lines, address:%s", acc.String())
+		}
+		for _, line := range accLines.Lines {
+			lineCopy := line
+			balances = append(balances, rippledata.Amount{
+				Value:    &lineCopy.Balance.Value,
+				Currency: lineCopy.Currency,
+				Issuer:   lineCopy.Account,
+			})
+		}
+		if accLines.Marker == "" {
+			break
+		}
+		marker = accLines.Marker
 	}
 
 	return balances, nil
@@ -781,8 +797,8 @@ func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAdd
 	return b.contractClient.GetPendingRefunds(ctx, address)
 }
 
-// ClaimPendingRefund claims pending refund.
-func (b *BridgeClient) ClaimPendingRefund(ctx context.Context, address sdk.AccAddress, refundID string) error {
+// ClaimRefund claims pending refund.
+func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, refundID string) error {
 	b.log.Info(ctx, "claiming pending refund",
 		zap.String("address", address.String()),
 		zap.String("refundID", refundID))

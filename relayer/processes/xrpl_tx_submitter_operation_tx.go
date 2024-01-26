@@ -79,7 +79,7 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 	operation coreum.Operation,
 ) (*rippledata.Payment, error) {
 	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
-	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+	amount, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
 		coreumToXRPLTransferOperationType.Amount,
 		coreumToXRPLTransferOperationType.Issuer,
 		coreumToXRPLTransferOperationType.Currency,
@@ -87,8 +87,21 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 	if err != nil {
 		return nil, err
 	}
+	// if the max amount was provided set it or use nil
+	var maxAmount *rippledata.Amount
+	if coreumToXRPLTransferOperationType.MaxAmount != nil {
+		convertedMaxAmount, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+			*coreumToXRPLTransferOperationType.MaxAmount,
+			coreumToXRPLTransferOperationType.Issuer,
+			coreumToXRPLTransferOperationType.Currency,
+		)
+		if err != nil {
+			return nil, err
+		}
+		maxAmount = &convertedMaxAmount
+	}
 
-	tx, err := buildPaymentTx(bridgeXRPLAddress, operation, value)
+	tx, err := buildPaymentTx(bridgeXRPLAddress, operation, amount, maxAmount)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +160,8 @@ func BuildSignerListSetTxForMultiSigning(
 func buildPaymentTx(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
-	value rippledata.Amount,
+	amount rippledata.Amount,
+	maxAmount *rippledata.Amount,
 ) (rippledata.Payment, error) {
 	recipient, err := rippledata.NewAccountFromAddress(operation.OperationType.CoreumToXRPLTransfer.Recipient)
 	if err != nil {
@@ -163,7 +177,8 @@ func buildPaymentTx(
 			Account:         bridgeXRPLAddress,
 			TransactionType: rippledata.PAYMENT,
 		},
-		Amount: value,
+		Amount:  amount,
+		SendMax: maxAmount,
 	}
 	tx.TicketSequence = &operation.TicketSequence
 	// important for the multi-signing

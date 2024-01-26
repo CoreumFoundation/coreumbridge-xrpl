@@ -792,10 +792,12 @@ func TestSendFromCoreumToXRPLCmd(t *testing.T) {
 
 	recipient := xrpl.GenPrivKeyTxSigner().Account()
 	amount := sdk.NewInt64Coin("denom", 1000)
+	deliverAmount := sdkmath.NewInt(900)
 	args := []string{
 		amount.String(),
 		recipient.String(),
 		flagWithPrefix(cli.FlagKeyName), keyName,
+		flagWithPrefix(cli.FlagDeliverAmount), deliverAmount.String(),
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
 
@@ -803,8 +805,29 @@ func TestSendFromCoreumToXRPLCmd(t *testing.T) {
 	bridgeClientMock.EXPECT().SendFromCoreumToXRPL(
 		gomock.Any(),
 		gomock.Any(),
-		amount,
 		recipient,
+		amount,
+		mock.MatchedBy(func(v *sdkmath.Int) bool {
+			return v.String() == deliverAmount.String()
+		}),
+	)
+	executeCmd(t, cli.SendFromCoreumToXRPLCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+
+	// without the deliver amount
+	args = []string{
+		amount.String(),
+		recipient.String(),
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+
+	bridgeClientMock = NewMockBridgeClient(ctrl)
+	bridgeClientMock.EXPECT().SendFromCoreumToXRPL(
+		gomock.Any(),
+		gomock.Any(),
+		recipient,
+		amount,
+		nil,
 	)
 	executeCmd(t, cli.SendFromCoreumToXRPLCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
@@ -877,7 +900,7 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	refundID := "sample-1"
-	bridgeClientMock.EXPECT().ClaimPendingRefund(
+	bridgeClientMock.EXPECT().ClaimRefund(
 		gomock.Any(),
 		address,
 		refundID,
@@ -903,7 +926,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 		gomock.Any(),
 		address,
 	).Return(pendingRefunds, nil)
-	bridgeClientMock.EXPECT().ClaimPendingRefund(
+	bridgeClientMock.EXPECT().ClaimRefund(
 		gomock.Any(),
 		address,
 		refundID,

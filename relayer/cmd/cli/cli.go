@@ -69,6 +69,8 @@ const (
 	FlagRefundID = "refund-id"
 	// FlagMaxHoldingAmount is max holding amount flag.
 	FlagMaxHoldingAmount = "max-holding-amount"
+	// FlagDeliverAmount is deliver amount flag.
+	FlagDeliverAmount = "deliver-amount"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -107,8 +109,9 @@ type BridgeClient interface {
 	SendFromCoreumToXRPL(
 		ctx context.Context,
 		sender sdk.AccAddress,
-		amount sdk.Coin,
 		recipient rippledata.Account,
+		amount sdk.Coin,
+		deliverAmount *sdkmath.Int,
 	) error
 	SendFromXRPLToCoreum(
 		ctx context.Context,
@@ -147,7 +150,7 @@ type BridgeClient interface {
 	GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error)
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
 	GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error)
-	ClaimPendingRefund(ctx context.Context, address sdk.AccAddress, pendingRefundID string) error
+	ClaimRefund(ctx context.Context, address sdk.AccAddress, pendingRefundID string) error
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
@@ -975,8 +978,8 @@ func SendFromCoreumToXRPLCmd(bcp BridgeClientProvider) *cobra.Command {
 		Long: strings.TrimSpace(
 			fmt.Sprintf(`Sends tokens from the Coreum to XRPL.
 Example:
-$ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender
-`, FlagKeyName)),
+$ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender --%s 100000
+`, FlagKeyName, FlagDeliverAmount)),
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -986,6 +989,10 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender
 			}
 
 			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			deliverAmount, err := getFlagSDKIntIfPresent(cmd, FlagDeliverAmount)
 			if err != nil {
 				return err
 			}
@@ -1008,9 +1015,11 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender
 				return err
 			}
 
-			return bridgeClient.SendFromCoreumToXRPL(ctx, sender, amount, *recipient)
+			return bridgeClient.SendFromCoreumToXRPL(ctx, sender, *recipient, amount, deliverAmount)
 		},
 	}
+
+	cmd.PersistentFlags().String(FlagDeliverAmount, "", "Deliver amount")
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
@@ -1335,7 +1344,7 @@ $ claim-refund --%s claimer --%s 1705664693-2
 			}
 
 			if refundID != "" {
-				return bridgeClient.ClaimPendingRefund(ctx, address, refundID)
+				return bridgeClient.ClaimRefund(ctx, address, refundID)
 			}
 
 			refunds, err := bridgeClient.GetPendingRefunds(ctx, address)
@@ -1344,7 +1353,7 @@ $ claim-refund --%s claimer --%s 1705664693-2
 			}
 
 			for _, refund := range refunds {
-				err := bridgeClient.ClaimPendingRefund(ctx, address, refund.ID)
+				err := bridgeClient.ClaimRefund(ctx, address, refund.ID)
 				if err != nil {
 					return err
 				}

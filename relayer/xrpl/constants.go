@@ -1,12 +1,17 @@
 package xrpl
 
-import rippledata "github.com/rubblelabs/ripple/data"
+import (
+	rippledata "github.com/rubblelabs/ripple/data"
+)
 
 // Error codes.
 const (
 	// TecPathDryTxResult defines that provided paths did not have enough liquidity to send anything at all.
 	//	This could mean that the source and destination accounts are not linked by trust lines.
 	TecPathDryTxResult = "tecPATH_DRY"
+	// TecPathPartialTxResult defines that transaction failed because the provided paths did not have enough liquidity
+	//	to send the full amount.
+	TecPathPartialTxResult = "tecPATH_PARTIAL"
 	// TecNoDstTxResult defines that provided the account on the receiving end of the transaction does not exist.
 	// This includes Payment and TrustSet transaction types. (It could be created if it received enough XRP.)
 	TecNoDstTxResult = "tecNO_DST"

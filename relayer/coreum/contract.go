@@ -209,10 +209,11 @@ type OperationTypeTrustSet struct {
 
 // OperationTypeCoreumToXRPLTransfer is coreum to XRPL transfer operation type.
 type OperationTypeCoreumToXRPLTransfer struct {
-	Issuer    string      `json:"issuer"`
-	Currency  string      `json:"currency"`
-	Amount    sdkmath.Int `json:"amount"`
-	Recipient string      `json:"recipient"`
+	Issuer    string       `json:"issuer"`
+	Currency  string       `json:"currency"`
+	Amount    sdkmath.Int  `json:"amount"`
+	MaxAmount *sdkmath.Int `json:"max_amount,omitempty"`
+	Recipient string       `json:"recipient"`
 }
 
 // OperationTypeRotateKeys is XRPL multi-signing address keys rotation operation type.
@@ -301,7 +302,8 @@ type saveSignatureRequest struct {
 }
 
 type sendToXRPLRequest struct {
-	Recipient string `json:"recipient"`
+	DeliverAmount *sdkmath.Int `json:"deliver_amount,omitempty"`
+	Recipient     string       `json:"recipient"`
 }
 
 type recoverXRPLTokenRegistrationRequest struct {
@@ -812,11 +814,13 @@ func (c *ContractClient) SendToXRPL(
 	sender sdk.AccAddress,
 	recipient string,
 	amount sdk.Coin,
+	deliverAmount *sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]sendToXRPLRequest{
 			ExecSendToXRPL: {
-				Recipient: recipient,
+				DeliverAmount: deliverAmount,
+				Recipient:     recipient,
 			},
 		},
 		Funds: sdk.NewCoins(amount),
@@ -1406,6 +1410,16 @@ func IsRotateKeysOngoingError(err error) bool {
 // IsInvalidTargetMaxHoldingAmountError returns true if error is `InvalidTargetMaxHoldingAmount`.
 func IsInvalidTargetMaxHoldingAmountError(err error) bool {
 	return isError(err, "InvalidTargetMaxHoldingAmount")
+}
+
+// IsInvalidDeliverAmountError returns true if error is `InvalidDeliverAmount`.
+func IsInvalidDeliverAmountError(err error) bool {
+	return isError(err, "InvalidDeliverAmount")
+}
+
+// IsDeliverAmountIsProhibitedError returns true if error is `DeliverAmountIsProhibited`.
+func IsDeliverAmountIsProhibitedError(err error) bool {
+	return isError(err, "DeliverAmountIsProhibited")
 }
 
 // ******************** Asset FT errors ********************
