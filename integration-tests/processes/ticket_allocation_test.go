@@ -27,9 +27,9 @@ func TestTicketsAllocationRecoveryWithAccountSequence(t *testing.T) {
 	require.Empty(t, availableTickets)
 
 	runnerEnv.StartAllRunnerProcesses()
-	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.bridgeXRPLAddress, numberOfTicketsToAllocate)
+	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.BridgeXRPLAddress, numberOfTicketsToAllocate)
 
-	bridgeXRPLAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.bridgeXRPLAddress)
+	bridgeXRPLAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.BridgeXRPLAddress)
 	require.NoError(t, err)
 
 	_, err = runnerEnv.ContractClient.RecoverTickets(
@@ -61,7 +61,7 @@ func TestTicketsAllocationRecoveryWithRejection(t *testing.T) {
 	runnerEnv.StartAllRunnerProcesses()
 	// we don't fund the contract for the tickets allocation to let the chain reject the allocation transaction
 
-	bridgeXRPLAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.bridgeXRPLAddress)
+	bridgeXRPLAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.BridgeXRPLAddress)
 	require.NoError(t, err)
 
 	// we don't have enough balance on the contract so the recovery will be rejected
@@ -92,9 +92,9 @@ func TestTicketsAllocationRecoveryWithInvalidAccountSequence(t *testing.T) {
 	require.Empty(t, availableTickets)
 
 	runnerEnv.StartAllRunnerProcesses()
-	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.bridgeXRPLAddress, numberOfTicketsToAllocate)
+	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.BridgeXRPLAddress, numberOfTicketsToAllocate)
 
-	bridgeXRPLAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.bridgeXRPLAddress)
+	bridgeXRPLAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.BridgeXRPLAddress)
 	require.NoError(t, err)
 
 	// make the sequence number lower than current
@@ -156,9 +156,9 @@ func TestTicketsAllocationRecoveryWithMaliciousRelayers(t *testing.T) {
 
 	runnerEnv.StartAllRunnerProcesses()
 
-	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.bridgeXRPLAddress, numberOfTicketsToAllocate)
+	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.BridgeXRPLAddress, numberOfTicketsToAllocate)
 
-	bridgeXRPLAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.bridgeXRPLAddress)
+	bridgeXRPLAccountInfo, err := chains.XRPL.RPCClient().AccountInfo(ctx, runnerEnv.BridgeXRPLAddress)
 	require.NoError(t, err)
 
 	_, err = runnerEnv.ContractClient.RecoverTickets(
@@ -189,7 +189,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 
 	// allocate first five tickets
 	numberOfTicketsToAllocate := uint32(5)
-	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.bridgeXRPLAddress, numberOfTicketsToAllocate)
+	chains.XRPL.FundAccountForTicketAllocation(ctx, t, runnerEnv.BridgeXRPLAddress, numberOfTicketsToAllocate)
 	runnerEnv.AllocateTickets(ctx, t, numberOfTicketsToAllocate)
 	initialAvailableTickets, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)

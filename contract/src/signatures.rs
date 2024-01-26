@@ -12,6 +12,7 @@ pub struct Signature {
 pub fn add_signature(
     deps: DepsMut,
     operation_id: u64,
+    operation_version: u64,
     sender: Addr,
     signature: String,
 ) -> Result<(), ContractError> {
@@ -19,6 +20,10 @@ pub fn add_signature(
     let mut pending_operation = PENDING_OPERATIONS
         .load(deps.storage, operation_id)
         .map_err(|_| ContractError::PendingOperationNotFound {})?;
+
+    if operation_version != pending_operation.version {
+        return Err(ContractError::OperationVersionMismatch {});
+    }
 
     let mut signatures = pending_operation.signatures;
 

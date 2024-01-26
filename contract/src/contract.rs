@@ -117,6 +117,7 @@ pub fn instantiate(
         trust_set_limit_amount: msg.trust_set_limit_amount,
         bridge_xrpl_address: msg.bridge_xrpl_address,
         bridge_state: BridgeState::Active,
+        xrpl_base_fee: msg.xrpl_base_fee,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -203,12 +204,9 @@ pub fn execute(
             max_holding_amount,
             bridging_fee,
         ),
-        ExecuteMsg::SaveEvidence { evidence } => save_evidence(
-            deps.into_empty(),
-            env.block.time.seconds(),
-            info.sender,
-            evidence,
-        ),
+        ExecuteMsg::SaveEvidence { evidence } => {
+            save_evidence(deps.into_empty(), env, info.sender, evidence)
+        }
         ExecuteMsg::RecoverTickets {
             account_sequence,
             number_of_tickets,
@@ -230,8 +228,15 @@ pub fn execute(
         }
         ExecuteMsg::SaveSignature {
             operation_id,
+            operation_version,
             signature,
-        } => save_signature(deps.into_empty(), info.sender, operation_id, signature),
+        } => save_signature(
+            deps.into_empty(),
+            info.sender,
+            operation_id,
+            operation_version,
+            signature,
+        ),
         ExecuteMsg::SendToXRPL {
             recipient,
             deliver_amount,
@@ -269,6 +274,9 @@ pub fn execute(
             bridging_fee,
             max_holding_amount,
         ),
+        ExecuteMsg::UpdateXRPLBaseFee { xrpl_base_fee } => {
+            update_xrpl_base_fee(deps.into_empty(), info.sender, xrpl_base_fee)
+        }
         ExecuteMsg::ClaimRefund { pending_refund_id } => {
             claim_pending_refund(deps.into_empty(), info.sender, pending_refund_id)
         }
@@ -278,14 +286,12 @@ pub fn execute(
         ExecuteMsg::HaltBridge {} => halt_bridge(deps.into_empty(), info.sender),
         ExecuteMsg::ResumeBridge {} => resume_bridge(deps.into_empty(), info.sender),
         ExecuteMsg::RotateKeys {
-            account_sequence,
             new_relayers,
             new_evidence_threshold,
         } => rotate_keys(
             deps.into_empty(),
             env,
             info.sender,
-            account_sequence,
             new_relayers,
             new_evidence_threshold,
         ),
@@ -462,13 +468,13 @@ fn register_xrpl_token(
 
 fn save_evidence(
     deps: DepsMut,
-    timestamp: u64,
+    env: Env,
     sender: Addr,
     evidence: Evidence,
 ) -> CoreumResult<ContractError> {
     // Evidences can only be sent under 2 conditions:
     // 1. The bridge is active -> All evidences are accepted
-    // 2. The bridge is halted -> Only rotate keys evidences allowed if there is a rotate keys ongoing
+    // 2. The bridge is halted -> Only ticket allocation and rotate keys evidences (if there is a rotate keys ongoing) are allowed
     let config = CONFIG.load(deps.storage)?;
 
     evidence.validate_basic()?;
@@ -491,6 +497,11 @@ fn save_evidence(
                 return Err(ContractError::BridgeHalted {});
             }
             deps.api.addr_validate(recipient.as_ref())?;
+
+            // If the recipient of the operation is the bridge contract address, we error
+            if recipient.eq(&env.contract.address) {
+                return Err(ContractError::ProhibitedRecipient {});
+            }
 
             // This means the token is not a Coreum originated token (the issuer is not the XRPL multisig address)
             if issuer.ne(&config.bridge_xrpl_address) {
@@ -614,13 +625,14 @@ fn save_evidence(
             let operation = check_operation_exists(deps.storage, operation_id)?;
 
             if config.bridge_state == BridgeState::Halted {
-                if !PENDING_ROTATE_KEYS.load(deps.storage)? {
-                    return Err(ContractError::BridgeHalted {});
-                }
-
-                // If the evidence is not for a key rotation operation we return an error
                 match &operation.operation_type {
-                    OperationType::RotateKeys { .. } => (),
+                    // We allow rotate key evidences if there is a rotate keys operation ongoing and allocate ticket evidences
+                    OperationType::RotateKeys { .. } => {
+                        if !PENDING_ROTATE_KEYS.load(deps.storage)? {
+                            return Err(ContractError::BridgeHalted {});
+                        }
+                    }
+                    OperationType::AllocateTickets { .. } => (),
                     _ => return Err(ContractError::BridgeHalted {}),
                 }
             }
@@ -685,7 +697,7 @@ fn save_evidence(
                     // we don't have available tickets left and we will notify with an attribute.
                     // NOTE: This will only happen in the particular case of a rejected ticket allocation
                     // operation.
-                    if !register_used_ticket(deps.storage, timestamp)? {
+                    if !register_used_ticket(deps.storage, env.block.time.seconds())? {
                         response = response.add_attribute(
                             "adding_ticket_allocation_operation_success",
                             false.to_string(),
@@ -723,7 +735,6 @@ fn recover_tickets(
     number_of_tickets: Option<u32>,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
-    assert_bridge_active(deps.as_ref())?;
 
     let available_tickets = AVAILABLE_TICKETS.load(deps.storage)?;
 
@@ -822,11 +833,18 @@ fn save_signature(
     deps: DepsMut,
     sender: Addr,
     operation_id: u64,
+    operation_version: u64,
     signature: String,
 ) -> CoreumResult<ContractError> {
     assert_relayer(deps.as_ref(), &sender)?;
 
-    add_signature(deps, operation_id, sender.clone(), signature.clone())?;
+    add_signature(
+        deps,
+        operation_id,
+        operation_version,
+        sender.clone(),
+        signature.clone(),
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::SaveSignature.as_str())
@@ -848,6 +866,11 @@ fn send_to_xrpl(
 
     // Check that the recipient is a valid XRPL address.
     validate_xrpl_address(recipient.to_owned())?;
+
+    let config = CONFIG.load(deps.storage)?;
+    if recipient.eq(&config.bridge_xrpl_address) {
+        return Err(ContractError::ProhibitedRecipient {});
+    }
 
     // We check that deliver_amount is not greater than the funds sent
     if deliver_amount.is_some() && deliver_amount.unwrap().gt(&funds.amount) {
@@ -1095,6 +1118,46 @@ fn update_coreum_token(
         .add_attribute("denom", denom))
 }
 
+fn update_xrpl_base_fee(
+    deps: DepsMut,
+    sender: Addr,
+    xrpl_base_fee: u64,
+) -> CoreumResult<ContractError> {
+    assert_owner(deps.storage, &sender)?;
+
+    // Update the value in config
+    let mut config = CONFIG.load(deps.storage)?;
+    config.xrpl_base_fee = xrpl_base_fee;
+    CONFIG.save(deps.storage, &config)?;
+
+    // Let's collect all operations in storage and update them
+    let operations: Vec<(u64, Operation)> = PENDING_OPERATIONS
+        .range(deps.storage, None, None, Order::Ascending)
+        .filter_map(|v| v.ok())
+        .collect();
+
+    // For each operation in PENDING_OPERATIONS we increase the version by 1 and delete all signatures
+    for operation in operations.iter() {
+        PENDING_OPERATIONS.save(
+            deps.storage,
+            operation.0,
+            &Operation {
+                id: operation.1.id.to_owned(),
+                version: operation.1.version + 1,
+                ticket_sequence: operation.1.ticket_sequence,
+                account_sequence: operation.1.account_sequence,
+                signatures: vec![],
+                operation_type: operation.1.operation_type.to_owned(),
+                xrpl_base_fee,
+            },
+        )?;
+    }
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::UpdateXRPLBaseFee.as_str())
+        .add_attribute("new_xrpl_base_fee", xrpl_base_fee.to_string()))
+}
+
 fn claim_relayer_fees(
     deps: DepsMut,
     sender: Addr,
@@ -1172,7 +1235,6 @@ fn rotate_keys(
     deps: DepsMut,
     env: Env,
     sender: Addr,
-    account_sequence: Option<u64>,
     new_relayers: Vec<Relayer>,
     new_evidence_threshold: u32,
 ) -> CoreumResult<ContractError> {
@@ -1189,26 +1251,13 @@ fn rotate_keys(
     // Validate the new relayer set so that we are sure that the new set is valid (e.g. no duplicated relayers, etc.)
     validate_relayers(deps.as_ref(), &new_relayers, new_evidence_threshold)?;
 
-    // Create the pending operation for key rotation
-    // If an account sequence is sent we will use it, otherwise we will use a ticket
-    let acc_seq;
-    let ticket;
-    match account_sequence {
-        Some(account_sequence) => {
-            acc_seq = Some(account_sequence);
-            ticket = None;
-        }
-        None => {
-            acc_seq = None;
-            ticket = Some(allocate_ticket(deps.storage)?);
-        }
-    }
+    let ticket = allocate_ticket(deps.storage)?;
 
     create_pending_operation(
         deps.storage,
         env.block.time.seconds(),
-        ticket,
-        acc_seq,
+        Some(ticket),
+        None,
         OperationType::RotateKeys {
             new_relayers,
             new_evidence_threshold,

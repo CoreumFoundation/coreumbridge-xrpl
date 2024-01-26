@@ -102,6 +102,16 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		amounts []sdk.Coin,
 	) (*sdk.TxResponse, error)
+	RotateKeys(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		newRelayers []coreum.Relayer,
+		newEvidenceThreshold int,
+	) (*sdk.TxResponse, error)
+	ResumeBridge(
+		ctx context.Context,
+		sender sdk.AccAddress,
+	) (*sdk.TxResponse, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -124,8 +134,8 @@ type XRPLTxSigner interface {
 	Sign(tx rippledata.Transaction, keyName string) error
 }
 
-// RelayerBootstrappingConfig is relayer config used for the bootstrapping.
-type RelayerBootstrappingConfig struct {
+// RelayerConfig is relayer config used for the bootstrapping and keys rotation.
+type RelayerConfig struct {
 	CoreumAddress string `yaml:"coreum_address"`
 	XRPLAddress   string `yaml:"xrpl_address"`
 	XRPLPubKey    string `yaml:"xrpl_pub_key"`
@@ -133,14 +143,14 @@ type RelayerBootstrappingConfig struct {
 
 // BootstrappingConfig the struct contains the setting for the bridge XRPL account creation and contract deployment.
 type BootstrappingConfig struct {
-	Owner                       string                       `yaml:"owner"`
-	Admin                       string                       `yaml:"admin"`
-	Relayers                    []RelayerBootstrappingConfig `yaml:"relayers"`
-	EvidenceThreshold           int                          `yaml:"evidence_threshold"`
-	UsedTicketSequenceThreshold int                          `yaml:"used_ticket_sequence_threshold"`
-	TrustSetLimitAmount         string                       `yaml:"trust_set_limit_amount"`
-	ContractByteCodePath        string                       `yaml:"contract_bytecode_path"`
-	SkipXRPLBalanceValidation   bool                         `yaml:"-"`
+	Owner                       string          `yaml:"owner"`
+	Admin                       string          `yaml:"admin"`
+	Relayers                    []RelayerConfig `yaml:"relayers"`
+	EvidenceThreshold           int             `yaml:"evidence_threshold"`
+	UsedTicketSequenceThreshold int             `yaml:"used_ticket_sequence_threshold"`
+	TrustSetLimitAmount         string          `yaml:"trust_set_limit_amount"`
+	ContractByteCodePath        string          `yaml:"contract_bytecode_path"`
+	SkipXRPLBalanceValidation   bool            `yaml:"-"`
 }
 
 // DefaultBootstrappingConfig returns default BootstrappingConfig.
@@ -148,12 +158,29 @@ func DefaultBootstrappingConfig() BootstrappingConfig {
 	return BootstrappingConfig{
 		Owner:                       "",
 		Admin:                       "",
-		Relayers:                    []RelayerBootstrappingConfig{{}},
+		Relayers:                    []RelayerConfig{{}},
 		EvidenceThreshold:           0,
 		UsedTicketSequenceThreshold: 150,
 		TrustSetLimitAmount:         sdkmath.NewIntWithDecimal(1, 35).String(),
 		ContractByteCodePath:        "",
 		SkipXRPLBalanceValidation:   false,
+	}
+}
+
+// KeysRotationConfig the struct contains the setting for the keys rotation.
+type KeysRotationConfig struct {
+	Relayers          []RelayerConfig `yaml:"relayers"`
+	EvidenceThreshold int             `yaml:"evidence_threshold"`
+}
+
+// DefaultKeysRotationConfig return default KeysRotationConfig.
+func DefaultKeysRotationConfig() KeysRotationConfig {
+	return KeysRotationConfig{
+		Relayers: []RelayerConfig{
+			// keep one empty relayer for a template
+			{},
+		},
+		EvidenceThreshold: 0,
 	}
 }
 
@@ -207,7 +234,7 @@ func (b *BridgeClient) Bootstrap(
 		}
 	}
 	// validate the config and fill required objects
-	relayers, xrplSignerEntries, err := b.buildRelayersFromBootstrappingConfig(ctx, cfg)
+	relayers, xrplSignerEntries, err := b.buildContractRelayersFromRelayersConfig(ctx, cfg.Relayers)
 	if err != nil {
 		return nil, err
 	}
@@ -628,6 +655,92 @@ func (b *BridgeClient) UpdateXRPLToken(
 	return nil
 }
 
+// ResumeBridge resumes bridge after the halt.
+func (b *BridgeClient) ResumeBridge(
+	ctx context.Context,
+	sender sdk.AccAddress,
+) error {
+	b.log.Info(
+		ctx,
+		"Resuming bridge",
+	)
+
+	txRes, err := b.contractClient.ResumeBridge(ctx, sender)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully sent tx to resume bridge",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
+}
+
+// RotateKeys start bridge keys rotation process.
+func (b *BridgeClient) RotateKeys(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	cfg KeysRotationConfig,
+) error {
+	b.log.Info(
+		ctx,
+		"Rotating Keys",
+		zap.Any("cfg", cfg),
+	)
+
+	relayers, _, err := b.buildContractRelayersFromRelayersConfig(ctx, cfg.Relayers)
+	if err != nil {
+		return err
+	}
+
+	txRes, err := b.contractClient.RotateKeys(ctx, sender, relayers, cfg.EvidenceThreshold)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully sent tx to rotate keys",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
+}
+
+// GetFeesCollected returns the fees collected by a relayer.
+func (b *BridgeClient) GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error) {
+	return b.contractClient.GetFeesCollected(ctx, address)
+}
+
+// ClaimFees calls the contract to claim the fees for a given relayer.
+func (b *BridgeClient) ClaimFees(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	amounts []sdk.Coin,
+) error {
+	b.log.Info(
+		ctx,
+		"Claiming relayer fees",
+		zap.Any("amounts", amounts),
+	)
+
+	txRes, err := b.contractClient.ClaimFees(ctx, sender, amounts)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully claimed relayer fees",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
+}
+
 // GetCoreumBalances returns all coreum account balances.
 func (b *BridgeClient) GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error) {
 	bankClient := banktypes.NewQueryClient(b.coreumClientCtx)
@@ -691,14 +804,14 @@ func (b *BridgeClient) GetFeesCollected(ctx context.Context, address sdk.Address
 	return b.contractClient.GetFeesCollected(ctx, address)
 }
 
-func (b *BridgeClient) buildRelayersFromBootstrappingConfig(
+func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
 	ctx context.Context,
-	cfg BootstrappingConfig,
+	relayers []RelayerConfig,
 ) ([]coreum.Relayer, []rippledata.SignerEntry, error) {
 	coreumAuthClient := authtypes.NewQueryClient(b.coreumClientCtx)
-	relayers := make([]coreum.Relayer, 0, len(cfg.Relayers))
+	contractRelayers := make([]coreum.Relayer, 0, len(relayers))
 	xrplSignerEntries := make([]rippledata.SignerEntry, 0)
-	for _, relayer := range cfg.Relayers {
+	for _, relayer := range relayers {
 		if _, err := coreumAuthClient.Account(ctx, &authtypes.QueryAccountRequest{
 			Address: relayer.CoreumAddress,
 		}); err != nil {
@@ -726,7 +839,7 @@ func (b *BridgeClient) buildRelayersFromBootstrappingConfig(
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to parse relayerCoreumAddress:%s", relayer.CoreumAddress)
 		}
-		relayers = append(relayers, coreum.Relayer{
+		contractRelayers = append(contractRelayers, coreum.Relayer{
 			CoreumAddress: relayerCoreumAddress,
 			XRPLAddress:   relayer.XRPLAddress,
 			XRPLPubKey:    relayer.XRPLPubKey,
@@ -739,7 +852,7 @@ func (b *BridgeClient) buildRelayersFromBootstrappingConfig(
 		})
 	}
 
-	return relayers, xrplSignerEntries, nil
+	return contractRelayers, xrplSignerEntries, nil
 }
 
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(
@@ -828,16 +941,55 @@ func ComputeXRPLBrideAccountBalance(signersCount int) float64 {
 
 // InitBootstrappingConfig creates default bootstrapping config yaml file.
 func InitBootstrappingConfig(filePath string) error {
+	return saveConfigToFile(filePath, DefaultBootstrappingConfig())
+}
+
+// ReadBootstrappingConfig reads config bootstrapping yaml file.
+func ReadBootstrappingConfig(filePath string) (BootstrappingConfig, error) {
+	fileBytes, err := readConfigFromFile(filePath)
+	if err != nil {
+		return BootstrappingConfig{}, err
+	}
+
+	var config BootstrappingConfig
+	if err := yaml.Unmarshal(fileBytes, &config); err != nil {
+		return BootstrappingConfig{}, errors.Wrapf(err, "failed to unmarshal file to yaml, path:%s", filePath)
+	}
+
+	return config, nil
+}
+
+// InitKeysRotationConfig creates empty keys rotation config yaml file.
+func InitKeysRotationConfig(filePath string) error {
+	return saveConfigToFile(filePath, DefaultKeysRotationConfig())
+}
+
+// ReadKeysRotationConfig reads keys rotation config yaml file.
+func ReadKeysRotationConfig(filePath string) (KeysRotationConfig, error) {
+	fileBytes, err := readConfigFromFile(filePath)
+	if err != nil {
+		return KeysRotationConfig{}, err
+	}
+
+	var config KeysRotationConfig
+	if err := yaml.Unmarshal(fileBytes, &config); err != nil {
+		return KeysRotationConfig{}, errors.Wrapf(err, "failed to unmarshal file to yaml, path:%s", filePath)
+	}
+
+	return config, nil
+}
+
+func saveConfigToFile(filePath string, srt any) error {
 	if err := os.MkdirAll(filepath.Dir(filePath), 0o700); err != nil {
 		return errors.Errorf("failed to create dirs by path:%s", filePath)
 	}
 
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create config file, path:%s", filePath)
+		return errors.Wrapf(err, "failed to create file, path:%s", filePath)
 	}
 	defer file.Close()
-	yamlStringConfig, err := yaml.Marshal(DefaultBootstrappingConfig())
+	yamlStringConfig, err := yaml.Marshal(srt)
 	if err != nil {
 		return errors.Wrap(err, "failed convert default config to yaml")
 	}
@@ -848,24 +1000,18 @@ func InitBootstrappingConfig(filePath string) error {
 	return nil
 }
 
-// ReadBootstrappingConfig reads config yaml file.
-func ReadBootstrappingConfig(filePath string) (BootstrappingConfig, error) {
+func readConfigFromFile(filePath string) ([]byte, error) {
 	file, err := os.OpenFile(filePath, os.O_RDONLY, 0o600)
 	defer file.Close() //nolint:staticcheck //we accept the error ignoring
 	if errors.Is(err, os.ErrNotExist) {
-		return BootstrappingConfig{}, errors.Errorf("config file does not exist, path:%s", filePath)
+		return nil, errors.Errorf("config file does not exist, path:%s", filePath)
 	}
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
-		return BootstrappingConfig{}, errors.Wrapf(err, "failed to read bytes from file does not exist, path:%s", filePath)
+		return nil, errors.Wrapf(err, "failed to read bytes from file does not exist, path:%s", filePath)
 	}
 
-	var config BootstrappingConfig
-	if err := yaml.Unmarshal(fileBytes, &config); err != nil {
-		return BootstrappingConfig{}, errors.Wrapf(err, "failed to unmarshal file to yaml, path:%s", filePath)
-	}
-
-	return config, nil
+	return fileBytes, nil
 }
 
 func (b *BridgeClient) autoFillSignSubmitAndAwaitXRPLTx(
