@@ -867,6 +867,10 @@ $ rotate-keys new-keys.yaml --%s owner
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
 
 			log, err := GetCLILogger()
 			if err != nil {
@@ -888,7 +892,7 @@ $ rotate-keys new-keys.yaml --%s owner
 				return bridgeclient.InitKeysRotationConfig(filePath)
 			}
 
-			record, err := clientCtx.Keyring.Key(keyName)
+			record, err := coreumClientCtx.Keyring.Key(keyName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get key by name:%s", keyName)
 			}

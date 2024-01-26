@@ -750,7 +750,7 @@ func TestRotateKeysCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName)
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	// call rotate-keys with init only
 	args := []string{

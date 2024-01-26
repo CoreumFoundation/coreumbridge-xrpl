@@ -5250,7 +5250,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	})
 
 	xrplBridgeAddress := xrpl.GenPrivKeyTxSigner().Account()
-
+	xrplBaseFee := 10
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
 		t,
@@ -5260,6 +5260,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 		20,
 		defaultTrustSetLimitAmount,
 		xrplBridgeAddress.String(),
+		xrplBaseFee,
 	)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
