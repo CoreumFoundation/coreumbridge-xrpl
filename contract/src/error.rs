@@ -161,9 +161,6 @@ pub enum ContractError {
     #[error("InvalidTargetMaxHoldingAmount: Max holding amount can't be less than the current amount of tokens held in the bridge")]
     InvalidTargetMaxHoldingAmount {},
 
-    #[error("InvalidTransferRate: The transfer rate sent is invalid, it must be more than 1000000000 (0%) and less or equal than 2000000000 (100%)")]
-    InvalidTransferRate {},
-
     #[error(
         "PendingRefundNotFound: There is no pending refund for this user and pending operation id"
     )]
@@ -193,4 +190,20 @@ pub enum ContractError {
 
     #[error("RotateKeysOngoing: Can't perform this operation while there is a rotate key operation ongoing")]
     RotateKeysOngoing {},
+
+    #[error(
+        "OperationVersionMismatch: Can't add a signature for an operation with a different version"
+    )]
+    OperationVersionMismatch {},
+    
+    #[error("ProhibitedRecipient: The recipient cannot be the bridge")]
+    ProhibitedRecipient {},
+
+    #[error("DeliverAmountIsProhibited: Optional deliver_amount field is only used for XRPL originated tokens (except XRP) being bridged back")]
+    DeliverAmountIsProhibited {},
+
+    #[error(
+        "InvalidDeliverAmount: Field deliver_amount can't be greater than funds attached minus fees"
+    )]
+    InvalidDeliverAmount {},
 }

@@ -34,6 +34,12 @@ var (
 )
 
 const (
+	// KeyringSuffix is used as suffix for xrpl keyring.
+	KeyringSuffix = "xrpl"
+	// XRPLHDPath is the hd path used to derive xrpl keys.
+	XRPLHDPath = "m/44'/144'/0'/0/0"
+	// XRPLCoinType is the coin type of XRPL token.
+	XRPLCoinType = 144
 	// XRPLIssuedTokenDecimals is XRPL decimals used on the coreum.
 	XRPLIssuedTokenDecimals = 15
 	// XRPCurrencyDecimals is XRP decimals used on the coreum.

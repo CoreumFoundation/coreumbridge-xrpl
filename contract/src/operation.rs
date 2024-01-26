@@ -9,7 +9,8 @@ use crate::{
     relayer::Relayer,
     signatures::Signature,
     state::{
-        PendingRefund, TokenState, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS, XRPL_TOKENS,
+        PendingRefund, TokenState, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS,
+        XRPL_TOKENS,
     },
     token::build_xrpl_token_key,
 };
@@ -17,10 +18,16 @@ use crate::{
 #[cw_serde]
 pub struct Operation {
     pub id: String,
+    // version will be used to handle changes in xrpl_base_fee.
+    // If xrpl_base_fee changes, the version of operation will be increased by 1 (it's always created with an initial version = 1)
+    // This way, relayers can know if they need to provide the signature again, for this version
+    pub version: u64,
     pub ticket_sequence: Option<u64>,
     pub account_sequence: Option<u64>,
     pub signatures: Vec<Signature>,
     pub operation_type: OperationType,
+    // xrpl_base_fee must be part of operation too to avoid race conditions
+    pub xrpl_base_fee: u64,
 }
 
 #[cw_serde]
@@ -42,8 +49,7 @@ pub enum OperationType {
         issuer: String,
         currency: String,
         amount: Uint128,
-        max_amount: Uint128,
-        transfer_fee: Uint128,
+        max_amount: Option<Uint128>,
         sender: Addr,
         recipient: String,
     },
@@ -79,15 +85,19 @@ pub fn create_pending_operation(
     account_sequence: Option<u64>,
     operation_type: OperationType,
 ) -> Result<(), ContractError> {
+    let config = CONFIG.load(storage)?;
     let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
     // We use a unique ID for operations that will also be used for refunding failed operations
     // We need to use both timestamp and operation_id to ensure uniqueness of IDs, since operation_id can be reused in case of invalid transactions
     let operation = Operation {
         id: format!("{}-{}", timestamp, operation_id),
+        // Operations are initially created with version 1
+        version: 1,
         ticket_sequence,
         account_sequence,
         signatures: vec![],
         operation_type,
+        xrpl_base_fee: config.xrpl_base_fee,
     };
 
     if PENDING_OPERATIONS.has(storage, operation_id) {
@@ -136,7 +146,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
             issuer,
             currency,
             amount,
-            transfer_fee,
+            max_amount,
             sender,
             ..
         } => {
@@ -144,26 +154,22 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
             let key = build_xrpl_token_key(issuer, currency.to_owned());
             match XRPL_TOKENS.may_load(storage, key)? {
                 Some(xrpl_token) => {
-                    // If transaction was accepted and the token that was sent back was an XRPL originated token, we must burn the token amount and transfer_fee
+                    // if operation was with XRP, max amount might be empty so we will use amount.
+                    let amount_sent = max_amount.unwrap_or(amount);
+                    // If transaction was accepted and the token that was sent back was an XRPL originated token, we must burn the token amount
                     if transaction_result.eq(&TransactionResult::Accepted) {
                         let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
-                            coin: coin(
-                                amount.checked_add(transfer_fee)?.u128(),
-                                xrpl_token.coreum_denom,
-                            ),
+                            coin: coin(amount_sent.u128(), xrpl_token.coreum_denom),
                         }));
 
                         *response = response.to_owned().add_message(burn_msg);
                     } else {
-                        // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
+                        // If transaction was rejected, we must store the amount so that sender can claim it back
                         store_pending_refund(
                             storage,
                             pending_operation.id,
                             sender,
-                            coin(
-                                amount.checked_add(transfer_fee)?.u128(),
-                                xrpl_token.coreum_denom,
-                            ),
+                            coin(amount_sent.u128(), xrpl_token.coreum_denom),
                         )?;
                     }
                 }
@@ -181,9 +187,9 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                                 let amount_to_send_back = convert_amount_decimals(
                                     XRPL_TOKENS_DECIMALS,
                                     token.decimals,
-                                    amount,
+                                    max_amount.unwrap(),
                                 )?;
-                                // If transaction was rejected, we must store the amount and transfer_fee so that sender can claim it back.
+                                // If transaction was rejected, we must store the amount so that sender can claim it back.
                                 store_pending_refund(
                                     storage,
                                     pending_operation.id,

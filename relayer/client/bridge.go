@@ -181,27 +181,27 @@ func DefaultKeysRotationConfig() KeysRotationConfig {
 
 // BridgeClient is the service responsible for the bridge bootstrapping.
 type BridgeClient struct {
-	log            logger.Logger
-	clientCtx      client.Context
-	contractClient ContractClient
-	xrplRPCClient  XRPLRPCClient
-	xrplTxSigner   XRPLTxSigner
+	log             logger.Logger
+	coreumClientCtx client.Context
+	contractClient  ContractClient
+	xrplRPCClient   XRPLRPCClient
+	xrplTxSigner    XRPLTxSigner
 }
 
 // NewBridgeClient returns a new instance of the BridgeClient.
 func NewBridgeClient(
 	log logger.Logger,
-	clientCtx client.Context,
+	coreumClientCtx client.Context,
 	contractClient ContractClient,
 	xrplRPCClient XRPLRPCClient,
 	xrplTxSigner XRPLTxSigner,
 ) *BridgeClient {
 	return &BridgeClient{
-		log:            log,
-		clientCtx:      clientCtx,
-		contractClient: contractClient,
-		xrplRPCClient:  xrplRPCClient,
-		xrplTxSigner:   xrplTxSigner,
+		log:             log,
+		coreumClientCtx: coreumClientCtx,
+		contractClient:  contractClient,
+		xrplRPCClient:   xrplRPCClient,
+		xrplTxSigner:    xrplTxSigner,
 	}
 }
 
@@ -729,7 +729,7 @@ func (b *BridgeClient) ClaimFees(
 
 // GetCoreumBalances returns all coreum account balances.
 func (b *BridgeClient) GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error) {
-	bankClient := banktypes.NewQueryClient(b.clientCtx)
+	bankClient := banktypes.NewQueryClient(b.coreumClientCtx)
 	res, err := bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
 		Address: address.String(),
 	})
@@ -773,7 +773,7 @@ func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
 	ctx context.Context,
 	relayers []RelayerConfig,
 ) ([]coreum.Relayer, []rippledata.SignerEntry, error) {
-	coreumAuthClient := authtypes.NewQueryClient(b.clientCtx)
+	coreumAuthClient := authtypes.NewQueryClient(b.coreumClientCtx)
 	contractRelayers := make([]coreum.Relayer, 0, len(relayers))
 	xrplSignerEntries := make([]rippledata.SignerEntry, 0)
 	for _, relayer := range relayers {

@@ -18,6 +18,7 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
@@ -166,7 +167,16 @@ func GetRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get client context")
 	}
-	rnr, err := runner.NewRunner(cmd.Context(), cfg, clientCtx.Keyring, true)
+	xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), "xrpl")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to configure xrpl keyring")
+	}
+	coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), "coreum")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to configure coreum keyring")
+	}
+
+	rnr, err := runner.NewRunner(cmd.Context(), xrplClientCtx.Keyring, coreumClientCtx.Keyring, cfg, true)
 	if err != nil {
 		return nil, err
 	}
@@ -259,19 +269,60 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 	return cmd
 }
 
+// WithKeyring adds suffix-specific keyring to the context.
+func WithKeyring(clientCtx client.Context, flagSet *pflag.FlagSet, suffix string) (client.Context, error) {
+	if flagSet.Lookup(flags.FlagKeyringDir) == nil || flagSet.Lookup(flags.FlagKeyringBackend) == nil {
+		return clientCtx, nil
+	}
+	keyringDir, err := flagSet.GetString(flags.FlagKeyringDir)
+	if err != nil {
+		return client.Context{}, errors.WithStack(err)
+	}
+	if keyringDir == "" {
+		keyringDir = filepath.Join(clientCtx.HomeDir, "keyring")
+	}
+	keyringDir += "-" + suffix
+	clientCtx = clientCtx.WithKeyringDir(keyringDir)
+
+	keyringBackend, err := flagSet.GetString(flags.FlagKeyringBackend)
+	if err != nil {
+		return client.Context{}, errors.WithStack(err)
+	}
+	kr, err := client.NewKeyringFromBackend(clientCtx, keyringBackend)
+	if err != nil {
+		return client.Context{}, errors.WithStack(err)
+	}
+	return clientCtx.WithKeyring(kr), nil
+}
+
 // KeyringCmd returns cosmos keyring cmd inti with the correct keys home.
-func KeyringCmd() (*cobra.Command, error) {
-	// We need to set CoinType to Coreum value before initializing keys commands because keys.Commands() sets default
+// Based on provided suffix and coinType it uses keyring dedicated to xrpl or coreum.
+func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
+	// We need to set CoinType before initializing keys commands because keys.Commands() sets default
 	// flag value from sdk config. See github.com/cosmos/cosmos-sdk@v0.47.5/client/keys/add.go:78
-	sdk.GetConfig().SetCoinType(constant.CoinType)
+	sdk.GetConfig().SetCoinType(coinType)
 
 	// we set it for the keyring manually since it doesn't use the runner which does it for other CLI commands
 	cmd := keys.Commands(DefaultHomeDir)
 	for _, childCmd := range cmd.Commands() {
 		childCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			clientCtx, err = WithKeyring(clientCtx, cmd.Flags(), suffix)
+			if err != nil {
+				return err
+			}
+
+			if err := client.SetCmdClientContext(cmd, clientCtx); err != nil {
+				return errors.WithStack(err)
+			}
 			return setCoreumConfigFromHomeFlag(cmd)
 		}
 	}
+	cmd.Use += "-" + suffix
 
 	return cmd, nil
 }
@@ -302,8 +353,12 @@ func RelayerKeyInfoCmd() *cobra.Command {
 				return err
 			}
 
-			kr := clientCtx.Keyring
-			xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(kr)
+			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(xrplClientCtx.Keyring)
 
 			xrplAddress, err := xrplKeyringTxSigner.Account(cfg.XRPL.MultiSignerKeyName)
 			if err != nil {
@@ -316,7 +371,12 @@ func RelayerKeyInfoCmd() *cobra.Command {
 			}
 
 			// Coreum
-			coreumKeyRecord, err := kr.Key(cfg.Coreum.RelayerKeyName)
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			coreumKeyRecord, err := coreumClientCtx.Keyring.Key(cfg.Coreum.RelayerKeyName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get coreum key, keyName:%s", cfg.Coreum.RelayerKeyName)
 			}
@@ -371,8 +431,12 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 				return errors.Wrapf(err, "failed to get %s", FlagKeyName)
 			}
 
-			kr := clientCtx.Keyring
-			xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(kr)
+			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(xrplClientCtx.Keyring)
 			xrplBridgeAddress, err := xrplKeyringTxSigner.Account(keyName)
 			if err != nil {
 				return err
@@ -401,7 +465,7 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 				return nil
 			}
 
-			record, err := clientCtx.Keyring.Key(keyName)
+			record, err := xrplClientCtx.Keyring.Key(keyName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get key by name:%s", keyName)
 			}
@@ -484,7 +548,12 @@ $ recovery-tickets --%s owner
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+
+			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			owner, err := readAddressFromKeyNameFlag(cmd, xrplClientCtx)
 			if err != nil {
 				return err
 			}
@@ -520,7 +589,13 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -587,7 +662,13 @@ $ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s own
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -645,7 +726,13 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -716,7 +803,13 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -883,7 +976,13 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			sender, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1222,7 +1321,7 @@ func addKeyringFlags(cmd *cobra.Command) {
 	)
 	cmd.PersistentFlags().String(
 		flags.FlagKeyringDir,
-		DefaultHomeDir, "The client Keyring directory; if omitted, the default 'home' directory will be used")
+		"", "The client Keyring directory; if omitted, the default 'home' directory will be used")
 }
 
 func addUpdateTokenFlags(cmd *cobra.Command) {
