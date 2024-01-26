@@ -139,6 +139,11 @@ type BridgeClient interface {
 		maxHoldingAmount *sdkmath.Int,
 		bridgingFee *sdkmath.Int,
 	) error
+	RotateKeys(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		cfg bridgeclient.KeysRotationConfig,
+	) error
 	GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error)
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
 	GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error)
@@ -845,6 +850,83 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+
+	return cmd
+}
+
+// RotateKeysCmd starts the keys rotation.
+func RotateKeysCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rotate-keys [config-path]",
+		Args:  cobra.ExactArgs(1),
+		Short: "Start the keys rotation of the bridge.",
+		Long: strings.TrimSpace(fmt.Sprintf(
+			`Start the keys rotation of the bridge.
+Example:
+$ rotate-keys new-keys.yaml --%s owner
+`, FlagKeyName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			keyName, err := cmd.Flags().GetString(FlagKeyName)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get %s", FlagKeyName)
+			}
+
+			filePath := args[0]
+			initOnly, err := cmd.Flags().GetBool(FlagInitOnly)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get %s", FlagInitOnly)
+			}
+			if initOnly {
+				log.Info(ctx, "Initializing default keys rotation config", zap.String("path", filePath))
+				return bridgeclient.InitKeysRotationConfig(filePath)
+			}
+
+			record, err := coreumClientCtx.Keyring.Key(keyName)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get key by name:%s", keyName)
+			}
+			addr, err := record.GetAddress()
+			if err != nil {
+				return errors.Wrapf(err, "failed to address for key name:%s", keyName)
+			}
+
+			cfg, err := bridgeclient.ReadKeysRotationConfig(filePath)
+			if err != nil {
+				return err
+			}
+			log.Info(ctx, "Start keys rotation", zap.Any("config", cfg))
+			log.Info(ctx, "Press any key to continue.")
+			input := bufio.NewScanner(os.Stdin)
+			input.Scan()
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			return bridgeClient.RotateKeys(ctx, addr, cfg)
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	cmd.PersistentFlags().Bool(FlagInitOnly, false, "Init default config")
 
 	return cmd
 }

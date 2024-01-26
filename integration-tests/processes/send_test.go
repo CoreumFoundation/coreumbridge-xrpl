@@ -580,7 +580,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		ctx,
 		t,
 		xrplIssuerAddress,
-		runnerEnv.bridgeXRPLAddress,
+		runnerEnv.BridgeXRPLAddress,
 		maxDecimalsRegisterCurrencyAmount,
 		rippledata.Memo{},
 	)
@@ -590,7 +590,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		ctx,
 		t,
 		xrplIssuerAddress,
-		runnerEnv.bridgeXRPLAddress,
+		runnerEnv.BridgeXRPLAddress,
 		highValueRegisteredCurrencyAmount,
 		maxDecimalsRegisterCurrencyAmount,
 		memo,
@@ -601,13 +601,13 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 		ctx,
 		t,
 		xrplIssuerAddress,
-		runnerEnv.bridgeXRPLAddress,
+		runnerEnv.BridgeXRPLAddress,
 		highValueRegisteredCurrencyAmount,
 		memo,
 	)
 
 	// send tx with hex currency
-	runnerEnv.SendXRPLPaymentTx(ctx, t, xrplIssuerAddress, runnerEnv.bridgeXRPLAddress, registeredHexCurrencyAmount, memo)
+	runnerEnv.SendXRPLPaymentTx(ctx, t, xrplIssuerAddress, runnerEnv.BridgeXRPLAddress, registeredHexCurrencyAmount, memo)
 
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
@@ -689,7 +689,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithAmountGreaterThanMax(t *tes
 			ctx,
 			t,
 			xrplIssuerAddress,
-			runnerEnv.bridgeXRPLAddress,
+			runnerEnv.BridgeXRPLAddress,
 			amount,
 			memo,
 		)
@@ -851,8 +851,8 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	require.True(t, ok)
 	issueMsg := &assetfttypes.MsgIssue{
 		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "denom",
-		Subunit:       "denom",
+		Symbol:        "symbol",
+		Subunit:       "subunit",
 		Precision:     tokenDecimals, // token decimals in terms of the contract
 		InitialAmount: maxHoldingAmount,
 	}
@@ -888,7 +888,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	// send TrustSet to be able to receive coins from the bridge
 	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)
 	require.NoError(t, err)
-	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency)
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency)
 
 	// equal to 11.1111 on XRPL, but with the sending prec 2 we expect 11.11 to be received
 	amountToSendToXRPL1 := sdkmath.NewInt(111111)
@@ -905,7 +905,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 
 	// check the XRPL recipient balance
 	balance := runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency,
+		ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency,
 	)
 	require.Equal(t, "11.11", balance.Value.String())
 
@@ -923,7 +923,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 
 	// check the XRPL recipient balance
 	balance = runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency,
+		ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency,
 	)
 	require.Equal(t, "50000000001111e-2", balance.Value.String())
 
@@ -935,7 +935,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	currencyAmountWithTruncation := rippledata.Amount{
 		Value:    lowValue,
 		Currency: xrplCurrency,
-		Issuer:   runnerEnv.bridgeXRPLAddress,
+		Issuer:   runnerEnv.BridgeXRPLAddress,
 	}
 
 	highValue, err := rippledata.NewValue("100000", false)
@@ -943,7 +943,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	highValueRegisteredCurrencyAmount := rippledata.Amount{
 		Value:    highValue,
 		Currency: xrplCurrency,
-		Issuer:   runnerEnv.bridgeXRPLAddress,
+		Issuer:   runnerEnv.BridgeXRPLAddress,
 	}
 
 	normalValue, err := rippledata.NewValue("9.9", false)
@@ -951,7 +951,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	registeredHexCurrencyAmount := rippledata.Amount{
 		Value:    normalValue,
 		Currency: xrplCurrency,
-		Issuer:   runnerEnv.bridgeXRPLAddress,
+		Issuer:   runnerEnv.BridgeXRPLAddress,
 	}
 
 	memo, err := xrpl.EncodeCoreumRecipientToMemo(coreumRecipientAddress)
@@ -961,7 +961,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 		ctx,
 		t,
 		xrplRecipientAddress,
-		runnerEnv.bridgeXRPLAddress,
+		runnerEnv.BridgeXRPLAddress,
 		highValueRegisteredCurrencyAmount,
 		currencyAmountWithTruncation,
 		memo,
@@ -972,7 +972,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 		ctx,
 		t,
 		xrplRecipientAddress,
-		runnerEnv.bridgeXRPLAddress,
+		runnerEnv.BridgeXRPLAddress,
 		highValueRegisteredCurrencyAmount,
 		memo,
 	)
@@ -982,7 +982,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 		ctx,
 		t,
 		xrplRecipientAddress,
-		runnerEnv.bridgeXRPLAddress,
+		runnerEnv.BridgeXRPLAddress,
 		registeredHexCurrencyAmount,
 		memo,
 	)
@@ -1023,8 +1023,8 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 	require.True(t, ok)
 	issueMsg := &assetfttypes.MsgIssue{
 		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "denom",
-		Subunit:       "denom",
+		Symbol:        "symbol",
+		Subunit:       "subunit",
 		Precision:     tokenDecimals, // token decimals in terms of the contract
 		InitialAmount: maxHoldingAmount,
 	}
@@ -1060,7 +1060,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 	// send TrustSet to be able to receive coins from the bridge
 	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)
 	require.NoError(t, err)
-	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency)
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency)
 
 	amountToSendToXRPL := sdkmath.NewInt(9999999)
 	runnerEnv.SendFromCoreumToXRPL(
@@ -1075,7 +1075,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 
 	// check the XRPL recipient balance
 	balance := runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency,
+		ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency,
 	)
 	require.Equal(t, "0.0009", balance.Value.String())
 
@@ -1133,7 +1133,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 	memo, err := xrpl.EncodeCoreumRecipientToMemo(coreumSender)
 	require.NoError(t, err)
 
-	runnerEnv.SendXRPLPaymentTx(ctx, t, xrplIssuerAddress, runnerEnv.bridgeXRPLAddress, amountToSendFromXRPLtoCoreum, memo)
+	runnerEnv.SendXRPLPaymentTx(ctx, t, xrplIssuerAddress, runnerEnv.BridgeXRPLAddress, amountToSendFromXRPLtoCoreum, memo)
 
 	// disable token temporary to let the relayers find the tx and try to relay the evidence with the disabled token
 	runnerEnv.UpdateXRPLToken(
@@ -1247,8 +1247,8 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	require.True(t, ok)
 	issueMsg := &assetfttypes.MsgIssue{
 		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "denom",
-		Subunit:       "denom",
+		Symbol:        "symbol",
+		Subunit:       "subunit",
 		Precision:     tokenDecimals, // token decimals in terms of the contract
 		InitialAmount: maxHoldingAmount,
 	}
@@ -1280,7 +1280,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	// send TrustSet to be able to receive coins from the bridge
 	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)
 	require.NoError(t, err)
-	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency)
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency)
 
 	amountToSendToXRPL := sdkmath.NewInt(1000000)
 	_, err = runnerEnv.ContractClient.SendToXRPL(
@@ -1318,7 +1318,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 
 	// check the XRPL recipient balance
 	balance := runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency,
+		ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency,
 	)
 	require.Equal(t, "1", balance.Value.String())
 
@@ -1329,7 +1329,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	amountToSendToCoreum := rippledata.Amount{
 		Value:    valueToSendToCoreum,
 		Currency: xrplCurrency,
-		Issuer:   runnerEnv.bridgeXRPLAddress,
+		Issuer:   runnerEnv.BridgeXRPLAddress,
 	}
 
 	memo, err := xrpl.EncodeCoreumRecipientToMemo(coreumRecipientAddress)
@@ -1339,7 +1339,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		ctx,
 		t,
 		xrplRecipientAddress,
-		runnerEnv.bridgeXRPLAddress,
+		runnerEnv.BridgeXRPLAddress,
 		amountToSendToCoreum,
 		memo,
 	)
@@ -1415,8 +1415,8 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	require.True(t, ok)
 	issueMsg := &assetfttypes.MsgIssue{
 		Issuer:             coreumIssuerAddress.String(),
-		Symbol:             "denom",
-		Subunit:            "denom",
+		Symbol:             "symbol",
+		Subunit:            "subunit",
 		Precision:          tokenDecimals,
 		InitialAmount:      maxHoldingAmount,
 		BurnRate:           sdk.MustNewDecFromStr("0.1"),
@@ -1467,7 +1467,7 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	// send TrustSet to be able to receive coins from the bridge
 	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)
 	require.NoError(t, err)
-	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency)
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency)
 
 	amountToSendToXRPL := sdkmath.NewInt(1_000_000)
 	runnerEnv.SendFromCoreumToXRPL(
@@ -1494,7 +1494,7 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 
 	// check the XRPL recipient balance
 	balance := runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, xrplRecipientAddress, runnerEnv.bridgeXRPLAddress, xrplCurrency,
+		ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency,
 	)
 	require.Equal(t, "100", balance.Value.String())
 

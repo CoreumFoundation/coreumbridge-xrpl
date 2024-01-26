@@ -39,6 +39,11 @@ type RunnerEnvConfig struct {
 	MaliciousRelayerNumber      int
 	UsedTicketSequenceThreshold int
 	TrustSetLimitAmount         sdkmath.Int
+	CustomBridgeXRPLAddress     *rippledata.Account
+	CustomContractAddress       *sdk.AccAddress
+	CustomContractOwner         *sdk.AccAddress
+	// is custom error handler returns false, the runner env fails with the input error
+	CustomErrorHandler func(err error) bool
 }
 
 // DefaultRunnerEnvConfig returns default runner environment config.
@@ -50,13 +55,18 @@ func DefaultRunnerEnvConfig() RunnerEnvConfig {
 		MaliciousRelayerNumber:      0,
 		UsedTicketSequenceThreshold: 150,
 		TrustSetLimitAmount:         sdkmath.NewIntWithDecimal(1, 35),
+		CustomBridgeXRPLAddress:     nil,
+		CustomContractAddress:       nil,
+		CustomContractOwner:         nil,
+		CustomErrorHandler:          nil,
 	}
 }
 
 // RunnerEnv is runner environment used for the integration tests.
 type RunnerEnv struct {
 	Cfg                  RunnerEnvConfig
-	bridgeXRPLAddress    rippledata.Account
+	BridgeXRPLAddress    rippledata.Account
+	BootstrappingConfig  bridgeclient.BootstrappingConfig
 	ContractClient       *coreum.ContractClient
 	Chains               integrationtests.Chains
 	ContractOwner        sdk.AccAddress
@@ -80,8 +90,17 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		chains.XRPL,
 		cfg.RelayersCount,
 	)
+	if cfg.CustomBridgeXRPLAddress != nil {
+		bridgeXRPLAddress = *cfg.CustomBridgeXRPLAddress
+	}
 
-	contractOwner := chains.Coreum.GenAccount()
+	var contractOwner sdk.AccAddress
+	if cfg.CustomContractOwner == nil {
+		contractOwner = chains.Coreum.GenAccount()
+	} else {
+		contractOwner = *cfg.CustomContractOwner
+	}
+
 	// fund to cover the fees
 	chains.Coreum.FundAccountWithOptions(ctx, t, contractOwner, coreumintegration.BalancesOptions{
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.AddRaw(1_000_000),
@@ -101,19 +120,19 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		xrplTxSigner,
 	)
 
-	bootstrappingRelayers := make([]bridgeclient.RelayerBootstrappingConfig, 0)
+	bootstrappingRelayers := make([]bridgeclient.RelayerConfig, 0)
 	for i := 0; i < cfg.RelayersCount; i++ {
 		relayerCoreumAddress := relayerCoreumAddresses[i]
 		relayerXRPLAddress := relayerXRPLAddresses[i]
 		relayerXRPLPubKey := relayerXRPLPubKeys[i]
-		bootstrappingRelayers = append(bootstrappingRelayers, bridgeclient.RelayerBootstrappingConfig{
+		bootstrappingRelayers = append(bootstrappingRelayers, bridgeclient.RelayerConfig{
 			CoreumAddress: relayerCoreumAddress.String(),
 			XRPLAddress:   relayerXRPLAddress.String(),
 			XRPLPubKey:    relayerXRPLPubKey.String(),
 		})
 	}
 
-	bootstrappingCfg := bridgeclient.BootstrappingConfig{
+	contractBootstrappingCfg := bridgeclient.BootstrappingConfig{
 		Owner:                       contractOwner.String(),
 		Admin:                       contractOwner.String(),
 		Relayers:                    bootstrappingRelayers,
@@ -124,8 +143,16 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		SkipXRPLBalanceValidation:   true,
 	}
 
-	contractAddress, err := bridgeClient.Bootstrap(ctx, contractOwner, bridgeXRPLAddress.String(), bootstrappingCfg)
-	require.NoError(t, err)
+	var contractAddress sdk.AccAddress
+	if cfg.CustomContractAddress == nil {
+		var err error
+		contractAddress, err = bridgeClient.Bootstrap(
+			ctx, contractOwner, bridgeXRPLAddress.String(), contractBootstrappingCfg,
+		)
+		require.NoError(t, err)
+	} else {
+		contractAddress = *cfg.CustomContractAddress
+	}
 	require.NoError(t, contractClient.SetContractAddress(contractAddress))
 
 	runners := make([]*runner.Runner, 0, cfg.RelayersCount)
@@ -162,7 +189,8 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 
 	runnerEnv := &RunnerEnv{
 		Cfg:                  cfg,
-		bridgeXRPLAddress:    bridgeXRPLAddress,
+		BridgeXRPLAddress:    bridgeXRPLAddress,
+		BootstrappingConfig:  contractBootstrappingCfg,
 		ContractClient:       contractClient,
 		Chains:               chains,
 		ContractOwner:        contractOwner,
@@ -177,9 +205,19 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		if err == nil || errors.Is(err, context.Canceled) {
 			return
 		}
-		// the client replies with that error in if the context is canceled at the time of the request,
+		// the client replies with that error if the context is canceled at the time of the request,
 		// and the error is in the internal package, so we can't check the type
 		if strings.Contains(err.Error(), "context canceled") {
+			return
+		}
+		if cfg.CustomErrorHandler != nil {
+			if !cfg.CustomErrorHandler(err) {
+				require.NoError(
+					t,
+					err,
+					"Found unexpected runner process errors after the execution from custom handler",
+				)
+			}
 			return
 		}
 
@@ -253,7 +291,7 @@ func (r *RunnerEnv) AllocateTickets(
 	t *testing.T,
 	numberOfTicketsToAllocate uint32,
 ) {
-	r.Chains.XRPL.FundAccountForTicketAllocation(ctx, t, r.bridgeXRPLAddress, numberOfTicketsToAllocate)
+	r.Chains.XRPL.FundAccountForTicketAllocation(ctx, t, r.BridgeXRPLAddress, numberOfTicketsToAllocate)
 	require.NoError(t, r.BridgeClient.RecoverTickets(ctx, r.ContractOwner, numberOfTicketsToAllocate))
 
 	r.AwaitNoPendingOperations(ctx, t)

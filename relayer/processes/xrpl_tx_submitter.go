@@ -235,7 +235,7 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 	if txRes.EngineResult.Success() {
 		s.log.Info(
 			ctx,
-			"Transaction has been successfully submitted",
+			"XRPL multi-sign transaction has been successfully submitted",
 			zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
 			zap.Any("tx", tx),
 		)
@@ -454,6 +454,9 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 	if coreum.IsSignatureAlreadyProvidedError(err) {
 		return nil
 	}
+	if coreum.IsPendingOperationNotFoundError(err) {
+		return nil
+	}
 
 	return errors.Wrap(err, "failed to register transaction signature")
 }
@@ -464,8 +467,10 @@ func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (
 		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	case isTrustSetOperation(operation):
 		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
-	case isCoreumToXRPLTransfer(operation):
+	case isCoreumToXRPLTransferOperation(operation):
 		return BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
+	case isRotateKeysOperation(operation):
+		return BuildSignerListSetTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	default:
 		return nil, errors.Errorf("failed to process operation, unable to determine operation type, operation:%+v", operation)
 	}
@@ -482,10 +487,16 @@ func isTrustSetOperation(operation coreum.Operation) bool {
 		operation.OperationType.TrustSet.Currency != ""
 }
 
-func isCoreumToXRPLTransfer(operation coreum.Operation) bool {
+func isCoreumToXRPLTransferOperation(operation coreum.Operation) bool {
 	return operation.OperationType.CoreumToXRPLTransfer != nil &&
 		operation.OperationType.CoreumToXRPLTransfer.Issuer != "" &&
 		operation.OperationType.CoreumToXRPLTransfer.Currency != "" &&
 		!operation.OperationType.CoreumToXRPLTransfer.Amount.IsZero() &&
 		operation.OperationType.CoreumToXRPLTransfer.Recipient != ""
+}
+
+func isRotateKeysOperation(operation coreum.Operation) bool {
+	return operation.OperationType.RotateKeys != nil &&
+		len(operation.OperationType.RotateKeys.NewRelayers) != 0 &&
+		operation.OperationType.RotateKeys.NewEvidenceThreshold > 0
 }

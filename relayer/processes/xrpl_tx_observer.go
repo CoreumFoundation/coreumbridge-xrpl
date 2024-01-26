@@ -195,9 +195,10 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 		return o.sendXRPLTrustSetTransactionResultEvidence(ctx, tx)
 	case rippledata.PAYMENT.String():
 		return o.sendCoreumToXRPLTransferTransactionResultEvidence(ctx, tx)
+	case rippledata.SIGNER_LIST_SET.String():
+		return o.sendKeysRotationTransactionResultEvidence(ctx, tx)
 	// types which we use initially for the account set up
-	case rippledata.ACCOUNT_SET.String(),
-		rippledata.SIGNER_LIST_SET.String():
+	case rippledata.ACCOUNT_SET.String():
 		o.log.Debug(ctx, "Skipped expected tx type", zap.String("txType", txType), zap.Any("tx", tx))
 		return nil
 	default:
@@ -256,8 +257,6 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(
 			TransactionResult: getTransactionResult(tx),
 			TicketSequence:    trustSetTx.TicketSequence,
 		},
-		Issuer:   trustSetTx.LimitAmount.Issuer.String(),
-		Currency: xrpl.ConvertCurrencyToString(trustSetTx.LimitAmount.Currency),
 	}
 
 	_, err := o.contractClient.SendXRPLTrustSetTransactionResultEvidence(
@@ -286,6 +285,41 @@ func (o *XRPLTxObserver) sendCoreumToXRPLTransferTransactionResultEvidence(
 	}
 
 	_, err := o.contractClient.SendCoreumToXRPLTransferTransactionResultEvidence(
+		ctx,
+		o.cfg.RelayerCoreumAddress,
+		evidence,
+	)
+
+	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+}
+
+func (o *XRPLTxObserver) sendKeysRotationTransactionResultEvidence(
+	ctx context.Context,
+	tx rippledata.TransactionWithMetaData,
+) error {
+	signerListSetTx, ok := tx.Transaction.(*rippledata.SignerListSet)
+	if !ok {
+		return errors.Errorf("failed to cast tx to SignerListSet, data:%+v", tx)
+	}
+	evidence := coreum.XRPLTransactionResultKeysRotationEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TxHash:            strings.ToUpper(tx.GetHash().String()),
+			TransactionResult: getTransactionResult(tx),
+		},
+	}
+	// handle the case when the tx was set initially to set up the bridge
+	if signerListSetTx.Sequence != 0 {
+		o.log.Debug(
+			ctx,
+			"Skipping the evidence sending for the tx, since the SignerListSet tx contains account sequence.",
+			zap.Any("tx", tx),
+		)
+		return nil
+	}
+	if signerListSetTx.TicketSequence != nil && *signerListSetTx.TicketSequence != 0 {
+		evidence.TicketSequence = lo.ToPtr(*signerListSetTx.TicketSequence)
+	}
+	_, err := o.contractClient.SendKeysRotationTransactionResultEvidence(
 		ctx,
 		o.cfg.RelayerCoreumAddress,
 		evidence,

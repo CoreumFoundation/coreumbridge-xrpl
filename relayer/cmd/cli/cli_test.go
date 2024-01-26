@@ -743,6 +743,36 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 	}
 }
 
+func TestRotateKeysCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	configPath := path.Join(t.TempDir(), "new-keys.yaml")
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+
+	// call rotate-keys with init only
+	args := []string{
+		configPath,
+		flagWithPrefix(cli.FlagInitOnly),
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	executeCmd(t, cli.RotateKeysCmd(nil), args...)
+
+	// use generated file
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	bridgeClientMock.EXPECT().RotateKeys(gomock.Any(), gomock.Any(), bridgeclient.DefaultKeysRotationConfig())
+	args = []string{
+		configPath,
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	executeCmd(t, cli.RotateKeysCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
 func TestRegisteredTokensCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
