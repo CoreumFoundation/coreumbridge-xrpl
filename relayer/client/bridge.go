@@ -91,6 +91,7 @@ type ContractClient interface {
 		maxHoldingAmount *sdkmath.Int,
 		bridgingFee *sdkmath.Int,
 	) (*sdk.TxResponse, error)
+	GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error)
 	ClaimRefund(
 		ctx context.Context,
 		sender sdk.AccAddress,
@@ -790,13 +791,28 @@ func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Accou
 	return balances, nil
 }
 
-// ClaimRefund claims transaction/operation refund.
-func (b *BridgeClient) ClaimRefund(
-	ctx context.Context,
-	sender sdk.AccAddress,
-	pendingRefundID string,
-) (*sdk.TxResponse, error) {
-	return b.contractClient.ClaimRefund(ctx, sender, pendingRefundID)
+// GetPendingRefunds queries for the pending refunds of an addreess.
+func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error) {
+	b.log.Info(ctx, "getting pending refunds", zap.String("address", address.String()))
+	return b.contractClient.GetPendingRefunds(ctx, address)
+}
+
+// ClaimRefund claims pending refund.
+func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, refundID string) error {
+	b.log.Info(ctx, "claiming pending refund",
+		zap.String("address", address.String()),
+		zap.String("refundID", refundID))
+	txRes, err := b.contractClient.ClaimRefund(ctx, address, refundID)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(ctx, "finished execution of claiming pending refund",
+		zap.String("address", address.String()),
+		zap.String("refundID", refundID),
+		zap.String("txHash", txRes.TxHash),
+	)
+	return nil
 }
 
 func (b *BridgeClient) buildContractRelayersFromRelayersConfig(

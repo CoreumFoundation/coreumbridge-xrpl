@@ -323,7 +323,7 @@ func TestSendXRPLOriginatedTokenWithTransferRateAndDeliverAmountFromXRPLToCoreum
 	pendingRefunds, err := runnerEnv.ContractClient.GetPendingRefunds(ctx, coreumSender)
 	require.NoError(t, err)
 	require.Len(t, pendingRefunds, 1)
-	_, err = runnerEnv.BridgeClient.ClaimRefund(ctx, coreumSender, pendingRefunds[0].ID)
+	err = runnerEnv.BridgeClient.ClaimRefund(ctx, coreumSender, pendingRefunds[0].ID)
 	require.NoError(t, err)
 
 	// send one more time but with the min allowed amount to pass
