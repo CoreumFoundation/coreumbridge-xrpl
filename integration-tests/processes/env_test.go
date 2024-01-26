@@ -132,7 +132,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		})
 	}
 
-	contractBootstrappingCfg := bridgeclient.BootstrappingConfig{
+	bootstrappingCfg := bridgeclient.BootstrappingConfig{
 		Owner:                       contractOwner.String(),
 		Admin:                       contractOwner.String(),
 		Relayers:                    bootstrappingRelayers,
@@ -147,7 +147,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	if cfg.CustomContractAddress == nil {
 		var err error
 		contractAddress, err = bridgeClient.Bootstrap(
-			ctx, contractOwner, bridgeXRPLAddress.String(), contractBootstrappingCfg,
+			ctx, contractOwner, bridgeXRPLAddress.String(), bootstrappingCfg,
 		)
 		require.NoError(t, err)
 	} else {
@@ -190,7 +190,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	runnerEnv := &RunnerEnv{
 		Cfg:                  cfg,
 		BridgeXRPLAddress:    bridgeXRPLAddress,
-		BootstrappingConfig:  contractBootstrappingCfg,
+		BootstrappingConfig:  bootstrappingCfg,
 		ContractClient:       contractClient,
 		Chains:               chains,
 		ContractOwner:        contractOwner,
@@ -356,10 +356,11 @@ func (r *RunnerEnv) SendFromCoreumToXRPL(
 	ctx context.Context,
 	t *testing.T,
 	sender sdk.AccAddress,
-	amount sdk.Coin,
 	recipient rippledata.Account,
+	amount sdk.Coin,
+	deliverAmount *sdkmath.Int,
 ) {
-	require.NoError(t, r.BridgeClient.SendFromCoreumToXRPL(ctx, sender, amount, recipient))
+	require.NoError(t, r.BridgeClient.SendFromCoreumToXRPL(ctx, sender, recipient, amount, deliverAmount))
 }
 
 // SendFromXRPLToCoreum sends tokens form XRPL to Coreum.

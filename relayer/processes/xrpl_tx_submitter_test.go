@@ -574,7 +574,8 @@ func buildCoreumToXRPLTokenTransferTestData(
 			CoreumToXRPLTransfer: &coreum.OperationTypeCoreumToXRPLTransfer{
 				Issuer:    xrpl.GenPrivKeyTxSigner().Account().String(),
 				Currency:  "TRC",
-				Amount:    sdkmath.NewIntFromUint64(123),
+				Amount:    sdkmath.NewInt(123),
+				MaxAmount: lo.ToPtr(sdkmath.NewInt(745)),
 				Recipient: xrpl.GenPrivKeyTxSigner().Account().String(),
 			},
 		},

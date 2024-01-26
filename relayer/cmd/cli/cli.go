@@ -67,6 +67,8 @@ const (
 	FlagBridgingFee = "bridging-fee"
 	// FlagMaxHoldingAmount is max holding amount flag.
 	FlagMaxHoldingAmount = "max-holding-amount"
+	// FlagDeliverAmount is deliver amount flag.
+	FlagDeliverAmount = "deliver-amount"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -105,8 +107,9 @@ type BridgeClient interface {
 	SendFromCoreumToXRPL(
 		ctx context.Context,
 		sender sdk.AccAddress,
-		amount sdk.Coin,
 		recipient rippledata.Account,
+		amount sdk.Coin,
+		deliverAmount *sdkmath.Int,
 	) error
 	SendFromXRPLToCoreum(
 		ctx context.Context,
@@ -971,8 +974,8 @@ func SendFromCoreumToXRPLCmd(bcp BridgeClientProvider) *cobra.Command {
 		Long: strings.TrimSpace(
 			fmt.Sprintf(`Sends tokens from the Coreum to XRPL.
 Example:
-$ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender
-`, FlagKeyName)),
+$ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender --%s 100000
+`, FlagKeyName, FlagDeliverAmount)),
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -982,6 +985,10 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender
 			}
 
 			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			deliverAmount, err := getFlagSDKIntIfPresent(cmd, FlagDeliverAmount)
 			if err != nil {
 				return err
 			}
@@ -1004,9 +1011,11 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender
 				return err
 			}
 
-			return bridgeClient.SendFromCoreumToXRPL(ctx, sender, amount, *recipient)
+			return bridgeClient.SendFromCoreumToXRPL(ctx, sender, *recipient, amount, deliverAmount)
 		},
 	}
+
+	cmd.PersistentFlags().String(FlagDeliverAmount, "", "Deliver amount")
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)

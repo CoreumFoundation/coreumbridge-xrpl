@@ -117,10 +117,10 @@ func TestConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(t *testing.T) {
 		},
 		{
 			name:         "one_with_some_decimals_coreum_XRP_to_XRPL_XRP",
-			coreumAmount: sdkmath.NewIntFromUint64(1000100),
+			coreumAmount: sdkmath.NewIntFromUint64(1000101),
 			issuer:       xrpl.XRPTokenIssuer.String(),
 			currency:     xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
-			want:         amountStringToXRPLAmount(t, "1.0001XRP"),
+			want:         amountStringToXRPLAmount(t, "1.000101XRP"),
 		},
 		{
 			name:         "min_decimals_coreum_XRP_to_XRPL_XRP",

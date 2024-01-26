@@ -56,7 +56,7 @@ type AccountLinesRequest struct {
 	Account     rippledata.Account  `json:"account"`
 	Limit       uint32              `json:"limit"`
 	LedgerIndex any                 `json:"ledger_index,omitempty"`
-	Marker      *rippledata.Hash256 `json:"marker,omitempty"`
+	Marker      string              `json:"marker,omitempty"`
 	Result      *AccountLinesResult `json:"result,omitempty"`
 }
 
@@ -64,7 +64,7 @@ type AccountLinesRequest struct {
 type AccountLinesResult struct {
 	LedgerSequence *uint32                     `json:"ledger_index"`
 	Account        rippledata.Account          `json:"account"`
-	Marker         *rippledata.Hash256         `json:"marker"`
+	Marker         string                      `json:"marker"`
 	Lines          rippledata.AccountLineSlice `json:"lines"`
 }
 
@@ -203,7 +203,7 @@ func (c *RPCClient) AccountLines(
 	ctx context.Context,
 	account rippledata.Account,
 	ledgerIndex any,
-	marker *rippledata.Hash256,
+	marker string,
 ) (AccountLinesResult, error) {
 	params := AccountLinesRequest{
 		Account:     account,
