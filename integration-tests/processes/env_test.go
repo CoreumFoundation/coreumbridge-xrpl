@@ -132,7 +132,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		})
 	}
 
-	contractBootstrappingCfg := bridgeclient.BootstrappingConfig{
+	bootstrappingCfg := bridgeclient.BootstrappingConfig{
 		Owner:                       contractOwner.String(),
 		Admin:                       contractOwner.String(),
 		Relayers:                    bootstrappingRelayers,
@@ -147,7 +147,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	if cfg.CustomContractAddress == nil {
 		var err error
 		contractAddress, err = bridgeClient.Bootstrap(
-			ctx, contractOwner, bridgeXRPLAddress.String(), contractBootstrappingCfg,
+			ctx, contractOwner, bridgeXRPLAddress.String(), bootstrappingCfg,
 		)
 		require.NoError(t, err)
 	} else {
@@ -190,7 +190,6 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	runnerEnv := &RunnerEnv{
 		Cfg:                  cfg,
 		BridgeXRPLAddress:    bridgeXRPLAddress,
-		BootstrappingConfig:  contractBootstrappingCfg,
 		BootstrappingConfig:  bootstrappingCfg,
 		ContractClient:       contractClient,
 		Chains:               chains,

@@ -799,11 +799,6 @@ func (b *BridgeClient) ClaimRefund(
 	return b.contractClient.ClaimRefund(ctx, sender, pendingRefundID)
 }
 
-// GetFeesCollected returns the fees collected for the address.
-func (b *BridgeClient) GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error) {
-	return b.contractClient.GetFeesCollected(ctx, address)
-}
-
 func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
 	ctx context.Context,
 	relayers []RelayerConfig,

@@ -340,7 +340,7 @@ func TestSendXRPLOriginatedTokenWithTransferRateAndDeliverAmountFromXRPLToCoreum
 	require.NoError(t, err)
 
 	xrplBridgeAccountBalanceBefore := runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, runnerEnv.bridgeXRPLAddress, xrplIssuerAddress, registeredXRPLCurrency,
+		ctx, t, runnerEnv.BridgeXRPLAddress, xrplIssuerAddress, registeredXRPLCurrency,
 	)
 
 	runnerEnv.SendFromCoreumToXRPL(
@@ -371,7 +371,7 @@ func TestSendXRPLOriginatedTokenWithTransferRateAndDeliverAmountFromXRPLToCoreum
 	)
 
 	xrplBridgeAccountBalanceAfter := runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, runnerEnv.bridgeXRPLAddress, xrplIssuerAddress, registeredXRPLCurrency,
+		ctx, t, runnerEnv.BridgeXRPLAddress, xrplIssuerAddress, registeredXRPLCurrency,
 	)
 
 	expectedSentAmount, err := rippledata.NewValue("1.03", false)
@@ -401,7 +401,7 @@ func TestSendXRPLOriginatedTokenWithTransferRateAndDeliverAmountFromXRPLToCoreum
 	require.NoError(t, err)
 
 	xrplBridgeAccountBalanceBefore = runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, runnerEnv.bridgeXRPLAddress, xrplIssuerAddress, registeredXRPLCurrency,
+		ctx, t, runnerEnv.BridgeXRPLAddress, xrplIssuerAddress, registeredXRPLCurrency,
 	)
 
 	runnerEnv.SendFromCoreumToXRPL(
@@ -435,7 +435,7 @@ func TestSendXRPLOriginatedTokenWithTransferRateAndDeliverAmountFromXRPLToCoreum
 	)
 
 	xrplBridgeAccountBalanceAfter = runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, runnerEnv.bridgeXRPLAddress, xrplIssuerAddress, registeredXRPLCurrency,
+		ctx, t, runnerEnv.BridgeXRPLAddress, xrplIssuerAddress, registeredXRPLCurrency,
 	)
 
 	expectedSentAmount, err = rippledata.NewValue("1.03", false)

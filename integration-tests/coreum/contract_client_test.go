@@ -2487,6 +2487,7 @@ func TestSendFromCoreumXRPLOriginatedTokenWithDeliverAmount(t *testing.T) {
 		10,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
+		10,
 	)
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
@@ -2692,6 +2693,7 @@ func TestSendFromCoreumCoreumOriginatedTokenWithDeliverAmount(t *testing.T) {
 		10,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
+		10,
 	)
 
 	// recover tickets to be able to create operations from coreum to XRPL
