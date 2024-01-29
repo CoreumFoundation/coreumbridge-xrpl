@@ -285,7 +285,8 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 	}
 	addHomeFlag(cmd)
 	addKeyringFlags(cmd)
-	cmd.Flags().StringVar(&telemetryAddr, "telemetry-addr", "localhost:9090", "Address metrics are exposed on. If empty, metrics are not exposed.")
+	cmd.Flags().StringVar(&telemetryAddr, "telemetry-addr", "localhost:9090",
+		"Address metrics are exposed on. If empty, metrics are not exposed.")
 
 	return cmd
 }
