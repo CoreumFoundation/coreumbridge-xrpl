@@ -16,6 +16,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -208,7 +209,7 @@ type Processes struct {
 
 // Runner is relayer runner which aggregates all relayer components.
 type Runner struct {
-	Log                      *logger.ZapLogger
+	Log                      logger.Logger
 	RetryableHTTPClient      *toolshttp.RetryableClient
 	XRPLRPCClient            *xrpl.RPCClient
 	XRPLAccountScanner       *xrpl.AccountScanner
@@ -236,7 +237,13 @@ func NewRunner(
 	if err != nil {
 		return nil, err
 	}
-	rnr.Log = zapLogger
+
+	log, err := logger.WithMetrics(zapLogger, prometheus.DefaultRegisterer)
+	if err != nil {
+		return nil, err
+	}
+
+	rnr.Log = log
 
 	retryableXRPLRPCHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.XRPL.HTTPClient))
 	rnr.RetryableHTTPClient = &retryableXRPLRPCHTTPClient
@@ -292,11 +299,11 @@ func NewRunner(
 	}
 
 	coreumClientCtx := clientContext.WithKeyring(coreumKeyring)
-	contractClient := coreum.NewContractClient(contractClientCfg, zapLogger, coreumClientCtx)
+	contractClient := coreum.NewContractClient(contractClientCfg, log, coreumClientCtx)
 	rnr.CoreumContractClient = contractClient
 
 	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
-	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, zapLogger, retryableXRPLRPCHTTPClient)
+	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, log, retryableXRPLRPCHTTPClient)
 	rnr.XRPLRPCClient = xrplRPCClient
 
 	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
@@ -331,10 +338,10 @@ func NewRunner(
 			FullScanEnabled:   cfg.XRPL.Scanner.FullScanEnabled,
 			RepeatFullScan:    cfg.XRPL.Scanner.RepeatFullScan,
 			RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
-		}, zapLogger, xrplRPCClient)
+		}, log, xrplRPCClient)
 		rnr.XRPLAccountScanner = xrplScanner
 
-		rnr.Processor = processes.NewProcessor(zapLogger)
+		rnr.Processor = processes.NewProcessor(log)
 		rnr.Processes = Processes{
 			XRPLTxObserver: processes.ProcessWithOptions{
 				Process: processes.NewXRPLTxObserver(
@@ -342,7 +349,7 @@ func NewRunner(
 						BridgeXRPLAddress:    *bridgeXRPLAddress,
 						RelayerCoreumAddress: relayerAddress,
 					},
-					zapLogger,
+					log,
 					xrplScanner,
 					contractClient,
 				),
@@ -358,7 +365,7 @@ func NewRunner(
 						RepeatRecentScan:     true,
 						RepeatDelay:          cfg.Processes.XRPLTxSubmitter.RepeatDelay,
 					},
-					zapLogger,
+					log,
 					contractClient,
 					xrplRPCClient,
 					xrplKeyringTxSigner,

@@ -21,11 +21,13 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -247,6 +249,8 @@ func InitCmd() *cobra.Command {
 
 // StartCmd returns the start cmd.
 func StartCmd(pp ProcessorProvider) *cobra.Command {
+	var metricAddr string
+
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start relayer.",
@@ -267,11 +271,19 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return processor.StartAllProcesses(ctx)
+
+			return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+				spawn("processor", parallel.Fail, processor.StartAllProcesses)
+				spawn("metrics", parallel.Fail, func(ctx context.Context) error {
+					return metrics.Start(ctx, metricAddr)
+				})
+				return nil
+			})
 		},
 	}
 	addHomeFlag(cmd)
 	addKeyringFlags(cmd)
+	cmd.Flags().StringVar(&metricAddr, "metric-addr", "localhost:9090", "Address metrics are exposed on")
 
 	return cmd
 }
