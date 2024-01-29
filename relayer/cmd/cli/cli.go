@@ -816,7 +816,7 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 // RecoverXRPLTokenRegistrationCmd recovers xrpl token registration.
 func RecoverXRPLTokenRegistrationCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "recover-xrpl-token-registration",
+		Use:   "recover-xrpl-token-registration [issuer] [currency]",
 		Short: "Recovers XRPL token registration.",
 		Long: strings.TrimSpace(fmt.Sprintf(
 			`Recovers XRPL token registration.
@@ -1453,13 +1453,13 @@ $ claim-refund --%s claimer --%s 1705664693-2
 func GetRelayerFeesCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "relayer-fees [address]",
-		Short: "Get the relayer fees of a relayer address",
-		Long: strings.TrimSpace(
+		Short: "Get the relayer fees",
+		Long: strings.TrimSpace(fmt.Sprintf(
 			`Get pending refunds.
 Example:
-$ relayer-fees core14e57zzux440wz2zl4gcj0xq2kc27jep7zucvz2
-`,
-		),
+$ relayer-fees %s 
+`, constant.AddressSampleTest,
+		)),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
