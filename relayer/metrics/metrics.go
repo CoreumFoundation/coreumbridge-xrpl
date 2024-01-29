@@ -24,7 +24,7 @@ func Start(ctx context.Context, addr string) error {
 
 	server := &http.Server{Handler: mux}
 
-	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+	err = parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		spawn("server", parallel.Exit, func(ctx context.Context) error {
 			if err := server.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				return errors.Wrap(err, "metric server exited")
@@ -38,4 +38,10 @@ func Start(ctx context.Context, addr string) error {
 		})
 		return nil
 	})
+
+	if errors.Is(err, context.Canceled) {
+		return nil
+	}
+
+	return err
 }

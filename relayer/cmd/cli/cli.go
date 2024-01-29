@@ -249,7 +249,7 @@ func InitCmd() *cobra.Command {
 
 // StartCmd returns the start cmd.
 func StartCmd(pp ProcessorProvider) *cobra.Command {
-	var metricAddr string
+	var telemetryAddr string
 
 	cmd := &cobra.Command{
 		Use:   "start",
@@ -273,17 +273,19 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 			}
 
 			return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-				spawn("processor", parallel.Fail, processor.StartAllProcesses)
-				spawn("metrics", parallel.Fail, func(ctx context.Context) error {
-					return metrics.Start(ctx, metricAddr)
-				})
+				spawn("processor", parallel.Exit, processor.StartAllProcesses)
+				if telemetryAddr != "" {
+					spawn("metrics", parallel.Fail, func(ctx context.Context) error {
+						return metrics.Start(ctx, telemetryAddr)
+					})
+				}
 				return nil
 			})
 		},
 	}
 	addHomeFlag(cmd)
 	addKeyringFlags(cmd)
-	cmd.Flags().StringVar(&metricAddr, "metric-addr", "localhost:9090", "Address metrics are exposed on")
+	cmd.Flags().StringVar(&telemetryAddr, "telemetry-addr", "localhost:9090", "Address metrics are exposed on. If empty, metrics are not exposed.")
 
 	return cmd
 }
