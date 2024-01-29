@@ -830,7 +830,13 @@ $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1396,7 +1402,13 @@ $ claim-refund --%s claimer --%s 1705664693-2
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			address, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			address, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1501,7 +1513,13 @@ $ claim-relayer-fees --key-name address --amount 1000ucore,100ibc/0718CC536BB057
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			address, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			address, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1541,6 +1559,8 @@ $ claim-relayer-fees --key-name address --amount 1000ucore,100ibc/0718CC536BB057
 }
 
 // HaltBridgeCmd halts the bridge and stops its operation.
+//
+//nolint:dupl // abstracting this code will make it less readable.
 func HaltBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "halt-bridge",
@@ -1557,7 +1577,11 @@ $ halt-bridge --%s owner
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1581,6 +1605,8 @@ $ halt-bridge --%s owner
 }
 
 // ResumeBridgeCmd resumes the bridge and restarts its operation.
+//
+//nolint:dupl // abstracting this code will make it less readable.
 func ResumeBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "resume-bridge",
@@ -1597,7 +1623,11 @@ $ resume-bridge --%s owner
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}

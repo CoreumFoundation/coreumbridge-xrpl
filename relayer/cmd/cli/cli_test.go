@@ -504,7 +504,7 @@ func TestRecoverXRPLTokenRegistrationCmd(t *testing.T) {
 		owner,
 		issuer.String(),
 		currency.String(),
-	)
+	).Return(nil)
 	executeCmd(t, cli.RecoverXRPLTokenRegistrationCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
@@ -935,7 +935,7 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 		refundID,
 	).Return(nil)
 	args := []string{flagWithPrefix(cli.FlagKeyName), keyName, flagWithPrefix(cli.FlagRefundID), refundID}
-	args = append(args, testKeyringFlags(keyringDir+"-"+coreum.KeyringSuffix)...)
+	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
@@ -961,7 +961,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 		refundID,
 	).Return(nil)
 	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
-	args = append(args, testKeyringFlags(keyringDir+"-"+coreum.KeyringSuffix)...)
+	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
@@ -1135,6 +1135,7 @@ func addKeyToTestKeyring(t *testing.T, keyringDir, keyName, suffix, hdPath strin
 	require.NoError(t, err)
 }
 
+//nolint:unparam // using global suffix will make tests less readable.
 func readKeyFromTestKeyring(t *testing.T, keyringDir, keyName, suffix string) sdk.AccAddress {
 	keyringDir += "-" + suffix
 	cmd := keys.ShowKeysCmd()

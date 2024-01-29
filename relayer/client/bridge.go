@@ -449,7 +449,7 @@ func (b *BridgeClient) RecoverXRPLTokenRegistration(
 		zap.String("currency", currency),
 		zap.String("issuer", issuer),
 	)
-	_, err := b.contractClient.RecoverXRPLTokenRegistration(
+	txRes, err := b.contractClient.RecoverXRPLTokenRegistration(
 		ctx,
 		sender,
 		issuer,
@@ -461,9 +461,10 @@ func (b *BridgeClient) RecoverXRPLTokenRegistration(
 
 	b.log.Info(
 		ctx,
-		"Recovering xrpl token registraiton was sucessful",
+		"Recovering xrpl token registraiton was successful",
 		zap.String("currency", currency),
 		zap.String("issuer", issuer),
+		zap.String("txhash", txRes.TxHash),
 	)
 
 	return nil
