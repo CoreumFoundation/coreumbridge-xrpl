@@ -1284,7 +1284,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_json_binary(&query_coreum_tokens(deps, offset, limit)?)
         }
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
-        QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
+        QueryMsg::PendingOperations { offset, limit } => to_json_binary(&query_pending_operations(deps, offset, limit)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
         QueryMsg::PendingRefunds {
             address,
@@ -1346,9 +1346,17 @@ fn query_coreum_tokens(
     Ok(CoreumTokensResponse { tokens })
 }
 
-fn query_pending_operations(deps: Deps) -> StdResult<PendingOperationsResponse> {
+fn query_pending_operations(
+    deps: Deps,
+    offset: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<PendingOperationsResponse> {
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
+    let offset = offset.unwrap_or_default();
     let operations: Vec<Operation> = PENDING_OPERATIONS
         .range(deps.storage, None, None, Order::Ascending)
+        .skip(offset as usize)
+        .take(limit as usize)
         .filter_map(|v| v.ok())
         .map(|(_, v)| v)
         .collect();

@@ -112,7 +112,7 @@ restart-dev-env:
 
 .PHONY: build-dev-env
 build-dev-env:
-	crust build/crust images/cored
+	crust build images
 
 .PHONY: smoke
 smoke:

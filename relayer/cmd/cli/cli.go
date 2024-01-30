@@ -147,6 +147,11 @@ type BridgeClient interface {
 		sender sdk.AccAddress,
 		cfg bridgeclient.KeysRotationConfig,
 	) error
+	UpdateXRPLBaseFee(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		xrplBaseFee uint32,
+	) error
 	GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error)
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
 	GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error)
@@ -930,6 +935,58 @@ $ rotate-keys new-keys.yaml --%s owner
 	addHomeFlag(cmd)
 
 	cmd.PersistentFlags().Bool(FlagInitOnly, false, "Init default config")
+
+	return cmd
+}
+
+// UpdateXRPLBaseFeeCmd updates the XRPL base fee in the bridge contract.
+func UpdateXRPLBaseFeeCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-xrpl-base-fee [fee]",
+		Short: "Update XRPL base fee in the bridge contract.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Update XRPL base fee in the bridge contract.
+Example:
+$ update-xrpl-base-fee 20 --%s owner
+`, FlagKeyName)),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			if err != nil {
+				return err
+			}
+
+			xrplBaseFee, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return errors.Wrapf(err, "invalid XRPL base fee: %s", args[0])
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			return bridgeClient.UpdateXRPLBaseFee(
+				ctx,
+				owner,
+				uint32(xrplBaseFee),
+			)
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
 
 	return cmd
 }

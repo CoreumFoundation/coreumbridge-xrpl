@@ -4,6 +4,7 @@
 package processes_test
 
 import (
+	"context"
 	"sort"
 	"testing"
 
@@ -20,6 +21,7 @@ import (
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestKeysRotation(t *testing.T) {
@@ -107,7 +109,7 @@ func TestKeysRotation(t *testing.T) {
 
 	newRunnerEnv := NewRunnerEnv(ctx, t, newRunnerEnvCfg, chains)
 
-	newSigningThreshold := 3
+	newSigningThreshold := uint32(3)
 	// take 4 relayers (1 from prev and 3 from new set)
 	updatedRelayers := []bridgeclient.RelayerConfig{
 		initialRunnerEnv.BootstrappingConfig.Relayers[0],
@@ -130,28 +132,7 @@ func TestKeysRotation(t *testing.T) {
 
 	initialRunnerEnv.AwaitNoPendingOperations(ctx, t)
 
-	xrplBridgeAccountInfo, err := initialRunnerEnv.Chains.XRPL.RPCClient().
-		AccountInfo(ctx, initialRunnerEnv.BridgeXRPLAddress)
-	require.NoError(t, err)
-
-	newSignerEntries := make([]rippledata.SignerEntry, 0, len(updatedRelayers))
-	for _, relayer := range updatedRelayers {
-		xrplRelayerAccount, err := rippledata.NewAccountFromAddress(relayer.XRPLAddress)
-		require.NoError(t, err)
-		newSignerEntries = append(newSignerEntries, rippledata.SignerEntry{
-			SignerEntry: rippledata.SignerEntryItem{
-				Account:      xrplRelayerAccount,
-				SignerWeight: lo.ToPtr(uint16(1)),
-			},
-		})
-	}
-	require.Len(t, xrplBridgeAccountInfo.AccountData.SignerList, 1)
-	require.Equal(t, uint32(newSigningThreshold), *xrplBridgeAccountInfo.AccountData.SignerList[0].SignerQuorum)
-
-	xrplBridgerAddressSignerEntries := xrplBridgeAccountInfo.AccountData.SignerList[0].SignerEntries
-	sortSignerEntries(newSignerEntries)
-	sortSignerEntries(xrplBridgerAddressSignerEntries)
-	require.EqualValues(t, newSignerEntries, xrplBridgerAddressSignerEntries)
+	assertSignersAreUpdated(ctx, t, initialRunnerEnv, updatedRelayers, newSigningThreshold)
 
 	contractCfgAfterRotationAcceptance, err := initialRunnerEnv.ContractClient.GetContractConfig(ctx)
 	require.NoError(t, err)
@@ -228,6 +209,116 @@ func TestKeysRotation(t *testing.T) {
 		relayerBalanceAfter.Balance.Amount.Sub(amountToClaim.Amount).String(),
 		relayerBalanceBefore.Balance.Amount.String(),
 	)
+}
+
+func TestKeysRotationWithMaxSignerCount(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	coreumSenderAddress := chains.Coreum.GenAccount()
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
+		Amount: sdkmath.NewInt(1_000_000),
+	})
+	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
+
+	initialRunnerEnvCfg := DefaultRunnerEnvConfig()
+	// expect the UnauthorizedSender since after the rotation senders will become unauthorized
+	initialRunnerEnvCfg.CustomErrorHandler = coreum.IsUnauthorizedSenderError
+
+	initialRunnerEnv := NewRunnerEnv(ctx, t, initialRunnerEnvCfg, chains)
+	initialRunnerEnv.StartAllRunnerProcesses()
+	initialRunnerEnv.AllocateTickets(ctx, t, 200)
+
+	// rotate max allowed signers set
+	newRunnerEnvCfg := DefaultRunnerEnvConfig()
+	newRunnerEnvCfg.RelayersCount = xrpl.MaxAllowedXRPLSigners
+	newRunnerEnvCfg.SigningThreshold = xrpl.MaxAllowedXRPLSigners
+	newRunnerEnvCfg.CustomBridgeXRPLAddress = &initialRunnerEnv.BridgeXRPLAddress
+	newRunnerEnvCfg.CustomContractAddress = lo.ToPtr(initialRunnerEnv.ContractClient.GetContractAddress())
+	newRunnerEnvCfg.CustomContractOwner = &initialRunnerEnv.ContractOwner
+	// replace all relayers
+	newRunnerEnv := NewRunnerEnv(ctx, t, newRunnerEnvCfg, chains)
+	newSigningThreshold := xrpl.MaxAllowedXRPLSigners
+	require.NoError(t, initialRunnerEnv.BridgeClient.RotateKeys(
+		ctx,
+		initialRunnerEnv.ContractOwner,
+		bridgeclient.KeysRotationConfig{
+			Relayers:          newRunnerEnv.BootstrappingConfig.Relayers,
+			EvidenceThreshold: newSigningThreshold,
+		},
+	))
+	initialRunnerEnv.AwaitNoPendingOperations(ctx, t)
+	assertSignersAreUpdated(ctx, t, initialRunnerEnv, newRunnerEnv.BootstrappingConfig.Relayers, newSigningThreshold)
+
+	// activate the bridge and start new relayers
+	require.NoError(t, initialRunnerEnv.BridgeClient.ResumeBridge(ctx, initialRunnerEnv.ContractOwner))
+	newRunnerEnv.StartAllRunnerProcesses()
+
+	// register coreum denom
+	registeredCoreumOriginatedToken := initialRunnerEnv.RegisterCoreumOriginatedToken(
+		ctx,
+		t,
+		// use Coreum denom
+		chains.Coreum.ChainSettings.Denom,
+		6,
+		6,
+		sdkmath.NewIntWithDecimal(1, 30),
+		sdkmath.ZeroInt(),
+	)
+
+	// send TrustSet to be able to receive coins from the bridge
+	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)
+	require.NoError(t, err)
+	initialRunnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, initialRunnerEnv.BridgeXRPLAddress, xrplCurrency)
+
+	amountToSendToXRPL := sdkmath.NewInt(100)
+	initialRunnerEnv.SendFromCoreumToXRPL(
+		ctx,
+		t,
+		coreumSenderAddress,
+		xrplRecipientAddress,
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
+		nil,
+	)
+
+	initialRunnerEnv.AwaitNoPendingOperations(ctx, t)
+
+	balance := initialRunnerEnv.Chains.XRPL.GetAccountBalance(
+		ctx, t, xrplRecipientAddress, initialRunnerEnv.BridgeXRPLAddress, xrplCurrency,
+	)
+	require.Equal(t, "0.0001", balance.Value.String())
+}
+
+func assertSignersAreUpdated(
+	ctx context.Context,
+	t *testing.T,
+	initialRunnerEnv *RunnerEnv,
+	updatedRelayers []bridgeclient.RelayerConfig,
+	newSigningThreshold uint32,
+) {
+	xrplBridgeAccountInfo, err := initialRunnerEnv.Chains.XRPL.RPCClient().
+		AccountInfo(ctx, initialRunnerEnv.BridgeXRPLAddress)
+	require.NoError(t, err)
+
+	newSignerEntries := make([]rippledata.SignerEntry, 0, len(updatedRelayers))
+	for _, relayer := range updatedRelayers {
+		xrplRelayerAccount, err := rippledata.NewAccountFromAddress(relayer.XRPLAddress)
+		require.NoError(t, err)
+		newSignerEntries = append(newSignerEntries, rippledata.SignerEntry{
+			SignerEntry: rippledata.SignerEntryItem{
+				Account:      xrplRelayerAccount,
+				SignerWeight: lo.ToPtr(uint16(1)),
+			},
+		})
+	}
+	require.Len(t, xrplBridgeAccountInfo.AccountData.SignerList, 1)
+	require.Equal(t, newSigningThreshold, *xrplBridgeAccountInfo.AccountData.SignerList[0].SignerQuorum)
+
+	xrplBridgerAddressSignerEntries := xrplBridgeAccountInfo.AccountData.SignerList[0].SignerEntries
+	sortSignerEntries(newSignerEntries)
+	sortSignerEntries(xrplBridgerAddressSignerEntries)
+	require.EqualValues(t, newSignerEntries, xrplBridgerAddressSignerEntries)
 }
 
 func sortSignerEntries(signerEntries []rippledata.SignerEntry) {

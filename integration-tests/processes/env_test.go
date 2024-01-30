@@ -34,10 +34,11 @@ import (
 // RunnerEnvConfig is runner environment config.
 type RunnerEnvConfig struct {
 	AwaitTimeout                time.Duration
-	SigningThreshold            int
-	RelayersCount               int
-	MaliciousRelayerNumber      int
-	UsedTicketSequenceThreshold int
+	SigningThreshold            uint32
+	RelayersCount               uint32
+	MaliciousRelayerNumber      uint32
+	UsedTicketSequenceThreshold uint32
+	XRPLBaseFee                 uint32
 	TrustSetLimitAmount         sdkmath.Int
 	CustomBridgeXRPLAddress     *rippledata.Account
 	CustomContractAddress       *sdk.AccAddress
@@ -54,6 +55,7 @@ func DefaultRunnerEnvConfig() RunnerEnvConfig {
 		RelayersCount:               3,
 		MaliciousRelayerNumber:      0,
 		UsedTicketSequenceThreshold: 150,
+		XRPLBaseFee:                 xrpl.DefaultXRPLBaseFee,
 		TrustSetLimitAmount:         sdkmath.NewIntWithDecimal(1, 35),
 		CustomBridgeXRPLAddress:     nil,
 		CustomContractAddress:       nil,
@@ -121,7 +123,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	)
 
 	bootstrappingRelayers := make([]bridgeclient.RelayerConfig, 0)
-	for i := 0; i < cfg.RelayersCount; i++ {
+	for i := 0; i < int(cfg.RelayersCount); i++ {
 		relayerCoreumAddress := relayerCoreumAddresses[i]
 		relayerXRPLAddress := relayerXRPLAddresses[i]
 		relayerXRPLPubKey := relayerXRPLPubKeys[i]
@@ -140,6 +142,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		UsedTicketSequenceThreshold: cfg.UsedTicketSequenceThreshold,
 		TrustSetLimitAmount:         cfg.TrustSetLimitAmount.String(),
 		ContractByteCodePath:        integrationtests.CompiledContractFilePath,
+		XRPLBaseFee:                 cfg.XRPLBaseFee,
 		SkipXRPLBalanceValidation:   true,
 	}
 
@@ -157,7 +160,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 
 	runners := make([]*runner.Runner, 0, cfg.RelayersCount)
 	// add correct relayers
-	for i := 0; i < cfg.RelayersCount-cfg.MaliciousRelayerNumber; i++ {
+	for i := 0; i < int(cfg.RelayersCount-cfg.MaliciousRelayerNumber); i++ {
 		runners = append(
 			runners,
 			createDevRunner(
@@ -499,12 +502,12 @@ func genCoreumRelayers(
 	ctx context.Context,
 	t *testing.T,
 	coreumChain integrationtests.CoreumChain,
-	relayersCount int,
+	relayersCount uint32,
 ) []sdk.AccAddress {
 	t.Helper()
 
 	addresses := make([]sdk.AccAddress, 0, relayersCount)
-	for i := 0; i < relayersCount; i++ {
+	for i := 0; i < int(relayersCount); i++ {
 		relayerAddress := coreumChain.GenAccount()
 		coreumChain.FundAccountWithOptions(ctx, t, relayerAddress, coreumintegration.BalancesOptions{
 			Amount: sdkmath.NewIntFromUint64(1_000_000),
@@ -519,7 +522,7 @@ func genBridgeXRPLAccountWithRelayers(
 	ctx context.Context,
 	t *testing.T,
 	xrplChain integrationtests.XRPLChain,
-	signersCount int,
+	signersCount uint32,
 ) (rippledata.Account, []rippledata.Account, []rippledata.PublicKey) {
 	t.Helper()
 	// some fee to cover simple txs all extras must be allocated in the test
@@ -528,7 +531,7 @@ func genBridgeXRPLAccountWithRelayers(
 	t.Logf("Bridge account is generated, address:%s", bridgeXRPLAddress.String())
 	signerAccounts := make([]rippledata.Account, 0, signersCount)
 	signerPubKeys := make([]rippledata.PublicKey, 0, signersCount)
-	for i := 0; i < signersCount; i++ {
+	for i := 0; i < int(signersCount); i++ {
 		signerAcc := xrplChain.GenAccount(ctx, t, 0)
 		signerAccounts = append(signerAccounts, signerAcc)
 		t.Logf("Signer %d is generated, address:%s", i+1, signerAcc.String())

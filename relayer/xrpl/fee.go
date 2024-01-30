@@ -5,15 +5,17 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 )
 
-// XRPLFee is static fee we use for the XRPL transaction submission.
-// According to https://xrpl.org/transaction-cost.html multisigned transaction require fee equal to
-// 10 drops * (1 + Number of Signatures Provided).
-// For simplicity, we assume that there are maximum 32 signatures.
-const XRPLFee = "330"
+const (
+	// DefaultXRPLBaseFee is default XRPL base fee used for transactions.
+	DefaultXRPLBaseFee = uint32(10)
+)
 
-// GetTxFee returns the fee required for the transaction.
-func GetTxFee(_ rippledata.Transaction) (rippledata.Value, error) {
-	fee, err := rippledata.NewValue(XRPLFee, true)
+// GetMultiSigningTxFee is static fee we use for the XRPL transaction submission.
+// According to https://xrpl.org/transaction-cost.html multisigned transaction require fee equal to
+// xrpl_base_fee * (1 + Number of Signatures Provided).
+// For simplicity, we assume that there are maximum 32 signatures.
+func GetMultiSigningTxFee(xrplBaseFee uint32) (rippledata.Value, error) {
+	fee, err := rippledata.NewNativeValue(int64(xrplBaseFee * (1 + MaxAllowedXRPLSigners)))
 	if err != nil {
 		return rippledata.Value{}, errors.Wrapf(err, "failed to convert fee to ripple fee")
 	}

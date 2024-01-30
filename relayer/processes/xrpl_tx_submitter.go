@@ -269,16 +269,25 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 			"The transaction has been sent, but will be reverted since account used in the transaction doesn't exist.",
 		)
 		return nil
+	case xrpl.TelInsufFeeP:
+		// TODO(dzmitryhil) add metric/alert here
+		s.log.Warn(
+			ctx,
+			"The Fee from the transaction is not high enough to meet the server's current transaction cost requirement.",
+		)
+		return nil
 	case xrpl.TecInsufficientReserveTxResult:
 		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
 		s.log.Error(
 			ctx,
 			"Insufficient reserve to complete the operation",
+			zap.Error(err),
 		)
 		return nil
+
 	default:
 		// TODO(dzmitryhil) handle the case when the keys are rotated but the bridgeSigners are from the previous state
-		return errors.Errorf("failed to submit transaction, receveid unexpected result, result:%+v", txRes)
+		return errors.Errorf("failed to submit transaction, receveid unexpected result, result:%+v, tx:%+v", txRes, tx)
 	}
 }
 
@@ -445,6 +454,7 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 		ctx,
 		s.cfg.RelayerCoreumAddress,
 		operation.GetOperationID(),
+		operation.Version,
 		signer.Signer.TxnSignature.String(),
 	)
 	if err == nil {
@@ -460,6 +470,9 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 		return nil
 	}
 	if coreum.IsPendingOperationNotFoundError(err) {
+		return nil
+	}
+	if coreum.IsOperationVersionMismatchError(err) {
 		return nil
 	}
 

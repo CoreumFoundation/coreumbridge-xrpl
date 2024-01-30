@@ -23,6 +23,10 @@ const (
 	TefMaxLedgerTxResult = "tefMAX_LEDGER"
 	// TecInsufficientReserveTxResult defines that reserve is insufficient to complete requested operation.
 	TecInsufficientReserveTxResult = "tecINSUFFICIENT_RESERVE"
+	// TelInsufFeeP defines that fee from the transaction is not high enough to meet the server's current transaction
+	//	cost requirement, which is derived from its load level and network-level requirements. If the individual server
+	//	is too busy to process your transaction right now, it may cache the transaction and automatically retry later.
+	TelInsufFeeP = "telINSUF_FEE_P"
 	// TecTxResultPrefix is `tec` prefix for tx result.
 	TecTxResultPrefix = "tec"
 	// TemTxResultPrefix is `tem` prefix for tx result.
@@ -51,6 +55,8 @@ const (
 	XRPCurrencyDecimals = 6
 	// MaxTicketsToAllocate is the max supported tickets count to allocate.
 	MaxTicketsToAllocate = uint32(250)
+	// MaxAllowedXRPLSigners max signers for the signers set.
+	MaxAllowedXRPLSigners = uint32(32)
 )
 
 // XRP token constants.

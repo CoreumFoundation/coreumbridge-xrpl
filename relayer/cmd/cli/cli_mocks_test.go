@@ -259,6 +259,20 @@ func (mr *MockBridgeClientMockRecorder) UpdateCoreumToken(arg0, arg1, arg2, arg3
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCoreumToken", reflect.TypeOf((*MockBridgeClient)(nil).UpdateCoreumToken), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
+// UpdateXRPLBaseFee mocks base method.
+func (m *MockBridgeClient) UpdateXRPLBaseFee(arg0 context.Context, arg1 types.AccAddress, arg2 uint32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateXRPLBaseFee", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateXRPLBaseFee indicates an expected call of UpdateXRPLBaseFee.
+func (mr *MockBridgeClientMockRecorder) UpdateXRPLBaseFee(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateXRPLBaseFee", reflect.TypeOf((*MockBridgeClient)(nil).UpdateXRPLBaseFee), arg0, arg1, arg2)
+}
+
 // UpdateXRPLToken mocks base method.
 func (m *MockBridgeClient) UpdateXRPLToken(arg0 context.Context, arg1 types.AccAddress, arg2, arg3 string, arg4 *coreum.TokenState, arg5 *int32, arg6, arg7 *math.Int) error {
 	m.ctrl.T.Helper()

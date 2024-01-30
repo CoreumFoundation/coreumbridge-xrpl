@@ -136,7 +136,10 @@ pub enum QueryMsg {
         limit: Option<u32>,
     },
     #[returns(PendingOperationsResponse)]
-    PendingOperations {},
+    PendingOperations {
+        offset: Option<u64>,
+        limit: Option<u32>,
+    },
     #[returns(AvailableTicketsResponse)]
     AvailableTickets {},
     #[returns(FeesCollectedResponse)]
