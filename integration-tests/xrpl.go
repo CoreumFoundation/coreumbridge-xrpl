@@ -260,18 +260,24 @@ func (c XRPLChain) GetAccountBalances(
 		Value: accInfo.AccountData.Balance,
 	}
 	// none xrp amounts
-	accLines, err := c.rpcClient.AccountLines(ctx, acc, "closed", nil)
-	require.NoError(t, err)
-
-	for _, line := range accLines.Lines {
-		lineCopy := line
-		amounts[fmt.Sprintf(
-			"%s/%s",
-			xrpl.ConvertCurrencyToString(lineCopy.Currency), lineCopy.Account.String())] = rippledata.Amount{
-			Value:    &lineCopy.Balance.Value,
-			Currency: lineCopy.Currency,
-			Issuer:   lineCopy.Account,
+	marker := ""
+	for {
+		accLines, err := c.rpcClient.AccountLines(ctx, acc, "closed", marker)
+		require.NoError(t, err)
+		for _, line := range accLines.Lines {
+			lineCopy := line
+			amounts[fmt.Sprintf(
+				"%s/%s",
+				xrpl.ConvertCurrencyToString(lineCopy.Currency), lineCopy.Account.String())] = rippledata.Amount{
+				Value:    &lineCopy.Balance.Value,
+				Currency: lineCopy.Currency,
+				Issuer:   lineCopy.Account,
+			}
 		}
+		if accLines.Marker == "" {
+			break
+		}
+		marker = accLines.Marker
 	}
 
 	return amounts

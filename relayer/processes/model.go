@@ -35,6 +35,11 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		evd coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence,
 	) (*sdk.TxResponse, error)
+	SendKeysRotationTransactionResultEvidence(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		evd coreum.XRPLTransactionResultKeysRotationEvidence,
+	) (*sdk.TxResponse, error)
 	SaveSignature(
 		ctx context.Context,
 		sender sdk.AccAddress,

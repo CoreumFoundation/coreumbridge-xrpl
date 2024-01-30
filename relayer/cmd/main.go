@@ -71,14 +71,20 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.RegisterCoreumTokenCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.UpdateCoreumTokenCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.RegisterXRPLTokenCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.RecoverXRPLTokenRegistrationCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.UpdateXRPLTokenCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.RotateKeysCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.RegisteredTokensCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.SendFromCoreumToXRPLCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.SendFromXRPLToCoreumCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.CoreumBalancesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.XRPLBalancesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.SetXRPLTrustSetCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.VersionCommand())
+	cmd.AddCommand(cli.VersionCmd())
+	cmd.AddCommand(cli.GetPendingRefundsCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.ClaimRefundCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.ClaimRelayerFeesCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.GetRelayerFeesCmd(bridgeClientProvider))
 
 	return cmd, nil
 }

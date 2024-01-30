@@ -41,6 +41,9 @@ const (
 	ExecUpdateXRPLToken               ExecMethod = "update_xrpl_token"
 	ExecUpdateCoreumToken             ExecMethod = "update_coreum_token"
 	ExecClaimRefund                   ExecMethod = "claim_refund"
+	ExecRotateKeys                    ExecMethod = "rotate_keys"
+	ExecHaltBridge                    ExecMethod = "halt_bridge"
+	ExecResumeBridge                  ExecMethod = "resume_bridge"
 )
 
 // TransactionResult is transaction result.
@@ -53,7 +56,7 @@ const (
 	TransactionResultInvalid  TransactionResult = "invalid"
 )
 
-// TokenState is transaction result.
+// TokenState is token state.
 type TokenState string
 
 // TokenState values.
@@ -62,6 +65,15 @@ const (
 	TokenStateDisabled   TokenState = "disabled"
 	TokenStateProcessing TokenState = "processing"
 	TokenStateInactive   TokenState = "inactive"
+)
+
+// BridgeState is bridge state.
+type BridgeState string
+
+// BridgeState values.
+const (
+	BridgeStateActive BridgeState = "active"
+	BridgeStateHalted BridgeState = "halted"
 )
 
 // QueryMethod is contract query method.
@@ -105,6 +117,7 @@ type ContractConfig struct {
 	UsedTicketSequenceThreshold int         `json:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         sdkmath.Int `json:"trust_set_limit_amount"`
 	BridgeXRPLAddress           string      `json:"bridge_xrpl_address"`
+	BridgeState                 string      `json:"bridge_state"`
 }
 
 // ContractOwnership is owner contract config.
@@ -157,20 +170,22 @@ type XRPLTransactionResultEvidence struct {
 // XRPLTransactionResultTicketsAllocationEvidence is evidence of the tickets allocation transaction.
 type XRPLTransactionResultTicketsAllocationEvidence struct {
 	XRPLTransactionResultEvidence
-	// we don't use the tag here since have we don't use that struct as transport object
+	// we don't use the tag here since we don't use that struct as transport object
 	Tickets []uint32
 }
 
 // XRPLTransactionResultTrustSetEvidence is evidence of the trust set transaction.
 type XRPLTransactionResultTrustSetEvidence struct {
 	XRPLTransactionResultEvidence
-	// we don't use the tag here since have we don't use that struct as transport object
-	Issuer   string
-	Currency string
 }
 
 // XRPLTransactionResultCoreumToXRPLTransferEvidence is evidence of the sending from XRPL to coreum.
 type XRPLTransactionResultCoreumToXRPLTransferEvidence struct {
+	XRPLTransactionResultEvidence
+}
+
+// XRPLTransactionResultKeysRotationEvidence is evidence of the multi-signing account keys rotation.
+type XRPLTransactionResultKeysRotationEvidence struct {
 	XRPLTransactionResultEvidence
 }
 
@@ -194,10 +209,17 @@ type OperationTypeTrustSet struct {
 
 // OperationTypeCoreumToXRPLTransfer is coreum to XRPL transfer operation type.
 type OperationTypeCoreumToXRPLTransfer struct {
-	Issuer    string      `json:"issuer"`
-	Currency  string      `json:"currency"`
-	Amount    sdkmath.Int `json:"amount"`
-	Recipient string      `json:"recipient"`
+	Issuer    string       `json:"issuer"`
+	Currency  string       `json:"currency"`
+	Amount    sdkmath.Int  `json:"amount"`
+	MaxAmount *sdkmath.Int `json:"max_amount,omitempty"`
+	Recipient string       `json:"recipient"`
+}
+
+// OperationTypeRotateKeys is XRPL multi-signing address keys rotation operation type.
+type OperationTypeRotateKeys struct {
+	NewRelayers          []Relayer `json:"new_relayers"`
+	NewEvidenceThreshold int       `json:"new_evidence_threshold"`
 }
 
 // OperationType is operation type.
@@ -205,6 +227,7 @@ type OperationType struct {
 	AllocateTickets      *OperationTypeAllocateTickets      `json:"allocate_tickets,omitempty"`
 	TrustSet             *OperationTypeTrustSet             `json:"trust_set,omitempty"`
 	CoreumToXRPLTransfer *OperationTypeCoreumToXRPLTransfer `json:"coreum_to_xrpl_transfer,omitempty"`
+	RotateKeys           *OperationTypeRotateKeys           `json:"rotate_keys,omitempty"`
 }
 
 // Operation is contract operation which should be signed and executed.
@@ -267,6 +290,11 @@ type recoverTicketsRequest struct {
 	NumberOfTickets *uint32 `json:"number_of_tickets,omitempty"`
 }
 
+type rotateKeysRequest struct {
+	NewRelayers          []Relayer `json:"new_relayers"`
+	NewEvidenceThreshold int       `json:"new_evidence_threshold"`
+}
+
 type saveSignatureRequest struct {
 	OperationID      uint32 `json:"operation_id"`
 	OperationVersion uint32 `json:"operation_version"`
@@ -274,7 +302,8 @@ type saveSignatureRequest struct {
 }
 
 type sendToXRPLRequest struct {
-	Recipient string `json:"recipient"`
+	DeliverAmount *sdkmath.Int `json:"deliver_amount,omitempty"`
+	Recipient     string       `json:"recipient"`
 }
 
 type recoverXRPLTokenRegistrationRequest struct {
@@ -310,11 +339,6 @@ type claimRefundRequest struct {
 type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
 	Tickets []uint32 `json:"tickets"`
 }
-
-// TODO(dzmitryhil) refactor this.
-/*type xrplTransactionEvidenceTrustSetOperationResult struct{}
-
-type xrplTransactionEvidenceCoreumToXRPLTransferOperationResult struct{}*/
 
 type xrplTransactionEvidenceOperationResult struct {
 	TicketsAllocation *xrplTransactionEvidenceTicketsAllocationOperationResult `json:"tickets_allocation,omitempty"`
@@ -712,6 +736,32 @@ func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(
 	return txRes, nil
 }
 
+// SendKeysRotationTransactionResultEvidence sends an Evidence of an accepted or
+// rejected coreum to XRPL transfer transaction.
+func (c *ContractClient) SendKeysRotationTransactionResultEvidence(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	evd XRPLTransactionResultKeysRotationEvidence,
+) (*sdk.TxResponse, error) {
+	req := saveEvidenceRequest{
+		Evidence: evidence{
+			XRPLTransactionResult: &xrplTransactionResultEvidence{
+				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
+			},
+		},
+	}
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]saveEvidenceRequest{
+			ExecMethodSaveEvidence: req,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
 // RecoverTickets executes `recover_tickets` method.
 func (c *ContractClient) RecoverTickets(
 	ctx context.Context,
@@ -764,11 +814,13 @@ func (c *ContractClient) SendToXRPL(
 	sender sdk.AccAddress,
 	recipient string,
 	amount sdk.Coin,
+	deliverAmount *sdkmath.Int,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]sendToXRPLRequest{
 			ExecSendToXRPL: {
-				Recipient: recipient,
+				DeliverAmount: deliverAmount,
+				Recipient:     recipient,
 			},
 		},
 		Funds: sdk.NewCoins(amount),
@@ -801,11 +853,11 @@ func (c *ContractClient) RecoverXRPLTokenRegistration(
 	return txRes, nil
 }
 
-// ClaimFees calls the contract to claim the fees for a given relayer.
-func (c *ContractClient) ClaimFees(
+// ClaimRelayerFees calls the contract to claim the fees for a given relayer.
+func (c *ContractClient) ClaimRelayerFees(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	amounts []sdk.Coin,
+	amounts sdk.Coins,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]claimFeesRequest{
@@ -889,6 +941,62 @@ func (c *ContractClient) ClaimRefund(
 			ExecClaimRefund: {
 				PendingRefundID: pendingRefundID,
 			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// RotateKeys executes `rotate_keys` method.
+func (c *ContractClient) RotateKeys(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	newRelayers []Relayer,
+	newEvidenceThreshold int,
+) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]rotateKeysRequest{
+			ExecRotateKeys: {
+				NewRelayers:          newRelayers,
+				NewEvidenceThreshold: newEvidenceThreshold,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// HaltBridge executes `halt_bridge` method.
+func (c *ContractClient) HaltBridge(
+	ctx context.Context,
+	sender sdk.AccAddress,
+) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]struct{}{
+			ExecHaltBridge: {},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// ResumeBridge executes `resume_bridge` method.
+func (c *ContractClient) ResumeBridge(
+	ctx context.Context,
+	sender sdk.AccAddress,
+) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]struct{}{
+			ExecResumeBridge: {},
 		},
 	})
 	if err != nil {
@@ -1289,9 +1397,29 @@ func IsInvalidTargetTokenStateError(err error) bool {
 	return isError(err, "InvalidTargetTokenState")
 }
 
+// IsBridgeHaltedError returns true if error is `BridgeHalted`.
+func IsBridgeHaltedError(err error) bool {
+	return isError(err, "BridgeHalted")
+}
+
+// IsRotateKeysOngoingError returns true if error is `RotateKeysOngoing`.
+func IsRotateKeysOngoingError(err error) bool {
+	return isError(err, "RotateKeysOngoing")
+}
+
 // IsInvalidTargetMaxHoldingAmountError returns true if error is `InvalidTargetMaxHoldingAmount`.
 func IsInvalidTargetMaxHoldingAmountError(err error) bool {
 	return isError(err, "InvalidTargetMaxHoldingAmount")
+}
+
+// IsInvalidDeliverAmountError returns true if error is `InvalidDeliverAmount`.
+func IsInvalidDeliverAmountError(err error) bool {
+	return isError(err, "InvalidDeliverAmount")
+}
+
+// IsDeliverAmountIsProhibitedError returns true if error is `DeliverAmountIsProhibited`.
+func IsDeliverAmountIsProhibitedError(err error) bool {
+	return isError(err, "DeliverAmountIsProhibited")
 }
 
 // ******************** Asset FT errors ********************

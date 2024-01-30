@@ -235,7 +235,7 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 	if txRes.EngineResult.Success() {
 		s.log.Info(
 			ctx,
-			"Transaction has been successfully submitted",
+			"XRPL multi-sign transaction has been successfully submitted",
 			zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
 			zap.Any("tx", tx),
 		)
@@ -247,7 +247,6 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 		s.log.Debug(
 			ctx,
 			"Transaction has been already submitted",
-			zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
 		)
 		return nil
 	case xrpl.TecPathDryTxResult:
@@ -255,20 +254,26 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 		s.log.Info(
 			ctx,
 			"The transaction has been sent, but will be reverted since the provided path does not have enough liquidity or the receipt doesn't link by trust lines.",
-			zap.String("txHash", strings.ToUpper(tx.GetHash().String())))
+		)
+		return nil
+	case xrpl.TecPathPartialTxResult:
+		//nolint:lll // breaking down the log line will make it less readable.
+		s.log.Info(
+			ctx,
+			"The transaction has been sent, but will be reverted because the provided paths did not have enough liquidity to send the full amount.",
+		)
 		return nil
 	case xrpl.TecNoDstTxResult:
 		s.log.Info(
 			ctx,
 			"The transaction has been sent, but will be reverted since account used in the transaction doesn't exist.",
-			zap.String("txHash", strings.ToUpper(tx.GetHash().String())))
+		)
 		return nil
 	case xrpl.TecInsufficientReserveTxResult:
 		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
 		s.log.Error(
 			ctx,
 			"Insufficient reserve to complete the operation",
-			zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
 		)
 		return nil
 	default:
@@ -454,6 +459,9 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 	if coreum.IsSignatureAlreadyProvidedError(err) {
 		return nil
 	}
+	if coreum.IsPendingOperationNotFoundError(err) {
+		return nil
+	}
 
 	return errors.Wrap(err, "failed to register transaction signature")
 }
@@ -464,8 +472,10 @@ func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (
 		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	case isTrustSetOperation(operation):
 		return BuildTrustSetTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
-	case isCoreumToXRPLTransfer(operation):
+	case isCoreumToXRPLTransferOperation(operation):
 		return BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
+	case isRotateKeysOperation(operation):
+		return BuildSignerListSetTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
 	default:
 		return nil, errors.Errorf("failed to process operation, unable to determine operation type, operation:%+v", operation)
 	}
@@ -482,10 +492,16 @@ func isTrustSetOperation(operation coreum.Operation) bool {
 		operation.OperationType.TrustSet.Currency != ""
 }
 
-func isCoreumToXRPLTransfer(operation coreum.Operation) bool {
+func isCoreumToXRPLTransferOperation(operation coreum.Operation) bool {
 	return operation.OperationType.CoreumToXRPLTransfer != nil &&
 		operation.OperationType.CoreumToXRPLTransfer.Issuer != "" &&
 		operation.OperationType.CoreumToXRPLTransfer.Currency != "" &&
 		!operation.OperationType.CoreumToXRPLTransfer.Amount.IsZero() &&
 		operation.OperationType.CoreumToXRPLTransfer.Recipient != ""
+}
+
+func isRotateKeysOperation(operation coreum.Operation) bool {
+	return operation.OperationType.RotateKeys != nil &&
+		len(operation.OperationType.RotateKeys.NewRelayers) != 0 &&
+		operation.OperationType.RotateKeys.NewEvidenceThreshold > 0
 }

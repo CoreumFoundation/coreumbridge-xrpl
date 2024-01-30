@@ -3,6 +3,7 @@ package processes
 import (
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -78,7 +79,7 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 	operation coreum.Operation,
 ) (*rippledata.Payment, error) {
 	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
-	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+	amount, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
 		coreumToXRPLTransferOperationType.Amount,
 		coreumToXRPLTransferOperationType.Issuer,
 		coreumToXRPLTransferOperationType.Currency,
@@ -86,8 +87,21 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 	if err != nil {
 		return nil, err
 	}
+	// if the max amount was provided set it or use nil
+	var maxAmount *rippledata.Amount
+	if coreumToXRPLTransferOperationType.MaxAmount != nil {
+		convertedMaxAmount, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+			*coreumToXRPLTransferOperationType.MaxAmount,
+			coreumToXRPLTransferOperationType.Issuer,
+			coreumToXRPLTransferOperationType.Currency,
+		)
+		if err != nil {
+			return nil, err
+		}
+		maxAmount = &convertedMaxAmount
+	}
 
-	tx, err := buildPaymentTx(bridgeXRPLAddress, operation, value)
+	tx, err := buildPaymentTx(bridgeXRPLAddress, operation, amount, maxAmount)
 	if err != nil {
 		return nil, err
 	}
@@ -95,10 +109,59 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 	return &tx, nil
 }
 
+// BuildSignerListSetTxForMultiSigning builds SignerListSet transaction operation from the contract operation.
+func BuildSignerListSetTxForMultiSigning(
+	bridgeXRPLAddress rippledata.Account,
+	operation coreum.Operation,
+) (*rippledata.SignerListSet, error) {
+	rotateKeysOperationType := operation.OperationType.RotateKeys
+
+	signerEntries := make([]rippledata.SignerEntry, 0, len(rotateKeysOperationType.NewRelayers))
+	for _, relayer := range rotateKeysOperationType.NewRelayers {
+		xrplRelayerAddress, err := rippledata.NewAccountFromAddress(relayer.XRPLAddress)
+		if err != nil {
+			return nil, errors.Wrapf(
+				err, "faield to convert relayer XRPL address to rippledata.Account, address:%s", relayer.XRPLAddress,
+			)
+		}
+		signerEntries = append(signerEntries, rippledata.SignerEntry{
+			SignerEntry: rippledata.SignerEntryItem{
+				Account:      xrplRelayerAddress,
+				SignerWeight: lo.ToPtr(uint16(1)),
+			},
+		})
+	}
+
+	tx := rippledata.SignerListSet{
+		SignerQuorum: uint32(rotateKeysOperationType.NewEvidenceThreshold),
+		TxBase: rippledata.TxBase{
+			Account:         bridgeXRPLAddress,
+			TransactionType: rippledata.SIGNER_LIST_SET,
+		},
+		SignerEntries: signerEntries,
+	}
+	if operation.TicketSequence != 0 {
+		tx.TicketSequence = &operation.TicketSequence
+	} else {
+		tx.TxBase.Sequence = operation.AccountSequence
+	}
+	// important for the multi-signing
+	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+
+	fee, err := xrpl.GetTxFee(&tx)
+	if err != nil {
+		return nil, err
+	}
+	tx.TxBase.Fee = fee
+
+	return &tx, nil
+}
+
 func buildPaymentTx(
 	bridgeXRPLAddress rippledata.Account,
 	operation coreum.Operation,
-	value rippledata.Amount,
+	amount rippledata.Amount,
+	maxAmount *rippledata.Amount,
 ) (rippledata.Payment, error) {
 	recipient, err := rippledata.NewAccountFromAddress(operation.OperationType.CoreumToXRPLTransfer.Recipient)
 	if err != nil {
@@ -114,7 +177,8 @@ func buildPaymentTx(
 			Account:         bridgeXRPLAddress,
 			TransactionType: rippledata.PAYMENT,
 		},
-		Amount: value,
+		Amount:  amount,
+		SendMax: maxAmount,
 	}
 	tx.TicketSequence = &operation.TicketSequence
 	// important for the multi-signing

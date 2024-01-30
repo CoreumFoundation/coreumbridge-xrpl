@@ -55,6 +55,34 @@ func (mr *MockBridgeClientMockRecorder) Bootstrap(arg0, arg1, arg2, arg3 interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockBridgeClient)(nil).Bootstrap), arg0, arg1, arg2, arg3)
 }
 
+// ClaimRefund mocks base method.
+func (m *MockBridgeClient) ClaimRefund(arg0 context.Context, arg1 types.AccAddress, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClaimRefund", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClaimRefund indicates an expected call of ClaimRefund.
+func (mr *MockBridgeClientMockRecorder) ClaimRefund(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimRefund", reflect.TypeOf((*MockBridgeClient)(nil).ClaimRefund), arg0, arg1, arg2)
+}
+
+// ClaimRelayerFees mocks base method.
+func (m *MockBridgeClient) ClaimRelayerFees(arg0 context.Context, arg1 types.AccAddress, arg2 types.Coins) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClaimRelayerFees", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClaimRelayerFees indicates an expected call of ClaimRelayerFees.
+func (mr *MockBridgeClientMockRecorder) ClaimRelayerFees(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimRelayerFees", reflect.TypeOf((*MockBridgeClient)(nil).ClaimRelayerFees), arg0, arg1, arg2)
+}
+
 // GetAllTokens mocks base method.
 func (m *MockBridgeClient) GetAllTokens(arg0 context.Context) ([]coreum.CoreumToken, []coreum.XRPLToken, error) {
 	m.ctrl.T.Helper()
@@ -101,6 +129,36 @@ func (mr *MockBridgeClientMockRecorder) GetCoreumBalances(arg0, arg1 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCoreumBalances", reflect.TypeOf((*MockBridgeClient)(nil).GetCoreumBalances), arg0, arg1)
 }
 
+// GetFeesCollected mocks base method.
+func (m *MockBridgeClient) GetFeesCollected(arg0 context.Context, arg1 types.Address) (types.Coins, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFeesCollected", arg0, arg1)
+	ret0, _ := ret[0].(types.Coins)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFeesCollected indicates an expected call of GetFeesCollected.
+func (mr *MockBridgeClientMockRecorder) GetFeesCollected(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFeesCollected", reflect.TypeOf((*MockBridgeClient)(nil).GetFeesCollected), arg0, arg1)
+}
+
+// GetPendingRefunds mocks base method.
+func (m *MockBridgeClient) GetPendingRefunds(arg0 context.Context, arg1 types.AccAddress) ([]coreum.PendingRefund, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPendingRefunds", arg0, arg1)
+	ret0, _ := ret[0].([]coreum.PendingRefund)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPendingRefunds indicates an expected call of GetPendingRefunds.
+func (mr *MockBridgeClientMockRecorder) GetPendingRefunds(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingRefunds", reflect.TypeOf((*MockBridgeClient)(nil).GetPendingRefunds), arg0, arg1)
+}
+
 // GetXRPLBalances mocks base method.
 func (m *MockBridgeClient) GetXRPLBalances(arg0 context.Context, arg1 data.Account) ([]data.Amount, error) {
 	m.ctrl.T.Helper()
@@ -116,6 +174,20 @@ func (mr *MockBridgeClientMockRecorder) GetXRPLBalances(arg0, arg1 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetXRPLBalances", reflect.TypeOf((*MockBridgeClient)(nil).GetXRPLBalances), arg0, arg1)
 }
 
+// HaltBridge mocks base method.
+func (m *MockBridgeClient) HaltBridge(arg0 context.Context, arg1 types.AccAddress) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HaltBridge", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HaltBridge indicates an expected call of HaltBridge.
+func (mr *MockBridgeClientMockRecorder) HaltBridge(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HaltBridge", reflect.TypeOf((*MockBridgeClient)(nil).HaltBridge), arg0, arg1)
+}
+
 // RecoverTickets mocks base method.
 func (m *MockBridgeClient) RecoverTickets(arg0 context.Context, arg1 types.AccAddress, arg2 uint32) error {
 	m.ctrl.T.Helper()
@@ -128,6 +200,20 @@ func (m *MockBridgeClient) RecoverTickets(arg0 context.Context, arg1 types.AccAd
 func (mr *MockBridgeClientMockRecorder) RecoverTickets(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverTickets", reflect.TypeOf((*MockBridgeClient)(nil).RecoverTickets), arg0, arg1, arg2)
+}
+
+// RecoverXRPLTokenRegistration mocks base method.
+func (m *MockBridgeClient) RecoverXRPLTokenRegistration(arg0 context.Context, arg1 types.AccAddress, arg2, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecoverXRPLTokenRegistration", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecoverXRPLTokenRegistration indicates an expected call of RecoverXRPLTokenRegistration.
+func (mr *MockBridgeClientMockRecorder) RecoverXRPLTokenRegistration(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverXRPLTokenRegistration", reflect.TypeOf((*MockBridgeClient)(nil).RecoverXRPLTokenRegistration), arg0, arg1, arg2, arg3)
 }
 
 // RegisterCoreumToken mocks base method.
@@ -160,18 +246,46 @@ func (mr *MockBridgeClientMockRecorder) RegisterXRPLToken(arg0, arg1, arg2, arg3
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterXRPLToken", reflect.TypeOf((*MockBridgeClient)(nil).RegisterXRPLToken), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
-// SendFromCoreumToXRPL mocks base method.
-func (m *MockBridgeClient) SendFromCoreumToXRPL(arg0 context.Context, arg1 types.AccAddress, arg2 types.Coin, arg3 data.Account) error {
+// ResumeBridge mocks base method.
+func (m *MockBridgeClient) ResumeBridge(arg0 context.Context, arg1 types.AccAddress) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendFromCoreumToXRPL", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "ResumeBridge", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ResumeBridge indicates an expected call of ResumeBridge.
+func (mr *MockBridgeClientMockRecorder) ResumeBridge(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResumeBridge", reflect.TypeOf((*MockBridgeClient)(nil).ResumeBridge), arg0, arg1)
+}
+
+// RotateKeys mocks base method.
+func (m *MockBridgeClient) RotateKeys(arg0 context.Context, arg1 types.AccAddress, arg2 client.KeysRotationConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RotateKeys", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RotateKeys indicates an expected call of RotateKeys.
+func (mr *MockBridgeClientMockRecorder) RotateKeys(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RotateKeys", reflect.TypeOf((*MockBridgeClient)(nil).RotateKeys), arg0, arg1, arg2)
+}
+
+// SendFromCoreumToXRPL mocks base method.
+func (m *MockBridgeClient) SendFromCoreumToXRPL(arg0 context.Context, arg1 types.AccAddress, arg2 data.Account, arg3 types.Coin, arg4 *math.Int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendFromCoreumToXRPL", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendFromCoreumToXRPL indicates an expected call of SendFromCoreumToXRPL.
-func (mr *MockBridgeClientMockRecorder) SendFromCoreumToXRPL(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockBridgeClientMockRecorder) SendFromCoreumToXRPL(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendFromCoreumToXRPL", reflect.TypeOf((*MockBridgeClient)(nil).SendFromCoreumToXRPL), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendFromCoreumToXRPL", reflect.TypeOf((*MockBridgeClient)(nil).SendFromCoreumToXRPL), arg0, arg1, arg2, arg3, arg4)
 }
 
 // SendFromXRPLToCoreum mocks base method.
