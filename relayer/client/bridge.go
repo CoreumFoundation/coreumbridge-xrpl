@@ -98,16 +98,25 @@ type ContractClient interface {
 		pendingRefundID string,
 	) (*sdk.TxResponse, error)
 	GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error)
-	ClaimFees(
+	ClaimRelayerFees(
 		ctx context.Context,
 		sender sdk.AccAddress,
-		amounts []sdk.Coin,
+		amounts sdk.Coins,
 	) (*sdk.TxResponse, error)
 	RotateKeys(
 		ctx context.Context,
 		sender sdk.AccAddress,
 		newRelayers []coreum.Relayer,
 		newEvidenceThreshold int,
+	) (*sdk.TxResponse, error)
+	RecoverXRPLTokenRegistration(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		issuer, currency string,
+	) (*sdk.TxResponse, error)
+	HaltBridge(
+		ctx context.Context,
+		sender sdk.AccAddress,
 	) (*sdk.TxResponse, error)
 	ResumeBridge(
 		ctx context.Context,
@@ -430,6 +439,37 @@ func (b *BridgeClient) RegisterXRPLToken(
 	return token, nil
 }
 
+// RecoverXRPLTokenRegistration recovers xrpl token registration.
+func (b *BridgeClient) RecoverXRPLTokenRegistration(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	issuer, currency string,
+) error {
+	b.log.Info(ctx, "Recovering xrpl token registration",
+		zap.String("currency", currency),
+		zap.String("issuer", issuer),
+	)
+	txRes, err := b.contractClient.RecoverXRPLTokenRegistration(
+		ctx,
+		sender,
+		issuer,
+		currency,
+	)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Recovering xrpl token registraiton was successful",
+		zap.String("currency", currency),
+		zap.String("issuer", issuer),
+		zap.String("txhash", txRes.TxHash),
+	)
+
+	return nil
+}
+
 // GetAllTokens returns all registered tokens.
 func (b *BridgeClient) GetAllTokens(ctx context.Context) ([]coreum.CoreumToken, []coreum.XRPLToken, error) {
 	coreumTokens, err := b.contractClient.GetCoreumTokens(ctx)
@@ -716,11 +756,11 @@ func (b *BridgeClient) GetFeesCollected(ctx context.Context, address sdk.Address
 	return b.contractClient.GetFeesCollected(ctx, address)
 }
 
-// ClaimFees calls the contract to claim the fees for a given relayer.
-func (b *BridgeClient) ClaimFees(
+// ClaimRelayerFees calls the contract to claim the fees for a given relayer.
+func (b *BridgeClient) ClaimRelayerFees(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	amounts []sdk.Coin,
+	amounts sdk.Coins,
 ) error {
 	b.log.Info(
 		ctx,
@@ -728,7 +768,7 @@ func (b *BridgeClient) ClaimFees(
 		zap.Any("amounts", amounts),
 	)
 
-	txRes, err := b.contractClient.ClaimFees(ctx, sender, amounts)
+	txRes, err := b.contractClient.ClaimRelayerFees(ctx, sender, amounts)
 	if err != nil {
 		return err
 	}
@@ -864,6 +904,20 @@ func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
 	}
 
 	return contractRelayers, xrplSignerEntries, nil
+}
+
+// HaltBridge halts the bridg.
+func (b *BridgeClient) HaltBridge(
+	ctx context.Context,
+	sender sdk.AccAddress,
+) error {
+	b.log.Info(ctx, "halting the bridge", zap.String("sender", sender.String()))
+	txRes, err := b.contractClient.HaltBridge(ctx, sender)
+	if err != nil {
+		return err
+	}
+	b.log.Info(ctx, "finished execution of halt-bridge", zap.String("txHash", txRes.TxHash))
+	return nil
 }
 
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(
