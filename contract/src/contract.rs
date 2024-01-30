@@ -45,6 +45,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, get_ownership, initialize_owner, Action};
+use cw_storage_plus::Bound;
 use cw_utils::one_coin;
 
 // version info for migration info
@@ -1299,9 +1300,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::TransactionEvidence { hash } => {
             to_json_binary(&query_transaction_evidence(deps, hash)?)
         }
-        QueryMsg::TransactionEvidences { offset, limit } => {
-            to_json_binary(&query_transaction_evidences(deps, offset, limit)?)
-        }
+        QueryMsg::TransactionEvidences {
+            start_after_key,
+            limit,
+        } => to_json_binary(&query_transaction_evidences(deps, start_after_key, limit)?),
     }
 }
 
@@ -1418,23 +1420,27 @@ fn query_transaction_evidence(deps: Deps, hash: String) -> StdResult<Transaction
 
 fn query_transaction_evidences(
     deps: Deps,
-    offset: Option<u64>,
+    start_after_key: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<TransactionEvidencesResponse> {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
-    let offset = offset.unwrap_or_default();
+    let start = start_after_key.map(Bound::exclusive);
+    let mut last_key = None;
     let transaction_evidences: Vec<TransactionEvidence> = TX_EVIDENCES
-        .range(deps.storage, None, None, Order::Ascending)
-        .skip(offset as usize)
+        .range(deps.storage, start, None, Order::Ascending)
         .take(limit as usize)
         .filter_map(|r| r.ok())
-        .map(|(evidence_hash, e)| TransactionEvidence {
-            hash: evidence_hash,
-            relayer_addresses: e.relayer_coreum_addresses,
+        .map(|(evidence_hash, e)| {
+            last_key = Some(evidence_hash.to_owned());
+            TransactionEvidence {
+                hash: evidence_hash,
+                relayer_addresses: e.relayer_coreum_addresses,
+            }
         })
         .collect();
 
     Ok(TransactionEvidencesResponse {
+        last_key,
         transaction_evidences,
     })
 }

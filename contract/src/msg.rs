@@ -153,7 +153,7 @@ pub enum QueryMsg {
     TransactionEvidence { hash: String },
     #[returns(TransactionEvidencesResponse)]
     TransactionEvidences {
-        offset: Option<u64>,
+        start_after_key: Option<String>,
         limit: Option<u32>,
     },
 }
@@ -207,5 +207,6 @@ pub struct TransactionEvidence {
 
 #[cw_serde]
 pub struct TransactionEvidencesResponse {
+    pub last_key: Option<String>,
     pub transaction_evidences: Vec<TransactionEvidence>,
 }

@@ -720,7 +720,7 @@ mod tests {
             .query::<QueryMsg, TransactionEvidencesResponse>(
                 &contract_addr,
                 &QueryMsg::TransactionEvidences {
-                    offset: None,
+                    start_after_key: None,
                     limit: None,
                 },
             )
@@ -728,13 +728,13 @@ mod tests {
 
         assert_eq!(query_transaction_evidences.transaction_evidences.len(), 2);
 
-        // Let's query all the transactions evidences with pagination
+        // Let's query all the transaction evidences with pagination
         let query_transaction_evidences = wasm
             .query::<QueryMsg, TransactionEvidencesResponse>(
                 &contract_addr,
                 &QueryMsg::TransactionEvidences {
-                    offset: Some(1),
-                    limit: None,
+                    start_after_key: None,
+                    limit: Some(1),
                 },
             )
             .unwrap();
@@ -745,8 +745,8 @@ mod tests {
             .query::<QueryMsg, TransactionEvidencesResponse>(
                 &contract_addr,
                 &QueryMsg::TransactionEvidences {
-                    offset: None,
-                    limit: Some(1),
+                    start_after_key: query_transaction_evidences.last_key,
+                    limit: None,
                 },
             )
             .unwrap();
