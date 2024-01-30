@@ -47,6 +47,12 @@ func init() {
 var DefaultHomeDir string
 
 const (
+	sampleAmount = "100ucore"
+)
+
+const (
+	// FlagAmount is the amount flag.
+	FlagAmount = "amount"
 	// FlagHome is home flag.
 	FlagHome = "home"
 	// FlagKeyName is key name flag.
@@ -153,6 +159,25 @@ type BridgeClient interface {
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
 	GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error)
 	ClaimRefund(ctx context.Context, address sdk.AccAddress, pendingRefundID string) error
+	GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error)
+	ClaimRelayerFees(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		amounts sdk.Coins,
+	) error
+	RecoverXRPLTokenRegistration(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		issuer, currency string,
+	) error
+	HaltBridge(
+		ctx context.Context,
+		sender sdk.AccAddress,
+	) error
+	ResumeBridge(
+		ctx context.Context,
+		sender sdk.AccAddress,
+	) error
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
@@ -825,6 +850,59 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 	return cmd
 }
 
+// RecoverXRPLTokenRegistrationCmd recovers xrpl token registration.
+func RecoverXRPLTokenRegistrationCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "recover-xrpl-token-registration [issuer] [currency]",
+		Short: "Recovers XRPL token registration.",
+		Long: strings.TrimSpace(fmt.Sprintf(
+			`Recovers XRPL token registration.
+Example:
+$ recover-xrpl-token-registration [issuer] [currency] --%s owner
+`, FlagKeyName)),
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			if err != nil {
+				return err
+			}
+
+			issuer, err := rippledata.NewAccountFromAddress(args[0])
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[0])
+			}
+
+			currency, err := rippledata.NewCurrency(args[1])
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert currency string to rippledata.Currency: %s", args[1])
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			return bridgeClient.RecoverXRPLTokenRegistration(ctx, owner, issuer.String(), currency.String())
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
 // UpdateXRPLTokenCmd updates the XRPL originated token in the bridge contract.
 func UpdateXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
@@ -1361,7 +1439,13 @@ $ claim-refund --%s claimer --%s 1705664693-2
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-			address, err := readAddressFromKeyNameFlag(cmd, clientCtx)
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			address, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1398,6 +1482,207 @@ $ claim-refund --%s claimer --%s 1705664693-2
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 	cmd.PersistentFlags().String(FlagRefundID, "", "pending refund id")
+
+	return cmd
+}
+
+// GetRelayerFeesCmd gets the fees of a relayer.
+func GetRelayerFeesCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "relayer-fees [address]",
+		Short: "Get the relayer fees",
+		Long: strings.TrimSpace(fmt.Sprintf(
+			`Get pending refunds.
+Example:
+$ relayer-fees %s 
+`, constant.AddressSampleTest,
+		)),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			address, err := sdk.AccAddressFromBech32(args[0])
+			if err != nil {
+				return err
+			}
+
+			relayerFees, err := bridgeClient.GetFeesCollected(ctx, address)
+			if err != nil {
+				return err
+			}
+
+			logger, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			logger.Info(ctx, "relayer fees", zap.String("fees", relayerFees.String()))
+			return nil
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
+// ClaimRelayerFeesCmd claims relayer fees.
+func ClaimRelayerFeesCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "claim-relayer-fees",
+		Short: "Claim pending relayer fees,  either all or specific amount.",
+		Long: strings.TrimSpace(fmt.Sprintf(
+			`Claims relayer fees.
+Example:
+$ claim-relayer-fees --key-name address --%s %s
+`, FlagAmount, sampleAmount,
+		)),
+		Args: cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			address, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			if err != nil {
+				return err
+			}
+
+			amountStr, err := cmd.Flags().GetString(FlagAmount)
+			if err != nil {
+				return err
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			if amountStr != "" {
+				amount, err := sdk.ParseCoinsNormalized(amountStr)
+				if err != nil {
+					return err
+				}
+				return bridgeClient.ClaimRelayerFees(ctx, address, amount)
+			}
+
+			feesCollected, err := bridgeClient.GetFeesCollected(ctx, address)
+			if err != nil {
+				return err
+			}
+
+			return bridgeClient.ClaimRelayerFees(ctx, address, feesCollected)
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+	cmd.PersistentFlags().String(FlagAmount, "", "specific amount to be collected")
+
+	return cmd
+}
+
+// HaltBridgeCmd halts the bridge and stops its operation.
+//
+//nolint:dupl // abstracting this code will make it less readable.
+func HaltBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "halt-bridge",
+		Short: "Halts the bridge and stops its operation.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Halts the bridge and stops its operation.
+Example:
+$ halt-bridge --%s owner
+`, FlagKeyName)),
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			if err != nil {
+				return err
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			return bridgeClient.HaltBridge(
+				ctx,
+				owner,
+			)
+		},
+	}
+
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
+// ResumeBridgeCmd resumes the bridge and restarts its operation.
+//
+//nolint:dupl // abstracting this code will make it less readable.
+func ResumeBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "resume-bridge",
+		Short: "Resume the bridge and restarts its operation.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Resumes the bridge and restarts its operation.
+Example:
+$ resume-bridge --%s owner
+`, FlagKeyName)),
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			if err != nil {
+				return err
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			return bridgeClient.ResumeBridge(
+				ctx,
+				owner,
+			)
+		},
+	}
+
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
 
 	return cmd
 }

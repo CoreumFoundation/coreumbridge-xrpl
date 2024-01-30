@@ -480,6 +480,35 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 	executeCmd(t, cli.RegisterXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
+func TestRecoverXRPLTokenRegistrationCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+	owner := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+
+	issuer := xrpl.GenPrivKeyTxSigner().Account()
+	currency, err := rippledata.NewCurrency("CRN")
+	require.NoError(t, err)
+	args := []string{
+		issuer.String(),
+		currency.String(),
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	bridgeClientMock.EXPECT().RecoverXRPLTokenRegistration(
+		gomock.Any(),
+		owner,
+		issuer.String(),
+		currency.String(),
+	).Return(nil)
+	executeCmd(t, cli.RecoverXRPLTokenRegistrationCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
 func TestUpdateXRPLTokenCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -907,7 +936,7 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 		refundID,
 	).Return(nil)
 	args := []string{flagWithPrefix(cli.FlagKeyName), keyName, flagWithPrefix(cli.FlagRefundID), refundID}
-	args = append(args, testKeyringFlags(keyringDir+"-"+coreum.KeyringSuffix)...)
+	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
@@ -933,7 +962,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 		refundID,
 	).Return(nil)
 	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
-	args = append(args, testKeyringFlags(keyringDir+"-"+coreum.KeyringSuffix)...)
+	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
@@ -946,6 +975,103 @@ func TestGetPendingRefundsCmd(t *testing.T) {
 	account := coreum.GenAccount()
 	bridgeClientMock.EXPECT().GetPendingRefunds(gomock.Any(), account).Return([]coreum.PendingRefund{}, nil)
 	executeCmd(t, cli.GetPendingRefundsCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
+}
+
+func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "relayer"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	amount := sdk.NewCoins(sdk.NewCoin("ucore", sdk.NewInt(100)))
+	bridgeClientMock.EXPECT().ClaimRelayerFees(
+		gomock.Any(),
+		address,
+		amount,
+	).Return(nil)
+	args := []string{
+		flagWithPrefix(cli.FlagKeyName), keyName,
+		flagWithPrefix(cli.FlagAmount), amount.String(),
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	executeCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestClaimRelayerFees(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "relayer"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	fees, err := sdk.ParseCoinsNormalized("100mycoin,100ucore")
+	require.NoError(t, err)
+	bridgeClientMock.EXPECT().GetFeesCollected(
+		gomock.Any(),
+		address,
+	).Return(fees, nil)
+	bridgeClientMock.EXPECT().ClaimRelayerFees(
+		gomock.Any(),
+		address,
+		fees,
+	).Return(nil)
+	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	executeCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestGetRelayerFees(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	account := coreum.GenAccount()
+	fees, err := sdk.ParseCoinsNormalized("100ucore,100mycoin")
+	require.NoError(t, err)
+	bridgeClientMock.EXPECT().GetFeesCollected(gomock.Any(), account).Return(fees, nil)
+	executeCmd(t, cli.GetRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
+}
+
+func TestHaltBridgeCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+	owner := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+
+	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	bridgeClientMock.EXPECT().HaltBridge(gomock.Any(), owner).Return(nil)
+	executeCmd(t, cli.HaltBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestResumeBridgeCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+	owner := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+
+	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	bridgeClientMock.EXPECT().ResumeBridge(gomock.Any(), owner).Return(nil)
+	executeCmd(t, cli.ResumeBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
 func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {
@@ -1010,6 +1136,7 @@ func addKeyToTestKeyring(t *testing.T, keyringDir, keyName, suffix, hdPath strin
 	require.NoError(t, err)
 }
 
+//nolint:unparam // using global suffix will make tests less readable.
 func readKeyFromTestKeyring(t *testing.T, keyringDir, keyName, suffix string) sdk.AccAddress {
 	keyringDir += "-" + suffix
 	cmd := keys.ShowKeysCmd()
