@@ -45,6 +45,10 @@ func init() {
 var DefaultHomeDir string
 
 const (
+	sampleAmount = "100ucore"
+)
+
+const (
 	// FlagAmount is the amount flag.
 	FlagAmount = "amount"
 	// FlagHome is home flag.
@@ -1500,12 +1504,12 @@ func ClaimRelayerFeesCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "claim-relayer-fees",
 		Short: "Claim pending relayer fees,  either all or specific amount.",
-		Long: strings.TrimSpace(
+		Long: strings.TrimSpace(fmt.Sprintf(
 			`Claims relayer fees.
 Example:
-$ claim-relayer-fees --key-name address --amount 1000ucore,100ibc/0718CC536BB057AC79
-`,
-		),
+$ claim-relayer-fees --key-name address --%s %s
+`, FlagAmount, sampleAmount,
+		)),
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
