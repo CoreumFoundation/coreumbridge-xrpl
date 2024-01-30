@@ -1287,7 +1287,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             limit,
         } => to_json_binary(&query_coreum_tokens(deps, start_after_key, limit)?),
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
-        QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
+        QueryMsg::PendingOperations {
+            start_after_key,
+            limit,
+        } => to_json_binary(&query_pending_operations(deps, start_after_key, limit)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
         QueryMsg::PendingRefunds {
             address,
@@ -1360,14 +1363,28 @@ fn query_coreum_tokens(
     Ok(CoreumTokensResponse { last_key, tokens })
 }
 
-fn query_pending_operations(deps: Deps) -> StdResult<PendingOperationsResponse> {
+fn query_pending_operations(
+    deps: Deps,
+    start_after_key: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<PendingOperationsResponse> {
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
+    let start = start_after_key.map(Bound::exclusive);
+    let mut last_key = None;
     let operations: Vec<Operation> = PENDING_OPERATIONS
-        .range(deps.storage, None, None, Order::Ascending)
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit as usize)
         .filter_map(|v| v.ok())
-        .map(|(_, v)| v)
+        .map(|(key, v)| {
+            last_key = Some(key);
+            v
+        })
         .collect();
 
-    Ok(PendingOperationsResponse { operations })
+    Ok(PendingOperationsResponse {
+        last_key,
+        operations,
+    })
 }
 
 fn query_available_tickets(deps: Deps) -> StdResult<AvailableTicketsResponse> {

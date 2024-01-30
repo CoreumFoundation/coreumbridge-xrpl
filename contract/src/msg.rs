@@ -136,7 +136,10 @@ pub enum QueryMsg {
         limit: Option<u32>,
     },
     #[returns(PendingOperationsResponse)]
-    PendingOperations {},
+    PendingOperations {
+        start_after_key: Option<u64>,
+        limit: Option<u32>,
+    },
     #[returns(AvailableTicketsResponse)]
     AvailableTickets {},
     #[returns(FeesCollectedResponse)]
@@ -165,6 +168,7 @@ pub struct CoreumTokensResponse {
 
 #[cw_serde]
 pub struct PendingOperationsResponse {
+    pub last_key: Option<u64>,
     pub operations: Vec<Operation>,
 }
 

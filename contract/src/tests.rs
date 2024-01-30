@@ -1320,7 +1320,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -1472,7 +1475,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -1924,7 +1930,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -2128,7 +2137,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -2152,7 +2164,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -2385,7 +2400,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -2511,7 +2529,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -2535,7 +2556,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -2819,7 +2843,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -2905,7 +2932,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -3015,7 +3045,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -3149,7 +3182,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -3194,7 +3230,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -3392,7 +3431,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -3585,7 +3627,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -3872,7 +3917,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -3997,7 +4045,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -4189,7 +4240,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -5122,7 +5176,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -5217,7 +5274,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -5340,7 +5400,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -5417,7 +5480,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -5761,7 +5827,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -5866,7 +5935,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6002,7 +6074,10 @@ mod tests {
         let query_pending_operation = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6058,7 +6133,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6172,7 +6250,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6242,7 +6323,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6380,7 +6464,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6409,7 +6496,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6430,7 +6520,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6569,7 +6662,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6619,7 +6715,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6763,7 +6862,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -6804,7 +6906,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -7660,7 +7765,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -8081,7 +8189,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
         assert_eq!(query_pending_operations.operations.len(), 1);
@@ -8310,7 +8421,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -8377,7 +8491,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -8408,7 +8525,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -8757,7 +8877,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -9042,11 +9165,39 @@ mod tests {
         )
         .unwrap();
 
+        // Query pending operations with limit and start_after_key to verify it works
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: Some(100),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 100);
+
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    start_after_key: query_pending_operations.last_key,
+                    limit: Some(200),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 149);
+
         // Verify that we have 249 pending operations
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -9074,7 +9225,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
@@ -9115,7 +9269,10 @@ mod tests {
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
-                &QueryMsg::PendingOperations {},
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
             )
             .unwrap();
 
