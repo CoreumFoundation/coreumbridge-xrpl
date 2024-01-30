@@ -1,47 +1,36 @@
 package metrics
 
 import (
-	"context"
-	"net"
-	"net/http"
-
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Start starts metric server.
-func Start(ctx context.Context, addr string) error {
-	l, err := net.Listen("tcp", addr)
-	if err != nil {
-		return errors.Wrap(err, "metric server listener failed")
+// New returns new metric set.
+func New() *Metrics {
+	return &Metrics{
+		ErrorCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "relayer_errors_total",
+			Help: "Error counter",
+		}),
 	}
-	defer l.Close()
+}
 
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+// Metrics contains set of metrics.
+type Metrics struct {
+	ErrorCounter prometheus.Counter
+}
 
-	server := &http.Server{Handler: mux}
-
-	err = parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-		spawn("server", parallel.Exit, func(ctx context.Context) error {
-			if err := server.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				return errors.Wrap(err, "metric server exited")
-			}
-			return ctx.Err()
-		})
-		spawn("close", parallel.Exit, func(ctx context.Context) error {
-			<-ctx.Done()
-			server.Close()
-			return ctx.Err()
-		})
-		return nil
-	})
-
-	if errors.Is(err, context.Canceled) {
-		return nil
+// Register registers all the metrics to prometheus.
+func (m *Metrics) Register(registry prometheus.Registerer) error {
+	collectors := []prometheus.Collector{
+		m.ErrorCounter,
 	}
 
-	return err
+	for _, c := range collectors {
+		if err := registry.Register(c); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+
+	return nil
 }

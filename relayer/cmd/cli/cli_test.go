@@ -31,6 +31,7 @@ import (
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -53,7 +54,7 @@ func TestStartCmd(t *testing.T) {
 
 	processorMock := NewMockProcessor(ctrl)
 	processorMock.EXPECT().StartAllProcesses(gomock.Any())
-	cmd := cli.StartCmd(func(cmd *cobra.Command) (cli.Processor, error) {
+	cmd := cli.StartCmd(func(cmd *cobra.Command, _ *metrics.Metrics) (cli.Processor, error) {
 		return processorMock, nil
 	})
 	executeCmd(t, cmd, "--telemetry-addr", "") // to disable telemetry server

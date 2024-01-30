@@ -583,7 +583,10 @@ func createDevRunner(
 	// make operation fetcher fast
 	relayerRunnerCfg.Processes.XRPLTxSubmitter.RepeatDelay = 500 * time.Millisecond
 
-	relayerRunner, err := runner.NewRunner(ctx, xrplKeyring, coreumKeyring, relayerRunnerCfg, false)
+	components, err := runner.GetComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false)
+	require.NoError(t, err)
+
+	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg, chains.Log)
 	require.NoError(t, err)
 	return relayerRunner
 }

@@ -15,6 +15,8 @@ import (
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -87,27 +89,46 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 }
 
 func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
-	rnr, err := cli.GetRunnerFromHome(cmd)
-	if err != nil {
-		return nil, err
-	}
-
 	log, err := cli.GetCLILogger()
 	if err != nil {
 		return nil, err
 	}
+
+	cfg, err := cli.GetHomeRunnerConfig(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	clientCtx, err := client.GetClientQueryContext(cmd)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get client context")
+	}
+	xrplClientCtx, err := cli.WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to configure xrpl keyring")
+	}
+	coreumClientCtx, err := cli.WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to configure coreum keyring")
+	}
+
+	components, err := runner.GetComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log, true)
+	if err != nil {
+		return nil, err
+	}
+
 	// for the bridge client we use the CLI logger
 	return bridgeclient.NewBridgeClient(
 		log,
-		rnr.CoreumClientCtx,
-		rnr.CoreumContractClient,
-		rnr.XRPLRPCClient,
-		rnr.XRPLKeyringTxSigner,
+		components.CoreumClientCtx,
+		components.CoreumContractClient,
+		components.XRPLRPCClient,
+		components.XRPLKeyringTxSigner,
 	), nil
 }
 
-func processorProvider(cmd *cobra.Command) (cli.Processor, error) {
-	rnr, err := cli.GetRunnerFromHome(cmd)
+func processorProvider(cmd *cobra.Command, metrics *metrics.Metrics) (cli.Processor, error) {
+	rnr, err := cli.GetRunnerFromHome(cmd, metrics)
 	if err != nil {
 		return nil, err
 	}

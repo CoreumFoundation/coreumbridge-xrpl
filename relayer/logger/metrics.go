@@ -3,21 +3,12 @@ package logger
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
 // WithMetrics returns logger reporting metrics.
-func WithMetrics(l Logger, registry prometheus.Registerer) (Logger, error) {
-	errorCounter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "relayer_errors_total",
-		Help: "Errors counter",
-	})
-	if err := registry.Register(errorCounter); err != nil {
-		return nil, errors.Wrapf(err, "failed to register error сounter")
-	}
-
+func WithMetrics(l Logger, errorCounter prometheus.Counter) (Logger, error) {
 	return metricLogger{
 		parentLogger: l,
 		errorCounter: errorCounter,
@@ -34,6 +25,7 @@ func (l metricLogger) Debug(ctx context.Context, msg string, fields ...zap.Field
 }
 
 func (l metricLogger) Info(ctx context.Context, msg string, fields ...zap.Field) {
+	l.errorCounter.Inc()
 	l.parentLogger.Info(ctx, msg, fields...)
 }
 

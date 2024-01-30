@@ -16,7 +16,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -209,111 +208,17 @@ type Processes struct {
 
 // Runner is relayer runner which aggregates all relayer components.
 type Runner struct {
-	Log                      logger.Logger
-	RetryableHTTPClient      *toolshttp.RetryableClient
-	XRPLRPCClient            *xrpl.RPCClient
-	XRPLAccountScanner       *xrpl.AccountScanner
-	XRPLKeyringTxSigner      *xrpl.KeyringTxSigner
-	CoreumContractClient     *coreum.ContractClient
-	CoreumChainNetworkConfig coreumchainconfig.NetworkConfig
-	CoreumClientCtx          coreumchainclient.Context
-
 	Processes Processes
 	Processor *processes.Processor
 }
 
 // NewRunner return new runner from the config.
-//
-//nolint:funlen // the func contains sequential object initialisation
-func NewRunner(
-	ctx context.Context,
-	xrplKeyring keyring.Keyring,
-	coreumKeyring keyring.Keyring,
-	cfg Config,
-	setCoreumSDKConfig bool,
-) (*Runner, error) {
+func NewRunner(ctx context.Context, components Components, cfg Config, log logger.Logger) (*Runner, error) {
 	rnr := &Runner{}
-	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig(cfg.LoggingConfig))
-	if err != nil {
-		return nil, err
-	}
-
-	log, err := logger.WithMetrics(zapLogger, prometheus.DefaultRegisterer)
-	if err != nil {
-		return nil, err
-	}
-
-	rnr.Log = log
-
-	retryableXRPLRPCHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.XRPL.HTTPClient))
-	rnr.RetryableHTTPClient = &retryableXRPLRPCHTTPClient
-
-	coreumClientContextCfg := coreumchainclient.DefaultContextConfig()
-	coreumClientContextCfg.TimeoutConfig.RequestTimeout = cfg.Coreum.Contract.RequestTimeout
-	coreumClientContextCfg.TimeoutConfig.TxTimeout = cfg.Coreum.Contract.TxTimeout
-	coreumClientContextCfg.TimeoutConfig.TxStatusPollInterval = cfg.Coreum.Contract.TxStatusPollInterval
-
-	clientContext := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics)
-	if cfg.Coreum.Network.ChainID != "" {
-		coreumChainNetworkConfig, err := coreumchainconfig.NetworkConfigByChainID(
-			coreumchainconstant.ChainID(cfg.Coreum.Network.ChainID),
-		)
-		if err != nil {
-			return nil, errors.Wrapf(
-				err,
-				"failed to set get correum network config for the chainID, chainID:%s",
-				cfg.Coreum.Network.ChainID,
-			)
-		}
-		clientContext = clientContext.WithChainID(cfg.Coreum.Network.ChainID)
-		rnr.CoreumChainNetworkConfig = coreumChainNetworkConfig
-		if setCoreumSDKConfig {
-			coreumChainNetworkConfig.SetSDKConfig()
-		}
-	}
-
-	var contractAddress sdk.AccAddress
-	if cfg.Coreum.Contract.ContractAddress != "" {
-		contractAddress, err = sdk.AccAddressFromBech32(cfg.Coreum.Contract.ContractAddress)
-		if err != nil {
-			return nil, errors.Wrapf(
-				err,
-				"failed to decode contract address to sdk.AccAddress, address:%s",
-				cfg.Coreum.Contract.ContractAddress,
-			)
-		}
-	}
-	contractClientCfg := coreum.ContractClientConfig{
-		ContractAddress:    contractAddress,
-		GasAdjustment:      cfg.Coreum.Contract.GasAdjustment,
-		GasPriceAdjustment: sdk.MustNewDecFromStr(fmt.Sprintf("%f", cfg.Coreum.Contract.GasPriceAdjustment)),
-		PageLimit:          cfg.Coreum.Contract.PageLimit,
-	}
-
-	if cfg.Coreum.GRPC.URL != "" {
-		grpcClient, err := getGRPCClientConn(cfg.Coreum.GRPC.URL)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create coreum GRPC client, URL:%s", cfg.Coreum.GRPC.URL)
-		}
-		clientContext = clientContext.WithGRPCClient(grpcClient)
-	}
-
-	coreumClientCtx := clientContext.WithKeyring(coreumKeyring)
-	contractClient := coreum.NewContractClient(contractClientCfg, log, coreumClientCtx)
-	rnr.CoreumContractClient = contractClient
-
-	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
-	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, log, retryableXRPLRPCHTTPClient)
-	rnr.XRPLRPCClient = xrplRPCClient
-
-	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
-	if xrplKeyring != nil {
-		xrplKeyringTxSigner = xrpl.NewKeyringTxSigner(xrplKeyring)
-		rnr.XRPLKeyringTxSigner = xrplKeyringTxSigner
-	}
 
 	var relayerAddress sdk.AccAddress
-	if coreumKeyring != nil {
+	if coreumKeyring := components.CoreumClientCtx.Keyring(); coreumKeyring != nil {
+		var err error
 		relayerAddress, err = getAddressFromKeyring(coreumKeyring, cfg.Coreum.RelayerKeyName)
 		// is some cases the relayer key might not be set in the keyring
 		if err != nil && !strings.Contains(err.Error(), "key not found") {
@@ -321,7 +226,7 @@ func NewRunner(
 		}
 	}
 	if cfg.Coreum.Contract.ContractAddress != "" && relayerAddress != nil {
-		contractConfig, err := contractClient.GetContractConfig(ctx)
+		contractConfig, err := components.CoreumContractClient.GetContractConfig(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get contract config for the runner intialization")
 		}
@@ -338,8 +243,7 @@ func NewRunner(
 			FullScanEnabled:   cfg.XRPL.Scanner.FullScanEnabled,
 			RepeatFullScan:    cfg.XRPL.Scanner.RepeatFullScan,
 			RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
-		}, log, xrplRPCClient)
-		rnr.XRPLAccountScanner = xrplScanner
+		}, log, components.XRPLRPCClient)
 
 		rnr.Processor = processes.NewProcessor(log)
 		rnr.Processes = Processes{
@@ -351,7 +255,7 @@ func NewRunner(
 					},
 					log,
 					xrplScanner,
-					contractClient,
+					components.CoreumContractClient,
 				),
 				Name:                 "xrpl_tx_observer",
 				IsRestartableOnError: true,
@@ -366,17 +270,15 @@ func NewRunner(
 						RepeatDelay:          cfg.Processes.XRPLTxSubmitter.RepeatDelay,
 					},
 					log,
-					contractClient,
-					xrplRPCClient,
-					xrplKeyringTxSigner,
+					components.CoreumContractClient,
+					components.XRPLRPCClient,
+					components.XRPLKeyringTxSigner,
 				),
 				Name:                 "xrpl_tx_submitter",
 				IsRestartableOnError: true,
 			},
 		}
 	}
-
-	rnr.CoreumClientCtx = coreumClientCtx
 
 	return rnr, nil
 }
@@ -433,6 +335,95 @@ func ReadConfig(homePath string) (Config, error) {
 	}
 
 	return config, nil
+}
+
+// Components groups components required by runner.
+type Components struct {
+	CoreumClientCtx      coreumchainclient.Context
+	CoreumContractClient *coreum.ContractClient
+	XRPLRPCClient        *xrpl.RPCClient
+	XRPLKeyringTxSigner  *xrpl.KeyringTxSigner
+}
+
+// GetComponents creates components required by runner.
+func GetComponents(
+	cfg Config,
+	xrplKeyring keyring.Keyring,
+	coreumKeyring keyring.Keyring,
+	log logger.Logger,
+	setCoreumSDKConfig bool,
+) (Components, error) {
+	var components Components
+
+	retryableXRPLRPCHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.XRPL.HTTPClient))
+
+	coreumClientContextCfg := coreumchainclient.DefaultContextConfig()
+	coreumClientContextCfg.TimeoutConfig.RequestTimeout = cfg.Coreum.Contract.RequestTimeout
+	coreumClientContextCfg.TimeoutConfig.TxTimeout = cfg.Coreum.Contract.TxTimeout
+	coreumClientContextCfg.TimeoutConfig.TxStatusPollInterval = cfg.Coreum.Contract.TxStatusPollInterval
+
+	clientCtx := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics)
+	if cfg.Coreum.Network.ChainID != "" {
+		coreumChainNetworkConfig, err := coreumchainconfig.NetworkConfigByChainID(
+			coreumchainconstant.ChainID(cfg.Coreum.Network.ChainID),
+		)
+		if err != nil {
+			return Components{}, errors.Wrapf(
+				err,
+				"failed to set get correum network config for the chainID, chainID:%s",
+				cfg.Coreum.Network.ChainID,
+			)
+		}
+		clientCtx = clientCtx.WithChainID(cfg.Coreum.Network.ChainID)
+		if setCoreumSDKConfig {
+			coreumChainNetworkConfig.SetSDKConfig()
+		}
+	}
+
+	var contractAddress sdk.AccAddress
+	if cfg.Coreum.Contract.ContractAddress != "" {
+		var err error
+		contractAddress, err = sdk.AccAddressFromBech32(cfg.Coreum.Contract.ContractAddress)
+		if err != nil {
+			return Components{}, errors.Wrapf(
+				err,
+				"failed to decode contract address to sdk.AccAddress, address:%s",
+				cfg.Coreum.Contract.ContractAddress,
+			)
+		}
+	}
+	contractClientCfg := coreum.ContractClientConfig{
+		ContractAddress:    contractAddress,
+		GasAdjustment:      cfg.Coreum.Contract.GasAdjustment,
+		GasPriceAdjustment: sdk.MustNewDecFromStr(fmt.Sprintf("%f", cfg.Coreum.Contract.GasPriceAdjustment)),
+		PageLimit:          cfg.Coreum.Contract.PageLimit,
+	}
+
+	if cfg.Coreum.GRPC.URL != "" {
+		grpcClient, err := getGRPCClientConn(cfg.Coreum.GRPC.URL)
+		if err != nil {
+			return Components{}, errors.Wrapf(err, "failed to create coreum GRPC client, URL:%s", cfg.Coreum.GRPC.URL)
+		}
+		clientCtx = clientCtx.WithGRPCClient(grpcClient)
+	}
+
+	coreumClientCtx := clientCtx.WithKeyring(coreumKeyring)
+	contractClient := coreum.NewContractClient(contractClientCfg, log, coreumClientCtx)
+	components.CoreumContractClient = contractClient
+
+	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
+	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, log, retryableXRPLRPCHTTPClient)
+	components.XRPLRPCClient = xrplRPCClient
+
+	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
+	if xrplKeyring != nil {
+		xrplKeyringTxSigner = xrpl.NewKeyringTxSigner(xrplKeyring)
+		components.XRPLKeyringTxSigner = xrplKeyringTxSigner
+	}
+
+	components.CoreumClientCtx = coreumClientCtx
+
+	return components, nil
 }
 
 func buildFilePath(homePath string) string {
