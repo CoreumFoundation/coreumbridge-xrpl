@@ -855,11 +855,11 @@ func (c *ContractClient) RecoverXRPLTokenRegistration(
 	return txRes, nil
 }
 
-// ClaimFees calls the contract to claim the fees for a given relayer.
-func (c *ContractClient) ClaimFees(
+// ClaimRelayerFees calls the contract to claim the fees for a given relayer.
+func (c *ContractClient) ClaimRelayerFees(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	amounts []sdk.Coin,
+	amounts sdk.Coins,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]claimFeesRequest{

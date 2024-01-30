@@ -4064,7 +4064,7 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 
 		// claim one third of the fees
 		oneThirdOfFees := initialFees.QuoInt(sdk.NewInt(3))
-		_, err = contractClient.ClaimFees(ctx, relayer.CoreumAddress, oneThirdOfFees)
+		_, err = contractClient.ClaimRelayerFees(ctx, relayer.CoreumAddress, oneThirdOfFees)
 		require.NoError(t, err)
 		allBalances, err := bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
 			Address: relayer.CoreumAddress.String(),
@@ -4081,7 +4081,7 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 		require.EqualValues(t, remainderFees.String(), fees.String())
 
 		// claim remainder of fees
-		_, err = contractClient.ClaimFees(ctx, relayer.CoreumAddress, remainderFees)
+		_, err = contractClient.ClaimRelayerFees(ctx, relayer.CoreumAddress, remainderFees)
 		require.NoError(t, err)
 
 		allBalances, err = bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
@@ -6048,7 +6048,7 @@ func claimFeesAndMakeAssertions(
 			Denom:   denom,
 		})
 		require.NoError(t, err)
-		_, err = contractClient.ClaimFees(ctx, relayer.CoreumAddress, expectedFee)
+		_, err = contractClient.ClaimRelayerFees(ctx, relayer.CoreumAddress, expectedFee)
 		require.NoError(t, err)
 		relayerBalanceAfterClaim, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 			Address: relayer.CoreumAddress.String(),
