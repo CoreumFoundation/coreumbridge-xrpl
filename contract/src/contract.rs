@@ -73,6 +73,7 @@ const XRP_DEFAULT_FEE: Uint128 = Uint128::zero();
 
 pub const MAX_TICKETS: u32 = 250;
 pub const MAX_RELAYERS: u32 = 32;
+pub const XRPL_MAX_TRUNCATED_AMOUNT_LENGTH: usize = 17;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -103,6 +104,9 @@ pub fn instantiate(
     if msg.used_ticket_sequence_threshold <= 1 || msg.used_ticket_sequence_threshold > MAX_TICKETS {
         return Err(ContractError::InvalidUsedTicketSequenceThreshold {});
     }
+
+    // We validate the trust set amount is a valid XRPL amount
+    validate_xrpl_amount(msg.trust_set_limit_amount)?;
 
     // We initialize these values here so that we can immediately start working with them
     USED_TICKETS_COUNTER.save(deps.storage, &0)?;
@@ -1002,6 +1006,12 @@ fn send_to_xrpl(
         }
     }
 
+    // We validate that both amount and max_amount on the operation contain valid XRPL amounts
+    validate_xrpl_amount(amount_to_send)?;
+    if max_amount.is_some() {
+        validate_xrpl_amount(max_amount.unwrap())?;
+    }
+
     // Get a ticket and store the pending operation
     let ticket = allocate_ticket(deps.storage)?;
     create_pending_operation(
@@ -1536,6 +1546,22 @@ fn truncate_and_convert_amount(
 
     let converted_amount = convert_amount_decimals(from_decimals, to_decimals, truncated_amount)?;
     Ok((converted_amount, remainder))
+}
+
+// Helper function to validate that we are not sending an invalid amount to XRPL
+// A valid amount is one that doesn't have more than 17 digits after trimming trailing zeroes
+// Example: 1000000000000000000000000000 is valid
+// Example: 1000000000000000000000000001 is not valid
+fn validate_xrpl_amount(amount: Uint128) -> Result<(), ContractError> {
+    let amount_str = amount.to_string();
+    // Trim all zeroes at the end
+    let amount_trimmed = amount_str.trim_end_matches('0');
+
+    if amount_trimmed.len() > XRPL_MAX_TRUNCATED_AMOUNT_LENGTH {
+        return Err(ContractError::InvalidXRPLAmount {});
+    };
+
+    Ok(())
 }
 
 fn convert_currency_to_xrpl_hexadecimal(currency: String) -> String {
