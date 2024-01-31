@@ -195,7 +195,7 @@ pub enum ContractError {
         "OperationVersionMismatch: Can't add a signature for an operation with a different version"
     )]
     OperationVersionMismatch {},
-    
+
     #[error("ProhibitedRecipient: The recipient cannot be the bridge")]
     ProhibitedRecipient {},
 
@@ -206,4 +206,7 @@ pub enum ContractError {
         "InvalidDeliverAmount: Field deliver_amount can't be greater than funds attached minus fees"
     )]
     InvalidDeliverAmount {},
+
+    #[error("InvalidSignatureLength: The signature sent can't be longer than 200 characters")]
+    InvalidSignatureLength {},
 }
