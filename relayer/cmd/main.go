@@ -66,7 +66,7 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	}
 	cmd.AddCommand(keyringXRPLCmd)
 
-	cmd.AddCommand(cli.RelayerKeyInfoCmd())
+	cmd.AddCommand(cli.RelayerKeysInfoCmd())
 	cmd.AddCommand(cli.BootstrapBridgeCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.ContractConfigCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.RecoverTicketsCmd(bridgeClientProvider))
@@ -87,6 +87,8 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.ClaimRefundCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.ClaimRelayerFeesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.GetRelayerFeesCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.SendXRPLCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.ImportXRPLFaucetKeyCmd())
 
 	return cmd, nil
 }

@@ -1,0 +1,10 @@
+owner: devcore1pnv2nwe67tyjlplszmdgch4hvue5vuhe03u8c9
+admin: devcore1pnv2nwe67tyjlplszmdgch4hvue5vuhe03u8c9
+relayers:
+  - coreum_address: devcore1u6dycnl606n95ggeatusc3zlfd5m4xqpw66et4
+    xrpl_address: rPfgErcqL9XKsAr14cXeCAwxjy9gVGhUeK
+    xrpl_pub_key: 03165D565B328240C00D047B4AAE6F41FD426C6094433C93E3580352DACE71E4EC
+evidence_threshold: 1
+used_ticket_sequence_threshold: 150
+trust_set_limit_amount: "100000000000000000000000000000000000"
+contract_bytecode_path: /app/coreumbridge_xrpl.wasm

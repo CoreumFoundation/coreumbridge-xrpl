@@ -1,0 +1,41 @@
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    restart: unless-stopped
+    volumes:
+      - ./prometheus:/etc/prometheus
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=grafana
+    volumes:
+      - ./grafana:/etc/grafana/provisioning/datasources
+  xrpld:
+    image: xrpllabsofficial/xrpld:2.0.0
+    container_name: xrpld
+    restart: unless-stopped
+    volumes:
+      - ./xrpld:/app
+    entrypoint: /app/run.sh
+  cored:
+    image: coreumfoundation/cored:v3.0.3
+    container_name: cored
+    restart: unless-stopped
+    volumes:
+      - ./cored:/app
+    entrypoint: /app/run.sh
+  relayer:
+    image: coreumbridge-xrpl-relayer:local
+    container_name: relayer
+    restart: unless-stopped
+    volumes:
+      - ./relayer:/app
+    entrypoint: /app/run.sh

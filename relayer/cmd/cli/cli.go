@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/keys"
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
@@ -178,6 +181,12 @@ type BridgeClient interface {
 		ctx context.Context,
 		sender sdk.AccAddress,
 	) error
+	SendXRPL(
+		ctx context.Context,
+		senderKeyName string,
+		recipientAccount rippledata.Account,
+		amount rippledata.Amount,
+	) error
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
@@ -271,7 +280,7 @@ func InitCmd() *cobra.Command {
 
 			cfg.XRPL.RPC.URL = xrplRPCURL
 
-			if err = runner.InitConfig(home, cfg); err != nil {
+			if err = runner.InitConfig(home, cfg, false); err != nil {
 				return err
 			}
 			log.Info(ctx, "Settings are generated successfully")
@@ -392,8 +401,8 @@ func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
 	return cmd, nil
 }
 
-// RelayerKeyInfoCmd prints the relayer keys info.
-func RelayerKeyInfoCmd() *cobra.Command {
+// RelayerKeysInfoCmd prints the relayer keys info.
+func RelayerKeysInfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "relayer-keys-info",
 		Short: "Prints the coreum and XRPL relayer keys info.",
@@ -469,7 +478,12 @@ func RelayerKeyInfoCmd() *cobra.Command {
 }
 
 // BootstrapBridgeCmd safely creates XRPL bridge account with all required settings and deploys the bridge contract.
+//
+//nolint:funlen // it's still readable
 func BootstrapBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
+	var xrplKeyName, coreumKeyName string
+	var updateConfig bool
+
 	cmd := &cobra.Command{
 		Use:   "bootstrap-bridge [config-path]",
 		Args:  cobra.ExactArgs(1),
@@ -491,18 +505,23 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 				return err
 			}
 
-			keyName, err := cmd.Flags().GetString(FlagKeyName)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get %s", FlagKeyName)
-			}
-
 			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
 			if err != nil {
 				return err
 			}
 
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			home, err := cmd.Flags().GetString(FlagHome)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get %s", FlagHome)
+			}
+
 			xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(xrplClientCtx.Keyring)
-			xrplBridgeAddress, err := xrplKeyringTxSigner.Account(keyName)
+			xrplBridgeAddress, err := xrplKeyringTxSigner.Account(xrplKeyName)
 			if err != nil {
 				return err
 			}
@@ -530,13 +549,13 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 				return nil
 			}
 
-			record, err := xrplClientCtx.Keyring.Key(keyName)
+			record, err := coreumClientCtx.Keyring.Key(coreumKeyName)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get key by name:%s", keyName)
+				return errors.Wrapf(err, "failed to get key by name:%s", xrplKeyName)
 			}
 			addr, err := record.GetAddress()
 			if err != nil {
-				return errors.Wrapf(err, "failed to address for key name:%s", keyName)
+				return errors.Wrapf(err, "failed to address for key name:%s", xrplKeyName)
 			}
 			cfg, err := bridgeclient.ReadBootstrappingConfig(filePath)
 			if err != nil {
@@ -552,14 +571,30 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 				return err
 			}
 
-			_, err = bridgeClient.Bootstrap(ctx, addr, keyName, cfg)
-			return err
+			contractAddr, err := bridgeClient.Bootstrap(ctx, addr, xrplKeyName, cfg)
+			if err != nil {
+				return err
+			}
+			if updateConfig {
+				cfg, err := runner.ReadConfig(home)
+				if err != nil {
+					return err
+				}
+				cfg.Coreum.Contract.ContractAddress = contractAddr.String()
+
+				if err = runner.InitConfig(home, cfg, true); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	}
 	addKeyringFlags(cmd)
-	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 
+	cmd.PersistentFlags().StringVar(&xrplKeyName, "xrpl-key-name", "", "Key name from the XRPL keyring")
+	cmd.PersistentFlags().StringVar(&coreumKeyName, "coreum-key-name", "", "Key name from the Coreum keyring")
+	cmd.PersistentFlags().BoolVar(&updateConfig, "update-config", false, "Writes contract address to the relayer config")
 	cmd.PersistentFlags().Bool(FlagInitOnly, false, "Init default config")
 	cmd.PersistentFlags().Int(FlagRelayersCount, 0, "Relayers count")
 
@@ -1160,7 +1195,7 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s --%s sender
 
 			issuer, err := rippledata.NewAccountFromAddress(args[1])
 			if err != nil {
-				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[2])
+				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[1])
 			}
 
 			currency, err := rippledata.NewCurrency(args[2])
@@ -1176,7 +1211,7 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s --%s sender
 
 			value, err := rippledata.NewValue(args[0], isNative)
 			if err != nil {
-				return errors.Wrapf(err, "failed to amount to rippledata.Value: %s", args[0])
+				return errors.Wrapf(err, "failed to convert amount to rippledata.Value: %s", args[0])
 			}
 
 			recipient, err := sdk.AccAddressFromBech32(args[3])
@@ -1309,7 +1344,7 @@ $ set-xrpl-trust-set 1e80 %s %s --%s sender
 
 			issuer, err := rippledata.NewAccountFromAddress(args[1])
 			if err != nil {
-				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[2])
+				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[1])
 			}
 
 			currency, err := rippledata.NewCurrency(args[2])
@@ -1325,7 +1360,7 @@ $ set-xrpl-trust-set 1e80 %s %s --%s sender
 
 			value, err := rippledata.NewValue(args[0], isNative)
 			if err != nil {
-				return errors.Wrapf(err, "failed to amount to rippledata.Value: %s", args[0])
+				return errors.Wrapf(err, "failed to convert amount to rippledata.Value: %s", args[0])
 			}
 
 			keyName, err := cmd.Flags().GetString(FlagKeyName)
@@ -1687,6 +1722,89 @@ $ resume-bridge --%s owner
 	return cmd
 }
 
+// SendXRPLCmd sends xrpl tokens.
+func SendXRPLCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "send-xrpl [recipient] [amount] [flags]",
+		Short: "Sends xrpl tokens.",
+		Long: strings.TrimSpace(
+			`Sends xrpl tokens.
+Example:
+$ send-xrpl 1e80 %s %s --%s sender`),
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			recipientAccount, err := rippledata.NewAccountFromAddress(args[0])
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert recipient string to rippledata.Account: %s", args[0])
+			}
+
+			value, err := rippledata.NewValue(args[1], true)
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert amount to rippledata.Value: %s", args[1])
+			}
+
+			keyName, err := cmd.Flags().GetString(FlagKeyName)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get flag %s", FlagKeyName)
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			return bridgeClient.SendXRPL(
+				ctx,
+				keyName,
+				*recipientAccount,
+				rippledata.Amount{
+					Value:    value,
+					Currency: xrpl.XRPTokenCurrency,
+					Issuer:   xrpl.XRPTokenIssuer,
+				},
+			)
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
+// ImportXRPLFaucetKeyCmd imports default xrpl key into keyring. For testing purposes only.
+func ImportXRPLFaucetKeyCmd() *cobra.Command {
+	const faucetSeed = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb"
+
+	cmd := &cobra.Command{
+		Use:   "import-xrpl-faucet-key [name] [flags]",
+		Short: "Imports default xrpl key into keyring. For testing purposes only.",
+		Long: strings.TrimSpace(
+			`Sends xrpl tokens.
+Example:
+$ send-xrpl 1e80 %s %s --%s sender`),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			if err != nil {
+				return errors.Wrap(err, "failed to configure xrpl keyring")
+			}
+
+			return ImportXRPLKeyFromSeed(xrplClientCtx.Keyring, args[0], faucetSeed)
+		},
+	}
+	addKeyringFlags(cmd)
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
 // GetCLILogger returns the console logger initialised with the default logger config but with set `yaml` format.
 func GetCLILogger() (*logger.ZapLogger, error) {
 	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig{
@@ -1698,6 +1816,22 @@ func GetCLILogger() (*logger.ZapLogger, error) {
 	}
 
 	return zapLogger, nil
+}
+
+// ImportXRPLKeyFromSeed imports xrpl key from seed into Cosmos SDK keyring.
+func ImportXRPLKeyFromSeed(keyring keyring.Keyring, keyName, seedPhrase string) error {
+	seed, err := rippledata.NewSeedFromAddress(seedPhrase)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create rippledata seed from seed phrase")
+	}
+	key := seed.Key(rippledata.ECDSA)
+
+	if err := keyring.ImportPrivKeyHex(keyName, hex.EncodeToString(key.Private(lo.ToPtr(uint32(0)))),
+		string(hd.Secp256k1Type)); err != nil {
+		return errors.Wrapf(err, "failed to import private key to keyring")
+	}
+
+	return nil
 }
 
 func readAddressFromKeyNameFlag(cmd *cobra.Command, clientCtx client.Context) (sdk.AccAddress, error) {

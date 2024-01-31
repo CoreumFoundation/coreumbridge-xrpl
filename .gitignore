@@ -3,3 +3,4 @@
 build
 vendor
 *.iml
+*.wasm

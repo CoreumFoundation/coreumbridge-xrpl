@@ -45,9 +45,9 @@ export XRPL_RPC_URL={XRPL RPC URL}
 #### Generate the relayer keys
 
 ```bash
-./coreumbridge-xrpl-relayer keys add coreum-relayer 
+./coreumbridge-xrpl-relayer keys-coreum add coreum-relayer 
 
-./coreumbridge-xrpl-relayer keys add xrpl-relayer 
+./coreumbridge-xrpl-relayer keys-xrpl add xrpl-relayer 
 ```
 
 The `coreum-relayer` and `xrpl-relayer` are key names set by default in the `relayer.yaml`. If for some reason you want
@@ -77,13 +77,13 @@ deployer.
 #### Generate new key which will be used for the bridge bootstrapping
 
 ```bash
-./coreumbridge-xrpl-relayer keys add bridge-account 
+./coreumbridge-xrpl-relayer keys-coreum add bridge-account 
 ```
 
 #### Fund the Coreum account
 
 ```bash
-./coreumbridge-xrpl-relayer keys show -a bridge-account 
+./coreumbridge-xrpl-relayer keys-coreum show -a bridge-account 
 ```
 
 Get the Coreum address from the output and fund it on the Coreum side.

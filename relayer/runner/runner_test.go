@@ -23,15 +23,15 @@ func TestInitAndReadConfig(t *testing.T) {
 	require.Error(t, err)
 
 	// init the config first time
-	require.NoError(t, runner.InitConfig(tempDir, defaultCfg))
+	require.NoError(t, runner.InitConfig(tempDir, defaultCfg, false))
 
 	// try to init the config second time
-	require.Error(t, runner.InitConfig(tempDir, defaultCfg))
+	require.Error(t, runner.InitConfig(tempDir, defaultCfg, false))
 
 	// read config
 	readConfig, err := runner.ReadConfig(tempDir)
 	require.NoError(t, err)
-	require.Error(t, runner.InitConfig(tempDir, defaultCfg))
+	require.Error(t, runner.InitConfig(tempDir, defaultCfg, false))
 
 	require.Equal(t, defaultCfg, readConfig)
 }

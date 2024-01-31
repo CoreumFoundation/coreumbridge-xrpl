@@ -105,7 +105,7 @@ func TestRelayerKeyInfoCmd(t *testing.T) {
 		sdk.GetConfig().GetFullBIP44Path())
 
 	args = append(args, testKeyringFlags(keyringDir)...)
-	executeCmd(t, cli.RelayerKeyInfoCmd(), args...)
+	executeCmd(t, cli.RelayerKeysInfoCmd(), args...)
 }
 
 func TestBootstrapCmd(t *testing.T) {
@@ -117,13 +117,15 @@ func TestBootstrapCmd(t *testing.T) {
 	keyringDir := t.TempDir()
 	keyName := "deployer"
 	addKeyToTestKeyring(t, keyringDir, keyName, xrpl.KeyringSuffix, xrpl.XRPLHDPath)
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	// call bootstrap with init only
 	args := []string{
 		configPath,
 		flagWithPrefix(cli.FlagInitOnly),
 		flagWithPrefix(cli.FlagRelayersCount), "3",
-		flagWithPrefix(cli.FlagKeyName), keyName,
+		flagWithPrefix("xrpl-key-name"), keyName,
+		flagWithPrefix("coreum-key-name"), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.BootstrapBridgeCmd(nil), args...)
@@ -133,7 +135,8 @@ func TestBootstrapCmd(t *testing.T) {
 	bridgeClientMock.EXPECT().Bootstrap(gomock.Any(), gomock.Any(), keyName, bridgeclient.DefaultBootstrappingConfig())
 	args = []string{
 		configPath,
-		flagWithPrefix(cli.FlagKeyName), keyName,
+		flagWithPrefix("xrpl-key-name"), keyName,
+		flagWithPrefix("coreum-key-name"), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.BootstrapBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)

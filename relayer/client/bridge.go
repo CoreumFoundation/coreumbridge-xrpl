@@ -855,6 +855,37 @@ func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, 
 	return nil
 }
 
+// SendXRPL sends XRPL tokens from sender to recipient.
+func (b *BridgeClient) SendXRPL(
+	ctx context.Context,
+	senderKeyName string,
+	recipientAccount rippledata.Account,
+	amount rippledata.Amount,
+) error {
+	senderAccount, err := b.xrplTxSigner.Account(senderKeyName)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Sending XRPL tokens",
+		zap.String("sender", senderAccount.String()),
+		zap.String("recipient", recipientAccount.String()),
+		zap.String("amount", amount.String()),
+	)
+
+	paymentTx := rippledata.Payment{
+		Destination: recipientAccount,
+		Amount:      amount,
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.PAYMENT,
+		},
+	}
+
+	return b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &paymentTx, senderKeyName)
+}
+
 func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
 	ctx context.Context,
 	relayers []RelayerConfig,

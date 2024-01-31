@@ -2,7 +2,6 @@ package integrationtests
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"sync"
 	"testing"
@@ -12,7 +11,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/http"
@@ -20,6 +18,7 @@ import (
 	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
 	coreumconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
 	coreumkeyring "github.com/CoreumFoundation/coreum/v4/pkg/keyring"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -28,7 +27,6 @@ const (
 	// XRPCurrencyCode is XRP toke currency code on XRPL chain.
 	XRPCurrencyCode = "XRP"
 
-	ecdsaKeyType         = rippledata.ECDSA
 	faucetKeyringKeyName = "faucet"
 )
 
@@ -51,12 +49,8 @@ type XRPLChain struct {
 // NewXRPLChain returns the new instance of the XRPL chain.
 func NewXRPLChain(cfg XRPLChainConfig, log logger.Logger) (XRPLChain, error) {
 	kr := createInMemoryKeyring()
-	faucetPrivateKey, err := extractPrivateKeyFromSeed(cfg.FundingSeed)
-	if err != nil {
+	if err := cli.ImportXRPLKeyFromSeed(kr, faucetKeyringKeyName, cfg.FundingSeed); err != nil {
 		return XRPLChain{}, err
-	}
-	if err := kr.ImportPrivKeyHex(faucetKeyringKeyName, faucetPrivateKey, string(hd.Secp256k1Type)); err != nil {
-		return XRPLChain{}, errors.Wrapf(err, "failed to import private key to keyring")
 	}
 
 	rpcClient := xrpl.NewRPCClient(
@@ -308,15 +302,6 @@ func (c XRPLChain) AwaitLedger(ctx context.Context, t *testing.T, ledgerIndex in
 
 		return nil
 	}))
-}
-
-func extractPrivateKeyFromSeed(seedPhrase string) (string, error) {
-	seed, err := rippledata.NewSeedFromAddress(seedPhrase)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to create rippledata seed from seed phrase")
-	}
-	key := seed.Key(ecdsaKeyType)
-	return hex.EncodeToString(key.Private(lo.ToPtr(uint32(0)))), nil
 }
 
 func createInMemoryKeyring() keyring.Keyring {

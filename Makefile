@@ -5,6 +5,7 @@ CONTRACT_DIR:=$(ROOT_DIR)/contract
 INTEGRATION_TESTS_DIR:=$(ROOT_DIR)/integration-tests
 RELAYER_DIR:=$(ROOT_DIR)/relayer
 BUILD_DIR?=$(ROOT_DIR)/build
+RELAYER_COMPOSER_DIR:=$(ROOT_DIR)/infra/composer/relayer
 GIT_TAG:=$(shell git describe --tags --exact-match 2>/dev/null)
 GIT_SHA:=$(shell git rev-parse HEAD)
 DOCKER_PUSH_TAG?=$(shell git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
@@ -54,6 +55,8 @@ build-contract:
        cosmwasm/optimizer:0.15.0
 	mkdir -p $(BUILD_DIR)
 	cp $(CONTRACT_DIR)/artifacts/coreumbridge_xrpl.wasm $(BUILD_DIR)/coreumbridge_xrpl.wasm
+	mkdir -p $(RELAYER_COMPOSER_DIR)
+	cp $(CONTRACT_DIR)/artifacts/coreumbridge_xrpl.wasm $(RELAYER_COMPOSER_DIR)
 
 .PHONY: build-dev-contract
 build-dev-contract:
