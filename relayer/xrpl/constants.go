@@ -51,6 +51,8 @@ const (
 	XRPCurrencyDecimals = 6
 	// MaxTicketsToAllocate is the max supported tickets count to allocate.
 	MaxTicketsToAllocate = uint32(250)
+	// BadBase58ChecksumError contains the error string for the bad base58 checksum error.
+	BadBase58ChecksumError = "Bad Base58 checksum"
 )
 
 // XRP token constants.

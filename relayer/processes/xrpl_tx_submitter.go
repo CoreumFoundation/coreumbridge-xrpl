@@ -390,10 +390,22 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 		}
 	}
 
-	// currently we validate only the allocate tickets operation with not zero sequence
-	if operation.OperationType.AllocateTickets == nil ||
-		operation.OperationType.AllocateTickets.Number == 0 ||
-		operation.AccountSequence == 0 {
+	switch {
+	case isAllocateTicketsOperation(operation):
+		return s.preValidateAllocateTicketsOperation(ctx, operation)
+	case isCoreumToXRPLTransferOperation(operation):
+		return s.preValidateCoreumToXRPLTransferOperation(ctx, operation)
+	default:
+		return true, nil
+	}
+}
+
+func (s *XRPLTxSubmitter) preValidateAllocateTicketsOperation(
+	ctx context.Context,
+	operation coreum.Operation,
+) (bool, error) {
+	// validate only the allocate tickets operation with not zero account sequence
+	if operation.AccountSequence == 0 {
 		return true, nil
 	}
 
@@ -405,9 +417,9 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 	if *bridgeXRPLAccInfo.AccountData.Sequence == operation.AccountSequence {
 		return true, nil
 	}
-	s.log.Info(
+	s.log.Warn(
 		ctx,
-		"Invalid bridge account sequence",
+		"Invalid bridge account sequence for the tickets reallocation",
 		zap.Uint32("expected", *bridgeXRPLAccInfo.AccountData.Sequence),
 		zap.Uint32("inOperation", operation.AccountSequence),
 	)
@@ -429,7 +441,40 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 		return false, nil
 	}
 
-	return false, nil
+	return false, err
+}
+
+func (s *XRPLTxSubmitter) preValidateCoreumToXRPLTransferOperation(
+	ctx context.Context,
+	operation coreum.Operation,
+) (bool, error) {
+	// check that the recipient is valid XRPL account
+	_, err := rippledata.NewAccountFromAddress(operation.OperationType.CoreumToXRPLTransfer.Recipient)
+	if err == nil {
+		return true, nil
+	}
+	s.log.Warn(
+		ctx,
+		"Invalid XRPL recipient for coreum to XRPL transfer operation, cancelling operation.",
+		zap.String("recipient", operation.OperationType.CoreumToXRPLTransfer.Recipient),
+		zap.String("errorText", err.Error()),
+	)
+	evidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
+		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+			TransactionResult: coreum.TransactionResultInvalid,
+			TicketSequence:    lo.ToPtr(operation.TicketSequence),
+		},
+	}
+	_, err = s.contractClient.SendCoreumToXRPLTransferTransactionResultEvidence(ctx, s.cfg.RelayerCoreumAddress, evidence)
+	if err == nil {
+		return false, nil
+	}
+	if IsExpectedEvidenceSubmissionError(err) {
+		s.log.Debug(ctx, "Received expected evidence submission error", zap.String("errText", err.Error()))
+		return false, nil
+	}
+
+	return false, err
 }
 
 func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation coreum.Operation) error {

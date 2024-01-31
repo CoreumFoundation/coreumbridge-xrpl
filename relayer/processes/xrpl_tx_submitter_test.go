@@ -43,6 +43,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 	// ********** CoreumToXRPLTransfer **********
 
 	coreumToXRPLTokenTransferOperation,
+		coreumToXRPLTokenTransferOperationWithInvalidRecipient,
 		coreumToXRPLTokenTransferOperationWithSignatures,
 		coreumToXRPLTokenTransferOperationValidSigners := buildCoreumToXRPLTokenTransferTestData(
 		t, xrplTxSigners, bridgeXRPLAddress, contractRelayers,
@@ -405,6 +406,37 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 				return xrplRPCClientMock
 			},
 		},
+		{
+			name: "register_invalid_coreum_to_XRPL_token_transfer",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.
+					EXPECT().
+					GetPendingOperations(gomock.Any()).
+					Return([]coreum.Operation{coreumToXRPLTokenTransferOperationWithInvalidRecipient}, nil)
+				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
+					Relayers: contractRelayers,
+				}, nil)
+				contractClientMock.EXPECT().SendCoreumToXRPLTransferTransactionResultEvidence(
+					gomock.Any(),
+					contractRelayers[0].CoreumAddress,
+					coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
+						XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+							TicketSequence:    &coreumToXRPLTokenTransferOperationWithInvalidRecipient.TicketSequence,
+							TransactionResult: coreum.TransactionResultInvalid,
+						},
+					})
+				return contractClientMock
+			},
+			xrplRPCClientBuilder: func(ctrl *gomock.Controller) processes.XRPLRPCClient {
+				xrplRPCClientMock := NewMockXRPLRPCClient(ctrl)
+				xrplRPCClientMock.
+					EXPECT().
+					AccountInfo(gomock.Any(), bridgeXRPLAddress).
+					Return(bridgeXRPLSignerAccountWithSigners, nil)
+				return xrplRPCClientMock
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -565,7 +597,7 @@ func buildCoreumToXRPLTokenTransferTestData(
 	bridgeXRPLAddress rippledata.Account,
 	contractRelayers []coreum.Relayer,
 ) (
-	coreum.Operation, coreum.Operation, []rippledata.Signer,
+	coreum.Operation, coreum.Operation, coreum.Operation, []rippledata.Signer,
 ) {
 	operation := coreum.Operation{
 		TicketSequence: 1,
@@ -581,6 +613,11 @@ func buildCoreumToXRPLTokenTransferTestData(
 		},
 	}
 
+	invalidCoreumToXRPLTransferOperationType := *operation.OperationType.CoreumToXRPLTransfer
+	invalidCoreumToXRPLTransferOperationType.Recipient = "invalid"
+	invalidOperation := operation
+	invalidOperation.OperationType.CoreumToXRPLTransfer = &invalidCoreumToXRPLTransferOperationType
+
 	operationWithSignatures, validSigners := multiSignOperationFromMultipleSignersWithLastInvalidSignature(
 		t,
 		operation,
@@ -590,7 +627,7 @@ func buildCoreumToXRPLTokenTransferTestData(
 		multiSignCoreumToXRPLXRPLOriginatedTokeTransferOperation,
 	)
 
-	return operation, operationWithSignatures, validSigners
+	return operation, invalidOperation, operationWithSignatures, validSigners
 }
 
 func buildRotateKeysTestData(

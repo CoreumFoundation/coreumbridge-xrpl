@@ -1868,3 +1868,105 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 		),
 	)
 }
+
+func TestSendCoreumOriginatedWithInvalidRecipientToXRPL(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	xrplRecipientAddress := genInvalidXRPLAddress(t)
+
+	coreumSenderAddress := chains.Coreum.GenAccount()
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.Add(sdkmath.NewInt(10_000_000)),
+	})
+
+	coreumRecipientAddress := chains.Coreum.GenAccount()
+	t.Logf("Coreum recipient: %s", coreumRecipientAddress.String())
+
+	// issue asset ft and register it
+	sendingPrecision := int32(2)
+	tokenDecimals := uint32(4)
+	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 20)
+	issueMsg := &assetfttypes.MsgIssue{
+		Issuer:        coreumSenderAddress.String(),
+		Symbol:        "symbol",
+		Subunit:       "subunit",
+		Precision:     tokenDecimals,
+		InitialAmount: maxHoldingAmount,
+	}
+	_, err := client.BroadcastTx(
+		ctx,
+		chains.Coreum.ClientContext.WithFromAddress(coreumSenderAddress),
+		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+		issueMsg,
+	)
+	require.NoError(t, err)
+
+	envCfg := DefaultRunnerEnvConfig()
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+
+	// start relayers
+	runnerEnv.StartAllRunnerProcesses()
+	// recover tickets so we can register tokens
+	runnerEnv.AllocateTickets(ctx, t, xrpl.MaxTicketsToAllocate)
+
+	// register Coreum originated token
+	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
+	bridgingFee := sdkmath.NewInt(10)
+	registeredCoreumOriginatedToken := runnerEnv.RegisterCoreumOriginatedToken(
+		ctx,
+		t,
+		denom,
+		tokenDecimals,
+		sendingPrecision,
+		maxHoldingAmount,
+		bridgingFee,
+	)
+
+	pendingRefunds, err := runnerEnv.BridgeClient.GetPendingRefunds(ctx, coreumSenderAddress)
+	require.NoError(t, err)
+	require.Empty(t, pendingRefunds)
+
+	availableTicketsBefore, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, availableTicketsBefore)
+
+	amountToSendToXRPL := sdkmath.NewInt(1_000_000).Add(bridgingFee)
+	// use the client directly to prevent the validation
+	_, err = runnerEnv.ContractClient.SendToXRPL(
+		ctx,
+		coreumSenderAddress,
+		xrplRecipientAddress,
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
+		nil,
+	)
+	require.NoError(t, err)
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+
+	// check that the sending was cancelled
+	pendingRefunds, err = runnerEnv.BridgeClient.GetPendingRefunds(ctx, coreumSenderAddress)
+	require.NoError(t, err)
+	require.Len(t, pendingRefunds, 1)
+
+	// check that the amount is in the pending refunds and the bridging fee is taken
+	require.Equal(t,
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL.Sub(bridgingFee)).String(),
+		pendingRefunds[0].Coin.String(),
+	)
+
+	//  validate that ticket is returned back
+	availableTicketsAfter, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.EqualValues(t, availableTicketsBefore, availableTicketsAfter)
+}
+
+func genInvalidXRPLAddress(t *testing.T) string {
+	stringAcc := xrpl.GenPrivKeyTxSigner().Account().String()
+	invalidStringAcc := string([]rune(stringAcc)[0:1]) + string(lo.Shuffle([]rune(stringAcc)[1:]))
+	_, err := rippledata.NewAccountFromAddress(invalidStringAcc)
+	require.ErrorContains(t, err, xrpl.BadBase58ChecksumError)
+
+	return invalidStringAcc
+}
