@@ -3,6 +3,8 @@ use cosmwasm_std::{Addr, DepsMut};
 
 use crate::{error::ContractError, state::PENDING_OPERATIONS};
 
+const MAX_SIGNATURE_LENGTH: usize = 200;
+
 #[cw_serde]
 pub struct Signature {
     pub relayer_coreum_address: Addr,
@@ -53,10 +55,9 @@ pub fn add_signature(
 
 fn validate_signature(signature: &String) -> Result<(), ContractError> {
     // The purpose of this function is to avoid attacks
-    // Signatures on XRPL can have different lengths, and there is not really a MAX length defined. They go from 128 to 142 currently.
     // We set a max length of 200, a reasonable length, here to avoid spam attack by a malicious relayer that wants to send a very long signature for an operation
     // And to also not error out in case a relayer sends a signature that is a bit longer than the one we expect
-    if signature.len() > 200 {
+    if signature.len() > MAX_SIGNATURE_LENGTH {
         return Err(ContractError::InvalidSignatureLength {});
     }
     Ok(())
