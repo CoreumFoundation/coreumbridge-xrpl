@@ -1279,20 +1279,30 @@ fn rotate_keys(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
-        QueryMsg::XRPLTokens { offset, limit } => {
-            to_json_binary(&query_xrpl_tokens(deps, offset, limit)?)
-        }
-        QueryMsg::CoreumTokens { offset, limit } => {
-            to_json_binary(&query_coreum_tokens(deps, offset, limit)?)
-        }
+        QueryMsg::XRPLTokens {
+            start_after_key,
+            limit,
+        } => to_json_binary(&query_xrpl_tokens(deps, start_after_key, limit)?),
+        QueryMsg::CoreumTokens {
+            start_after_key,
+            limit,
+        } => to_json_binary(&query_coreum_tokens(deps, start_after_key, limit)?),
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
-        QueryMsg::PendingOperations {} => to_json_binary(&query_pending_operations(deps)?),
+        QueryMsg::PendingOperations {
+            start_after_key,
+            limit,
+        } => to_json_binary(&query_pending_operations(deps, start_after_key, limit)?),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
         QueryMsg::PendingRefunds {
             address,
-            offset,
+            start_after_key,
             limit,
-        } => to_json_binary(&query_pending_refunds(deps, address, offset, limit)?),
+        } => to_json_binary(&query_pending_refunds(
+            deps,
+            address,
+            start_after_key,
+            limit,
+        )?),
         QueryMsg::FeesCollected { relayer_address } => {
             to_json_binary(&query_fees_collected(deps, relayer_address)?)
         }
@@ -1321,48 +1331,68 @@ fn query_bridge_state(deps: Deps) -> StdResult<BridgeStateResponse> {
 
 fn query_xrpl_tokens(
     deps: Deps,
-    offset: Option<u64>,
+    start_after_key: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<XRPLTokensResponse> {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
-    let offset = offset.unwrap_or_default();
+    let start = start_after_key.map(Bound::exclusive);
+    let mut last_key = None;
     let tokens: Vec<XRPLToken> = XRPL_TOKENS
-        .range(deps.storage, None, None, Order::Ascending)
-        .skip(offset as usize)
+        .range(deps.storage, start, None, Order::Ascending)
         .take(limit as usize)
         .filter_map(|v| v.ok())
-        .map(|(_, v)| v)
+        .map(|(key, v)| {
+            last_key = Some(key);
+            v
+        })
         .collect();
 
-    Ok(XRPLTokensResponse { tokens })
+    Ok(XRPLTokensResponse { last_key, tokens })
 }
 
 fn query_coreum_tokens(
     deps: Deps,
-    offset: Option<u64>,
+    start_after_key: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<CoreumTokensResponse> {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
-    let offset = offset.unwrap_or_default();
+    let start = start_after_key.map(Bound::exclusive);
+    let mut last_key = None;
     let tokens: Vec<CoreumToken> = COREUM_TOKENS
-        .range(deps.storage, None, None, Order::Ascending)
-        .skip(offset as usize)
+        .range(deps.storage, start, None, Order::Ascending)
         .take(limit as usize)
         .filter_map(|r| r.ok())
-        .map(|(_, ct)| ct)
+        .map(|(key, ct)| {
+            last_key = Some(key);
+            ct
+        })
         .collect();
 
-    Ok(CoreumTokensResponse { tokens })
+    Ok(CoreumTokensResponse { last_key, tokens })
 }
 
-fn query_pending_operations(deps: Deps) -> StdResult<PendingOperationsResponse> {
+fn query_pending_operations(
+    deps: Deps,
+    start_after_key: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<PendingOperationsResponse> {
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
+    let start = start_after_key.map(Bound::exclusive);
+    let mut last_key = None;
     let operations: Vec<Operation> = PENDING_OPERATIONS
-        .range(deps.storage, None, None, Order::Ascending)
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit as usize)
         .filter_map(|v| v.ok())
-        .map(|(_, v)| v)
+        .map(|(key, v)| {
+            last_key = Some(key);
+            v
+        })
         .collect();
 
-    Ok(PendingOperationsResponse { operations })
+    Ok(PendingOperationsResponse {
+        last_key,
+        operations,
+    })
 }
 
 fn query_available_tickets(deps: Deps) -> StdResult<AvailableTicketsResponse> {
@@ -1384,27 +1414,33 @@ fn query_fees_collected(deps: Deps, relayer_address: Addr) -> StdResult<FeesColl
 fn query_pending_refunds(
     deps: Deps,
     address: Addr,
-    offset: Option<u64>,
+    start_after_key: Option<(Addr, String)>,
     limit: Option<u32>,
 ) -> StdResult<PendingRefundsResponse> {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
-    let offset = offset.unwrap_or_default();
+    let start = start_after_key.map(Bound::exclusive);
+    let mut last_key = None;
 
     let pending_refunds: Vec<PendingRefund> = PENDING_REFUNDS
         .idx
         .address
         .prefix(address)
-        .range(deps.storage, None, None, Order::Ascending)
-        .skip(offset as usize)
+        .range(deps.storage, start, None, Order::Ascending)
         .take(limit as usize)
         .filter_map(|r| r.ok())
-        .map(|(_, pr)| PendingRefund {
-            id: pr.id,
-            coin: pr.coin,
+        .map(|(key, pr)| {
+            last_key = Some(key);
+            PendingRefund {
+                id: pr.id,
+                coin: pr.coin,
+            }
         })
         .collect();
 
-    Ok(PendingRefundsResponse { pending_refunds })
+    Ok(PendingRefundsResponse {
+        last_key,
+        pending_refunds,
+    })
 }
 
 fn query_transaction_evidence(deps: Deps, hash: String) -> StdResult<TransactionEvidence> {
