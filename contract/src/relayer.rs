@@ -4,7 +4,11 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Deps, Empty, Storage};
 
 use crate::{
-    address::validate_xrpl_address, contract::MAX_RELAYERS, error::ContractError, evidence::TransactionResult, state::{CONFIG, PENDING_ROTATE_KEYS, TX_EVIDENCES}
+    address::validate_xrpl_address,
+    contract::MAX_RELAYERS,
+    error::ContractError,
+    evidence::TransactionResult,
+    state::{CONFIG, PENDING_ROTATE_KEYS, TX_EVIDENCES},
 };
 
 #[cw_serde]

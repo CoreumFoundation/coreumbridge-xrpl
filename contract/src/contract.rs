@@ -1,28 +1,35 @@
 use std::collections::VecDeque;
 
 use crate::{
-    address::validate_xrpl_address, error::ContractError, evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult}, fees::{amount_after_bridge_fees, handle_fee_collection, substract_relayer_fees}, msg::{
+    address::validate_xrpl_address,
+    error::ContractError,
+    evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
+    fees::{amount_after_bridge_fees, handle_fee_collection, substract_relayer_fees},
+    msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
         FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefund,
         PendingRefundsResponse, QueryMsg, XRPLTokensResponse,
-    }, operation::{
+    },
+    operation::{
         check_operation_exists, create_pending_operation,
         handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation,
         remove_pending_refund, Operation, OperationType,
-    }, relayer::{
-        assert_relayer, handle_rotate_keys_confirmation, validate_relayers,
-        Relayer,
-    }, signatures::add_signature, state::{
+    },
+    relayer::{assert_relayer, handle_rotate_keys_confirmation, validate_relayers, Relayer},
+    signatures::add_signature,
+    state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, XRPLToken,
         AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS,
         PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
         XRPL_TOKENS,
-    }, tickets::{
+    },
+    tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
-    }, token::{
+    },
+    token::{
         build_xrpl_token_key, is_token_xrp, set_token_bridging_fee, set_token_max_holding_amount,
         set_token_sending_precision, set_token_state,
-    }
+    },
 };
 
 use coreum_wasm_sdk::{

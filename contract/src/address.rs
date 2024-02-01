@@ -42,11 +42,9 @@ fn to_btc_bs58(s: &str) -> Result<String, ContractError> {
         .map(|b| XRP_2_BTC_BS58_MAP[*b as usize] as u8)
         .collect();
 
-    Ok(
-        String::from_utf8(to).map_err(|_| ContractError::InvalidXRPLAddress {
-            address: s.to_string(),
-        })?,
-    )
+    String::from_utf8(to).map_err(|_| ContractError::InvalidXRPLAddress {
+        address: s.to_string(),
+    })
 }
 
 pub fn checksum(data: &[u8]) -> Vec<u8> {
