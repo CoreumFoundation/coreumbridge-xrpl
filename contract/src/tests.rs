@@ -140,6 +140,25 @@ mod tests {
         address
     }
 
+    pub fn generate_invalid_xrpl_address() -> String {
+        let mut address = 'r'.to_string();
+        let mut rand = String::from_utf8(
+            thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(30)
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+
+        rand = rand.replace("0", "1");
+        rand = rand.replace("O", "o");
+        rand = rand.replace("I", "i");
+        rand = rand.replace("l", "L");
+
+        address.push_str(rand.as_str());
+        address
+    }
+
     pub fn generate_xrpl_pub_key() -> String {
         String::from_utf8(
             thread_rng()
@@ -9891,7 +9910,7 @@ mod tests {
             validate_xrpl_address(address).unwrap();
         }
 
-        let invalid_addresses = vec![
+        let mut invalid_addresses = vec![
             "zDTXLQ7ZKZVKz33zJbHjgVShjsBnqMBhmN".to_string(), // Invalid prefix
             "rf1BiGeXwwQoi8Z2u".to_string(),                  // Too short
             "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1hBBaU29".to_string(), // Too long
@@ -9901,6 +9920,10 @@ mod tests {
             "rLUEXYuLiQpIky37CqLcm9USQpPiz5rkpD".to_string(), // Contains invalid character I
         ];
 
+        for _ in 0..100 {
+            invalid_addresses.push(generate_invalid_xrpl_address()); // Just random address without checksum calculation
+        }
+        
         for address in invalid_addresses {
             validate_xrpl_address(address).unwrap_err();
         }
