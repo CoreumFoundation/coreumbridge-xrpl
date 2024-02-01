@@ -174,7 +174,7 @@ mod tests {
 
         let relayer_duplicated_xrpl_address = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: xrpl_address,
+            xrpl_address,
             xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
@@ -348,7 +348,7 @@ mod tests {
                 1,
                 &InstantiateMsg {
                     owner: Addr::unchecked(signer.address()),
-                    relayers: vec![relayer],
+                    relayers: vec![relayer.clone()],
                     evidence_threshold: 1,
                     used_ticket_sequence_threshold: 1,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
@@ -425,6 +425,30 @@ mod tests {
         assert!(error
             .to_string()
             .contains(ContractError::TooManyRelayers {}.to_string().as_str()));
+
+        // We check that trying to instantiate with an invalid trust set amount will fail
+        let error = wasm
+            .instantiate(
+                1,
+                &InstantiateMsg {
+                    owner: Addr::unchecked(signer.address()),
+                    relayers: vec![relayer, relayer_correct],
+                    evidence_threshold: 1,
+                    used_ticket_sequence_threshold: 50,
+                    trust_set_limit_amount: Uint128::new(10000000000000001),
+                    bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 10,
+                },
+                None,
+                "label".into(),
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains(ContractError::InvalidXRPLAmount {}.to_string().as_str()));
 
         // We query the issued token by the contract instantiation (XRP)
         let query_response = asset_ft
@@ -1898,7 +1922,7 @@ mod tests {
         let symbol = "TEST".to_string();
         let subunit = "utest".to_string();
         let decimals = 6;
-        let initial_amount = Uint128::new(100000000);
+        let initial_amount = Uint128::new(100000000000000000000);
         asset_ft
             .issue(
                 MsgIssue {
@@ -1941,7 +1965,7 @@ mod tests {
                 denom: denom.to_owned(),
                 decimals,
                 sending_precision: 5,
-                max_holding_amount: Uint128::new(10000000),
+                max_holding_amount: Uint128::new(100000000000000000000),
                 bridging_fee: Uint128::zero(),
             },
             &vec![],
@@ -1970,6 +1994,23 @@ mod tests {
                 .to_string()
                 .as_str()
         ));
+
+        // If we try to send an amount that will become an invalid XRPL amount, it should fail
+        let send_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                    deliver_amount: None,
+                },
+                &coins(10000000000000000010, denom.to_owned()), // Nothing is truncated, and after transforming into XRPL amount it will have more than 17 digits
+                &sender,
+            )
+            .unwrap_err();
+
+        assert!(send_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLAmount {}.to_string().as_str()));
 
         // Try to bridge the token to the xrpl receiver address so that we can send it back.
         wasm.execute::<ExecuteMsg>(
@@ -2877,9 +2918,9 @@ mod tests {
 
         // *** Test sending XRP back to XRPL, which is already enabled so we can bridge it directly ***
 
-        let amount_to_send = Uint128::new(50000);
+        let amount_to_send_xrp = Uint128::new(50000);
         let amount_to_send_back = Uint128::new(10000);
-        let final_balance = amount_to_send.checked_sub(amount_to_send_back).unwrap();
+        let final_balance_xrp = amount_to_send_xrp.checked_sub(amount_to_send_back).unwrap();
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -2887,7 +2928,7 @@ mod tests {
                     tx_hash: generate_hash(),
                     issuer: XRP_ISSUER.to_string(),
                     currency: XRP_CURRENCY.to_string(),
-                    amount: amount_to_send.clone(),
+                    amount: amount_to_send_xrp.clone(),
                     recipient: Addr::unchecked(sender.address()),
                 },
             },
@@ -2904,7 +2945,7 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(request_balance.balance, amount_to_send.to_string());
+        assert_eq!(request_balance.balance, amount_to_send_xrp.to_string());
 
         let xrpl_receiver_address = generate_xrpl_address();
         // Trying to send XRP back with a deliver_amount should fail
@@ -3047,7 +3088,7 @@ mod tests {
                 denom: denom_xrp.to_owned(),
             })
             .unwrap();
-        assert_eq!(request_balance.balance, final_balance.to_string());
+        assert_eq!(request_balance.balance, final_balance_xrp.to_string());
 
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
@@ -3121,7 +3162,7 @@ mod tests {
             issuer: generate_xrpl_address(),
             currency: "TST".to_string(),
             sending_precision: 15,
-            max_holding_amount: Uint128::new(500000),
+            max_holding_amount: Uint128::new(50000000000000000000), // 5e20
             bridging_fee: Uint128::zero(),
         };
 
@@ -3168,6 +3209,8 @@ mod tests {
         )
         .unwrap();
 
+        let amount_to_send = Uint128::new(10000000000000000000); // 1e20
+        let final_balance = amount_to_send.checked_sub(amount_to_send_back).unwrap();
         // Bridge some tokens to the sender address
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -3397,7 +3440,7 @@ mod tests {
 
         assert_eq!(
             request_balance.balance,
-            final_balance
+            final_balance_xrp
                 .checked_sub(amount_to_send_back)
                 .unwrap()
                 .to_string()
@@ -3475,7 +3518,7 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(request_balance.balance, final_balance.to_string());
+        assert_eq!(request_balance.balance, final_balance_xrp.to_string());
 
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
@@ -3487,7 +3530,7 @@ mod tests {
 
         // Let's test sending a token with optional amount
 
-        let max_amount = Uint128::new(10000);
+        let max_amount = Uint128::new(9999999999999999);
         let deliver_amount = Some(Uint128::new(6000));
 
         // Store balance first so we can check it later
@@ -3514,6 +3557,40 @@ mod tests {
         assert!(max_amount_error
             .to_string()
             .contains(ContractError::InvalidDeliverAmount {}.to_string().as_str()));
+
+        // If we send a deliver amount that is an invalid XRPL amount, it should fail
+        let invalid_amount_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                    deliver_amount: Some(Uint128::new(99999999999999999)),
+                },
+                &coins(1000000000000000000, denom_xrpl_origin_token.to_owned()),
+                sender,
+            )
+            .unwrap_err();
+
+        assert!(invalid_amount_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLAmount {}.to_string().as_str()));
+
+        // If we send an amount that is an invalid XRPL amount, it should fail
+        let invalid_amount_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                    deliver_amount: Some(Uint128::new(10000000000000000)),
+                },
+                &coins(10000000000000001, denom_xrpl_origin_token.to_owned()),
+                sender,
+            )
+            .unwrap_err();
+
+        assert!(invalid_amount_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLAmount {}.to_string().as_str()));
 
         // Send it correctly
         wasm.execute::<ExecuteMsg>(
