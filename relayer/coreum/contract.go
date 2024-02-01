@@ -380,11 +380,13 @@ type evidence struct {
 }
 
 type xrplTokensResponse struct {
-	Tokens []XRPLToken `json:"tokens"`
+	LastKey string      `json:"last_key"`
+	Tokens  []XRPLToken `json:"tokens"`
 }
 
 type coreumTokensResponse struct {
-	Tokens []CoreumToken `json:"tokens"`
+	LastKey string        `json:"last_key"`
+	Tokens  []CoreumToken `json:"tokens"`
 }
 
 type pendingOperationsResponse struct {
@@ -410,8 +412,8 @@ type PendingRefund struct {
 }
 
 type pagingRequest struct {
-	Offset *uint64 `json:"offset"`
-	Limit  *uint32 `json:"limit"`
+	StartAfterKey string  `json:"start_after_key,omitempty"`
+	Limit         *uint32 `json:"limit"`
 }
 
 type execRequest struct {
@@ -920,11 +922,11 @@ func (c *ContractClient) RecoverXRPLTokenRegistration(
 	return txRes, nil
 }
 
-// ClaimFees calls the contract to claim the fees for a given relayer.
-func (c *ContractClient) ClaimFees(
+// ClaimRelayerFees calls the contract to claim the fees for a given relayer.
+func (c *ContractClient) ClaimRelayerFees(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	amounts []sdk.Coin,
+	amounts sdk.Coins,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]claimFeesRequest{
@@ -1145,17 +1147,17 @@ func (c *ContractClient) GetXRPLTokenByIssuerAndCurrency(
 // GetXRPLTokens returns a list of all XRPL tokens.
 func (c *ContractClient) GetXRPLTokens(ctx context.Context) ([]XRPLToken, error) {
 	tokens := make([]XRPLToken, 0)
-	offset := uint64(0)
+	lastKey := ""
 	for {
-		pageTokens, err := c.getPaginatedXRPLTokens(ctx, &offset, &c.cfg.PageLimit)
+		response, err := c.getPaginatedXRPLTokens(ctx, lastKey, &c.cfg.PageLimit)
 		if err != nil {
 			return nil, err
 		}
-		if len(pageTokens) == 0 {
+		if len(response.Tokens) == 0 {
 			break
 		}
-		tokens = append(tokens, pageTokens...)
-		offset += uint64(c.cfg.PageLimit)
+		tokens = append(tokens, response.Tokens...)
+		lastKey = response.LastKey
 	}
 
 	return tokens, nil
@@ -1179,17 +1181,17 @@ func (c *ContractClient) GetCoreumTokenByDenom(ctx context.Context, denom string
 // GetCoreumTokens returns a list of all coreum tokens.
 func (c *ContractClient) GetCoreumTokens(ctx context.Context) ([]CoreumToken, error) {
 	tokens := make([]CoreumToken, 0)
-	offset := uint64(0)
+	lastKey := ""
 	for {
-		pageTokens, err := c.getPaginatedCoreumTokens(ctx, &offset, &c.cfg.PageLimit)
+		response, err := c.getPaginatedCoreumTokens(ctx, lastKey, &c.cfg.PageLimit)
 		if err != nil {
 			return nil, err
 		}
-		if len(pageTokens) == 0 {
+		if len(response.Tokens) == 0 {
 			break
 		}
-		tokens = append(tokens, pageTokens...)
-		offset += uint64(c.cfg.PageLimit)
+		tokens = append(tokens, response.Tokens...)
+		lastKey = response.LastKey
 	}
 
 	return tokens, nil
@@ -1263,40 +1265,40 @@ func (c *ContractClient) GetPendingRefunds(ctx context.Context, address sdk.AccA
 
 func (c *ContractClient) getPaginatedXRPLTokens(
 	ctx context.Context,
-	offset *uint64,
+	startAfterKey string,
 	limit *uint32,
-) ([]XRPLToken, error) {
+) (xrplTokensResponse, error) {
 	var response xrplTokensResponse
 	err := c.query(ctx, map[QueryMethod]pagingRequest{
 		QueryMethodXRPLTokens: {
-			Offset: offset,
-			Limit:  limit,
+			StartAfterKey: startAfterKey,
+			Limit:         limit,
 		},
 	}, &response)
 	if err != nil {
-		return nil, err
+		return response, err
 	}
 
-	return response.Tokens, nil
+	return response, nil
 }
 
 func (c *ContractClient) getPaginatedCoreumTokens(
 	ctx context.Context,
-	offset *uint64,
+	startAfterKey string,
 	limit *uint32,
-) ([]CoreumToken, error) {
+) (coreumTokensResponse, error) {
 	var response coreumTokensResponse
 	err := c.query(ctx, map[QueryMethod]pagingRequest{
 		QueryMethodCoreumTokens: {
-			Offset: offset,
-			Limit:  limit,
+			StartAfterKey: startAfterKey,
+			Limit:         limit,
 		},
 	}, &response)
 	if err != nil {
-		return nil, err
+		return response, err
 	}
 
-	return response.Tokens, nil
+	return response, nil
 }
 
 func (c *ContractClient) getPaginatedPendingOperations(

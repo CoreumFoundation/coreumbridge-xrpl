@@ -195,7 +195,7 @@ pub enum ContractError {
         "OperationVersionMismatch: Can't add a signature for an operation with a different version"
     )]
     OperationVersionMismatch {},
-    
+
     #[error("ProhibitedRecipient: The recipient cannot be the bridge")]
     ProhibitedRecipient {},
 
