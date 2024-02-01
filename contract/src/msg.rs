@@ -127,16 +127,19 @@ pub enum QueryMsg {
     #[returns(XRPLTokensResponse)]
     #[serde(rename = "xrpl_tokens")]
     XRPLTokens {
-        offset: Option<u64>,
+        start_after_key: Option<String>,
         limit: Option<u32>,
     },
     #[returns(CoreumTokensResponse)]
     CoreumTokens {
-        offset: Option<u64>,
+        start_after_key: Option<String>,
         limit: Option<u32>,
     },
     #[returns(PendingOperationsResponse)]
-    PendingOperations {},
+    PendingOperations {
+        start_after_key: Option<u64>,
+        limit: Option<u32>,
+    },
     #[returns(AvailableTicketsResponse)]
     AvailableTickets {},
     #[returns(FeesCollectedResponse)]
@@ -144,7 +147,7 @@ pub enum QueryMsg {
     #[returns(PendingRefundsResponse)]
     PendingRefunds {
         address: Addr,
-        offset: Option<u64>,
+        start_after_key: Option<(Addr, String)>,
         limit: Option<u32>,
     },
     #[returns(BridgeStateResponse)]
@@ -153,16 +156,19 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub struct XRPLTokensResponse {
+    pub last_key: Option<String>,
     pub tokens: Vec<XRPLToken>,
 }
 
 #[cw_serde]
 pub struct CoreumTokensResponse {
+    pub last_key: Option<String>,
     pub tokens: Vec<CoreumToken>,
 }
 
 #[cw_serde]
 pub struct PendingOperationsResponse {
+    pub last_key: Option<u64>,
     pub operations: Vec<Operation>,
 }
 
@@ -178,6 +184,7 @@ pub struct FeesCollectedResponse {
 
 #[cw_serde]
 pub struct PendingRefundsResponse {
+    pub last_key: Option<(Addr, String)>,
     pub pending_refunds: Vec<PendingRefund>,
 }
 
