@@ -1363,7 +1363,7 @@ func (c *ContractClient) execute(
 	}
 
 	var res *sdk.TxResponse
-	outOfGasRetryAttempt := uint32(0)
+	outOfGasRetryAttempt := uint32(1)
 	err := retry.Do(ctx, c.cfg.OutOfGasRetryDelay, func() error {
 		var err error
 		res, err = client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgs...)
