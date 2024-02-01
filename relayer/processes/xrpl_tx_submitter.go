@@ -466,13 +466,9 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 		)
 		return nil
 	}
-	if coreum.IsSignatureAlreadyProvidedError(err) {
-		return nil
-	}
-	if coreum.IsPendingOperationNotFoundError(err) {
-		return nil
-	}
-	if coreum.IsOperationVersionMismatchError(err) {
+	if coreum.IsSignatureAlreadyProvidedError(err) ||
+		coreum.IsPendingOperationNotFoundError(err) ||
+		coreum.IsOperationVersionMismatchError(err) {
 		return nil
 	}
 

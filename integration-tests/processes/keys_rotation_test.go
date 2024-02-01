@@ -5,7 +5,6 @@ package processes_test
 
 import (
 	"context"
-	"sort"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
@@ -15,9 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/CoreumFoundation/coreum/v4/pkg/client"
 	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
-	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -50,33 +47,20 @@ func TestKeysRotation(t *testing.T) {
 	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
 
 	// issue asset ft and register it
+	initialAmount := sdkmath.NewIntWithDecimal(1, 30)
 	sendingPrecision := int32(6)
 	tokenDecimals := uint32(6)
 	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 30)
-	issueMsg := &assetfttypes.MsgIssue{
-		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "symbol",
-		Subunit:       "subunit",
-		Precision:     tokenDecimals, // token decimals in terms of the contract
-		InitialAmount: maxHoldingAmount,
-	}
-	_, err := client.BroadcastTx(
-		ctx,
-		chains.Coreum.ClientContext.WithFromAddress(coreumSenderAddress),
-		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
-		issueMsg,
-	)
-	require.NoError(t, err)
-
-	registeredCoreumOriginatedToken := initialRunnerEnv.RegisterCoreumOriginatedToken(
+	bridgingFee := sdkmath.NewInt(40)
+	registeredCoreumOriginatedToken := initialRunnerEnv.IssueAndRegisterCoreumOriginatedToken(
 		ctx,
 		t,
-		// use Coreum denom
-		assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress),
+		coreumSenderAddress,
 		tokenDecimals,
+		initialAmount,
 		sendingPrecision,
-		sdkmath.NewIntWithDecimal(1, 30),
-		sdkmath.NewInt(40),
+		maxHoldingAmount,
+		bridgingFee,
 	)
 
 	// send TrustSet to be able to receive coins from the bridge
@@ -314,17 +298,7 @@ func assertSignersAreUpdated(
 	}
 	require.Len(t, xrplBridgeAccountInfo.AccountData.SignerList, 1)
 	require.Equal(t, newSigningThreshold, *xrplBridgeAccountInfo.AccountData.SignerList[0].SignerQuorum)
-
-	xrplBridgerAddressSignerEntries := xrplBridgeAccountInfo.AccountData.SignerList[0].SignerEntries
-	sortSignerEntries(newSignerEntries)
-	sortSignerEntries(xrplBridgerAddressSignerEntries)
-	require.EqualValues(t, newSignerEntries, xrplBridgerAddressSignerEntries)
-}
-
-func sortSignerEntries(signerEntries []rippledata.SignerEntry) {
-	sort.Slice(signerEntries, func(i, j int) bool {
-		return signerEntries[i].SignerEntry.Account.String() > signerEntries[j].SignerEntry.Account.String()
-	})
+	require.ElementsMatch(t, newSignerEntries, xrplBridgeAccountInfo.AccountData.SignerList[0].SignerEntries)
 }
 
 func convertBridgeClientRelayersToContactRelayers(

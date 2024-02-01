@@ -22,8 +22,10 @@ import (
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
+	"github.com/CoreumFoundation/coreum/v4/pkg/client"
 	coreumconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
 	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
+	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -352,6 +354,45 @@ func (r *RunnerEnv) RegisterCoreumOriginatedToken(
 	)
 	require.NoError(t, err)
 	return token
+}
+
+// IssueAndRegisterCoreumOriginatedToken issues new Coreum originated token and registers it in the contract.
+func (r *RunnerEnv) IssueAndRegisterCoreumOriginatedToken(
+	ctx context.Context,
+	t *testing.T,
+	issuerAddress sdk.AccAddress,
+	tokenDecimals uint32,
+	initialAmount sdkmath.Int,
+	sendingPrecision int32,
+	maxHoldingAmount sdkmath.Int,
+	bridgingFee sdkmath.Int,
+) coreum.CoreumToken {
+	issueMsg := &assetfttypes.MsgIssue{
+		Issuer:        issuerAddress.String(),
+		Symbol:        "symbol" + uuid.NewString()[:4],
+		Subunit:       "subunit" + uuid.NewString()[:4],
+		Precision:     tokenDecimals, // token decimals in terms of the contract
+		InitialAmount: initialAmount,
+	}
+	_, err := client.BroadcastTx(
+		ctx,
+		r.Chains.Coreum.ClientContext.WithFromAddress(issuerAddress),
+		r.Chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+		issueMsg,
+	)
+	require.NoError(t, err)
+	registeredCoreumOriginatedToken := r.RegisterCoreumOriginatedToken(
+		ctx,
+		t,
+		// use Coreum denom
+		assetfttypes.BuildDenom(issueMsg.Subunit, issuerAddress),
+		tokenDecimals,
+		sendingPrecision,
+		maxHoldingAmount,
+		bridgingFee,
+	)
+
+	return registeredCoreumOriginatedToken
 }
 
 // SendFromCoreumToXRPL sends tokens form Coreum to XRPL.

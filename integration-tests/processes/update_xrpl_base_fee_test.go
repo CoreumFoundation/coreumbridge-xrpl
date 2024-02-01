@@ -13,9 +13,7 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
-	"github.com/CoreumFoundation/coreum/v4/pkg/client"
 	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
-	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -51,31 +49,20 @@ func TestUpdateXRPLBaseFee(t *testing.T) {
 	// issue asset ft and register it
 	sendingPrecision := int32(6)
 	tokenDecimals := uint32(6)
-	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 30)
-	issueMsg := &assetfttypes.MsgIssue{
-		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "symbol",
-		Subunit:       "subunit",
-		Precision:     tokenDecimals, // token decimals in terms of the contract
-		InitialAmount: maxHoldingAmount,
-	}
-	_, err := client.BroadcastTx(
-		ctx,
-		chains.Coreum.ClientContext.WithFromAddress(coreumSenderAddress),
-		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
-		issueMsg,
-	)
-	require.NoError(t, err)
 
-	registeredCoreumOriginatedToken := runnerEnv.RegisterCoreumOriginatedToken(
+	initialAmount := sdkmath.NewIntWithDecimal(1, 30)
+	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 30)
+	bridgingFee := sdkmath.NewInt(40)
+
+	registeredCoreumOriginatedToken := runnerEnv.IssueAndRegisterCoreumOriginatedToken(
 		ctx,
 		t,
-		// use Coreum denom
-		assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress),
+		coreumSenderAddress,
 		tokenDecimals,
+		initialAmount,
 		sendingPrecision,
-		sdkmath.NewIntWithDecimal(1, 30),
-		sdkmath.NewInt(40),
+		maxHoldingAmount,
+		bridgingFee,
 	)
 
 	// send TrustSet to be able to receive coins from the bridge
