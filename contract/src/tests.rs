@@ -446,7 +446,7 @@ mod tests {
                     relayers: vec![relayer, relayer_correct],
                     evidence_threshold: 1,
                     used_ticket_sequence_threshold: 50,
-                    trust_set_limit_amount: Uint128::new(100000000000000001),
+                    trust_set_limit_amount: Uint128::new(10000000000000001),
                     bridge_xrpl_address: generate_xrpl_address(),
                     xrpl_base_fee: 10,
                 },
@@ -3392,7 +3392,7 @@ mod tests {
 
         // Let's test sending a token with optional amount
 
-        let max_amount = Uint128::new(10000);
+        let max_amount = Uint128::new(9999999999999999);
         let deliver_amount = Some(Uint128::new(6000));
 
         // Store balance first so we can check it later
@@ -3426,7 +3426,7 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: xrpl_receiver_address.to_owned(),
-                    deliver_amount: Some(Uint128::new(999999999999999999)),
+                    deliver_amount: Some(Uint128::new(99999999999999999)),
                 },
                 &coins(1000000000000000000, denom_xrpl_origin_token.to_owned()),
                 sender,
@@ -3443,9 +3443,9 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: xrpl_receiver_address.to_owned(),
-                    deliver_amount: Some(Uint128::new(1000000000000000000)),
+                    deliver_amount: Some(Uint128::new(10000000000000000)),
                 },
-                &coins(1000000000000000001, denom_xrpl_origin_token.to_owned()),
+                &coins(10000000000000001, denom_xrpl_origin_token.to_owned()),
                 sender,
             )
             .unwrap_err();

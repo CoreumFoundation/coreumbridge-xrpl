@@ -73,7 +73,7 @@ const XRP_DEFAULT_FEE: Uint128 = Uint128::zero();
 
 pub const MAX_TICKETS: u32 = 250;
 pub const MAX_RELAYERS: u32 = 32;
-pub const XRPL_MAX_TRUNCATED_AMOUNT_LENGTH: usize = 17;
+pub const XRPL_MAX_TRUNCATED_AMOUNT_LENGTH: usize = 16;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -1549,7 +1549,7 @@ fn truncate_and_convert_amount(
 }
 
 // Helper function to validate that we are not sending an invalid amount to XRPL
-// A valid amount is one that doesn't have more than 17 digits after trimming trailing zeroes
+// A valid amount is one that doesn't have more than 16 digits after trimming trailing zeroes
 // Example: 1000000000000000000000000000 is valid
 // Example: 1000000000000000000000000001 is not valid
 fn validate_xrpl_amount(amount: Uint128) -> Result<(), ContractError> {
