@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use coreum_test_tube::{Account, AssetFT, Bank, CoreumTestApp, Module, SigningAccount, Wasm};
     use coreum_wasm_sdk::types::coreum::asset::ft::v1::{MsgFreeze, MsgUnfreeze};
     use coreum_wasm_sdk::types::cosmos::bank::v1beta1::QueryTotalSupplyRequest;
@@ -17,8 +15,11 @@ mod tests {
     };
     use cosmwasm_std::{coin, coins, Addr, Coin, Uint128};
     use rand::{distributions::Alphanumeric, thread_rng, Rng};
+    use ripple_keypairs::Seed;
     use sha2::{Digest, Sha256};
+    use std::collections::HashMap;
 
+    use crate::address::validate_xrpl_address;
     use crate::contract::MAX_RELAYERS;
     use crate::msg::BridgeStateResponse;
     use crate::state::BridgeState;
@@ -32,7 +33,7 @@ mod tests {
             XRPLTokensResponse,
         },
         operation::{Operation, OperationType},
-        relayer::{validate_xrpl_address, Relayer},
+        relayer::Relayer,
         signatures::Signature,
         state::{Config, TokenState, XRPLToken as QueriedXRPLToken},
     };
@@ -133,21 +134,9 @@ mod tests {
     }
 
     pub fn generate_xrpl_address() -> String {
-        let mut address = 'r'.to_string();
-        let mut rand = String::from_utf8(
-            thread_rng()
-                .sample_iter(&Alphanumeric)
-                .take(30)
-                .collect::<Vec<_>>(),
-        )
-        .unwrap();
-
-        rand = rand.replace("0", "1");
-        rand = rand.replace("O", "o");
-        rand = rand.replace("I", "i");
-        rand = rand.replace("l", "L");
-
-        address.push_str(rand.as_str());
+        let seed = Seed::random();
+        let (_, public_key) = seed.derive_keypair().unwrap();
+        let address = public_key.derive_address();
         address
     }
 
@@ -9705,6 +9694,10 @@ mod tests {
             "rPbPkTSrAqANkoTFpwheTxRyT8EQ38U5ok".to_string(),
             "rQ3fNyLjbvcDaPNS4EAJY8aT9zR3uGk17c".to_string(),
             "rnATJKpFCsFGfEvMC3uVWHvCEJrh5QMuYE".to_string(),
+            generate_xrpl_address(),
+            generate_xrpl_address(),
+            generate_xrpl_address(),
+            generate_xrpl_address(),
         ];
 
         for address in valid_addresses {

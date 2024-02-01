@@ -4,10 +4,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Deps, Empty, Storage};
 
 use crate::{
-    contract::MAX_RELAYERS,
-    error::ContractError,
-    evidence::TransactionResult,
-    state::{CONFIG, PENDING_ROTATE_KEYS, TX_EVIDENCES},
+    address::validate_xrpl_address, contract::MAX_RELAYERS, error::ContractError, evidence::TransactionResult, state::{CONFIG, PENDING_ROTATE_KEYS, TX_EVIDENCES}
 };
 
 #[cw_serde]
@@ -66,20 +63,6 @@ pub fn validate_relayers(
     }
 
     Ok(())
-}
-
-pub fn validate_xrpl_address(address: String) -> Result<(), ContractError> {
-    // We validate that the length of the issuer is between 24 and 34 characters and starts with 'r'
-    if address.len() >= 25
-        && address.len() <= 35
-        && address.starts_with('r')
-        && address
-            .chars()
-            .all(|c| c.is_alphanumeric() && c != '0' && c != 'O' && c != 'I' && c != 'l')
-    {
-        return Ok(());
-    }
-    Err(ContractError::InvalidXRPLAddress { address })
 }
 
 pub fn assert_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractError> {
