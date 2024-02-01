@@ -9,7 +9,7 @@ use crate::{
     relayer::Relayer,
     signatures::Signature,
     state::{
-        BridgeState, PendingRefund, TokenState, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS,
+        BridgeState, Config, PendingRefund, TokenState, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS,
         PENDING_REFUNDS, PENDING_ROTATE_KEYS, XRPL_TOKENS,
     },
     token::build_xrpl_token_key,
@@ -88,9 +88,7 @@ pub fn create_pending_operation(
     let config = CONFIG.load(storage)?;
 
     // If bridge is halted we prohibit all operation creations except allowed ones
-    if config.bridge_state.eq(&BridgeState::Halted) {
-        check_valid_operation_during_halt(storage, &operation_type)?
-    }
+    check_valid_operation_if_halt(storage, &config, &operation_type)?;
 
     let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
     // We use a unique ID for operations that will also be used for refunding failed operations
@@ -252,19 +250,22 @@ pub fn remove_pending_refund(
     Ok(pending_refund.coin)
 }
 
-pub fn check_valid_operation_during_halt(
+pub fn check_valid_operation_if_halt(
     storage: &mut dyn Storage,
+    config: &Config,
     operation_type: &OperationType,
 ) -> Result<(), ContractError> {
-    match &operation_type {
-        // Only RotateKeys operations (if there is a pending rotate keys ongoing) or ticket allocations are allowed during bridge halt
-        OperationType::RotateKeys { .. } => {
-            if !PENDING_ROTATE_KEYS.load(storage)? {
-                return Err(ContractError::BridgeHalted {});
+    if config.bridge_state.eq(&BridgeState::Halted) {
+        match &operation_type {
+            // Only RotateKeys operations (if there is a pending rotate keys ongoing) or ticket allocations are allowed during bridge halt
+            OperationType::RotateKeys { .. } => {
+                if !PENDING_ROTATE_KEYS.load(storage)? {
+                    return Err(ContractError::BridgeHalted {});
+                }
             }
+            OperationType::AllocateTickets { .. } => (),
+            _ => return Err(ContractError::BridgeHalted {}),
         }
-        OperationType::AllocateTickets { .. } => (),
-        _ => return Err(ContractError::BridgeHalted {}),
     }
 
     Ok(())

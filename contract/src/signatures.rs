@@ -3,8 +3,8 @@ use cosmwasm_std::{Addr, DepsMut};
 
 use crate::{
     error::ContractError,
-    operation::check_valid_operation_during_halt,
-    state::{BridgeState, CONFIG, PENDING_OPERATIONS},
+    operation::check_valid_operation_if_halt,
+    state::{CONFIG, PENDING_OPERATIONS},
 };
 
 #[cw_serde]
@@ -32,9 +32,7 @@ pub fn add_signature(
     let config = CONFIG.load(deps.storage)?;
 
     // If bridge is halted we prohibit all signatures except for allowed operations
-    if config.bridge_state.eq(&BridgeState::Halted) {
-        check_valid_operation_during_halt(deps.storage, &pending_operation.operation_type)?
-    }
+    check_valid_operation_if_halt(deps.storage, &config, &pending_operation.operation_type)?;
 
     let mut signatures = pending_operation.signatures;
 
