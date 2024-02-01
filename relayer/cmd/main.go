@@ -113,7 +113,9 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 	), nil
 }
 
-func processCoreumClientContextFlags(cmd *cobra.Command, clientCtx coreumchainclient.Context) coreumchainclient.Context {
+func processCoreumClientContextFlags(
+	cmd *cobra.Command, clientCtx coreumchainclient.Context,
+) coreumchainclient.Context {
 	flagSet := cmd.Flags()
 	if !clientCtx.GenerateOnly() || flagSet.Changed(flags.FlagGenerateOnly) {
 		genOnly, _ := flagSet.GetBool(flags.FlagGenerateOnly)
