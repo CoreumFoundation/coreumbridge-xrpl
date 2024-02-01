@@ -9923,7 +9923,7 @@ mod tests {
         for _ in 0..100 {
             invalid_addresses.push(generate_invalid_xrpl_address()); // Just random address without checksum calculation
         }
-        
+
         for address in invalid_addresses {
             validate_xrpl_address(address).unwrap_err();
         }

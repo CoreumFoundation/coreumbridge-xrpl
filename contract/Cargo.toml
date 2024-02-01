@@ -24,7 +24,7 @@ incremental = false
 overflow-checks = true
 
 [dependencies]
-base58 = "0.2.0"
+bs58 = "0.5.0"
 coreum-wasm-sdk = "0.2.4"
 cosmwasm-schema = "1.5.3"
 cosmwasm-std = { version = "1.5.3", features = ["cosmwasm_1_1"] }

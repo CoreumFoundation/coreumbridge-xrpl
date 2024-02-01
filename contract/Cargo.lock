@@ -94,12 +94,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
-name = "base58"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6107fe1be6682a68940da878d9e9f5e90ca5745b3dec9fd1bb393c8777d4f581"
-
-[[package]]
 name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -234,6 +228,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5353f36341f7451062466f0b755b96ac3a9547e4d7f6b70d603fc721a7d7896"
 dependencies = [
  "sha2 0.10.8",
+ "tinyvec",
 ]
 
 [[package]]
@@ -368,7 +363,7 @@ dependencies = [
 name = "coreumbridge-xrpl"
 version = "0.1.0"
 dependencies = [
- "base58",
+ "bs58",
  "coreum-test-tube",
  "coreum-wasm-sdk",
  "cosmwasm-schema",
