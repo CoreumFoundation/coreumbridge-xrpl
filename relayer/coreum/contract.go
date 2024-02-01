@@ -4,6 +4,7 @@ package coreum
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -1168,6 +1169,14 @@ func (c *ContractClient) GetPendingRefunds(ctx context.Context, address sdk.AccA
 	return response.PendingRefunds, nil
 }
 
+func (c *ContractClient) GetClientCtx() client.Context {
+	return c.clientCtx
+}
+
+func (c *ContractClient) SetClientCtx(ctx client.Context) {
+	c.clientCtx = ctx
+}
+
 func (c *ContractClient) getPaginatedXRPLTokens(
 	ctx context.Context,
 	offset *uint64,
@@ -1242,7 +1251,22 @@ func (c *ContractClient) execute(
 		msgs = append(msgs, msg)
 	}
 
-	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgs...)
+	clientCtx := c.clientCtx.WithFromAddress(sender)
+	if clientCtx.GenerateOnly() {
+		unsignedTx, err := client.GenerateUnsignedTx(ctx, clientCtx, c.getTxFactory(), msgs...)
+		if err != nil {
+			return nil, err
+		}
+
+		json, err := clientCtx.TxConfig().TxJSONEncoder()(unsignedTx.GetTx())
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, clientCtx.PrintString(fmt.Sprintf("%s\n", json))
+	}
+
+	res, err := client.BroadcastTx(ctx, clientCtx, c.getTxFactory(), msgs...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to execute transaction, message:%+v", msgs)
 	}

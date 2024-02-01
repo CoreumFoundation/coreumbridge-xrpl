@@ -334,6 +334,10 @@ func (b *BridgeClient) RecoverTickets(
 		return err
 	}
 
+	if txRes == nil {
+		return nil
+	}
+
 	b.log.Info(
 		ctx,
 		"Successfully submitted recovery tickets transaction",
@@ -375,6 +379,10 @@ func (b *BridgeClient) RegisterCoreumToken(
 	)
 	if err != nil {
 		return coreum.CoreumToken{}, err
+	}
+
+	if txRes == nil {
+		return coreum.CoreumToken{}, nil
 	}
 
 	token, err := b.contractClient.GetCoreumTokenByDenom(ctx, denom)
@@ -459,6 +467,9 @@ func (b *BridgeClient) RecoverXRPLTokenRegistration(
 		return err
 	}
 
+	if txRes == nil {
+		return nil
+	}
 	b.log.Info(
 		ctx,
 		"Recovering xrpl token registraiton was successful",
@@ -509,6 +520,10 @@ func (b *BridgeClient) SendFromCoreumToXRPL(
 	txRes, err := b.contractClient.SendToXRPL(ctx, sender, recipient.String(), amount, deliverAmount)
 	if err != nil {
 		return err
+	}
+
+	if txRes == nil {
+		return nil
 	}
 
 	b.log.Info(
@@ -639,6 +654,10 @@ func (b *BridgeClient) UpdateCoreumToken(
 		return err
 	}
 
+	if txRes == nil {
+		return nil
+	}
+
 	b.log.Info(
 		ctx,
 		"Successfully sent tx to update Coreum token",
@@ -687,6 +706,10 @@ func (b *BridgeClient) UpdateXRPLToken(
 		return err
 	}
 
+	if txRes == nil {
+		return nil
+	}
+
 	b.log.Info(
 		ctx,
 		"Successfully sent tx to update XRPL token",
@@ -709,6 +732,10 @@ func (b *BridgeClient) ResumeBridge(
 	txRes, err := b.contractClient.ResumeBridge(ctx, sender)
 	if err != nil {
 		return err
+	}
+
+	if txRes == nil {
+		return nil
 	}
 
 	b.log.Info(
@@ -742,6 +769,10 @@ func (b *BridgeClient) RotateKeys(
 		return err
 	}
 
+	if txRes == nil {
+		return nil
+	}
+
 	b.log.Info(
 		ctx,
 		"Successfully sent tx to rotate keys",
@@ -771,6 +802,10 @@ func (b *BridgeClient) ClaimRelayerFees(
 	txRes, err := b.contractClient.ClaimRelayerFees(ctx, sender, amounts)
 	if err != nil {
 		return err
+	}
+
+	if txRes == nil {
+		return nil
 	}
 
 	b.log.Info(
@@ -845,6 +880,10 @@ func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, 
 	txRes, err := b.contractClient.ClaimRefund(ctx, address, refundID)
 	if err != nil {
 		return err
+	}
+
+	if txRes == nil {
+		return nil
 	}
 
 	b.log.Info(ctx, "finished execution of claiming pending refund",

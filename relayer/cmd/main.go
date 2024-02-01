@@ -5,11 +5,13 @@ import (
 	"os"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/run"
 	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
+	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
@@ -99,14 +101,26 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 	if err != nil {
 		return nil, err
 	}
+	coreumClientCtx := processCoreumClientContextFlags(cmd, rnr.CoreumClientCtx)
+	rnr.CoreumContractClient.SetClientCtx(coreumClientCtx)
 	// for the bridge client we use the CLI logger
 	return bridgeclient.NewBridgeClient(
 		log,
-		rnr.CoreumClientCtx,
+		coreumClientCtx,
 		rnr.CoreumContractClient,
 		rnr.XRPLRPCClient,
 		rnr.XRPLKeyringTxSigner,
 	), nil
+}
+
+func processCoreumClientContextFlags(cmd *cobra.Command, clientCtx coreumchainclient.Context) coreumchainclient.Context {
+	flagSet := cmd.Flags()
+	if !clientCtx.GenerateOnly() || flagSet.Changed(flags.FlagGenerateOnly) {
+		genOnly, _ := flagSet.GetBool(flags.FlagGenerateOnly)
+		clientCtx = clientCtx.WithGenerateOnly(genOnly)
+	}
+
+	return clientCtx
 }
 
 func processorProvider(cmd *cobra.Command) (cli.Processor, error) {
