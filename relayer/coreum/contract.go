@@ -390,6 +390,7 @@ type coreumTokensResponse struct {
 }
 
 type pendingOperationsResponse struct {
+	LastKey    uint32      `json:"last_key"`
 	Operations []Operation `json:"operations"`
 }
 
@@ -411,8 +412,13 @@ type PendingRefund struct {
 	Coin sdk.Coin `json:"coin"`
 }
 
-type pagingRequest struct {
+type pagingStringKeyRequest struct {
 	StartAfterKey string  `json:"start_after_key,omitempty"`
+	Limit         *uint32 `json:"limit"`
+}
+
+type pagingUint32KeyRequest struct {
+	StartAfterKey *uint32 `json:"start_after_key,omitempty"`
 	Limit         *uint32 `json:"limit"`
 }
 
@@ -1200,17 +1206,17 @@ func (c *ContractClient) GetCoreumTokens(ctx context.Context) ([]CoreumToken, er
 // GetPendingOperations returns a list of all pending operations.
 func (c *ContractClient) GetPendingOperations(ctx context.Context) ([]Operation, error) {
 	operations := make([]Operation, 0)
-	offset := uint64(0)
+	var startAfterKey *uint32
 	for {
-		pageOperations, err := c.getPaginatedPendingOperations(ctx, &offset, &c.cfg.PageLimit)
+		response, err := c.getPaginatedPendingOperations(ctx, startAfterKey, &c.cfg.PageLimit)
 		if err != nil {
 			return nil, err
 		}
-		if len(pageOperations) == 0 {
+		if len(response.Operations) == 0 {
 			break
 		}
-		operations = append(operations, pageOperations...)
-		offset += uint64(c.cfg.PageLimit)
+		operations = append(operations, response.Operations...)
+		startAfterKey = &response.LastKey
 	}
 
 	return operations, nil
@@ -1269,7 +1275,7 @@ func (c *ContractClient) getPaginatedXRPLTokens(
 	limit *uint32,
 ) (xrplTokensResponse, error) {
 	var response xrplTokensResponse
-	err := c.query(ctx, map[QueryMethod]pagingRequest{
+	err := c.query(ctx, map[QueryMethod]pagingStringKeyRequest{
 		QueryMethodXRPLTokens: {
 			StartAfterKey: startAfterKey,
 			Limit:         limit,
@@ -1288,7 +1294,7 @@ func (c *ContractClient) getPaginatedCoreumTokens(
 	limit *uint32,
 ) (coreumTokensResponse, error) {
 	var response coreumTokensResponse
-	err := c.query(ctx, map[QueryMethod]pagingRequest{
+	err := c.query(ctx, map[QueryMethod]pagingStringKeyRequest{
 		QueryMethodCoreumTokens: {
 			StartAfterKey: startAfterKey,
 			Limit:         limit,
@@ -1303,21 +1309,21 @@ func (c *ContractClient) getPaginatedCoreumTokens(
 
 func (c *ContractClient) getPaginatedPendingOperations(
 	ctx context.Context,
-	offset *uint64,
+	startAfterKey *uint32,
 	limit *uint32,
-) ([]Operation, error) {
+) (pendingOperationsResponse, error) {
 	var response pendingOperationsResponse
-	err := c.query(ctx, map[QueryMethod]pagingRequest{
+	err := c.query(ctx, map[QueryMethod]pagingUint32KeyRequest{
 		QueryMethodPendingOperations: {
-			Offset: offset,
-			Limit:  limit,
+			StartAfterKey: startAfterKey,
+			Limit:         limit,
 		},
 	}, &response)
 	if err != nil {
-		return nil, err
+		return pendingOperationsResponse{}, err
 	}
 
-	return response.Operations, nil
+	return response, nil
 }
 
 func (c *ContractClient) queryAssetFTIssueFee(ctx context.Context) (sdk.Coin, error) {

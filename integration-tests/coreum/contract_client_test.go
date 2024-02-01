@@ -5978,8 +5978,7 @@ func TestUpdateXRPLBaseFeeForMaxOperationCount(t *testing.T) {
 
 	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
 
-	// FIXME(dzmitryhil) restore back to xrpl.MaxAllowedXRPLSigners once we fix the query gas limit
-	relayers := genRelayers(ctx, t, chains, 5)
+	relayers := genRelayers(ctx, t, chains, int(xrpl.MaxAllowedXRPLSigners))
 	evidenceThreshold := uint32(len(relayers))
 	usedTicketSequenceThreshold := uint32(150)
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
