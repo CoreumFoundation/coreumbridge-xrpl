@@ -6172,6 +6172,25 @@ mod tests {
                 .as_str()
         ));
 
+        // Providing an invalid signature for the operation should error
+        let signature_error = wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveSignature {
+                operation_id: account_sequence,
+                operation_version: 1,
+                signature: "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA13045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string(),
+            },
+            &vec![],
+            relayer_accounts[0],
+        )
+        .unwrap_err();
+
+        assert!(signature_error.to_string().contains(
+            ContractError::InvalidSignatureLength {}
+                .to_string()
+                .as_str()
+        ));
+
         // Provide signatures for the operation for each relayer
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
