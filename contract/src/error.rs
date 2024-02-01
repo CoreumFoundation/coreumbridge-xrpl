@@ -206,4 +206,9 @@ pub enum ContractError {
         "InvalidDeliverAmount: Field deliver_amount can't be greater than funds attached minus fees"
     )]
     InvalidDeliverAmount {},
+
+    #[error(
+        "InvalidXRPLAmount: Amounts sent to XRPL can't have more than 17 digits after trimming trailing zeroes"
+    )]
+    InvalidXRPLAmount {},
 }
