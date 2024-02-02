@@ -1567,6 +1567,11 @@ func IsOperationVersionMismatchError(err error) bool {
 	return isError(err, "OperationVersionMismatch")
 }
 
+// IsNotOwnerOrRelayerError returns true if error is `NotOwnerOrRelayer`.
+func IsNotOwnerOrRelayerError(err error) bool {
+	return isError(err, "NotOwnerOrRelayer")
+}
+
 // ******************** Asset FT errors ********************
 
 // IsAssetFTStateError returns true if the error is caused by enabled asset FT features.

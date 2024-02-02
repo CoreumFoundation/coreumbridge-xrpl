@@ -5554,6 +5554,214 @@ func TestUpdateCoreumOriginatedTokenMaxHoldingAmount(t *testing.T) {
 	require.True(t, coreum.IsInvalidTargetMaxHoldingAmountError(err), err)
 }
 
+func TestBridgeHalting(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	randomAddress := chains.Coreum.GenAccount()
+	relayers := genRelayers(ctx, t, chains, 2)
+
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	coreumSenderAddress := chains.Coreum.GenAccount()
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.Add(sdkmath.NewInt(10_000_000)),
+	})
+
+	chains.Coreum.FundAccountWithOptions(ctx, t, randomAddress, coreumintegration.BalancesOptions{
+		Amount: sdkmath.NewInt(1_000_000),
+	})
+
+	xrplBridgeAddress := xrpl.GenPrivKeyTxSigner().Account()
+	xrplBaseFee := uint32(10)
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		uint32(len(relayers)),
+		5,
+		defaultTrustSetLimitAmount,
+		xrplBridgeAddress.String(),
+		xrplBaseFee,
+	)
+	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.MulRaw(2),
+	})
+
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 10)
+
+	maxHoldingAmount := sdk.NewIntFromUint64(1_000_000_000)
+	sendingPrecision := int32(15)
+
+	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
+
+	coreumTokenDecimals := uint32(15)
+	// register coreum token
+	issueMsg := &assetfttypes.MsgIssue{
+		Issuer:        coreumSenderAddress.String(),
+		Symbol:        "symbol",
+		Subunit:       "subunit",
+		Precision:     coreumTokenDecimals, // token decimals in terms of the contract
+		InitialAmount: sdkmath.NewInt(100_000_000),
+	}
+	_, err := client.BroadcastTx(
+		ctx,
+		chains.Coreum.ClientContext.WithFromAddress(coreumSenderAddress),
+		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+		issueMsg,
+	)
+	require.NoError(t, err)
+	coreumDenom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
+	_, err = contractClient.RegisterCoreumToken(
+		ctx, owner, coreumDenom, coreumTokenDecimals, sendingPrecision, maxHoldingAmount, sdkmath.ZeroInt(),
+	)
+	require.NoError(t, err)
+	registeredCoreumToken, err := contractClient.GetCoreumTokenByDenom(ctx, coreumDenom)
+	require.NoError(t, err)
+
+	// try to halt from not owner and not relayer
+	_, err = contractClient.HaltBridge(ctx, randomAddress)
+	require.True(t, coreum.IsNotOwnerOrRelayerError(err), err)
+
+	// halt from owner
+	_, err = contractClient.HaltBridge(ctx, owner)
+	require.NoError(t, err)
+	_, err = contractClient.ResumeBridge(ctx, owner)
+	require.NoError(t, err)
+
+	// halt from relayer
+	_, err = contractClient.HaltBridge(ctx, relayers[0].CoreumAddress)
+	require.NoError(t, err)
+
+	// check prohibited operations with the halted bridge
+	_, err = contractClient.RegisterXRPLToken(
+		ctx,
+		owner,
+		xrpl.GenPrivKeyTxSigner().Account().String(),
+		"TKN",
+		sendingPrecision,
+		maxHoldingAmount,
+		sdkmath.ZeroInt(),
+	)
+	require.True(t, coreum.IsBridgeHaltedError(err), err)
+
+	_, err = contractClient.RegisterCoreumToken(
+		ctx, owner, coreumDenom, coreumTokenDecimals, sendingPrecision, maxHoldingAmount, sdkmath.ZeroInt(),
+	)
+	require.True(t, coreum.IsBridgeHaltedError(err), err)
+
+	_, err = contractClient.HaltBridge(ctx, owner)
+	require.True(t, coreum.IsBridgeHaltedError(err), err)
+
+	_, err = contractClient.ClaimRelayerFees(ctx, relayers[0].CoreumAddress, sdk.NewCoins())
+	require.True(t, coreum.IsBridgeHaltedError(err), err)
+
+	// try to provide transfer evidence with the halted bridge
+	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
+		TxHash:    genXRPLTxHash(t),
+		Issuer:    xrpl.GenPrivKeyTxSigner().Account().String(),
+		Currency:  "SMB",
+		Amount:    sdkmath.NewInt(1000),
+		Recipient: randomAddress,
+	}
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(
+		ctx,
+		relayers[0].CoreumAddress,
+		xrplToCoreumTransferEvidence,
+	)
+	require.True(t, coreum.IsBridgeHaltedError(err), err)
+
+	// check that tickets reallocation works if the bridge is halted
+	_, err = contractClient.ResumeBridge(ctx, owner)
+	require.NoError(t, err)
+
+	tickets, err := contractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+
+	// use all available tickets and fail the tickets reallocation to test the recovery when the bridge is halted
+	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0)
+	for i := 0; i < len(tickets)-1; i++ {
+		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
+			Recipient:     xrplRecipientAddress.String(),
+			Amount:        sdk.NewInt64Coin(registeredCoreumToken.Denom, 1),
+			DeliverAmount: nil,
+		})
+	}
+	_, err = contractClient.MultiSendToXRPL(ctx, coreumSenderAddress, sendToXRPLRequests...)
+	require.NoError(t, err)
+
+	_, err = contractClient.HaltBridge(ctx, owner)
+	require.NoError(t, err)
+
+	// confirm operations (we can't provide signatures, but can confirm the operation is it was submitted)
+	pendingOperations, err := contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+
+	for _, operation := range pendingOperations {
+		operationType := operation.OperationType.CoreumToXRPLTransfer
+		require.NotNil(t, operationType)
+		hash := genXRPLTxHash(t)
+		for _, relayer := range relayers {
+			acceptTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
+				XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+					TxHash:            hash,
+					TicketSequence:    &operation.TicketSequence,
+					TransactionResult: coreum.TransactionResultAccepted,
+				},
+			}
+			_, err = contractClient.SendCoreumToXRPLTransferTransactionResultEvidence(
+				ctx,
+				relayer.CoreumAddress,
+				acceptTxEvidence,
+			)
+			require.NoError(t, err)
+		}
+	}
+
+	// only tickets allocation is left
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+	ticketsAllocationOperation := pendingOperations[0]
+	require.NotNil(t, ticketsAllocationOperation.OperationType.AllocateTickets)
+
+	availableTickets, err := contractClient.GetAvailableTickets(ctx)
+	require.NoError(t, err)
+	require.Empty(t, availableTickets)
+
+	// reject allocation first to check the recovery with the halted bridge
+	xrplTxHash := genXRPLTxHash(t)
+	for _, relayer := range relayers {
+		rejectTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
+			XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
+				TxHash:            xrplTxHash,
+				TicketSequence:    &ticketsAllocationOperation.TicketSequence,
+				TransactionResult: coreum.TransactionResultRejected,
+			},
+		}
+		_, err = contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(
+			ctx,
+			relayer.CoreumAddress,
+			rejectTxEvidence,
+		)
+		require.NoError(t, err)
+	}
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Empty(t, pendingOperations)
+
+	// recover ti
+	ticketsToRecover := 10
+	recoverTickets(ctx, t, contractClient, owner, relayers, uint32(ticketsToRecover))
+
+	// check that the bridge is still halted
+	cfg, err := contractClient.GetContractConfig(ctx)
+	require.NoError(t, err)
+	require.Equal(t, string(coreum.BridgeStateHalted), cfg.BridgeState)
+}
+
 func TestKeysRotationWithRecovery(t *testing.T) {
 	t.Parallel()
 
@@ -5619,14 +5827,14 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	activateXRPLToken(ctx, t, contractClient, initialRelayers, xrplIssuer, xrplCurrency)
 
 	coreumDenom := "denom"
-	coreumDenomDecimals := uint32(15)
+	coreumTokenDecimals := uint32(15)
 
 	// register coreum token
 	_, err = contractClient.RegisterCoreumToken(
 		ctx,
 		owner,
 		coreumDenom,
-		coreumDenomDecimals,
+		coreumTokenDecimals,
 		sendingPrecision,
 		maxHoldingAmount,
 		sdk.ZeroInt(),

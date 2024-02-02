@@ -35,7 +35,7 @@ Required features for the issuance are `minting`, `burning`, and `IBC`. During t
 token and will be responsible for its minting when a token is bridged from the XRPL to Coreum. After the registration, the token is put in `Processing` state
 and the contract triggers the `submit-trust-set-for-xrpl-token` operation to allow the multi-signing account to receive that token. If this operation succeeds, the token
 will be `Enabled`, if it fails, it will be put to `Inactive` state awaiting a token registration recovery operation by the owner. The value of
-the trustset limit amount will be provided during constract instantiation and saved in the config of the contract.
+the trustset limit amount will be provided during contract instantiation and saved in the config of the contract.
 Check [register-token workflow](#register-token) for more details.
 
 ##### XRP token registration
