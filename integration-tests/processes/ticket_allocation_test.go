@@ -204,7 +204,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 			MulRaw(int64(numberOfXRPLTokensToRegister)).MulRaw(2),
 	})
 
-	for i := 0; i < numberOfXRPLTokensToRegister; i++ {
+	for i := 0; i < int(numberOfXRPLTokensToRegister); i++ {
 		registeredXRPLCurrency, err := rippledata.NewCurrency(fmt.Sprintf("CR%d", i))
 		require.NoError(t, err)
 		runnerEnv.RegisterXRPLOriginatedToken(
@@ -221,12 +221,12 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 
 	availableTicketsAfterReallocation, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
-	require.Len(t, availableTicketsAfterReallocation, envCfg.UsedTicketSequenceThreshold)
+	require.Len(t, availableTicketsAfterReallocation, int(envCfg.UsedTicketSequenceThreshold))
 	// check that tickets are used
 	require.NotEqualValues(t, initialAvailableTickets, availableTicketsAfterReallocation)
 
 	// use re-allocated tickets
-	for i := 0; i < numberOfXRPLTokensToRegister; i++ {
+	for i := 0; i < int(numberOfXRPLTokensToRegister); i++ {
 		registeredXRPLCurrency, err := rippledata.NewCurrency(fmt.Sprintf("DR%d", i))
 		require.NoError(t, err)
 		runnerEnv.RegisterXRPLOriginatedToken(

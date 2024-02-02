@@ -89,6 +89,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					gomock.Any(),
 					contractRelayers[0].CoreumAddress,
 					allocateTicketsOperation.AccountSequence,
+					allocateTicketsOperation.Version,
 					allocateTicketOperationValidSigners[0].Signer.TxnSignature.String(),
 				)
 				return contractClientMock
@@ -205,6 +206,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					gomock.Any(),
 					contractRelayers[0].CoreumAddress,
 					trustSetOperation.TicketSequence,
+					trustSetOperation.Version,
 					trustSetOperationValidSigners[0].Signer.TxnSignature.String(),
 				)
 				return contractClientMock
@@ -283,6 +285,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					gomock.Any(),
 					contractRelayers[0].CoreumAddress,
 					coreumToXRPLTokenTransferOperation.TicketSequence,
+					coreumToXRPLTokenTransferOperation.Version,
 					coreumToXRPLTokenTransferOperationValidSigners[0].Signer.TxnSignature.String(),
 				)
 				return contractClientMock
@@ -366,6 +369,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					gomock.Any(),
 					contractRelayers[0].CoreumAddress,
 					rotateKeysOperation.TicketSequence,
+					rotateKeysOperation.Version,
 					rotateKeysOperationValidSigners[0].Signer.TxnSignature.String(),
 				)
 				return contractClientMock
@@ -525,6 +529,7 @@ func buildAllocateTicketsTestData(
 	coreum.Operation, coreum.Operation, coreum.Operation, []rippledata.Signer,
 ) {
 	operation := coreum.Operation{
+		Version:         1,
 		AccountSequence: 1,
 		Signatures:      nil,
 		OperationType: coreum.OperationType{
@@ -532,9 +537,11 @@ func buildAllocateTicketsTestData(
 				Number: 3,
 			},
 		},
+		XRPLBaseFee: xrpl.DefaultXRPLBaseFee,
 	}
 
 	operationUnexpectedSeqNumber := coreum.Operation{
+		Version:         1,
 		AccountSequence: 999,
 		Signatures:      nil,
 		OperationType: coreum.OperationType{
@@ -542,6 +549,7 @@ func buildAllocateTicketsTestData(
 				Number: 3,
 			},
 		},
+		XRPLBaseFee: xrpl.DefaultXRPLBaseFee,
 	}
 
 	operationWithSignatures, validSigners := multiSignOperationFromMultipleSignersWithLastInvalidSignature(
@@ -565,6 +573,7 @@ func buildTrustSetTestData(
 	coreum.Operation, coreum.Operation, []rippledata.Signer,
 ) {
 	operation := coreum.Operation{
+		Version:        1,
 		TicketSequence: 1,
 		Signatures:     nil,
 		OperationType: coreum.OperationType{
@@ -574,6 +583,7 @@ func buildTrustSetTestData(
 				TrustSetLimitAmount: sdkmath.NewInt(1000000000000),
 			},
 		},
+		XRPLBaseFee: xrpl.DefaultXRPLBaseFee,
 	}
 
 	operationWithSignatures, validSigners := multiSignOperationFromMultipleSignersWithLastInvalidSignature(
@@ -597,6 +607,7 @@ func buildCoreumToXRPLTokenTransferTestData(
 	coreum.Operation, coreum.Operation, []rippledata.Signer,
 ) {
 	operation := coreum.Operation{
+		Version:        1,
 		TicketSequence: 1,
 		Signatures:     nil,
 		OperationType: coreum.OperationType{
@@ -608,6 +619,7 @@ func buildCoreumToXRPLTokenTransferTestData(
 				Recipient: xrpl.GenPrivKeyTxSigner().Account().String(),
 			},
 		},
+		XRPLBaseFee: xrpl.DefaultXRPLBaseFee,
 	}
 
 	operationWithSignatures, validSigners := multiSignOperationFromMultipleSignersWithLastInvalidSignature(
@@ -631,6 +643,7 @@ func buildRotateKeysTestData(
 	coreum.Operation, coreum.Operation, []rippledata.Signer,
 ) {
 	operation := coreum.Operation{
+		Version:        1,
 		TicketSequence: 1,
 		Signatures:     nil,
 		OperationType: coreum.OperationType{
@@ -645,6 +658,7 @@ func buildRotateKeysTestData(
 				NewEvidenceThreshold: 2,
 			},
 		},
+		XRPLBaseFee: xrpl.DefaultXRPLBaseFee,
 	}
 
 	operationWithSignatures, validSigners := multiSignOperationFromMultipleSignersWithLastInvalidSignature(

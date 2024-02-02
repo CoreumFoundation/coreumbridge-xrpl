@@ -425,6 +425,35 @@ func TestCreateAndUseTicketForMultisigningKeysRotation(t *testing.T) {
 	require.NoError(t, chains.XRPL.RPCClient().SubmitAndAwaitSuccess(ctx, &restoreSignerListSetTx))
 }
 
+func TestMultisigSignerSetWithMaxSigners(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	multiSigAcc := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Multisig account: %s", multiSigAcc)
+	signerCount := xrpl.MaxAllowedXRPLSigners
+	chains.XRPL.FundAccountForSignerListSet(ctx, t, multiSigAcc, signerCount)
+	signerSignerEntries := make([]rippledata.SignerEntry, 0)
+	for i := 0; i < int(signerCount); i++ {
+		signer := chains.XRPL.GenAccount(ctx, t, 0)
+		signerSignerEntries = append(signerSignerEntries, rippledata.SignerEntry{
+			SignerEntry: rippledata.SignerEntryItem{
+				Account:      &signer,
+				SignerWeight: lo.ToPtr(uint16(1)),
+			},
+		})
+	}
+	signerListSetTx := rippledata.SignerListSet{
+		SignerQuorum:  signerCount,
+		SignerEntries: signerSignerEntries,
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.SIGNER_LIST_SET,
+		},
+	}
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &signerListSetTx, multiSigAcc))
+}
+
 func TestMultisigWithMasterKeyRemoval(t *testing.T) {
 	t.Parallel()
 

@@ -326,18 +326,23 @@ func (c *RPCClient) callRPC(ctx context.Context, method string, params, result a
 }
 
 // AutoFillTx add seq number and fee for the transaction.
-func (c *RPCClient) AutoFillTx(ctx context.Context, tx rippledata.Transaction, sender rippledata.Account) error {
+func (c *RPCClient) AutoFillTx(
+	ctx context.Context,
+	tx rippledata.Transaction,
+	sender rippledata.Account,
+	multiSigningSignatureCount uint32,
+) error {
 	accInfo, err := c.AccountInfo(ctx, sender)
 	if err != nil {
 		return err
 	}
 	// update base settings
 	base := tx.GetBase()
-	fee, err := GetTxFee(tx)
+	fee, err := rippledata.NewNativeValue(int64(DefaultXRPLBaseFee * (1 + multiSigningSignatureCount)))
 	if err != nil {
 		return err
 	}
-	base.Fee = fee
+	base.Fee = *fee
 	base.Account = sender
 	base.Sequence = *accInfo.AccountData.Sequence
 
