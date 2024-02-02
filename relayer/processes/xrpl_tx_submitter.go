@@ -269,6 +269,13 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 			"The transaction has been sent, but will be reverted since account used in the transaction doesn't exist.",
 		)
 		return nil
+	case xrpl.TecNoPermission:
+		//nolint:lll // breaking down the log line will make it less readable.
+		s.log.Info(
+			ctx,
+			"The transaction has been sent, but will be reverted since the sender does not have permission to do this operation.",
+		)
+		return nil
 	case xrpl.TelInsufFeeP:
 		// TODO(dzmitryhil) add metric/alert here
 		s.log.Warn(

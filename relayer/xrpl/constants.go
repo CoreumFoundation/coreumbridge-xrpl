@@ -15,6 +15,8 @@ const (
 	// TecNoDstTxResult defines that provided the account on the receiving end of the transaction does not exist.
 	// This includes Payment and TrustSet transaction types. (It could be created if it received enough XRP.)
 	TecNoDstTxResult = "tecNO_DST"
+	// TecNoPermission defines that the sender does not have permission to do this operation.
+	TecNoPermission = "tecNO_PERMISSION"
 	// TefNOTicketTxResult defines the result which indicates the usage of the passed ticket or not created ticket.
 	TefNOTicketTxResult = "tefNO_TICKET"
 	// TefPastSeqTxResult defines that the usage of the sequence in the past.
