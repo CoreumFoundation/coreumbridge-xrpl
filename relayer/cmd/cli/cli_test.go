@@ -53,7 +53,7 @@ func TestStartCmd(t *testing.T) {
 	defer ctrl.Finish()
 
 	processorMock := NewMockProcessor(ctrl)
-	processorMock.EXPECT().StartAllProcesses(gomock.Any())
+	processorMock.EXPECT().Start(gomock.Any())
 	cmd := cli.StartCmd(func(cmd *cobra.Command, _ *metrics.Metrics) (cli.Processor, error) {
 		return processorMock, nil
 	})

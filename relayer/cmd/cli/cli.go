@@ -185,7 +185,7 @@ type BridgeClientProvider func(cmd *cobra.Command) (BridgeClient, error)
 
 // Processor is processor interface responsible for the process start.
 type Processor interface {
-	StartAllProcesses(ctx context.Context) error
+	Start(ctx context.Context) error
 }
 
 // ProcessorProvider is function which returns the Processor from the input cmd.
@@ -316,7 +316,7 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 			}
 
 			return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-				spawn("processor", parallel.Exit, processor.StartAllProcesses)
+				spawn("runner", parallel.Exit, processor.Start)
 				if telemetryAddr != "" {
 					spawn("metrics", parallel.Fail, func(ctx context.Context) error {
 						return metrics.Start(ctx, telemetryAddr, metricSet)

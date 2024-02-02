@@ -68,31 +68,24 @@ func NewXRPLTxSubmitter(
 	contractClient ContractClient,
 	xrplRPCClient XRPLRPCClient,
 	xrplSigner XRPLTxSigner,
-) *XRPLTxSubmitter {
+) (*XRPLTxSubmitter, error) {
+	if cfg.RelayerCoreumAddress.Empty() {
+		return nil, errors.Errorf("failed to init process, relayer address is nil or empty")
+	}
+	if !contractClient.IsInitialized() {
+		return nil, errors.Errorf("failed to init process, contract client is not initialized")
+	}
+	if xrplSigner == nil {
+		return nil, errors.Errorf("nil xrplSigner")
+	}
+
 	return &XRPLTxSubmitter{
 		cfg:            cfg,
 		log:            log,
 		contractClient: contractClient,
 		xrplRPCClient:  xrplRPCClient,
 		xrplSigner:     xrplSigner,
-	}
-}
-
-// Init validates the process state.
-func (s *XRPLTxSubmitter) Init(ctx context.Context) error {
-	s.log.Debug(ctx, "Initializing process")
-
-	if s.cfg.RelayerCoreumAddress.Empty() {
-		return errors.Errorf("failed to init process, relayer address is nil or empty")
-	}
-	if !s.contractClient.IsInitialized() {
-		return errors.Errorf("failed to init process, contract client is not initialized")
-	}
-	if s.xrplSigner == nil {
-		return errors.Errorf("nil xrplSigner")
-	}
-
-	return nil
+	}, nil
 }
 
 // Start starts the process.

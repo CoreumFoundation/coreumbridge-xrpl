@@ -367,16 +367,16 @@ func (m *MockProcessor) EXPECT() *MockProcessorMockRecorder {
 	return m.recorder
 }
 
-// StartAllProcesses mocks base method.
-func (m *MockProcessor) StartAllProcesses(arg0 context.Context) error {
+// Start mocks base method.
+func (m *MockProcessor) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartAllProcesses", arg0)
+	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// StartAllProcesses indicates an expected call of StartAllProcesses.
-func (mr *MockProcessorMockRecorder) StartAllProcesses(arg0 interface{}) *gomock.Call {
+// Start indicates an expected call of Start.
+func (mr *MockProcessorMockRecorder) Start(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartAllProcesses", reflect.TypeOf((*MockProcessor)(nil).StartAllProcesses), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockProcessor)(nil).Start), arg0)
 }
