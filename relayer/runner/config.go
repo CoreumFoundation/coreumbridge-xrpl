@@ -71,10 +71,12 @@ type CoreumNetworkConfig struct {
 
 // CoreumContractConfig is coreum contract config.
 type CoreumContractConfig struct {
-	ContractAddress    string  `yaml:"contract_address"`
-	GasAdjustment      float64 `yaml:"gas_adjustment"`
-	GasPriceAdjustment float64 `yaml:"gas_price_adjustment"`
-	PageLimit          uint32  `yaml:"page_limit"`
+	ContractAddress       string        `yaml:"contract_address"`
+	GasAdjustment         float64       `yaml:"gas_adjustment"`
+	GasPriceAdjustment    float64       `yaml:"gas_price_adjustment"`
+	PageLimit             uint32        `yaml:"page_limit"`
+	OutOfGasRetryDelay    time.Duration `yaml:"out_of_gas_retry_delay"`
+	OutOfGasRetryAttempts uint32        `yaml:"out_of_gas_retry_attempts"`
 	// client context config
 	RequestTimeout       time.Duration `yaml:"request_timeout"`
 	TxTimeout            time.Duration `yaml:"tx_timeout"`
@@ -158,10 +160,12 @@ func DefaultConfig() Config {
 			},
 			Contract: CoreumContractConfig{
 				// empty be default
-				ContractAddress:    "",
-				GasAdjustment:      defaultCoreumContactConfig.GasAdjustment,
-				GasPriceAdjustment: defaultCoreumContactConfig.GasPriceAdjustment.MustFloat64(),
-				PageLimit:          defaultCoreumContactConfig.PageLimit,
+				ContractAddress:       "",
+				GasAdjustment:         defaultCoreumContactConfig.GasAdjustment,
+				GasPriceAdjustment:    defaultCoreumContactConfig.GasPriceAdjustment.MustFloat64(),
+				PageLimit:             defaultCoreumContactConfig.PageLimit,
+				OutOfGasRetryDelay:    defaultCoreumContactConfig.OutOfGasRetryDelay,
+				OutOfGasRetryAttempts: defaultCoreumContactConfig.OutOfGasRetryAttempts,
 
 				RequestTimeout:       defaultClientCtxDefaultCfg.TimeoutConfig.RequestTimeout,
 				TxTimeout:            defaultClientCtxDefaultCfg.TimeoutConfig.TxTimeout,
