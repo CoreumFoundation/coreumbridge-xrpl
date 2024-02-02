@@ -677,6 +677,7 @@ fn save_evidence(
                         handle_coreum_to_xrpl_transfer_confirmation(
                             deps.storage,
                             &transaction_result,
+                            tx_hash.clone(),
                             operation_id,
                             &mut response,
                         )?;
@@ -1424,6 +1425,7 @@ fn query_pending_refunds(
             last_key = Some(key);
             PendingRefund {
                 id: pr.id,
+                xrpl_tx_hash: pr.xrpl_tx_hash,
                 coin: pr.coin,
             }
         })
