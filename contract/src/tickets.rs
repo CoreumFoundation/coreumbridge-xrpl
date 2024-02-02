@@ -5,10 +5,8 @@ use cosmwasm_std::{StdResult, Storage};
 use crate::{
     error::ContractError,
     evidence::TransactionResult,
-    operation::{Operation, OperationType},
-    state::{
-        AVAILABLE_TICKETS, CONFIG, PENDING_OPERATIONS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
-    },
+    operation::{create_pending_operation, OperationType},
+    state::{AVAILABLE_TICKETS, CONFIG, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER},
 };
 
 // This function will be used to provide a ticket for a pending operation
@@ -47,19 +45,13 @@ pub fn register_used_ticket(
         // this so that we are aware that we need to allocate new tickets because we've run out of them
         match reserve_ticket(storage) {
             Ok(ticket_to_update) => {
-                PENDING_OPERATIONS.save(
+                create_pending_operation(
                     storage,
-                    ticket_to_update,
-                    &Operation {
-                        id: format!("{}-{}", timestamp, ticket_to_update),
-                        version: 1,
-                        ticket_sequence: Some(ticket_to_update),
-                        account_sequence: None,
-                        signatures: vec![],
-                        operation_type: OperationType::AllocateTickets {
-                            number: config.used_ticket_sequence_threshold,
-                        },
-                        xrpl_base_fee: config.xrpl_base_fee,
+                    timestamp,
+                    Some(ticket_to_update),
+                    None,
+                    OperationType::AllocateTickets {
+                        number: config.used_ticket_sequence_threshold,
                     },
                 )?;
                 PENDING_TICKET_UPDATE.save(storage, &true)?

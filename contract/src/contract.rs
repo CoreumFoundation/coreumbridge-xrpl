@@ -387,7 +387,6 @@ fn register_xrpl_token(
     bridging_fee: Uint128,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
-    assert_bridge_active(deps.as_ref().into_empty())?;
 
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
 
@@ -630,19 +629,6 @@ fn save_evidence(
             let operation_id = account_sequence.unwrap_or_else(|| ticket_sequence.unwrap());
             let operation = check_operation_exists(deps.storage, operation_id)?;
 
-            if config.bridge_state == BridgeState::Halted {
-                match &operation.operation_type {
-                    // We allow rotate key evidences if there is a rotate keys operation ongoing and allocate ticket evidences
-                    OperationType::RotateKeys { .. } => {
-                        if !PENDING_ROTATE_KEYS.load(deps.storage)? {
-                            return Err(ContractError::BridgeHalted {});
-                        }
-                    }
-                    OperationType::AllocateTickets { .. } => (),
-                    _ => return Err(ContractError::BridgeHalted {}),
-                }
-            }
-
             // Validation for certain operation types that can't have account sequences
             match &operation.operation_type {
                 OperationType::TrustSet { .. } | OperationType::CoreumToXRPLTransfer { .. } => {
@@ -793,7 +779,6 @@ fn recover_xrpl_token_registration(
     currency: String,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
-    assert_bridge_active(deps.as_ref())?;
 
     let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
 
@@ -1257,6 +1242,9 @@ fn rotate_keys(
         return Err(ContractError::RotateKeysOngoing {});
     }
 
+    // We set the pending rotate keys flag to true so that we don't allow another rotate keys operation until this one is confirmed
+    PENDING_ROTATE_KEYS.save(deps.storage, &true)?;
+
     // We set the bridge state to halted
     update_bridge_state(deps.storage, BridgeState::Halted)?;
 
@@ -1275,9 +1263,6 @@ fn rotate_keys(
             new_evidence_threshold,
         },
     )?;
-
-    // We set the pending rotate keys flag to true so that we don't allow another rotate keys operation until this one is confirmed
-    PENDING_ROTATE_KEYS.save(deps.storage, &true)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RotateKeys.as_str())
@@ -1661,7 +1646,7 @@ fn assert_owner_or_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractErro
 }
 
 // Helper function to check that bridge is active
-fn assert_bridge_active(deps: Deps) -> Result<(), ContractError> {
+pub fn assert_bridge_active(deps: Deps) -> Result<(), ContractError> {
     let config = CONFIG.load(deps.storage)?;
     if config.bridge_state.ne(&BridgeState::Active) {
         return Err(ContractError::BridgeHalted {});
