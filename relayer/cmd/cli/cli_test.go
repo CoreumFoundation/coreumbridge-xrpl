@@ -56,7 +56,7 @@ func TestStartCmd(t *testing.T) {
 	cmd := cli.StartCmd(func(cmd *cobra.Command) (cli.Processor, error) {
 		return processorMock, nil
 	})
-	executeCmd(t, cmd, "--telemetry-addr", "") // to disable telemetry server
+	executeCmd(t, cmd) // to disable telemetry server
 }
 
 func TestKeyringCmds(t *testing.T) {

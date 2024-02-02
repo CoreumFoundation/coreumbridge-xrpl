@@ -292,8 +292,6 @@ func InitCmd() *cobra.Command {
 
 // StartCmd returns the start cmd.
 func StartCmd(pp ProcessorProvider) *cobra.Command {
-	var telemetryAddr string
-
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start relayer.",
@@ -320,8 +318,6 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 	}
 	addHomeFlag(cmd)
 	addKeyringFlags(cmd)
-	cmd.Flags().StringVar(&telemetryAddr, "telemetry-addr", "localhost:9090",
-		"Address metrics are exposed on. If empty, metrics are not exposed.")
 
 	return cmd
 }
