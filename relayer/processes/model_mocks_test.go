@@ -84,18 +84,18 @@ func (mr *MockContractClientMockRecorder) IsInitialized() *gomock.Call {
 }
 
 // SaveSignature mocks base method.
-func (m *MockContractClient) SaveSignature(arg0 context.Context, arg1 types.AccAddress, arg2 uint32, arg3 string) (*types.TxResponse, error) {
+func (m *MockContractClient) SaveSignature(arg0 context.Context, arg1 types.AccAddress, arg2, arg3 uint32, arg4 string) (*types.TxResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSignature", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SaveSignature", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*types.TxResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SaveSignature indicates an expected call of SaveSignature.
-func (mr *MockContractClientMockRecorder) SaveSignature(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockContractClientMockRecorder) SaveSignature(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSignature", reflect.TypeOf((*MockContractClient)(nil).SaveSignature), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSignature", reflect.TypeOf((*MockContractClient)(nil).SaveSignature), arg0, arg1, arg2, arg3, arg4)
 }
 
 // SendCoreumToXRPLTransferTransactionResultEvidence mocks base method.

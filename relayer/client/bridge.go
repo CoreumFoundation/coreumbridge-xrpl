@@ -107,7 +107,7 @@ type ContractClient interface {
 		ctx context.Context,
 		sender sdk.AccAddress,
 		newRelayers []coreum.Relayer,
-		newEvidenceThreshold int,
+		newEvidenceThreshold uint32,
 	) (*sdk.TxResponse, error)
 	RecoverXRPLTokenRegistration(
 		ctx context.Context,
@@ -122,12 +122,22 @@ type ContractClient interface {
 		ctx context.Context,
 		sender sdk.AccAddress,
 	) (*sdk.TxResponse, error)
+	UpdateXRPLBaseFee(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		xrplBaseFee uint32,
+	) (*sdk.TxResponse, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
 type XRPLRPCClient interface {
 	AccountInfo(ctx context.Context, acc rippledata.Account) (xrpl.AccountInfoResult, error)
-	AutoFillTx(ctx context.Context, tx rippledata.Transaction, sender rippledata.Account) error
+	AutoFillTx(
+		ctx context.Context,
+		tx rippledata.Transaction,
+		sender rippledata.Account,
+		multiSigningSignatureCount uint32,
+	) error
 	Submit(ctx context.Context, tx rippledata.Transaction) (xrpl.SubmitResult, error)
 	SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Transaction) error
 	AccountLines(
@@ -156,10 +166,11 @@ type BootstrappingConfig struct {
 	Owner                       string          `yaml:"owner"`
 	Admin                       string          `yaml:"admin"`
 	Relayers                    []RelayerConfig `yaml:"relayers"`
-	EvidenceThreshold           int             `yaml:"evidence_threshold"`
-	UsedTicketSequenceThreshold int             `yaml:"used_ticket_sequence_threshold"`
+	EvidenceThreshold           uint32          `yaml:"evidence_threshold"`
+	UsedTicketSequenceThreshold uint32          `yaml:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         string          `yaml:"trust_set_limit_amount"`
 	ContractByteCodePath        string          `yaml:"contract_bytecode_path"`
+	XRPLBaseFee                 uint32          `yaml:"xrpl_base_fee"`
 	SkipXRPLBalanceValidation   bool            `yaml:"-"`
 }
 
@@ -174,13 +185,14 @@ func DefaultBootstrappingConfig() BootstrappingConfig {
 		TrustSetLimitAmount:         sdkmath.NewIntWithDecimal(1, 35).String(),
 		ContractByteCodePath:        "",
 		SkipXRPLBalanceValidation:   false,
+		XRPLBaseFee:                 10,
 	}
 }
 
 // KeysRotationConfig the struct contains the setting for the keys rotation.
 type KeysRotationConfig struct {
 	Relayers          []RelayerConfig `yaml:"relayers"`
-	EvidenceThreshold int             `yaml:"evidence_threshold"`
+	EvidenceThreshold uint32          `yaml:"evidence_threshold"`
 }
 
 // DefaultKeysRotationConfig return default KeysRotationConfig.
@@ -278,6 +290,7 @@ func (b *BridgeClient) Bootstrap(
 		UsedTicketSequenceThreshold: cfg.UsedTicketSequenceThreshold,
 		TrustSetLimitAmount:         trustSetLimitAmount,
 		BridgeXRPLAddress:           xrplBridgeAccount.String(),
+		XRPLBaseFee:                 cfg.XRPLBaseFee,
 	}
 	b.log.Info(ctx, "Deploying contract", zap.Any("settings", instantiationCfg))
 	contractAddress, err := b.contractClient.DeployAndInstantiate(ctx, senderAddress, contactByteCode, instantiationCfg)
@@ -751,6 +764,32 @@ func (b *BridgeClient) RotateKeys(
 	return nil
 }
 
+// UpdateXRPLBaseFee updates the XRPL base fee for the contract.
+func (b *BridgeClient) UpdateXRPLBaseFee(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	xrplBaseFee uint32,
+) error {
+	b.log.Info(
+		ctx,
+		"Updating XRPL base fee",
+		zap.Uint32("xrplBaseFee", xrplBaseFee),
+	)
+
+	txRes, err := b.contractClient.UpdateXRPLBaseFee(ctx, sender, xrplBaseFee)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully sent tx to update XRPL base fee",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
+}
+
 // GetFeesCollected returns the fees collected by a relayer.
 func (b *BridgeClient) GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error) {
 	return b.contractClient.GetFeesCollected(ctx, address)
@@ -975,7 +1014,7 @@ func (b *BridgeClient) setUpXRPLBridgeAccount(
 
 	b.log.Info(ctx, "Setting signers rippling")
 	signerListSetTx := rippledata.SignerListSet{
-		SignerQuorum:  uint32(cfg.EvidenceThreshold),
+		SignerQuorum:  cfg.EvidenceThreshold,
 		SignerEntries: xrplSignerEntries,
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.SIGNER_LIST_SET,
@@ -1088,7 +1127,7 @@ func (b *BridgeClient) autoFillSignSubmitAndAwaitXRPLTx(
 	if err != nil {
 		return err
 	}
-	if err := b.xrplRPCClient.AutoFillTx(ctx, tx, sender); err != nil {
+	if err := b.xrplRPCClient.AutoFillTx(ctx, tx, sender, xrpl.MaxAllowedXRPLSigners); err != nil {
 		return err
 	}
 	if err := b.xrplTxSigner.Sign(tx, signerKeyName); err != nil {
