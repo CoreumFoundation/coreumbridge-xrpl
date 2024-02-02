@@ -9,8 +9,8 @@ GIT_TAG:=$(shell git describe --tags --exact-match 2>/dev/null)
 GIT_SHA:=$(shell git rev-parse HEAD)
 DOCKER_PUSH_TAG?=$(shell git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
 LD_FLAGS:="-extldflags=-static \
--X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner.VersionTag=$(GIT_TAG)' \
--X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner.GitCommit=$(GIT_SHA)' \
+-X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo.VersionTag=$(GIT_TAG)' \
+-X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo.GitCommit=$(GIT_SHA)' \
 "
 GOOS?=
 GOARCH?=

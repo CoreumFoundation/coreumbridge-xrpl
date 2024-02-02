@@ -41,12 +41,6 @@ const (
 	DefaultCoreumChainID = coreumchainconstant.ChainIDMain
 )
 
-// Build vars, that must be passed at build time.
-var (
-	VersionTag = "devel"
-	GitCommit  = ""
-)
-
 // ******************** Config ********************
 
 // LoggingConfig is logging config.

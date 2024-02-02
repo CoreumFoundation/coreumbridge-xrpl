@@ -4,6 +4,7 @@ package coreum
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreum/v4/testutil/event"
 	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
@@ -1244,7 +1246,8 @@ func (c *ContractClient) execute(
 		msgs = append(msgs, msg)
 	}
 
-	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgs...)
+	txf := c.getTxFactory().WithMemo(fmt.Sprintf("relayer_version:%s", buildinfo.VersionTag))
+	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), txf, msgs...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to execute transaction, message:%+v", msgs)
 	}
