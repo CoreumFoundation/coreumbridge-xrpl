@@ -130,7 +130,7 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 	), nil
 }
 
-func processorProvider(cmd *cobra.Command) (cli.Processor, error) {
+func processorProvider(cmd *cobra.Command) (cli.Runner, error) {
 	rnr, err := cli.NewRunnerFromHome(cmd)
 	if err != nil {
 		return nil, err

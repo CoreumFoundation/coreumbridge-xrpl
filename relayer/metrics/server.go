@@ -13,7 +13,7 @@ import (
 )
 
 // Start starts metric server.
-func Start(ctx context.Context, addr string, metrics *Metrics) error {
+func Start(ctx context.Context, addr string, metrics *Registry) error {
 	registry := prometheus.NewRegistry()
 	if err := metrics.Register(registry); err != nil {
 		return err

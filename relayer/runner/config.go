@@ -102,10 +102,15 @@ type ProcessesConfig struct {
 	ExitOnError     bool                  `yaml:"-"`
 }
 
+// MetricsServerConfig is metric server config.
+type MetricsServerConfig struct {
+	Enable        bool   `yaml:"enable"`
+	ListenAddress string `yaml:"listen_address"`
+}
+
 // MetricsConfig is metric config.
 type MetricsConfig struct {
-	StartServer   bool   `yaml:"start_server"`
-	ListenAddress string `yaml:"listen_address"`
+	Server MetricsServerConfig `yaml:"server"`
 }
 
 // Config is runner config.
@@ -180,7 +185,9 @@ func DefaultConfig() Config {
 		},
 
 		Metrics: MetricsConfig{
-			ListenAddress: "localhost:9090",
+			Server: MetricsServerConfig{
+				ListenAddress: "localhost:9090",
+			},
 		},
 	}
 }

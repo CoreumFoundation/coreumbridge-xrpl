@@ -51,9 +51,9 @@ func TestStartCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	processorMock := NewMockProcessor(ctrl)
+	processorMock := NewMockRunner(ctrl)
 	processorMock.EXPECT().Start(gomock.Any())
-	cmd := cli.StartCmd(func(cmd *cobra.Command) (cli.Processor, error) {
+	cmd := cli.StartCmd(func(cmd *cobra.Command) (cli.Runner, error) {
 		return processorMock, nil
 	})
 	executeCmd(t, cmd) // to disable telemetry server

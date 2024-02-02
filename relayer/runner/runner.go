@@ -48,7 +48,7 @@ var (
 type Runner struct {
 	cfg     Config
 	log     logger.Logger
-	metrics *metrics.Metrics
+	metrics *metrics.Registry
 
 	xrplTxObserver  *processes.XRPLTxObserver
 	xrplTxSubmitter *processes.XRPLTxSubmitter
@@ -128,9 +128,9 @@ func (r *Runner) Start(ctx context.Context) error {
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		spawn("xrplTxObserver", parallel.Continue, r.withRestartOnError(r.xrplTxObserver.Start))
 		spawn("xrplTxSubmitter", parallel.Continue, r.withRestartOnError(r.xrplTxSubmitter.Start))
-		if r.cfg.Metrics.StartServer {
+		if r.cfg.Metrics.Server.Enable {
 			spawn("metrics", parallel.Fail, r.withRestartOnError(func(ctx context.Context) error {
-				return metrics.Start(ctx, r.cfg.Metrics.ListenAddress, r.metrics)
+				return metrics.Start(ctx, r.cfg.Metrics.Server.ListenAddress, r.metrics)
 			}))
 		}
 
@@ -174,7 +174,7 @@ type Components struct {
 	CoreumContractClient *coreum.ContractClient
 	XRPLRPCClient        *xrpl.RPCClient
 	XRPLKeyringTxSigner  *xrpl.KeyringTxSigner
-	Metrics              *metrics.Metrics
+	Metrics              *metrics.Registry
 	Log                  logger.Logger
 }
 
@@ -186,7 +186,7 @@ func NewComponents(
 	log logger.Logger,
 	setCoreumSDKConfig bool,
 ) (Components, error) {
-	metricSet := metrics.New()
+	metricSet := metrics.NewRegistry()
 	log, err := logger.WithMetrics(log, metricSet.ErrorCounter)
 	if err != nil {
 		return Components{}, err

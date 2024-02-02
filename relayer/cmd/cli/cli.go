@@ -30,7 +30,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-//go:generate mockgen -destination=cli_mocks_test.go -package=cli_test . BridgeClient,Processor
+//go:generate mockgen -destination=cli_mocks_test.go -package=cli_test . BridgeClient,Runner
 
 func init() {
 	userHomeDir, err := os.UserHomeDir()
@@ -77,6 +77,10 @@ const (
 	FlagMaxHoldingAmount = "max-holding-amount"
 	// FlagDeliverAmount is deliver amount flag.
 	FlagDeliverAmount = "deliver-amount"
+	// FlagMetricsEnable enables metrics server.
+	FlagMetricsEnable = "metrics-enable"
+	// FlagsMetricsListenAddr sets listen address for metrics server.
+	FlagsMetricsListenAddr = "metrics-listen-addr"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -186,13 +190,13 @@ type BridgeClient interface {
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
 type BridgeClientProvider func(cmd *cobra.Command) (BridgeClient, error)
 
-// Processor is processor interface responsible for the process start.
-type Processor interface {
+// Runner is a runner interface.
+type Runner interface {
 	Start(ctx context.Context) error
 }
 
-// ProcessorProvider is function which returns the Processor from the input cmd.
-type ProcessorProvider func(cmd *cobra.Command) (Processor, error)
+// RunnerProvider is function which returns the Runner from the input cmd.
+type RunnerProvider func(cmd *cobra.Command) (Runner, error)
 
 // NewRunnerFromHome returns runner from home.
 func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
@@ -234,9 +238,6 @@ func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 
 // InitCmd returns the init cmd.
 func InitCmd() *cobra.Command {
-	var metricsListen bool
-	var metricsListenAddr string
-
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initializes the relayer home with the default config.",
@@ -266,14 +267,24 @@ func InitCmd() *cobra.Command {
 				return errors.Wrapf(err, "failed to read %s", FlagXRPLRPCURL)
 			}
 
+			metricsEnable, err := cmd.Flags().GetBool(FlagMetricsEnable)
+			if err != nil {
+				return errors.Wrapf(err, "failed to read %s", FlagMetricsEnable)
+			}
+
+			metricsListenAddr, err := cmd.Flags().GetString(FlagsMetricsListenAddr)
+			if err != nil {
+				return errors.Wrapf(err, "failed to read %s", FlagsMetricsListenAddr)
+			}
+
 			cfg := runner.DefaultConfig()
 			cfg.Coreum.Network.ChainID = chainID
 			cfg.Coreum.GRPC.URL = coreumGRPCURL
 
 			cfg.XRPL.RPC.URL = xrplRPCURL
 
-			cfg.Metrics.StartServer = metricsListen
-			cfg.Metrics.ListenAddress = metricsListenAddr
+			cfg.Metrics.Server.Enable = metricsEnable
+			cfg.Metrics.Server.ListenAddress = metricsListenAddr
 
 			if err = runner.InitConfig(home, cfg); err != nil {
 				return err
@@ -286,9 +297,8 @@ func InitCmd() *cobra.Command {
 	addCoreumChainIDFlag(cmd)
 	cmd.PersistentFlags().String(FlagXRPLRPCURL, "", "XRPL RPC address.")
 	cmd.PersistentFlags().String(FlagCoreumGRPCURL, "", "Coreum GRPC address.")
-	cmd.PersistentFlags().BoolVar(&metricsListen, "metrics-listen", false, "Start metric server in relayer.")
-	cmd.PersistentFlags().StringVar(&metricsListenAddr, "metrics-listen-addr", "localhost:9090",
-		"Address metrics server listens on.")
+	cmd.PersistentFlags().Bool(FlagMetricsEnable, false, "Start metric server in relayer.")
+	cmd.PersistentFlags().String(FlagsMetricsListenAddr, "localhost:9090", "Address metrics server listens on.")
 
 	addHomeFlag(cmd)
 
@@ -296,7 +306,7 @@ func InitCmd() *cobra.Command {
 }
 
 // StartCmd returns the start cmd.
-func StartCmd(pp ProcessorProvider) *cobra.Command {
+func StartCmd(pp RunnerProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start relayer.",
