@@ -1,7 +1,11 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, DepsMut};
 
-use crate::{error::ContractError, state::PENDING_OPERATIONS};
+use crate::{
+    error::ContractError,
+    operation::check_valid_operation_if_halt,
+    state::{CONFIG, PENDING_OPERATIONS},
+};
 
 const MAX_SIGNATURE_LENGTH: usize = 200;
 
@@ -28,6 +32,11 @@ pub fn add_signature(
     if operation_version != pending_operation.version {
         return Err(ContractError::OperationVersionMismatch {});
     }
+
+    let config = CONFIG.load(deps.storage)?;
+
+    // If bridge is halted we prohibit all signatures except for allowed operations
+    check_valid_operation_if_halt(deps.storage, &config, &pending_operation.operation_type)?;
 
     let mut signatures = pending_operation.signatures;
 
