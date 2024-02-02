@@ -9,8 +9,8 @@ use crate::{
     relayer::Relayer,
     signatures::Signature,
     state::{
-        PendingRefund, TokenState, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS, PENDING_REFUNDS,
-        XRPL_TOKENS,
+        BridgeState, Config, PendingRefund, TokenState, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS,
+        PENDING_REFUNDS, PENDING_ROTATE_KEYS, XRPL_TOKENS,
     },
     token::build_xrpl_token_key,
 };
@@ -86,6 +86,10 @@ pub fn create_pending_operation(
     operation_type: OperationType,
 ) -> Result<(), ContractError> {
     let config = CONFIG.load(storage)?;
+
+    // If bridge is halted we prohibit all operation creations except allowed ones
+    check_valid_operation_if_halt(storage, &config, &operation_type)?;
+
     let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
     // We use a unique ID for operations that will also be used for refunding failed operations
     // We need to use both timestamp and operation_id to ensure uniqueness of IDs, since operation_id can be reused in case of invalid transactions
@@ -244,4 +248,25 @@ pub fn remove_pending_refund(
     PENDING_REFUNDS.remove(storage, (sender, pending_refund_id))?;
 
     Ok(pending_refund.coin)
+}
+
+pub fn check_valid_operation_if_halt(
+    storage: &mut dyn Storage,
+    config: &Config,
+    operation_type: &OperationType,
+) -> Result<(), ContractError> {
+    if config.bridge_state.eq(&BridgeState::Halted) {
+        match &operation_type {
+            // Only RotateKeys operations (if there is a pending rotate keys ongoing) or ticket allocations are allowed during bridge halt
+            OperationType::RotateKeys { .. } => {
+                if !PENDING_ROTATE_KEYS.load(storage)? {
+                    return Err(ContractError::BridgeHalted {});
+                }
+            }
+            OperationType::AllocateTickets { .. } => (),
+            _ => return Err(ContractError::BridgeHalted {}),
+        }
+    }
+
+    Ok(())
 }
