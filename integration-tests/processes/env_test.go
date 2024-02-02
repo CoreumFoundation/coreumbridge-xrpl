@@ -231,9 +231,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 func (r *RunnerEnv) StartAllRunnerProcesses() {
 	for i := range r.Runners {
 		relayerRunner := r.Runners[i]
-		r.RunnersParallelGroup.Spawn(fmt.Sprintf("runner-%d", i), parallel.Exit, func(ctx context.Context) error {
-			return relayerRunner.Start(ctx)
-		})
+		r.RunnersParallelGroup.Spawn(fmt.Sprintf("runner-%d", i), parallel.Exit, relayerRunner.Start)
 	}
 }
 

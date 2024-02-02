@@ -126,17 +126,17 @@ func NewRunner(ctx context.Context, components Components, cfg Config, log logge
 func (r *Runner) Start(ctx context.Context) error {
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		spawn("xrplTxObserver", parallel.Continue, func(ctx context.Context) error {
-			return r.runWithRestartOnError(ctx, r.cfg.Processes.ExitOnError, r.xrplTxObserver.Start)
+			return r.runWithRestartOnError(ctx, r.xrplTxObserver.Start)
 		})
 		spawn("xrplTxSubmitter", parallel.Continue, func(ctx context.Context) error {
-			return r.runWithRestartOnError(ctx, r.cfg.Processes.ExitOnError, r.xrplTxSubmitter.Start)
+			return r.runWithRestartOnError(ctx, r.xrplTxSubmitter.Start)
 		})
 
 		return nil
 	})
 }
 
-func (r *Runner) runWithRestartOnError(ctx context.Context, exitOnError bool, task parallel.Task) error {
+func (r *Runner) runWithRestartOnError(ctx context.Context, task parallel.Task) error {
 	for {
 		// start process and handle the panic
 
@@ -156,7 +156,7 @@ func (r *Runner) runWithRestartOnError(ctx context.Context, exitOnError bool, ta
 		// restart the process if it is restartable
 
 		r.log.Error(ctx, "Received unexpected error from the process", zap.Error(err))
-		if exitOnError {
+		if r.cfg.Processes.ExitOnError {
 			r.log.Warn(ctx, "The process is not auto-restartable on error")
 			return err
 		}
