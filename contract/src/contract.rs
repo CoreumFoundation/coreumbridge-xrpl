@@ -7,7 +7,8 @@ use crate::{
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
         FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefund,
-        PendingRefundsResponse, QueryMsg, XRPLTokensResponse,
+        PendingRefundsResponse, QueryMsg, TransactionEvidence, TransactionEvidencesResponse,
+        XRPLTokensResponse,
     },
     operation::{
         check_operation_exists, create_pending_operation,
@@ -22,8 +23,8 @@ use crate::{
     state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, XRPLToken,
         AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS,
-        PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
-        XRPL_TOKENS,
+        PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, TX_EVIDENCES,
+        USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
@@ -74,6 +75,7 @@ const XRP_DEFAULT_FEE: Uint128 = Uint128::zero();
 
 pub const MAX_TICKETS: u32 = 250;
 pub const MAX_RELAYERS: u32 = 32;
+pub const XRPL_MAX_TRUNCATED_AMOUNT_LENGTH: usize = 16;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -104,6 +106,9 @@ pub fn instantiate(
     if msg.used_ticket_sequence_threshold <= 1 || msg.used_ticket_sequence_threshold > MAX_TICKETS {
         return Err(ContractError::InvalidUsedTicketSequenceThreshold {});
     }
+
+    // We validate the trust set amount is a valid XRPL amount
+    validate_xrpl_amount(msg.trust_set_limit_amount)?;
 
     // We initialize these values here so that we can immediately start working with them
     USED_TICKETS_COUNTER.save(deps.storage, &0)?;
@@ -1003,6 +1008,12 @@ fn send_to_xrpl(
         }
     }
 
+    // We validate that both amount and max_amount on the operation contain valid XRPL amounts
+    validate_xrpl_amount(amount_to_send)?;
+    if max_amount.is_some() {
+        validate_xrpl_amount(max_amount.unwrap())?;
+    }
+
     // Get a ticket and store the pending operation
     let ticket = allocate_ticket(deps.storage)?;
     create_pending_operation(
@@ -1306,6 +1317,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_json_binary(&query_fees_collected(deps, relayer_address)?)
         }
         QueryMsg::BridgeState {} => to_json_binary(&query_bridge_state(deps)?),
+        QueryMsg::TransactionEvidence { hash } => {
+            to_json_binary(&query_transaction_evidence(deps, hash)?)
+        }
+        QueryMsg::TransactionEvidences {
+            start_after_key,
+            limit,
+        } => to_json_binary(&query_transaction_evidences(deps, start_after_key, limit)?),
     }
 }
 
@@ -1432,6 +1450,44 @@ fn query_pending_refunds(
     Ok(PendingRefundsResponse {
         last_key,
         pending_refunds,
+    })
+}
+
+fn query_transaction_evidence(deps: Deps, hash: String) -> StdResult<TransactionEvidence> {
+    let relayer_addresses = TX_EVIDENCES
+        .may_load(deps.storage, hash.to_owned())?
+        .map(|e| e.relayer_coreum_addresses);
+
+    Ok(TransactionEvidence {
+        hash,
+        relayer_addresses: relayer_addresses.unwrap_or_default(),
+    })
+}
+
+fn query_transaction_evidences(
+    deps: Deps,
+    start_after_key: Option<String>,
+    limit: Option<u32>,
+) -> StdResult<TransactionEvidencesResponse> {
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
+    let start = start_after_key.map(Bound::exclusive);
+    let mut last_key = None;
+    let transaction_evidences: Vec<TransactionEvidence> = TX_EVIDENCES
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit as usize)
+        .filter_map(|r| r.ok())
+        .map(|(evidence_hash, e)| {
+            last_key = Some(evidence_hash.to_owned());
+            TransactionEvidence {
+                hash: evidence_hash,
+                relayer_addresses: e.relayer_coreum_addresses,
+            }
+        })
+        .collect();
+
+    Ok(TransactionEvidencesResponse {
+        last_key,
+        transaction_evidences,
     })
 }
 
@@ -1573,6 +1629,22 @@ fn truncate_and_convert_amount(
 
     let converted_amount = convert_amount_decimals(from_decimals, to_decimals, truncated_amount)?;
     Ok((converted_amount, remainder))
+}
+
+// Helper function to validate that we are not sending an invalid amount to XRPL
+// A valid amount is one that doesn't have more than 16 digits after trimming trailing zeroes
+// Example: 1000000000000000000000000000 is valid
+// Example: 1000000000000000000000000001 is not valid
+fn validate_xrpl_amount(amount: Uint128) -> Result<(), ContractError> {
+    let amount_str = amount.to_string();
+    // Trim all zeroes at the end
+    let amount_trimmed = amount_str.trim_end_matches('0');
+
+    if amount_trimmed.len() > XRPL_MAX_TRUNCATED_AMOUNT_LENGTH {
+        return Err(ContractError::InvalidXRPLAmount {});
+    };
+
+    Ok(())
 }
 
 fn convert_currency_to_xrpl_hexadecimal(currency: String) -> String {

@@ -206,4 +206,12 @@ pub enum ContractError {
         "InvalidDeliverAmount: Field deliver_amount can't be greater than funds attached minus fees"
     )]
     InvalidDeliverAmount {},
+
+    #[error("InvalidSignatureLength: The signature sent can't be longer than 200 characters")]
+    InvalidSignatureLength {},
+
+    #[error(
+        "InvalidXRPLAmount: Amounts sent to XRPL can't have more than 17 digits after trimming trailing zeroes"
+    )]
+    InvalidXRPLAmount {},
 }
