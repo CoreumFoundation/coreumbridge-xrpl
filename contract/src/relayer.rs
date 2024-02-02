@@ -96,7 +96,7 @@ pub fn handle_rotate_keys_confirmation(
     storage: &mut dyn Storage,
     relayers: Vec<Relayer>,
     new_evidence_threshold: u32,
-    transaction_result: TransactionResult,
+    transaction_result: &TransactionResult,
 ) -> Result<(), ContractError> {
     // If transaction was accepted, update the relayers and evidence threshold and clear all current evidences
     // Bridge will stay halted until owner resumes it.

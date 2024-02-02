@@ -118,7 +118,7 @@ pub fn handle_trust_set_confirmation(
     currency: &String,
     transaction_result: &TransactionResult,
 ) -> Result<(), ContractError> {
-    let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
+    let key = build_xrpl_token_key(&issuer, &currency);
 
     let mut token = XRPL_TOKENS
         .load(storage, key.clone())
@@ -137,7 +137,7 @@ pub fn handle_trust_set_confirmation(
 
 pub fn handle_coreum_to_xrpl_transfer_confirmation(
     storage: &mut dyn Storage,
-    transaction_result: TransactionResult,
+    transaction_result: &TransactionResult,
     operation_id: u64,
     response: &mut Response<CoreumMsg>,
 ) -> Result<(), ContractError> {
@@ -155,7 +155,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
             ..
         } => {
             // We check that the token that was sent was an XRPL originated token:
-            let key = build_xrpl_token_key(issuer, currency.to_owned());
+            let key = build_xrpl_token_key(&issuer, &currency);
             match XRPL_TOKENS.may_load(storage, key)? {
                 Some(xrpl_token) => {
                     // if operation was with XRP, max amount might be empty so we will use amount.
