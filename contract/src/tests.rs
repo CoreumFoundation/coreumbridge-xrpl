@@ -6097,6 +6097,10 @@ mod tests {
                 .as_str()
         ));
 
+        // Check that we can recover tickets and provide signatures for this operation with the bridge halted
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::HaltBridge {}, &vec![], &signer)
+            .unwrap();
+
         // Owner will send a recover tickets operation which will set the pending ticket update flag to true
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -6363,6 +6367,15 @@ mod tests {
 
         assert_eq!(query_pending_operations.operations, vec![]);
         assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
+
+        // Resume bridge
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ResumeBridge {},
+            &vec![],
+            &signer,
+        )
+        .unwrap();
 
         // Let's do the same now but reporting an invalid transaction
         let account_sequence = 2;
@@ -9367,18 +9380,6 @@ mod tests {
             .unwrap();
         }
 
-        // Add a Key Rotation, which will verify that we can update the base fee while the bridge is halted
-        wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::RotateKeys {
-                new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
-                new_evidence_threshold: 2,
-            },
-            &vec![],
-            &signer,
-        )
-        .unwrap();
-
         // Query pending operations with limit and start_after_key to verify it works
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
@@ -9402,9 +9403,9 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(query_pending_operations.operations.len(), 149);
+        assert_eq!(query_pending_operations.operations.len(), 148);
 
-        // Verify that we have 249 pending operations
+        // Query all pending operations
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
@@ -9415,10 +9416,42 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(query_pending_operations.operations.len(), 249);
+        assert_eq!(query_pending_operations.operations.len(), 248);
+
+        // Halt the bridge to verify that we can't send signatures of pending operations that are not allowed
+        let correct_signature_example = "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string();
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::HaltBridge {}, &vec![], &signer)
+            .unwrap();
+
+        let signature_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveSignature {
+                    operation_id: query_pending_operations.operations[0]
+                        .ticket_sequence
+                        .unwrap(),
+                    operation_version: 1,
+                    signature: correct_signature_example.to_owned(),
+                },
+                &vec![],
+                relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(signature_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        // Resume the bridge to add signatures again
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ResumeBridge {},
+            &vec![],
+            &signer,
+        )
+        .unwrap();
 
         // Add some signatures to each pending operation
-        let correct_signature_example = "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string();
         for pending_operation in query_pending_operations.operations.iter() {
             for relayer in relayer_accounts.iter() {
                 wasm.execute::<ExecuteMsg>(
@@ -9433,6 +9466,50 @@ mod tests {
                 )
                 .unwrap();
             }
+        }
+
+        // Add a Key Rotation, which will verify that we can update the base fee while the bridge is halted
+        // and to check that we can add signatures for key rotations while bridge is halted
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RotateKeys {
+                new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
+                new_evidence_threshold: 2,
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Verify that we have 249 pending operations
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 249);
+
+        // Sign this last operation with the 3 relayers
+
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveSignature {
+                    operation_id: query_pending_operations.operations[248]
+                        .ticket_sequence
+                        .unwrap(),
+                    operation_version: 1,
+                    signature: correct_signature_example.to_owned(),
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
         }
 
         // Verify that all pending operations are in version 1 and have three signatures each
