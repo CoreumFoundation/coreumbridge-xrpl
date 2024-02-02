@@ -579,7 +579,7 @@ func createDevRunner(
 	// exit on errors
 	relayerRunnerCfg.Processes.ExitOnError = true
 
-	components, err := runner.GetComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false)
+	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false)
 	require.NoError(t, err)
 
 	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg)

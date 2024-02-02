@@ -189,8 +189,8 @@ type Processor interface {
 // ProcessorProvider is function which returns the Processor from the input cmd.
 type ProcessorProvider func(cmd *cobra.Command) (Processor, error)
 
-// GetRunnerFromHome returns runner from home.
-func GetRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
+// NewRunnerFromHome returns runner from home.
+func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 	clientCtx, err := client.GetClientQueryContext(cmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get client context")
@@ -214,7 +214,7 @@ func GetRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 		return nil, err
 	}
 
-	components, err := runner.GetComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true)
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true)
 	if err != nil {
 		return nil, err
 	}

@@ -178,8 +178,8 @@ type Components struct {
 	Log                  logger.Logger
 }
 
-// GetComponents creates components required by runner.
-func GetComponents(
+// NewComponents creates components required by runner and other CLI commands.
+func NewComponents(
 	cfg Config,
 	xrplKeyring keyring.Keyring,
 	coreumKeyring keyring.Keyring,
