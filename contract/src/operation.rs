@@ -57,12 +57,12 @@ pub enum OperationType {
 
 // For responses
 impl OperationType {
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            OperationType::AllocateTickets { .. } => "allocate_tickets",
-            OperationType::TrustSet { .. } => "trust_set",
-            OperationType::RotateKeys { .. } => "rotate_keys",
-            OperationType::CoreumToXRPLTransfer { .. } => "coreum_to_xrpl_transfer",
+            Self::AllocateTickets { .. } => "allocate_tickets",
+            Self::TrustSet { .. } => "trust_set",
+            Self::RotateKeys { .. } => "rotate_keys",
+            Self::CoreumToXRPLTransfer { .. } => "coreum_to_xrpl_transfer",
         }
     }
 }
@@ -94,7 +94,7 @@ pub fn create_pending_operation(
     // We use a unique ID for operations that will also be used for refunding failed operations
     // We need to use both timestamp and operation_id to ensure uniqueness of IDs, since operation_id can be reused in case of invalid transactions
     let operation = Operation {
-        id: format!("{}-{}", timestamp, operation_id),
+        id: format!("{timestamp}-{operation_id}"),
         // Operations are initially created with version 1
         version: 1,
         ticket_sequence,
@@ -114,11 +114,11 @@ pub fn create_pending_operation(
 
 pub fn handle_trust_set_confirmation(
     storage: &mut dyn Storage,
-    issuer: &String,
-    currency: &String,
+    issuer: &str,
+    currency: &str,
     transaction_result: &TransactionResult,
 ) -> Result<(), ContractError> {
-    let key = build_xrpl_token_key(&issuer, &currency);
+    let key = build_xrpl_token_key(issuer, currency);
 
     let mut token = XRPL_TOKENS
         .load(storage, key.clone())
@@ -225,8 +225,8 @@ pub fn store_pending_refund(
 ) -> Result<(), ContractError> {
     // We store the pending refund for this user and this pending_operation_id
     let pending_refund = PendingRefund {
-        address: receiver.to_owned(),
-        id: pending_operation_id.to_owned(),
+        address: receiver.clone(),
+        id: pending_operation_id.clone(),
         coin,
     };
 
@@ -237,15 +237,15 @@ pub fn store_pending_refund(
 
 pub fn remove_pending_refund(
     storage: &mut dyn Storage,
-    sender: Addr,
+    sender: &Addr,
     pending_refund_id: String,
 ) -> Result<Coin, ContractError> {
     // If pending refund is not found we return the error
     let pending_refund = PENDING_REFUNDS
-        .load(storage, (sender.to_owned(), pending_refund_id.to_owned()))
+        .load(storage, (sender.clone(), pending_refund_id.clone()))
         .map_err(|_| ContractError::PendingRefundNotFound {})?;
 
-    PENDING_REFUNDS.remove(storage, (sender, pending_refund_id))?;
+    PENDING_REFUNDS.remove(storage, (sender.clone(), pending_refund_id))?;
 
     Ok(pending_refund.coin)
 }

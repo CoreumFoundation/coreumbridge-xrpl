@@ -74,7 +74,7 @@ const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 =
 const XRP_DEFAULT_FEE: Uint128 = Uint128::zero();
 
 pub const MAX_TICKETS: u32 = 250;
-pub const MAX_RELAYERS: u32 = 32;
+pub const MAX_RELAYERS: usize = 32;
 pub const XRPL_MAX_TRUNCATED_AMOUNT_LENGTH: usize = 16;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -156,7 +156,7 @@ pub fn instantiate(
         bridging_fee: XRP_DEFAULT_FEE,
     };
 
-    let key = build_xrpl_token_key(&XRP_ISSUER, &XRP_CURRENCY);
+    let key = build_xrpl_token_key(XRP_ISSUER, XRP_CURRENCY);
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
     Ok(Response::new()
@@ -388,7 +388,7 @@ fn register_xrpl_token(
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
 
-    validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
+    validate_xrpl_issuer_and_currency(issuer.clone(), &currency)?;
 
     validate_sending_precision(sending_precision, XRPL_TOKENS_DECIMALS)?;
 
@@ -486,7 +486,7 @@ fn save_evidence(
 
     assert_relayer(deps.as_ref(), &sender)?;
 
-    let threshold_reached = handle_evidence(deps.storage, sender, evidence.clone())?;
+    let threshold_reached = handle_evidence(deps.storage, sender, &evidence)?;
 
     let mut response = Response::new();
 
@@ -857,7 +857,7 @@ fn send_to_xrpl(
     let funds = one_coin(&info)?;
 
     // Check that the recipient is a valid XRPL address.
-    validate_xrpl_address(recipient.to_owned())?;
+    validate_xrpl_address(recipient.clone())?;
 
     let config = CONFIG.load(deps.storage)?;
     if recipient.eq(&config.bridge_xrpl_address) {
@@ -1037,7 +1037,7 @@ fn update_xrpl_token(
     let key = build_xrpl_token_key(&issuer, &currency);
 
     let mut token = XRPL_TOKENS
-        .load(deps.storage, key.to_owned())
+        .load(deps.storage, key.clone())
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
     set_token_state(&mut token.state, state)?;
@@ -1105,7 +1105,7 @@ fn update_coreum_token(
         max_holding_amount,
     )?;
 
-    COREUM_TOKENS.save(deps.storage, denom.to_owned(), &token)?;
+    COREUM_TOKENS.save(deps.storage, denom.clone(), &token)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::UpdateCoreumToken.as_str())
@@ -1161,13 +1161,13 @@ fn claim_relayer_fees(
 
     // If fees were never collected for this address we don't allow the claim
     if FEES_COLLECTED
-        .may_load(deps.storage, sender.to_owned())?
+        .may_load(deps.storage, sender.clone())?
         .is_none()
     {
         return Err(ContractError::UnauthorizedSender {});
     };
 
-    substract_relayer_fees(deps.storage, sender.to_owned(), &amounts)?;
+    substract_relayer_fees(deps.storage, &sender, &amounts)?;
 
     let send_msg = BankMsg::Send {
         to_address: sender.to_string(),
@@ -1186,7 +1186,7 @@ fn claim_pending_refund(
     pending_refund_id: String,
 ) -> CoreumResult<ContractError> {
     assert_bridge_active(deps.as_ref())?;
-    let coin = remove_pending_refund(deps.storage, sender.to_owned(), pending_refund_id)?;
+    let coin = remove_pending_refund(deps.storage, &sender, pending_refund_id)?;
 
     let send_msg = BankMsg::Send {
         to_address: sender.to_string(),
@@ -1274,16 +1274,16 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::XRPLTokens {
             start_after_key,
             limit,
-        } => to_json_binary(&query_xrpl_tokens(deps, start_after_key, limit)?),
+        } => to_json_binary(&query_xrpl_tokens(deps, start_after_key, limit)),
         QueryMsg::CoreumTokens {
             start_after_key,
             limit,
-        } => to_json_binary(&query_coreum_tokens(deps, start_after_key, limit)?),
+        } => to_json_binary(&query_coreum_tokens(deps, start_after_key, limit)),
         QueryMsg::Ownership {} => to_json_binary(&get_ownership(deps.storage)?),
         QueryMsg::PendingOperations {
             start_after_key,
             limit,
-        } => to_json_binary(&query_pending_operations(deps, start_after_key, limit)?),
+        } => to_json_binary(&query_pending_operations(deps, start_after_key, limit)),
         QueryMsg::AvailableTickets {} => to_json_binary(&query_available_tickets(deps)?),
         QueryMsg::PendingRefunds {
             address,
@@ -1294,7 +1294,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             address,
             start_after_key,
             limit,
-        )?),
+        )),
         QueryMsg::FeesCollected { relayer_address } => {
             to_json_binary(&query_fees_collected(deps, relayer_address)?)
         }
@@ -1305,7 +1305,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::TransactionEvidences {
             start_after_key,
             limit,
-        } => to_json_binary(&query_transaction_evidences(deps, start_after_key, limit)?),
+        } => to_json_binary(&query_transaction_evidences(deps, start_after_key, limit)),
     }
 }
 
@@ -1325,66 +1325,66 @@ fn query_xrpl_tokens(
     deps: Deps,
     start_after_key: Option<String>,
     limit: Option<u32>,
-) -> StdResult<XRPLTokensResponse> {
+) -> XRPLTokensResponse {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let start = start_after_key.map(Bound::exclusive);
     let mut last_key = None;
     let tokens: Vec<XRPLToken> = XRPL_TOKENS
         .range(deps.storage, start, None, Order::Ascending)
         .take(limit as usize)
-        .filter_map(|v| v.ok())
+        .filter_map(Result::ok)
         .map(|(key, v)| {
             last_key = Some(key);
             v
         })
         .collect();
 
-    Ok(XRPLTokensResponse { last_key, tokens })
+    XRPLTokensResponse { last_key, tokens }
 }
 
 fn query_coreum_tokens(
     deps: Deps,
     start_after_key: Option<String>,
     limit: Option<u32>,
-) -> StdResult<CoreumTokensResponse> {
+) -> CoreumTokensResponse {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let start = start_after_key.map(Bound::exclusive);
     let mut last_key = None;
     let tokens: Vec<CoreumToken> = COREUM_TOKENS
         .range(deps.storage, start, None, Order::Ascending)
         .take(limit as usize)
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .map(|(key, ct)| {
             last_key = Some(key);
             ct
         })
         .collect();
 
-    Ok(CoreumTokensResponse { last_key, tokens })
+    CoreumTokensResponse { last_key, tokens }
 }
 
 fn query_pending_operations(
     deps: Deps,
     start_after_key: Option<u64>,
     limit: Option<u32>,
-) -> StdResult<PendingOperationsResponse> {
+) -> PendingOperationsResponse {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let start = start_after_key.map(Bound::exclusive);
     let mut last_key = None;
     let operations: Vec<Operation> = PENDING_OPERATIONS
         .range(deps.storage, start, None, Order::Ascending)
         .take(limit as usize)
-        .filter_map(|v| v.ok())
+        .filter_map(Result::ok)
         .map(|(key, v)| {
             last_key = Some(key);
             v
         })
         .collect();
 
-    Ok(PendingOperationsResponse {
+    PendingOperationsResponse {
         last_key,
         operations,
-    })
+    }
 }
 
 fn query_available_tickets(deps: Deps) -> StdResult<AvailableTicketsResponse> {
@@ -1408,7 +1408,7 @@ fn query_pending_refunds(
     address: Addr,
     start_after_key: Option<(Addr, String)>,
     limit: Option<u32>,
-) -> StdResult<PendingRefundsResponse> {
+) -> PendingRefundsResponse {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let start = start_after_key.map(Bound::exclusive);
     let mut last_key = None;
@@ -1419,7 +1419,7 @@ fn query_pending_refunds(
         .prefix(address)
         .range(deps.storage, start, None, Order::Ascending)
         .take(limit as usize)
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .map(|(key, pr)| {
             last_key = Some(key);
             PendingRefund {
@@ -1429,15 +1429,15 @@ fn query_pending_refunds(
         })
         .collect();
 
-    Ok(PendingRefundsResponse {
+    PendingRefundsResponse {
         last_key,
         pending_refunds,
-    })
+    }
 }
 
 fn query_transaction_evidence(deps: Deps, hash: String) -> StdResult<TransactionEvidence> {
     let relayer_addresses = TX_EVIDENCES
-        .may_load(deps.storage, hash.to_owned())?
+        .may_load(deps.storage, hash.clone())?
         .map(|e| e.relayer_coreum_addresses);
 
     Ok(TransactionEvidence {
@@ -1450,7 +1450,7 @@ fn query_transaction_evidences(
     deps: Deps,
     start_after_key: Option<String>,
     limit: Option<u32>,
-) -> StdResult<TransactionEvidencesResponse> {
+) -> TransactionEvidencesResponse {
     let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
     let start = start_after_key.map(Bound::exclusive);
     let mut last_key = None;
@@ -1459,7 +1459,7 @@ fn query_transaction_evidences(
         .take(limit as usize)
         .filter_map(|r| r.ok())
         .map(|(evidence_hash, e)| {
-            last_key = Some(evidence_hash.to_owned());
+            last_key = Some(evidence_hash.clone());
             TransactionEvidence {
                 hash: evidence_hash,
                 relayer_addresses: e.relayer_coreum_addresses,
@@ -1467,10 +1467,10 @@ fn query_transaction_evidences(
         })
         .collect();
 
-    Ok(TransactionEvidencesResponse {
+    TransactionEvidencesResponse {
         last_key,
         transaction_evidences,
-    })
+    }
 }
 
 // ********** Helpers **********
@@ -1489,10 +1489,10 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
 
 pub fn validate_xrpl_issuer_and_currency(
     issuer: String,
-    currency: String,
+    currency: &str,
 ) -> Result<(), ContractError> {
     validate_xrpl_address(issuer).map_err(|_| ContractError::InvalidXRPLIssuer {})?;
-
+    
     // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency, any other scenario is invalid
     match currency.len() {
         3 => {
@@ -1527,7 +1527,7 @@ pub fn validate_sending_precision(
         return Err(ContractError::InvalidSendingPrecision {});
     }
 
-    if sending_precision > decimals.try_into().unwrap() {
+    if sending_precision > decimals as i32 {
         return Err(ContractError::TokenSendingPrecisionTooHigh {});
     }
     Ok(())
@@ -1637,7 +1637,7 @@ fn convert_currency_to_xrpl_hexadecimal(currency: String) -> String {
 // Helper function to check that the sender is either an owner or a relayer
 fn assert_owner_or_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractError> {
     match assert_owner(deps.storage, sender) {
-        Ok(_) => Ok(()),
+        Ok(()) => Ok(()),
         Err(_) => assert_relayer(deps, sender).map_err(|_| ContractError::NotOwnerOrRelayer {}),
     }
 }

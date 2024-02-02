@@ -40,11 +40,11 @@ pub enum TransactionResult {
 
 // For convenience in the responses.
 impl TransactionResult {
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            TransactionResult::Accepted => "transaction_accepted",
-            TransactionResult::Rejected => "transaction_rejected",
-            TransactionResult::Invalid => "transaction_invalid",
+            Self::Accepted => "transaction_accepted",
+            Self::Rejected => "transaction_rejected",
+            Self::Invalid => "transaction_invalid",
         }
     }
 }
@@ -63,15 +63,15 @@ impl Evidence {
 
     pub fn get_tx_hash(&self) -> String {
         match self {
-            Evidence::XRPLToCoreumTransfer { tx_hash, .. } => tx_hash.clone(),
-            Evidence::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone().unwrap(),
+            Self::XRPLToCoreumTransfer { tx_hash, .. } => tx_hash.clone(),
+            Self::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone().unwrap(),
         }
         .to_uppercase()
     }
     pub fn is_operation_valid(&self) -> bool {
         match self {
-            Evidence::XRPLToCoreumTransfer { .. } => true,
-            Evidence::XRPLTransactionResult {
+            Self::XRPLToCoreumTransfer { .. } => true,
+            Self::XRPLTransactionResult {
                 transaction_result, ..
             } => transaction_result.clone() != TransactionResult::Invalid,
         }
@@ -79,13 +79,13 @@ impl Evidence {
     // Function for basic validation of evidences in case relayers send something that is not valid
     pub fn validate_basic(&self) -> Result<(), ContractError> {
         match self {
-            Evidence::XRPLToCoreumTransfer { amount, .. } => {
+            Self::XRPLToCoreumTransfer { amount, .. } => {
                 if amount.is_zero() {
                     return Err(ContractError::InvalidAmount {});
                 }
                 Ok(())
             }
-            Evidence::XRPLTransactionResult {
+            Self::XRPLTransactionResult {
                 tx_hash,
                 account_sequence,
                 ticket_sequence,
@@ -147,7 +147,7 @@ pub fn hash_bytes(bytes: Vec<u8>) -> String {
 pub fn handle_evidence(
     storage: &mut dyn Storage,
     sender: Addr,
-    evidence: Evidence,
+    evidence: &Evidence,
 ) -> Result<bool, ContractError> {
     let operation_valid = evidence.is_operation_valid();
 
@@ -162,7 +162,7 @@ pub fn handle_evidence(
                 return Err(ContractError::EvidenceAlreadyProvided {});
             }
             evidences = stored_evidences;
-            evidences.relayer_coreum_addresses.push(sender)
+            evidences.relayer_coreum_addresses.push(sender);
         }
         None => {
             evidences = Evidences {
@@ -172,7 +172,7 @@ pub fn handle_evidence(
     }
 
     let config = CONFIG.load(storage)?;
-    if evidences.relayer_coreum_addresses.len() >= config.evidence_threshold.try_into().unwrap() {
+    if evidences.relayer_coreum_addresses.len() >= config.evidence_threshold as usize {
         // We only registered the transaction as processed if its execution didn't fail
         if operation_valid {
             PROCESSED_TXS.save(storage, evidence.get_tx_hash(), &Empty {})?;

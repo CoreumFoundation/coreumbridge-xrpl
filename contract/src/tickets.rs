@@ -54,7 +54,7 @@ pub fn register_used_ticket(
                         number: config.used_ticket_sequence_threshold,
                     },
                 )?;
-                PENDING_TICKET_UPDATE.save(storage, &true)?
+                PENDING_TICKET_UPDATE.save(storage, &true)?;
             }
             Err(ContractError::NoAvailableTickets {}) => return Ok(false),
             Err(e) => return Err(e),

@@ -213,25 +213,25 @@ pub enum ContractActions {
 }
 
 impl ContractActions {
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            ContractActions::Instantiation => "bridge_instantiation",
-            ContractActions::RegisterCoreumToken => "register_coreum_token",
-            ContractActions::RegisterXRPLToken => "register_xrpl_token",
-            ContractActions::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
-            ContractActions::RecoverTickets => "recover_tickets",
-            ContractActions::RecoverXRPLTokenRegistration => "recover_xrpl_token_registration",
-            ContractActions::XRPLTransactionResult => "submit_xrpl_transaction_result",
-            ContractActions::SaveSignature => "save_signature",
-            ContractActions::SendToXRPL => "send_to_xrpl",
-            ContractActions::ClaimFees => "claim_fees",
-            ContractActions::ClaimRefunds => "claim_refunds",
-            ContractActions::UpdateXRPLToken => "update_xrpl_token",
-            ContractActions::UpdateCoreumToken => "update_coreum_token",
-            ContractActions::UpdateXRPLBaseFee => "update_xrpl_base_fee",
-            ContractActions::HaltBridge => "halt_bridge",
-            ContractActions::ResumeBridge => "resume_bridge",
-            ContractActions::RotateKeys => "rotate_keys",
+            Self::Instantiation => "bridge_instantiation",
+            Self::RegisterCoreumToken => "register_coreum_token",
+            Self::RegisterXRPLToken => "register_xrpl_token",
+            Self::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
+            Self::RecoverTickets => "recover_tickets",
+            Self::RecoverXRPLTokenRegistration => "recover_xrpl_token_registration",
+            Self::XRPLTransactionResult => "submit_xrpl_transaction_result",
+            Self::SaveSignature => "save_signature",
+            Self::SendToXRPL => "send_to_xrpl",
+            Self::ClaimFees => "claim_fees",
+            Self::ClaimRefunds => "claim_refunds",
+            Self::UpdateXRPLToken => "update_xrpl_token",
+            Self::UpdateCoreumToken => "update_coreum_token",
+            Self::UpdateXRPLBaseFee => "update_xrpl_base_fee",
+            Self::HaltBridge => "halt_bridge",
+            Self::ResumeBridge => "resume_bridge",
+            Self::RotateKeys => "rotate_keys",
         }
     }
 }
