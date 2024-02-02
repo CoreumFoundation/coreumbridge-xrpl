@@ -160,7 +160,7 @@ func (c XRPLChain) FundAccountForTicketAllocation(
 
 // FundAccountForSignerListSet funds the provided account with the amount required for the multi-signing set.
 func (c XRPLChain) FundAccountForSignerListSet(
-	ctx context.Context, t *testing.T, acc rippledata.Account, singersCount int,
+	ctx context.Context, t *testing.T, acc rippledata.Account, singersCount uint32,
 ) {
 	c.FundAccount(ctx, t, acc, xrpl.ReservePerItem*float64(singersCount))
 }
@@ -222,9 +222,14 @@ func (c XRPLChain) SignAndSubmitTx(
 }
 
 // AutoFillTx add seq number and fee for the transaction.
-func (c XRPLChain) AutoFillTx(ctx context.Context, t *testing.T, tx rippledata.Transaction, sender rippledata.Account) {
+func (c XRPLChain) AutoFillTx(
+	ctx context.Context,
+	t *testing.T,
+	tx rippledata.Transaction,
+	sender rippledata.Account,
+) {
 	t.Helper()
-	require.NoError(t, c.rpcClient.AutoFillTx(ctx, tx, sender))
+	require.NoError(t, c.rpcClient.AutoFillTx(ctx, tx, sender, xrpl.MaxAllowedXRPLSigners))
 }
 
 // GetAccountBalance returns account balance for the provided issuer and currency.

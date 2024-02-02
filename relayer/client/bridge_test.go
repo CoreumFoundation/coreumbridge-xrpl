@@ -52,6 +52,7 @@ evidence_threshold: 0
 used_ticket_sequence_threshold: 150
 trust_set_limit_amount: "100000000000000000000000000000000000"
 contract_bytecode_path: ""
+xrpl_base_fee: 10
 `
 }
 

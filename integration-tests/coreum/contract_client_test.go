@@ -42,6 +42,9 @@ const (
 
 	xrpSendingPrecision            = 6
 	eventAttributeThresholdReached = "threshold_reached"
+
+	//nolint:lll // the signature sample doesn't require to be splited
+	xrplTxSignature = "304502210097099E9AB2C41DA3F672004924B3557D58D101A5745C57C6336C5CF36B59E8F5022003984E50483C921E3FDF45BC7DE4E6ED9D340F0E0CAA6BB1828C647C6665A1CC"
 )
 
 var (
@@ -75,15 +78,15 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 	relayers := genRelayers(ctx, t, chains, 1)
 
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	xrplBaseFee := 10
 
-	usedTicketSequenceThreshold := 10
+	xrplBaseFee := uint32(10)
+	usedTicketSequenceThreshold := uint32(10)
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -95,11 +98,12 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 
 	require.Equal(t, coreum.ContractConfig{
 		Relayers:                    relayers,
-		EvidenceThreshold:           len(relayers),
+		EvidenceThreshold:           uint32(len(relayers)),
 		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
 		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
 		BridgeXRPLAddress:           bridgeXRPLAddress,
 		BridgeState:                 string(coreum.BridgeStateActive),
+		XRPLBaseFee:                 xrplBaseFee,
 	}, contractCfg)
 
 	contractOwnership, err := contractClient.GetContractOwnership(ctx)
@@ -164,7 +168,7 @@ func TestChangeContractOwnership(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		10,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -226,7 +230,7 @@ func TestRegisterAndUpdateCoreumToken(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		10,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -377,7 +381,7 @@ func TestRegisterAndUpdateXRPLToken(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -632,7 +636,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -789,7 +793,7 @@ func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -878,7 +882,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		10,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -1047,7 +1051,7 @@ func TestSendFromXRPLToCoreumXRPToken(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -1163,7 +1167,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -1178,8 +1182,8 @@ func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 	maxHoldingAmount := sdkmath.NewInt(100_000_000_000)
 	issueMsg := &assetfttypes.MsgIssue{
 		Issuer:        coreumSender.String(),
-		Symbol:        "denom",
-		Subunit:       "denom",
+		Symbol:        "symbol",
+		Subunit:       "subunit",
 		Precision:     tokenDecimals, // token decimals in terms of the contract
 		InitialAmount: maxHoldingAmount,
 	}
@@ -1277,7 +1281,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -1378,8 +1382,8 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 			maxHoldingAmount := sdkmath.NewInt(100_000_000_000)
 			issueMsg := &assetfttypes.MsgIssue{
 				Issuer:        coreumSender.String(),
-				Symbol:        "denom",
-				Subunit:       "denom",
+				Symbol:        "symbol",
+				Subunit:       "subunit",
 				Precision:     tokenDecimals,
 				InitialAmount: maxHoldingAmount,
 				Features:      tt.features,
@@ -1497,7 +1501,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		10,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -1612,8 +1616,8 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 			// issue asset ft and register it
 			issueMsg := &assetfttypes.MsgIssue{
 				Issuer:        coreumSenderAddress.String(),
-				Symbol:        "denom",
-				Subunit:       "denom",
+				Symbol:        "symbol",
+				Subunit:       "subunit",
 				Precision:     tt.decimals, // token decimals in terms of the contract
 				InitialAmount: tt.maxHoldingAmount,
 			}
@@ -1674,13 +1678,13 @@ func TestRecoverTickets(t *testing.T) {
 	t.Parallel()
 
 	// TODO(dzmitryhil) extend the test to check multiple operations once we have them allowed to be created
-	usedTicketSequenceThreshold := 5
+	usedTicketSequenceThreshold := uint32(5)
 	numberOfTicketsToInit := uint32(6)
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
 	relayers := genRelayers(ctx, t, chains, 3)
-
+	xrplBaseFee := uint32(10)
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
 		t,
@@ -1690,7 +1694,7 @@ func TestRecoverTickets(t *testing.T) {
 		usedTicketSequenceThreshold,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
-		10,
+		xrplBaseFee,
 	)
 
 	// ********** Ticket allocation / Recovery **********
@@ -1723,6 +1727,7 @@ func TestRecoverTickets(t *testing.T) {
 	require.Len(t, pendingOperations, 1)
 	ticketsAllocationOperation := pendingOperations[0]
 	require.Equal(t, coreum.Operation{
+		Version:         1,
 		TicketSequence:  0,
 		AccountSequence: bridgeXRPLAccountFirstSeqNumber,
 		Signatures:      make([]coreum.Signature, 0),
@@ -1731,6 +1736,7 @@ func TestRecoverTickets(t *testing.T) {
 				Number: numberOfTicketsToInit,
 			},
 		},
+		XRPLBaseFee: xrplBaseFee,
 	}, ticketsAllocationOperation)
 
 	// try to recover tickets when the tickets allocation is in-process
@@ -1749,24 +1755,38 @@ func TestRecoverTickets(t *testing.T) {
 	require.NoError(t, err)
 	signerItem1 := chains.XRPL.Multisign(t, &createTicketsTx, *relayer1XRPLAcc).Signer
 	// try to send from not relayer
-	_, err = contractClient.SaveSignature(ctx, owner, bridgeXRPLAccountFirstSeqNumber, signerItem1.TxnSignature.String())
+	_, err = contractClient.SaveSignature(
+		ctx,
+		owner,
+		bridgeXRPLAccountFirstSeqNumber,
+		ticketsAllocationOperation.Version,
+		signerItem1.TxnSignature.String(),
+	)
 	require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
 	// try to send with incorrect operation ID
 	_, err = contractClient.SaveSignature(
-		ctx, relayers[0].CoreumAddress, uint32(999), signerItem1.TxnSignature.String(),
+		ctx, relayers[0].CoreumAddress, uint32(999), ticketsAllocationOperation.Version, signerItem1.TxnSignature.String(),
 	)
 	require.True(t, coreum.IsPendingOperationNotFoundError(err), err)
 
 	// send from first relayer
 	_, err = contractClient.SaveSignature(
-		ctx, relayers[0].CoreumAddress, bridgeXRPLAccountFirstSeqNumber, signerItem1.TxnSignature.String(),
+		ctx,
+		relayers[0].CoreumAddress,
+		bridgeXRPLAccountFirstSeqNumber,
+		ticketsAllocationOperation.Version,
+		signerItem1.TxnSignature.String(),
 	)
 	require.NoError(t, err)
 
 	// try to send from the same relayer one more time
 	_, err = contractClient.SaveSignature(
-		ctx, relayers[0].CoreumAddress, bridgeXRPLAccountFirstSeqNumber, signerItem1.TxnSignature.String(),
+		ctx,
+		relayers[0].CoreumAddress,
+		bridgeXRPLAccountFirstSeqNumber,
+		ticketsAllocationOperation.Version,
+		signerItem1.TxnSignature.String(),
 	)
 	require.True(t, coreum.IsSignatureAlreadyProvidedError(err), err)
 
@@ -1781,7 +1801,11 @@ func TestRecoverTickets(t *testing.T) {
 	require.NoError(t, err)
 	signerItem2 := chains.XRPL.Multisign(t, &createTicketsTx, *relayer2XRPLAcc).Signer
 	_, err = contractClient.SaveSignature(
-		ctx, relayers[1].CoreumAddress, bridgeXRPLAccountFirstSeqNumber, signerItem2.TxnSignature.String(),
+		ctx,
+		relayers[1].CoreumAddress,
+		bridgeXRPLAccountFirstSeqNumber,
+		ticketsAllocationOperation.Version,
+		signerItem2.TxnSignature.String(),
 	)
 	require.NoError(t, err)
 
@@ -1790,6 +1814,7 @@ func TestRecoverTickets(t *testing.T) {
 	require.Len(t, pendingOperations, 1)
 	ticketsAllocationOperation = pendingOperations[0]
 	require.Equal(t, coreum.Operation{
+		Version:         1,
 		TicketSequence:  0,
 		AccountSequence: bridgeXRPLAccountFirstSeqNumber,
 		Signatures: []coreum.Signature{
@@ -1807,6 +1832,7 @@ func TestRecoverTickets(t *testing.T) {
 				Number: numberOfTicketsToInit,
 			},
 		},
+		XRPLBaseFee: xrplBaseFee,
 	}, ticketsAllocationOperation)
 
 	// ********** TransactionResultEvidence / Transaction rejected **********
@@ -2015,7 +2041,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -2200,7 +2226,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		50,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -2366,7 +2392,7 @@ func TestSendFromCoreumToXRPLXRPToken(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -2483,7 +2509,7 @@ func TestSendFromCoreumXRPLOriginatedTokenWithDeliverAmount(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		10,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -2689,7 +2715,7 @@ func TestSendFromCoreumCoreumOriginatedTokenWithDeliverAmount(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		10,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -2758,7 +2784,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -2998,7 +3024,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		50,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -3111,8 +3137,8 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 			// issue asset ft and register it
 			issueMsg := &assetfttypes.MsgIssue{
 				Issuer:        coreumSenderAddress.String(),
-				Symbol:        "denom",
-				Subunit:       "denom",
+				Symbol:        "symbol",
+				Subunit:       "subunit",
 				Precision:     tt.decimals,                   // token decimals in terms of the contract
 				InitialAmount: tt.maxHoldingAmount.MulRaw(2), // twice more to be able to send more than max
 			}
@@ -3194,7 +3220,7 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -3209,8 +3235,8 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	maxHoldingAmount := sdkmath.NewInt(100_000_000_000)
 	msgIssue := &assetfttypes.MsgIssue{
 		Issuer:             coreumIssuerAddress.String(),
-		Symbol:             "denom",
-		Subunit:            "denom",
+		Symbol:             "symbol",
+		Subunit:            "subunit",
 		Precision:          tokenDecimals,
 		InitialAmount:      maxHoldingAmount,
 		BurnRate:           sdk.MustNewDecFromStr("0.1"),
@@ -3378,7 +3404,7 @@ func TestRecoverXRPLTokeRegistration(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -3548,7 +3574,7 @@ func TestBridgingFeeForXRPLOrginatedTokens(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		10,
 		defaultTrustSetLimitAmount,
 		bridgeAddress,
@@ -3790,7 +3816,7 @@ func TestBridgingFeeForCoreumOriginatedTokens(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		10,
 		defaultTrustSetLimitAmount,
 		bridgeAddress,
@@ -3869,8 +3895,8 @@ func TestBridgingFeeForCoreumOriginatedTokens(t *testing.T) {
 			// issue asset ft and register it
 			issueMsg := &assetfttypes.MsgIssue{
 				Issuer:        coreumSenderAddress.String(),
-				Symbol:        "denom",
-				Subunit:       "denom",
+				Symbol:        "symbol",
+				Subunit:       "subunit",
 				Precision:     tokenDecimals,              // token decimals in terms of the contract
 				InitialAmount: maxHoldingAmount.MulRaw(2), // twice more to be able to send more than max
 			}
@@ -3956,7 +3982,7 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		10,
 		defaultTrustSetLimitAmount,
 		bridgeAddress,
@@ -4116,7 +4142,7 @@ func TestFeeCalculations_FeeRemainder(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		10,
 		defaultTrustSetLimitAmount,
 		bridgeAddress,
@@ -4249,7 +4275,7 @@ func TestEnableAndDisableXRPLOriginatedToken(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -4425,7 +4451,7 @@ func TestEnableAndDisableXRPLOriginatedToken(t *testing.T) {
 	// save signature from all relayers
 	for _, relayer := range relayers {
 		_, err = contractClient.SaveSignature(
-			ctx, relayer.CoreumAddress, operation.TicketSequence, "signature",
+			ctx, relayer.CoreumAddress, operation.TicketSequence, operation.Version, xrplTxSignature,
 		)
 		require.NoError(t, err)
 	}
@@ -4540,7 +4566,7 @@ func TestEnableAndDisableCoreumOriginatedToken(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -4644,7 +4670,7 @@ func TestEnableAndDisableCoreumOriginatedToken(t *testing.T) {
 	// save signature from all relayers
 	for _, relayer := range relayers {
 		_, err = contractClient.SaveSignature(
-			ctx, relayer.CoreumAddress, operation.TicketSequence, "signature",
+			ctx, relayer.CoreumAddress, operation.TicketSequence, operation.Version, xrplTxSignature,
 		)
 		require.NoError(t, err)
 	}
@@ -4796,7 +4822,7 @@ func TestUpdateXRPLOriginatedTokenSendingPrecision(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -4925,7 +4951,7 @@ func TestUpdateCoreumOriginatedTokenSendingPrecision(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -4940,8 +4966,8 @@ func TestUpdateCoreumOriginatedTokenSendingPrecision(t *testing.T) {
 	maxHoldingAmount := sdkmath.NewInt(100_000_000_000)
 	issueMsg := &assetfttypes.MsgIssue{
 		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "smb",
-		Subunit:       "denom",
+		Symbol:        "symbol",
+		Subunit:       "subunit",
 		Precision:     tokenDecimals, // token decimals in terms of the contract
 		InitialAmount: sdkmath.NewInt(100_000_000),
 	}
@@ -5062,7 +5088,7 @@ func TestUpdateXRPLOriginatedTokenBridgingFee(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -5190,7 +5216,7 @@ func TestUpdateCoreumOriginatedTokenBridgingFee(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -5206,8 +5232,8 @@ func TestUpdateCoreumOriginatedTokenBridgingFee(t *testing.T) {
 	bridgingFee := sdkmath.NewInt(100)
 	issueMsg := &assetfttypes.MsgIssue{
 		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "smb",
-		Subunit:       "denom",
+		Symbol:        "symbol",
+		Subunit:       "subunit",
 		Precision:     tokenDecimals, // token decimals in terms of the contract
 		InitialAmount: sdkmath.NewInt(100_000_000),
 	}
@@ -5326,7 +5352,7 @@ func TestUpdateXRPLOriginatedTokenMaxHoldingAmount(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		xrpl.GenPrivKeyTxSigner().Account().String(),
@@ -5448,7 +5474,7 @@ func TestUpdateCoreumOriginatedTokenMaxHoldingAmount(t *testing.T) {
 		t,
 		chains,
 		relayers,
-		len(relayers),
+		uint32(len(relayers)),
 		3,
 		defaultTrustSetLimitAmount,
 		bridgeXRPLAddress,
@@ -5464,8 +5490,8 @@ func TestUpdateCoreumOriginatedTokenMaxHoldingAmount(t *testing.T) {
 	bridgingFee := sdkmath.ZeroInt()
 	issueMsg := &assetfttypes.MsgIssue{
 		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "smb",
-		Subunit:       "denom",
+		Symbol:        "symbol",
+		Subunit:       "subunit",
 		Precision:     tokenDecimals, // token decimals in terms of the contract
 		InitialAmount: sdkmath.NewInt(100_000_000),
 	}
@@ -5544,13 +5570,13 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	})
 
 	xrplBridgeAddress := xrpl.GenPrivKeyTxSigner().Account()
-	xrplBaseFee := 10
+	xrplBaseFee := uint32(10)
 	owner, contractClient := integrationtests.DeployAndInstantiateContract(
 		ctx,
 		t,
 		chains,
 		initialRelayers,
-		len(initialRelayers),
+		uint32(len(initialRelayers)),
 		20,
 		defaultTrustSetLimitAmount,
 		xrplBridgeAddress.String(),
@@ -5639,7 +5665,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, string(coreum.BridgeStateActive), contractCfgBeforeRotationStart.BridgeState)
-	require.Equal(t, 2, contractCfgBeforeRotationStart.EvidenceThreshold)
+	require.Equal(t, uint32(2), contractCfgBeforeRotationStart.EvidenceThreshold)
 
 	// keys rotation
 	newRelayers := genRelayers(ctx, t, chains, 3)
@@ -5816,6 +5842,300 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, xrplToCoreumXRPLTokenTransferEvidence.Amount.String(), coreumRecipientBalance.Balance.Amount.String())
+}
+
+func TestUpdateXRPLBaseFee(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
+
+	relayers := genRelayers(ctx, t, chains, 2)
+	evidenceThreshold := uint32(len(relayers))
+	usedTicketSequenceThreshold := uint32(150)
+	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
+	xrplBaseFee := uint32(10)
+
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		evidenceThreshold,
+		usedTicketSequenceThreshold,
+		defaultTrustSetLimitAmount,
+		bridgeXRPLAddress,
+		xrplBaseFee,
+	)
+
+	contractCfg, err := contractClient.GetContractConfig(ctx)
+	require.NoError(t, err)
+
+	require.Equal(t, coreum.ContractConfig{
+		Relayers:                    relayers,
+		EvidenceThreshold:           evidenceThreshold,
+		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
+		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
+		BridgeXRPLAddress:           bridgeXRPLAddress,
+		BridgeState:                 string(coreum.BridgeStateActive),
+		XRPLBaseFee:                 xrplBaseFee,
+	}, contractCfg)
+
+	// update the XRPL base fee when there are no pending operations
+	xrplBaseFee = uint32(15)
+
+	// try to update the XRPL base fee from not owner
+	_, err = contractClient.UpdateXRPLBaseFee(ctx, relayers[0].CoreumAddress, xrplBaseFee)
+	require.True(t, coreum.IsNotOwnerError(err), err)
+
+	// update from owner
+	_, err = contractClient.UpdateXRPLBaseFee(ctx, owner, xrplBaseFee)
+	require.NoError(t, err)
+
+	contractCfg, err = contractClient.GetContractConfig(ctx)
+	require.NoError(t, err)
+	require.Equal(t, coreum.ContractConfig{
+		Relayers:                    relayers,
+		EvidenceThreshold:           evidenceThreshold,
+		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
+		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
+		BridgeXRPLAddress:           bridgeXRPLAddress,
+		BridgeState:                 string(coreum.BridgeStateActive),
+		XRPLBaseFee:                 xrplBaseFee,
+	}, contractCfg)
+
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount,
+	})
+
+	coreumSender := chains.Coreum.GenAccount()
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSender, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.Add(sdkmath.NewInt(1_000_000)),
+	})
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, xrpl.MaxTicketsToAllocate)
+
+	// issue asset ft and register it
+	sendingPrecision := int32(6)
+	tokenDecimals := uint32(6)
+	maxHoldingAmount := sdkmath.NewInt(100_000_000_000)
+	issueMsg := &assetfttypes.MsgIssue{
+		Issuer:        coreumSender.String(),
+		Symbol:        "symbol",
+		Subunit:       "subunit",
+		Precision:     tokenDecimals, // token decimals in terms of the contract
+		InitialAmount: maxHoldingAmount,
+	}
+	_, err = client.BroadcastTx(
+		ctx,
+		chains.Coreum.ClientContext.WithFromAddress(coreumSender),
+		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+		issueMsg,
+	)
+	require.NoError(t, err)
+	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSender)
+	_, err = contractClient.RegisterCoreumToken(
+		ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount, sdkmath.ZeroInt(),
+	)
+	require.NoError(t, err)
+
+	operationCountToGenerate := 5
+	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0, operationCountToGenerate)
+	for i := 0; i < operationCountToGenerate; i++ {
+		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
+			Recipient:     xrplRecipientAddress.String(),
+			Amount:        sdk.NewCoin(denom, sdkmath.NewInt(10)),
+			DeliverAmount: nil,
+		})
+	}
+	_, err = contractClient.MultiSendToXRPL(
+		ctx,
+		coreumSender,
+		sendToXRPLRequests...,
+	)
+	require.NoError(t, err)
+
+	pendingOperations, err := contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, operationCountToGenerate)
+
+	// try to provide signature for invalid version
+	operation := pendingOperations[0]
+	_, err = contractClient.SaveSignature(
+		ctx, relayers[0].CoreumAddress, operation.TicketSequence, operation.Version+1, xrplTxSignature,
+	)
+	require.True(t, coreum.IsOperationVersionMismatchError(err), err)
+
+	assertOperationsUpdateAfterXRPLBaseFeeUpdate(ctx, t, contractClient, owner, xrplBaseFee, 20, relayers)
+}
+
+func TestUpdateXRPLBaseFeeForMaxOperationCount(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
+
+	relayers := genRelayers(ctx, t, chains, int(xrpl.MaxAllowedXRPLSigners))
+	evidenceThreshold := uint32(len(relayers))
+	usedTicketSequenceThreshold := uint32(150)
+	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
+	xrplBaseFee := uint32(10)
+
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		evidenceThreshold,
+		usedTicketSequenceThreshold,
+		defaultTrustSetLimitAmount,
+		bridgeXRPLAddress,
+		xrplBaseFee,
+	)
+
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount,
+	})
+
+	coreumSender := chains.Coreum.GenAccount()
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSender, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.Add(sdkmath.NewInt(10_000_000)),
+	})
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, xrpl.MaxTicketsToAllocate)
+
+	// issue asset ft and register it
+	sendingPrecision := int32(6)
+	tokenDecimals := uint32(6)
+	maxHoldingAmount := sdkmath.NewInt(100_000_000_000)
+	issueMsg := &assetfttypes.MsgIssue{
+		Issuer:        coreumSender.String(),
+		Symbol:        "symbol",
+		Subunit:       "subunit",
+		Precision:     tokenDecimals, // token decimals in terms of the contract
+		InitialAmount: maxHoldingAmount,
+	}
+	_, err := client.BroadcastTx(
+		ctx,
+		chains.Coreum.ClientContext.WithFromAddress(coreumSender),
+		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+		issueMsg,
+	)
+	require.NoError(t, err)
+	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSender)
+	_, err = contractClient.RegisterCoreumToken(
+		ctx, owner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount, sdkmath.ZeroInt(),
+	)
+	require.NoError(t, err)
+
+	// one ticket will be used for the tickets re-allocation
+	operationCountToGenerate := int(xrpl.MaxTicketsToAllocate - 1)
+	t.Logf("Sendign %d SendToXRPL transactions", operationCountToGenerate)
+	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0, operationCountToGenerate)
+	for i := 0; i < operationCountToGenerate; i++ {
+		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
+			Recipient:     xrplRecipientAddress.String(),
+			Amount:        sdk.NewCoin(denom, sdkmath.NewInt(10)),
+			DeliverAmount: nil,
+		})
+	}
+	chunkSize := 50
+	for _, sendToXRPLChunk := range lo.Chunk(sendToXRPLRequests, chunkSize) {
+		_, err = contractClient.MultiSendToXRPL(
+			ctx,
+			coreumSender,
+			sendToXRPLChunk...,
+		)
+		require.NoError(t, err)
+	}
+
+	pendingOperations, err := contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, operationCountToGenerate)
+
+	assertOperationsUpdateAfterXRPLBaseFeeUpdate(ctx, t, contractClient, owner, xrplBaseFee, 35, relayers)
+}
+
+func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
+	ctx context.Context,
+	t *testing.T,
+	contractClient *coreum.ContractClient,
+	owner sdk.AccAddress,
+	oldXRPLBaseFee, newXRPLBase uint32,
+	relayers []coreum.Relayer,
+) {
+	pendingOperations, err := contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+
+	// provide signatures form all relayers
+	initialOperationVersion := uint32(1)
+
+	chunkSize := 50
+	for i, relayer := range relayers {
+		t.Logf("Saving signatures for all operations for relayer %d out of %d", i, len(relayers))
+		signatures := make([]coreum.SaveSignatureRequest, 0)
+		for i := 0; i < len(pendingOperations); i++ {
+			operation := pendingOperations[i]
+			require.Equal(t, initialOperationVersion, operation.Version)
+			require.Equal(t, oldXRPLBaseFee, operation.XRPLBaseFee)
+
+			signatures = append(signatures, coreum.SaveSignatureRequest{
+				OperationID:      operation.TicketSequence,
+				OperationVersion: operation.Version,
+				Signature:        xrplTxSignature,
+			})
+		}
+		for _, saveSignatureRequestsChunk := range lo.Chunk(signatures, chunkSize) {
+			_, err := contractClient.SaveMultipleSignatures(
+				ctx, relayer.CoreumAddress, saveSignatureRequestsChunk...,
+			)
+			require.NoError(t, err)
+		}
+	}
+
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	for _, pendingOperation := range pendingOperations {
+		require.Len(t, pendingOperation.Signatures, len(relayers))
+	}
+
+	txRes, err := contractClient.UpdateXRPLBaseFee(ctx, owner, newXRPLBase)
+	require.NoError(t, err)
+	t.Logf("Spent gas on UpdateXRPLBaseFee with %d relayers: %d", len(relayers), txRes.GasUsed)
+
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+
+	nextOperationVersion := uint32(2)
+	t.Logf("Saving signatures for first relayer with different operation version")
+	relayer := relayers[0]
+	signatures := make([]coreum.SaveSignatureRequest, 0)
+	for i := 0; i < len(pendingOperations); i++ {
+		operation := pendingOperations[i]
+		require.Equal(t, nextOperationVersion, operation.Version)
+		require.Equal(t, newXRPLBase, operation.XRPLBaseFee)
+		require.Empty(t, operation.Signatures)
+		signatures = append(signatures, coreum.SaveSignatureRequest{
+			OperationID:      operation.TicketSequence,
+			OperationVersion: operation.Version,
+			Signature:        xrplTxSignature,
+		})
+	}
+	for _, saveSignatureRequestsChunk := range lo.Chunk(signatures, chunkSize) {
+		_, err := contractClient.SaveMultipleSignatures(
+			ctx, relayer.CoreumAddress, saveSignatureRequestsChunk...,
+		)
+		require.NoError(t, err)
+	}
+	pendingOperations, err = contractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	for _, pendingOperation := range pendingOperations {
+		require.Len(t, pendingOperation.Signatures, 1)
+	}
 }
 
 func recoverTickets(
@@ -5999,7 +6319,7 @@ func genRelayers(
 		relayerXRPLSigner := chains.XRPL.GenAccount(ctx, t, 0)
 		relayerCoreumAddress := chains.Coreum.GenAccount()
 		chains.Coreum.FundAccountWithOptions(ctx, t, relayerCoreumAddress, coreumintegration.BalancesOptions{
-			Amount: sdkmath.NewInt(1_000_000),
+			Amount: sdkmath.NewInt(10_000_000),
 		})
 		relayers = append(relayers, coreum.Relayer{
 			CoreumAddress: relayerCoreumAddress,
