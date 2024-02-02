@@ -21,13 +21,11 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -189,10 +187,10 @@ type Processor interface {
 }
 
 // ProcessorProvider is function which returns the Processor from the input cmd.
-type ProcessorProvider func(cmd *cobra.Command, metrics *metrics.Metrics) (Processor, error)
+type ProcessorProvider func(cmd *cobra.Command) (Processor, error)
 
 // GetRunnerFromHome returns runner from home.
-func GetRunnerFromHome(cmd *cobra.Command, metrics *metrics.Metrics) (*runner.Runner, error) {
+func GetRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 	clientCtx, err := client.GetClientQueryContext(cmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get client context")
@@ -216,17 +214,12 @@ func GetRunnerFromHome(cmd *cobra.Command, metrics *metrics.Metrics) (*runner.Ru
 		return nil, err
 	}
 
-	log, err := logger.WithMetrics(zapLogger, metrics.ErrorCounter)
+	components, err := runner.GetComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true)
 	if err != nil {
 		return nil, err
 	}
 
-	components, err := runner.GetComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log, true)
-	if err != nil {
-		return nil, err
-	}
-
-	rnr, err := runner.NewRunner(cmd.Context(), components, cfg, log)
+	rnr, err := runner.NewRunner(cmd.Context(), components, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -236,6 +229,9 @@ func GetRunnerFromHome(cmd *cobra.Command, metrics *metrics.Metrics) (*runner.Ru
 
 // InitCmd returns the init cmd.
 func InitCmd() *cobra.Command {
+	var metricsListen bool
+	var metricsListenAddr string
+
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initializes the relayer home with the default config.",
@@ -271,6 +267,9 @@ func InitCmd() *cobra.Command {
 
 			cfg.XRPL.RPC.URL = xrplRPCURL
 
+			cfg.Metrics.StartServer = metricsListen
+			cfg.Metrics.ListenAddress = metricsListenAddr
+
 			if err = runner.InitConfig(home, cfg); err != nil {
 				return err
 			}
@@ -280,8 +279,11 @@ func InitCmd() *cobra.Command {
 	}
 
 	addCoreumChainIDFlag(cmd)
-	cmd.PersistentFlags().String(FlagXRPLRPCURL, "", "XRPL RPC address")
+	cmd.PersistentFlags().String(FlagXRPLRPCURL, "", "XRPL RPC address.")
 	cmd.PersistentFlags().String(FlagCoreumGRPCURL, "", "Coreum GRPC address.")
+	cmd.PersistentFlags().BoolVar(&metricsListen, "metrics-listen", false, "Start metric server in relayer.")
+	cmd.PersistentFlags().StringVar(&metricsListenAddr, "metrics-listen-addr", "localhost:9090",
+		"Address metrics server listens on.")
 
 	addHomeFlag(cmd)
 
@@ -308,22 +310,12 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 			input := bufio.NewScanner(os.Stdin)
 			input.Scan()
 
-			metricSet := metrics.New()
-
-			processor, err := pp(cmd, metricSet)
+			runner, err := pp(cmd)
 			if err != nil {
 				return err
 			}
 
-			return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-				spawn("runner", parallel.Exit, processor.Start)
-				if telemetryAddr != "" {
-					spawn("metrics", parallel.Fail, func(ctx context.Context) error {
-						return metrics.Start(ctx, telemetryAddr, metricSet)
-					})
-				}
-				return nil
-			})
+			return runner.Start(ctx)
 		},
 	}
 	addHomeFlag(cmd)

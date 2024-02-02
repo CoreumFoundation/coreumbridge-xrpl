@@ -1,3 +1,4 @@
+//nolint:tagliatelle // yaml naming
 package runner
 
 import (
@@ -99,6 +100,12 @@ type ProcessesConfig struct {
 	ExitOnError     bool                  `yaml:"-"`
 }
 
+// MetricsConfig is metric config.
+type MetricsConfig struct {
+	StartServer   bool   `yaml:"start_server"`
+	ListenAddress string `yaml:"listen_address"`
+}
+
 // Config is runner config.
 type Config struct {
 	Version       string          `yaml:"version"`
@@ -106,6 +113,7 @@ type Config struct {
 	XRPL          XRPLConfig      `yaml:"xrpl"`
 	Coreum        CoreumConfig    `yaml:"coreum"`
 	Processes     ProcessesConfig `yaml:"processes"`
+	Metrics       MetricsConfig   `yaml:"metrics"`
 }
 
 // DefaultConfig returns default runner config.
@@ -165,6 +173,10 @@ func DefaultConfig() Config {
 			XRPLTxSubmitter: XRPLTxSubmitterConfig{
 				RepeatDelay: defaultXRPLTxSubmitterConfig.RepeatDelay,
 			},
+		},
+
+		Metrics: MetricsConfig{
+			ListenAddress: "localhost:9090",
 		},
 	}
 }

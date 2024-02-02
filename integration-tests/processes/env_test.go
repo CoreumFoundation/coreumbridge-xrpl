@@ -582,7 +582,7 @@ func createDevRunner(
 	components, err := runner.GetComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false)
 	require.NoError(t, err)
 
-	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg, chains.Log)
+	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg)
 	require.NoError(t, err)
 	return relayerRunner
 }

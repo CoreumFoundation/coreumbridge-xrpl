@@ -15,7 +15,6 @@ import (
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -122,7 +121,7 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 
 	// for the bridge client we use the CLI logger
 	return bridgeclient.NewBridgeClient(
-		log,
+		components.Log,
 		components.CoreumClientCtx,
 		components.CoreumContractClient,
 		components.XRPLRPCClient,
@@ -130,8 +129,8 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 	), nil
 }
 
-func processorProvider(cmd *cobra.Command, metrics *metrics.Metrics) (cli.Processor, error) {
-	rnr, err := cli.GetRunnerFromHome(cmd, metrics)
+func processorProvider(cmd *cobra.Command) (cli.Processor, error) {
+	rnr, err := cli.GetRunnerFromHome(cmd)
 	if err != nil {
 		return nil, err
 	}

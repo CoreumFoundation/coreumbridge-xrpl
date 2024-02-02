@@ -1,4 +1,3 @@
-//nolint:tagliatelle // yaml naming
 package runner
 
 import (
@@ -26,6 +25,7 @@ import (
 	coreumchainconstant "github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -46,15 +46,16 @@ var (
 
 // Runner is relayer runner which aggregates all relayer components.
 type Runner struct {
-	cfg Config
-	log logger.Logger
+	cfg     Config
+	log     logger.Logger
+	metrics *metrics.Metrics
 
 	xrplTxObserver  *processes.XRPLTxObserver
 	xrplTxSubmitter *processes.XRPLTxSubmitter
 }
 
 // NewRunner return new runner from the config.
-func NewRunner(ctx context.Context, components Components, cfg Config, log logger.Logger) (*Runner, error) {
+func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner, error) {
 	if cfg.Coreum.Contract.ContractAddress == "" {
 		return nil, errors.New("contract address is not configured")
 	}
@@ -82,14 +83,14 @@ func NewRunner(ctx context.Context, components Components, cfg Config, log logge
 		FullScanEnabled:   cfg.XRPL.Scanner.FullScanEnabled,
 		RepeatFullScan:    cfg.XRPL.Scanner.RepeatFullScan,
 		RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
-	}, log, components.XRPLRPCClient)
+	}, components.Log, components.XRPLRPCClient)
 
 	xrplTxObserver, err := processes.NewXRPLTxObserver(
 		processes.XRPLTxObserverConfig{
 			BridgeXRPLAddress:    *bridgeXRPLAddress,
 			RelayerCoreumAddress: relayerAddress,
 		},
-		log,
+		components.Log,
 		xrplScanner,
 		components.CoreumContractClient,
 	)
@@ -105,7 +106,7 @@ func NewRunner(ctx context.Context, components Components, cfg Config, log logge
 			RepeatRecentScan:     true,
 			RepeatDelay:          cfg.Processes.XRPLTxSubmitter.RepeatDelay,
 		},
-		log,
+		components.Log,
 		components.CoreumContractClient,
 		components.XRPLRPCClient,
 		components.XRPLKeyringTxSigner,
@@ -116,7 +117,7 @@ func NewRunner(ctx context.Context, components Components, cfg Config, log logge
 
 	return &Runner{
 		cfg:             cfg,
-		log:             log,
+		log:             components.Log,
 		xrplTxObserver:  xrplTxObserver,
 		xrplTxSubmitter: xrplTxSubmitter,
 	}, nil
@@ -125,42 +126,45 @@ func NewRunner(ctx context.Context, components Components, cfg Config, log logge
 // Start starts runner.
 func (r *Runner) Start(ctx context.Context) error {
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-		spawn("xrplTxObserver", parallel.Continue, func(ctx context.Context) error {
-			return r.runWithRestartOnError(ctx, r.xrplTxObserver.Start)
-		})
-		spawn("xrplTxSubmitter", parallel.Continue, func(ctx context.Context) error {
-			return r.runWithRestartOnError(ctx, r.xrplTxSubmitter.Start)
-		})
+		spawn("xrplTxObserver", parallel.Continue, r.withRestartOnError(r.xrplTxObserver.Start))
+		spawn("xrplTxSubmitter", parallel.Continue, r.withRestartOnError(r.xrplTxSubmitter.Start))
+		if r.cfg.Metrics.StartServer {
+			spawn("metrics", parallel.Fail, r.withRestartOnError(func(ctx context.Context) error {
+				return metrics.Start(ctx, r.cfg.Metrics.ListenAddress, r.metrics)
+			}))
+		}
 
 		return nil
 	})
 }
 
-func (r *Runner) runWithRestartOnError(ctx context.Context, task parallel.Task) error {
-	for {
-		// start process and handle the panic
+func (r *Runner) withRestartOnError(task parallel.Task) parallel.Task {
+	return func(ctx context.Context) error {
+		for {
+			// start process and handle the panic
 
-		err := func() (err error) {
-			defer func() {
-				if p := recover(); p != nil {
-					err = errors.Wrap(parallel.ErrPanic{Value: p, Stack: debug.Stack()}, "handled panic")
-				}
+			err := func() (err error) {
+				defer func() {
+					if p := recover(); p != nil {
+						err = errors.Wrap(parallel.ErrPanic{Value: p, Stack: debug.Stack()}, "handled panic")
+					}
+				}()
+				return task(ctx)
 			}()
-			return task(ctx)
-		}()
 
-		if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return nil
+			if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil
+			}
+
+			// restart the process if it is restartable
+
+			r.log.Error(ctx, "Received unexpected error from the process", zap.Error(err))
+			if r.cfg.Processes.ExitOnError {
+				r.log.Warn(ctx, "The process is not auto-restartable on error")
+				return err
+			}
+			r.log.Info(ctx, "Restarting process after the error")
 		}
-
-		// restart the process if it is restartable
-
-		r.log.Error(ctx, "Received unexpected error from the process", zap.Error(err))
-		if r.cfg.Processes.ExitOnError {
-			r.log.Warn(ctx, "The process is not auto-restartable on error")
-			return err
-		}
-		r.log.Info(ctx, "Restarting process after the error")
 	}
 }
 
@@ -170,6 +174,8 @@ type Components struct {
 	CoreumContractClient *coreum.ContractClient
 	XRPLRPCClient        *xrpl.RPCClient
 	XRPLKeyringTxSigner  *xrpl.KeyringTxSigner
+	Metrics              *metrics.Metrics
+	Log                  logger.Logger
 }
 
 // GetComponents creates components required by runner.
@@ -180,7 +186,16 @@ func GetComponents(
 	log logger.Logger,
 	setCoreumSDKConfig bool,
 ) (Components, error) {
-	var components Components
+	metricSet := metrics.New()
+	log, err := logger.WithMetrics(log, metricSet.ErrorCounter)
+	if err != nil {
+		return Components{}, err
+	}
+
+	components := Components{
+		Metrics: metricSet,
+		Log:     log,
+	}
 
 	retryableXRPLRPCHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.XRPL.HTTPClient))
 
