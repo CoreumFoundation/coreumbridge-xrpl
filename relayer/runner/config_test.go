@@ -78,7 +78,8 @@ processes:
     xrpl_tx_submitter:
         repeat_delay: 10s
 metrics:
-    start_server: false
-    listen_address: localhost:9090
+    server:
+        enable: false
+        listen_address: localhost:9090
 `
 }
