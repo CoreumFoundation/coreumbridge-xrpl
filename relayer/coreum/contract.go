@@ -1567,6 +1567,11 @@ func IsOperationVersionMismatchError(err error) bool {
 	return isError(err, "OperationVersionMismatch")
 }
 
+// IsProhibitedRecipientError returns true if error is `ProhibitedRecipient`.
+func IsProhibitedRecipientError(err error) bool {
+	return isError(err, "ProhibitedRecipient")
+}
+
 // ******************** Asset FT errors ********************
 
 // IsAssetFTStateError returns true if the error is caused by enabled asset FT features.
