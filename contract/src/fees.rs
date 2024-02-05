@@ -56,8 +56,9 @@ fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractErro
                 // Add fees to the relayer fees collected
                 match fees_collected.iter_mut().find(|c| c.denom == fee.denom) {
                     Some(coin) => coin.amount += amount_for_each_relayer,
-                    None => fees_collected
-                        .push(coin(amount_for_each_relayer.u128(), fee.denom.clone())),
+                    None => {
+                        fees_collected.push(coin(amount_for_each_relayer.u128(), fee.denom.clone()))
+                    }
                 }
 
                 FEES_COLLECTED.save(storage, relayer.coreum_address.clone(), &fees_collected)?;

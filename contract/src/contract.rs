@@ -101,7 +101,7 @@ pub fn instantiate(
     )?;
 
     // The multisig address on XRPL must be valid
-    validate_xrpl_address(msg.bridge_xrpl_address.clone())?;
+    validate_xrpl_address(&msg.bridge_xrpl_address)?;
 
     // We want to check that exactly the issue fee was sent
     check_issue_fee(&deps, &info)?;
@@ -392,7 +392,7 @@ fn register_xrpl_token(
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
 
-    validate_xrpl_address(issuer.clone())?;
+    validate_xrpl_address(&issuer).map_err(|_| ContractError::InvalidXRPLIssuer {})?;
     validate_currency(&currency)?;
 
     validate_sending_precision(sending_precision, XRPL_TOKENS_DECIMALS)?;
@@ -762,7 +762,7 @@ fn recover_tickets(
     PENDING_TICKET_UPDATE.save(deps.storage, &true)?;
 
     let used_tickets = USED_TICKETS_COUNTER.load(deps.storage)?;
-    
+
     // If we don't provide a number of tickets to recover we will recover the ones that we already used.
     let number_to_allocate = number_of_tickets.unwrap_or(used_tickets);
 
@@ -877,7 +877,7 @@ fn send_to_xrpl(
     let funds = one_coin(&info)?;
 
     // Check that the recipient is a valid XRPL address
-    validate_xrpl_address(recipient.clone())?;
+    validate_xrpl_address(&recipient)?;
 
     // We can't send to the multisig address
     let config = CONFIG.load(deps.storage)?;
@@ -1510,9 +1510,7 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
     Ok(())
 }
 
-pub fn validate_currency(
-    currency: &str,
-) -> Result<(), ContractError> {
+pub fn validate_currency(currency: &str) -> Result<(), ContractError> {
     // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency, any other scenario is invalid
     match currency.len() {
         3 => {

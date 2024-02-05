@@ -33,7 +33,7 @@ pub fn validate_relayers(
     }
 
     // Threshold can't be more than number of relayers
-    if evidence_threshold as usize > relayers.len(){
+    if evidence_threshold as usize > relayers.len() {
         return Err(ContractError::InvalidThreshold {});
     }
 
@@ -43,7 +43,7 @@ pub fn validate_relayers(
 
     for relayer in relayers {
         deps.api.addr_validate(relayer.coreum_address.as_ref())?;
-        validate_xrpl_address(relayer.xrpl_address.clone())?;
+        validate_xrpl_address(&relayer.xrpl_address)?;
 
         // If the set returns false during insertion it means that the key already exists and therefore is duplicated
         if !set_xrpl_addresses.insert(relayer.xrpl_address.clone()) {

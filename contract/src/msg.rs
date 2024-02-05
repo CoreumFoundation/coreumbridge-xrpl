@@ -51,7 +51,7 @@ pub enum ExecuteMsg {
         bridging_fee: Uint128,
     },
     // Perform a ticket recovery in case the bridge has run out of tickets due to rejected ticket allocation operations on XRPL
-    // Only the owner can do this 
+    // Only the owner can do this
     RecoverTickets {
         account_sequence: u64,
         number_of_tickets: Option<u32>,
