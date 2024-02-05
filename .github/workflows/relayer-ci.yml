@@ -115,7 +115,7 @@ jobs:
         with:
           key: ${{ runner.os }}-docker-cache-${{ steps.get-year-week.outputs.date }} # year-week key
       - name: Build contract
-        run: make build-contract
+        run: make build-dev-contract
         working-directory: ./coreumbridge-xrpl
         if: ${{ matrix.build-contract }}
       - name: Build dev environment
