@@ -6,23 +6,12 @@ import (
 
 // Error codes.
 const (
-	// TecPathDryTxResult defines that provided paths did not have enough liquidity to send anything at all.
-	//	This could mean that the source and destination accounts are not linked by trust lines.
-	TecPathDryTxResult = "tecPATH_DRY"
-	// TecPathPartialTxResult defines that transaction failed because the provided paths did not have enough liquidity
-	//	to send the full amount.
-	TecPathPartialTxResult = "tecPATH_PARTIAL"
-	// TecNoDstTxResult defines that provided the account on the receiving end of the transaction does not exist.
-	// This includes Payment and TrustSet transaction types. (It could be created if it received enough XRP.)
-	TecNoDstTxResult = "tecNO_DST"
 	// TefNOTicketTxResult defines the result which indicates the usage of the passed ticket or not created ticket.
 	TefNOTicketTxResult = "tefNO_TICKET"
 	// TefPastSeqTxResult defines that the usage of the sequence in the past.
 	TefPastSeqTxResult = "tefPAST_SEQ"
 	// TefMaxLedgerTxResult defines that ledger sequence too high.
 	TefMaxLedgerTxResult = "tefMAX_LEDGER"
-	// TecInsufficientReserveTxResult defines that reserve is insufficient to complete requested operation.
-	TecInsufficientReserveTxResult = "tecINSUFFICIENT_RESERVE"
 	// TelInsufFeeP defines that fee from the transaction is not high enough to meet the server's current transaction
 	//	cost requirement, which is derived from its load level and network-level requirements. If the individual server
 	//	is too busy to process your transaction right now, it may cache the transaction and automatically retry later.
