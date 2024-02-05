@@ -95,16 +95,6 @@ jobs:
         with:
           path: ~/.cache/golangci-lint
           key: ${{ runner.os }}-linter-cache
-      - name: Set up cargo cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            ${{ github.workspace }}/coreumbridge-xrpl/contract/target/
-          key: ${{ runner.os }}-cargo-cache-${{ hashFiles('**/Cargo.lock') }}
       - name: Get Date
         id: get-year-week
         run: |
@@ -117,7 +107,7 @@ jobs:
         with:
           key: ${{ runner.os }}-docker-cache-${{ steps.get-year-week.outputs.date }} # year-week key
       - name: Build contract
-        run: make build-dev-contract
+        run: make build-contract
         working-directory: ./coreumbridge-xrpl
         if: ${{ matrix.build-contract }}
       - name: Build dev environment
