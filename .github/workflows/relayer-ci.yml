@@ -73,23 +73,23 @@ jobs:
           repository: CoreumFoundation/coreum
           path: coreum
           ref: v3.0.3
-      - name: Setup crust
+      - name: Set up crust
         run: echo "$(pwd)/crust/bin" >> $GITHUB_PATH
-      - name: Setup crust cache
+      - name: Set up crust cache
         uses: actions/cache@v3
         with:
           path: |
             ~/.cache/crust/
             ${{ github.workspace }}/crust/bin/.cache
           key: ${{ runner.os }}-crust-cache
-      - name: Setup go cache
+      - name: Set up go cache
         uses: actions/cache@v3
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.sum') }}
-      - name: Setup linter cache
+      - name: Set up linter cache
         uses: actions/cache@v3
         if: ${{ matrix.linter-cache }}
         with:
@@ -100,7 +100,9 @@ jobs:
         with:
           path: |
             ~/.cargo/bin/
-            ~/.cargo/registry/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
             ${{ github.workspace }}/coreumbridge-xrpl/contract/target/
           key: ${{ runner.os }}-cargo-cache-${{ hashFiles('**/Cargo.lock') }}
       - name: Get Date
