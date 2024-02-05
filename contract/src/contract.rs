@@ -106,7 +106,7 @@ pub fn instantiate(
     // We want to check that exactly the issue fee was sent
     check_issue_fee(&deps, &info)?;
 
-    // We need to allow at least 2 tickets and less than or equal than 250 (XRPL limit) to be used
+    // We need to allow more least 2 tickets and less or equal than 250 (XRPL limit) to be used
     if msg.used_ticket_sequence_threshold <= 1 || msg.used_ticket_sequence_threshold > MAX_TICKETS {
         return Err(ContractError::InvalidUsedTicketSequenceThreshold {});
     }
