@@ -78,13 +78,10 @@ jobs:
       - name: Setup crust cache
         uses: actions/cache@v3
         with:
-          path: ~/.cache/crust/
+          path: |
+            ~/.cache/crust/
+            ${{ github.workspace }}/crust/bin/.cache
           key: ${{ runner.os }}-crust-cache
-      - name: Setup crust bin cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ github.workspace }}/crust/bin/.cache
-          key: ${{ runner.os }}-crust-bin-cache
       - name: Setup go cache
         uses: actions/cache@v3
         with:
@@ -98,6 +95,14 @@ jobs:
         with:
           path: ~/.cache/golangci-lint
           key: ${{ runner.os }}-linter-cache
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/
+            ${{ github.workspace }}/coreumbridge-xrpl/contract/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('${{ github.workspace }}/coreumbridge-xrpl/contract/**/Cargo.lock') }}
       - name: Get Date
         id: get-year-week
         run: |
