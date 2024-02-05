@@ -25,18 +25,40 @@ jobs:
             wasm-cache: true
             linter-cache: true
             docker-cache: false
+            build-contract: false
+            build-dev-env: false
           - ci_step: "test"
             command: "make test-relayer"
             go-cache: true
             wasm-cache: true
             linter-cache: false
             docker-cache: false
-          - ci_step: "integration tests"
-            command: "make build-contract && make build-dev-env && make restart-dev-env && make test-integration"
+            build-contract: false
+            build-dev-env: false
+          - ci_step: "integration tests coreum client"
+            command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/coreum"
             go-cache: true
             wasm-cache: true
             linter-cache: false
             docker-cache: true
+            build-contract: true
+            build-dev-env: true
+          - ci_step: "integration tests processes"
+            command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/processes"
+            go-cache: true
+            wasm-cache: true
+            linter-cache: false
+            docker-cache: true
+            build-contract: true
+            build-dev-env: true
+          - ci_step: "integration tests xrpl"
+            command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/xrpl"
+            go-cache: true
+            wasm-cache: true
+            linter-cache: false
+            docker-cache: true
+            build-contract: true
+            build-dev-env: true
 
     runs-on: ubuntu-22.04
     steps:
@@ -110,6 +132,12 @@ jobs:
             ~/.cache/crust/wasm/code-hashes.json
           key: ${{ runner.os }}-cache-smart-contracts-${{ hashFiles('./coreum/**/*.rs') }}
         if: ${{ matrix.wasm-cache }}
+      - name: Build contract
+        run: make build-contract
+        if: ${{ matrix.build-contract }}
+      - name: Build dev environment
+        run: make build-dev-env
+        if: ${{ matrix.build-dev-env }}
       - name: Run ${{ matrix.ci_step }}
         working-directory: ./coreumbridge-xrpl
         run: ${{ matrix.command }}

@@ -93,14 +93,19 @@ lint-contract:
 
 .PHONY: test-integration
 test-integration:
-    # test each directory separately to prevent faucet concurrent access
+	# test each directory separately to prevent faucet concurrent access
 	for d in $(INTEGRATION_TESTS_DIR)/*/; \
-	 do cd $$d && go clean -testcache && go test -v --tags=integrationtests -mod=readonly -parallel=10 -timeout 5m ./... || exit 1; \
+	 do make test-single-integration TESTS_DIR="$$d" || exit 1; \
 	done
+	# make test-single-integration TESTS_DIR="$$d"
+
+.PHONY: test-single-integration
+test-single-integration:
+	cd $(TESTS_DIR) && go test -v --tags=integrationtests -mod=readonly -parallel=20 -timeout 5m ./... || exit 1;
 
 .PHONY: test-relayer
 test-relayer:
-	cd $(RELAYER_DIR) && go clean -testcache && go test -v -mod=readonly -parallel=10 -timeout 2s ./...
+	cd $(RELAYER_DIR) && go clean -testcache && go test -v -mod=readonly -parallel=20 -timeout 2s ./...
 
 .PHONY: test-contract
 test-contract:
@@ -108,7 +113,7 @@ test-contract:
 
 .PHONY: restart-dev-env
 restart-dev-env:
-	crust znet remove && crust znet start --profiles=1cored,xrpl --timeout-commit 0.5s
+	crust znet remove && crust znet start --profiles=1cored,xrpl --timeout-commit 0.3s
 
 .PHONY: build-dev-env
 build-dev-env:
