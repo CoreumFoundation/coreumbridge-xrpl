@@ -2110,12 +2110,13 @@ mod tests {
             }
         );
 
+        let tx_hash = generate_hash();
         // Reject the operation, therefore the tokens should be stored in the pending refunds (except for truncated amount).
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
-                    tx_hash: Some(generate_hash()),
+                    tx_hash: Some(tx_hash.clone()),
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Rejected,
@@ -2163,6 +2164,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
+        assert_eq!(
+            query_pending_refunds.pending_refunds[0].xrpl_tx_hash,
+            Some(tx_hash)
+        );
         // Truncated amount (1) is not refundable
         assert_eq!(
             query_pending_refunds.pending_refunds[0].coin,

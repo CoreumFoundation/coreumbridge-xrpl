@@ -138,6 +138,7 @@ pub fn handle_trust_set_confirmation(
 pub fn handle_coreum_to_xrpl_transfer_confirmation(
     storage: &mut dyn Storage,
     transaction_result: TransactionResult,
+    tx_hash: Option<String>,
     operation_id: u64,
     response: &mut Response<CoreumMsg>,
 ) -> Result<(), ContractError> {
@@ -172,6 +173,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                         store_pending_refund(
                             storage,
                             pending_operation.id,
+                            tx_hash,
                             sender,
                             coin(amount_sent.u128(), xrpl_token.coreum_denom),
                         )?;
@@ -197,6 +199,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                                 store_pending_refund(
                                     storage,
                                     pending_operation.id,
+                                    tx_hash,
                                     sender,
                                     coin(amount_to_send_back.u128(), token.denom),
                                 )?;
@@ -220,12 +223,14 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
 pub fn store_pending_refund(
     storage: &mut dyn Storage,
     pending_operation_id: String,
+    xrpl_tx_hash: Option<String>,
     receiver: Addr,
     coin: Coin,
 ) -> Result<(), ContractError> {
     // We store the pending refund for this user and this pending_operation_id
     let pending_refund = PendingRefund {
         address: receiver.to_owned(),
+        xrpl_tx_hash,
         id: pending_operation_id.to_owned(),
         coin,
     };
