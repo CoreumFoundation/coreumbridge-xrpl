@@ -2618,6 +2618,7 @@ func TestSendFromCoreumXRPLOriginatedTokenWithDeliverAmount(t *testing.T) {
 	pendingRefunds, err := contractClient.GetPendingRefunds(ctx, coreumSenderAddress)
 	require.NoError(t, err)
 	require.Len(t, pendingRefunds, 1)
+	require.Equal(t, pendingRefunds[0].XRPLTxHash, rejectedTxEvidence.TxHash)
 	_, err = contractClient.ClaimRefund(ctx, coreumSenderAddress, pendingRefunds[0].ID)
 	require.NoError(t, err)
 

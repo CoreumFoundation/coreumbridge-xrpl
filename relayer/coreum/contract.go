@@ -408,8 +408,9 @@ type pendingRefundsResponse struct {
 
 // PendingRefund holds the pending refund information.
 type PendingRefund struct {
-	ID   string   `json:"id"`
-	Coin sdk.Coin `json:"coin"`
+	ID         string   `json:"id"`
+	Coin       sdk.Coin `json:"coin"`
+	XRPLTxHash string   `json:"xrpl_tx_hash"`
 }
 
 type pagingStringKeyRequest struct {
