@@ -15,7 +15,6 @@ import (
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -76,6 +75,7 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.RecoverXRPLTokenRegistrationCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.UpdateXRPLTokenCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.RotateKeysCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.UpdateXRPLBaseFeeCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.RegisteredTokensCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.SendFromCoreumToXRPLCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.SendFromXRPLToCoreumCmd(bridgeClientProvider))
@@ -117,14 +117,14 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 		return nil, errors.Wrap(err, "failed to configure coreum keyring")
 	}
 
-	components, err := runner.GetComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log, true)
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log, true)
 	if err != nil {
 		return nil, err
 	}
 
 	// for the bridge client we use the CLI logger
 	return bridgeclient.NewBridgeClient(
-		log,
+		components.Log,
 		components.CoreumClientCtx,
 		components.CoreumContractClient,
 		components.XRPLRPCClient,
@@ -132,8 +132,8 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 	), nil
 }
 
-func processorProvider(cmd *cobra.Command, metrics *metrics.Metrics) (cli.Processor, error) {
-	rnr, err := cli.GetRunnerFromHome(cmd, metrics)
+func processorProvider(cmd *cobra.Command) (cli.Runner, error) {
+	rnr, err := cli.NewRunnerFromHome(cmd)
 	if err != nil {
 		return nil, err
 	}

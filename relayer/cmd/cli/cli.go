@@ -24,18 +24,16 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-//go:generate mockgen -destination=cli_mocks_test.go -package=cli_test . BridgeClient,Processor
+//go:generate mockgen -destination=cli_mocks_test.go -package=cli_test . BridgeClient,Runner
 
 func init() {
 	userHomeDir, err := os.UserHomeDir()
@@ -82,6 +80,10 @@ const (
 	FlagMaxHoldingAmount = "max-holding-amount"
 	// FlagDeliverAmount is deliver amount flag.
 	FlagDeliverAmount = "deliver-amount"
+	// FlagMetricsEnable enables metrics server.
+	FlagMetricsEnable = "metrics-enable"
+	// FlagsMetricsListenAddr sets listen address for metrics server.
+	FlagsMetricsListenAddr = "metrics-listen-addr"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -158,6 +160,11 @@ type BridgeClient interface {
 		sender sdk.AccAddress,
 		cfg bridgeclient.KeysRotationConfig,
 	) error
+	UpdateXRPLBaseFee(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		xrplBaseFee uint32,
+	) error
 	GetCoreumBalances(ctx context.Context, address sdk.AccAddress) (sdk.Coins, error)
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
 	GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error)
@@ -192,16 +199,16 @@ type BridgeClient interface {
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
 type BridgeClientProvider func(cmd *cobra.Command) (BridgeClient, error)
 
-// Processor is processor interface responsible for the process start.
-type Processor interface {
-	StartAllProcesses(ctx context.Context) error
+// Runner is a runner interface.
+type Runner interface {
+	Start(ctx context.Context) error
 }
 
-// ProcessorProvider is function which returns the Processor from the input cmd.
-type ProcessorProvider func(cmd *cobra.Command, metrics *metrics.Metrics) (Processor, error)
+// RunnerProvider is function which returns the Runner from the input cmd.
+type RunnerProvider func(cmd *cobra.Command) (Runner, error)
 
-// GetRunnerFromHome returns runner from home.
-func GetRunnerFromHome(cmd *cobra.Command, metrics *metrics.Metrics) (*runner.Runner, error) {
+// NewRunnerFromHome returns runner from home.
+func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 	clientCtx, err := client.GetClientQueryContext(cmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get client context")
@@ -225,17 +232,12 @@ func GetRunnerFromHome(cmd *cobra.Command, metrics *metrics.Metrics) (*runner.Ru
 		return nil, err
 	}
 
-	log, err := logger.WithMetrics(zapLogger, metrics.ErrorCounter)
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true)
 	if err != nil {
 		return nil, err
 	}
 
-	components, err := runner.GetComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log, true)
-	if err != nil {
-		return nil, err
-	}
-
-	rnr, err := runner.NewRunner(cmd.Context(), components, cfg, log)
+	rnr, err := runner.NewRunner(cmd.Context(), components, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -274,13 +276,30 @@ func InitCmd() *cobra.Command {
 				return errors.Wrapf(err, "failed to read %s", FlagXRPLRPCURL)
 			}
 
+			metricsEnable, err := cmd.Flags().GetBool(FlagMetricsEnable)
+			if err != nil {
+				return errors.Wrapf(err, "failed to read %s", FlagMetricsEnable)
+			}
+
+			metricsListenAddr, err := cmd.Flags().GetString(FlagsMetricsListenAddr)
+			if err != nil {
+				return errors.Wrapf(err, "failed to read %s", FlagsMetricsListenAddr)
+			}
+
 			cfg := runner.DefaultConfig()
 			cfg.Coreum.Network.ChainID = chainID
 			cfg.Coreum.GRPC.URL = coreumGRPCURL
 
 			cfg.XRPL.RPC.URL = xrplRPCURL
 
+			cfg.Metrics.Server.Enable = metricsEnable
+			cfg.Metrics.Server.ListenAddress = metricsListenAddr
+
 			if err = runner.InitConfig(home, cfg, false); err != nil {
+				return err
+			}
+
+			if err = runner.InitConfig(home, cfg); err != nil {
 				return err
 			}
 			log.Info(ctx, "Settings are generated successfully")
@@ -289,8 +308,10 @@ func InitCmd() *cobra.Command {
 	}
 
 	addCoreumChainIDFlag(cmd)
-	cmd.PersistentFlags().String(FlagXRPLRPCURL, "", "XRPL RPC address")
+	cmd.PersistentFlags().String(FlagXRPLRPCURL, "", "XRPL RPC address.")
 	cmd.PersistentFlags().String(FlagCoreumGRPCURL, "", "Coreum GRPC address.")
+	cmd.PersistentFlags().Bool(FlagMetricsEnable, false, "Start metric server in relayer.")
+	cmd.PersistentFlags().String(FlagsMetricsListenAddr, "localhost:9090", "Address metrics server listens on.")
 
 	addHomeFlag(cmd)
 
@@ -298,9 +319,7 @@ func InitCmd() *cobra.Command {
 }
 
 // StartCmd returns the start cmd.
-func StartCmd(pp ProcessorProvider) *cobra.Command {
-	var telemetryAddr string
-
+func StartCmd(pp RunnerProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start relayer.",
@@ -317,28 +336,16 @@ func StartCmd(pp ProcessorProvider) *cobra.Command {
 			input := bufio.NewScanner(os.Stdin)
 			input.Scan()
 
-			metricSet := metrics.New()
-
-			processor, err := pp(cmd, metricSet)
+			runner, err := pp(cmd)
 			if err != nil {
 				return err
 			}
 
-			return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-				spawn("processor", parallel.Exit, processor.StartAllProcesses)
-				if telemetryAddr != "" {
-					spawn("metrics", parallel.Fail, func(ctx context.Context) error {
-						return metrics.Start(ctx, telemetryAddr, metricSet)
-					})
-				}
-				return nil
-			})
+			return runner.Start(ctx)
 		},
 	}
 	addHomeFlag(cmd)
 	addKeyringFlags(cmd)
-	cmd.Flags().StringVar(&telemetryAddr, "telemetry-addr", "localhost:9090",
-		"Address metrics are exposed on. If empty, metrics are not exposed.")
 
 	return cmd
 }
@@ -1076,6 +1083,58 @@ $ rotate-keys new-keys.yaml --%s owner
 	addHomeFlag(cmd)
 
 	cmd.PersistentFlags().Bool(FlagInitOnly, false, "Init default config")
+
+	return cmd
+}
+
+// UpdateXRPLBaseFeeCmd updates the XRPL base fee in the bridge contract.
+func UpdateXRPLBaseFeeCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-xrpl-base-fee [fee]",
+		Short: "Update XRPL base fee in the bridge contract.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Update XRPL base fee in the bridge contract.
+Example:
+$ update-xrpl-base-fee 20 --%s owner
+`, FlagKeyName)),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+
+			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			if err != nil {
+				return err
+			}
+
+			xrplBaseFee, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return errors.Wrapf(err, "invalid XRPL base fee: %s", args[0])
+			}
+
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+
+			return bridgeClient.UpdateXRPLBaseFee(
+				ctx,
+				owner,
+				uint32(xrplBaseFee),
+			)
+		},
+	}
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
 
 	return cmd
 }

@@ -44,6 +44,7 @@ type ContractClient interface {
 		ctx context.Context,
 		sender sdk.AccAddress,
 		operationID uint32,
+		operationVersion uint32,
 		signature string,
 	) (*sdk.TxResponse, error)
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)

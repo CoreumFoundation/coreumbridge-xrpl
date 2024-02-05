@@ -22,7 +22,6 @@ import (
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreum/v4/pkg/client"
 	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
-	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -1183,26 +1182,6 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	coreumRecipientAddress := chains.Coreum.GenAccount()
 	t.Logf("Coreum recipient: %s", coreumRecipientAddress.String())
 
-	// issue asset ft and register it
-	sendingPrecision := int32(2)
-	tokenDecimals := uint32(4)
-	maxHoldingAmount, ok := sdk.NewIntFromString("10000000000000000")
-	require.True(t, ok)
-	issueMsg := &assetfttypes.MsgIssue{
-		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "symbol",
-		Subunit:       "subunit",
-		Precision:     tokenDecimals, // token decimals in terms of the contract
-		InitialAmount: maxHoldingAmount,
-	}
-	_, err := client.BroadcastTx(
-		ctx,
-		chains.Coreum.ClientContext.WithFromAddress(coreumSenderAddress),
-		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
-		issueMsg,
-	)
-	require.NoError(t, err)
-
 	envCfg := DefaultRunnerEnvConfig()
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
 
@@ -1211,14 +1190,17 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	// recover tickets so we can register tokens
 	runnerEnv.AllocateTickets(ctx, t, 200)
 
-	// register Coreum originated token
-	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
-
-	registeredCoreumOriginatedToken := runnerEnv.RegisterCoreumOriginatedToken(
+	// issue asset ft and register it
+	sendingPrecision := int32(2)
+	tokenDecimals := uint32(4)
+	initialAmount := sdkmath.NewIntWithDecimal(1, 16)
+	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 16)
+	registeredCoreumOriginatedToken := runnerEnv.IssueAndRegisterCoreumOriginatedToken(
 		ctx,
 		t,
-		denom,
+		coreumSenderAddress,
 		tokenDecimals,
+		initialAmount,
 		sendingPrecision,
 		maxHoldingAmount,
 		sdkmath.ZeroInt(),
@@ -1356,26 +1338,6 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 	coreumRecipientAddress := chains.Coreum.GenAccount()
 	t.Logf("Coreum recipient: %s", coreumRecipientAddress.String())
 
-	// issue asset ft and register it
-	sendingPrecision := int32(4)
-	tokenDecimals := uint32(10)
-	maxHoldingAmount, ok := sdk.NewIntFromString("10000000000000000")
-	require.True(t, ok)
-	issueMsg := &assetfttypes.MsgIssue{
-		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "symbol",
-		Subunit:       "subunit",
-		Precision:     tokenDecimals, // token decimals in terms of the contract
-		InitialAmount: maxHoldingAmount,
-	}
-	_, err := client.BroadcastTx(
-		ctx,
-		chains.Coreum.ClientContext.WithFromAddress(coreumSenderAddress),
-		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
-		issueMsg,
-	)
-	require.NoError(t, err)
-
 	envCfg := DefaultRunnerEnvConfig()
 	envCfg.MaliciousRelayerNumber = 1
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
@@ -1385,16 +1347,19 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 	// recover tickets so we can register tokens
 	runnerEnv.AllocateTickets(ctx, t, 200)
 
-	// register Coreum originated token
-	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
-	registeredCoreumOriginatedToken := runnerEnv.RegisterCoreumOriginatedToken(
+	sendingPrecision := int32(4)
+	tokenDecimals := uint32(10)
+	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 16)
+	initialAmount := sdkmath.NewIntWithDecimal(1, 16)
+	registeredCoreumOriginatedToken := runnerEnv.IssueAndRegisterCoreumOriginatedToken(
 		ctx,
 		t,
-		denom,
+		coreumSenderAddress,
 		tokenDecimals,
+		initialAmount,
 		sendingPrecision,
 		maxHoldingAmount,
-		sdk.ZeroInt(),
+		sdkmath.ZeroInt(),
 	)
 
 	// send TrustSet to be able to receive coins from the bridge
@@ -1583,26 +1548,6 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	coreumRecipientAddress := chains.Coreum.GenAccount()
 	t.Logf("Coreum recipient: %s", coreumRecipientAddress.String())
 
-	// issue asset ft and register it
-	sendingPrecision := int32(6)
-	tokenDecimals := uint32(6)
-	maxHoldingAmount, ok := sdk.NewIntFromString("10000000000000000")
-	require.True(t, ok)
-	issueMsg := &assetfttypes.MsgIssue{
-		Issuer:        coreumSenderAddress.String(),
-		Symbol:        "symbol",
-		Subunit:       "subunit",
-		Precision:     tokenDecimals, // token decimals in terms of the contract
-		InitialAmount: maxHoldingAmount,
-	}
-	_, err := client.BroadcastTx(
-		ctx,
-		chains.Coreum.ClientContext.WithFromAddress(coreumSenderAddress),
-		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
-		issueMsg,
-	)
-	require.NoError(t, err)
-
 	envCfg := DefaultRunnerEnvConfig()
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
 
@@ -1611,14 +1556,21 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	// recover tickets so we can register tokens
 	runnerEnv.AllocateTickets(ctx, t, 200)
 
-	// register Coreum originated token
-	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumSenderAddress)
-	_, err = runnerEnv.ContractClient.RegisterCoreumToken(
-		ctx, runnerEnv.ContractOwner, denom, tokenDecimals, sendingPrecision, maxHoldingAmount, sdkmath.ZeroInt(),
+	// issue asset ft and register it
+	sendingPrecision := int32(6)
+	tokenDecimals := uint32(6)
+	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 16)
+	initialAmount := sdkmath.NewIntWithDecimal(1, 16)
+	registeredCoreumOriginatedToken := runnerEnv.IssueAndRegisterCoreumOriginatedToken(
+		ctx,
+		t,
+		coreumSenderAddress,
+		tokenDecimals,
+		initialAmount,
+		sendingPrecision,
+		maxHoldingAmount,
+		sdkmath.ZeroInt(),
 	)
-	require.NoError(t, err)
-	registeredCoreumOriginatedToken, err := runnerEnv.ContractClient.GetCoreumTokenByDenom(ctx, denom)
-	require.NoError(t, err)
 
 	// send TrustSet to be able to receive coins from the bridge
 	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)
@@ -1640,7 +1592,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		ctx,
 		t,
 		runnerEnv.ContractOwner,
-		denom,
+		registeredCoreumOriginatedToken.Denom,
 		lo.ToPtr(coreum.TokenStateDisabled),
 		nil,
 		nil,
@@ -1653,7 +1605,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		ctx,
 		t,
 		runnerEnv.ContractOwner,
-		denom,
+		registeredCoreumOriginatedToken.Denom,
 		lo.ToPtr(coreum.TokenStateEnabled),
 		nil,
 		nil,
@@ -1693,7 +1645,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		ctx,
 		t,
 		runnerEnv.ContractOwner,
-		denom,
+		registeredCoreumOriginatedToken.Denom,
 		lo.ToPtr(coreum.TokenStateDisabled),
 		nil,
 		nil,
@@ -1711,7 +1663,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 		ctx,
 		t,
 		runnerEnv.ContractOwner,
-		denom,
+		registeredCoreumOriginatedToken.Denom,
 		lo.ToPtr(coreum.TokenStateEnabled),
 		nil,
 		nil,
@@ -1752,43 +1704,6 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	coreumRecipientAddress := chains.Coreum.GenAccount()
 	t.Logf("Coreum recipient: %s", coreumRecipientAddress.String())
 
-	// issue asset ft and register it
-	sendingPrecision := int32(2)
-	tokenDecimals := uint32(4)
-	maxHoldingAmount, ok := sdk.NewIntFromString("10000000000000000")
-	require.True(t, ok)
-	issueMsg := &assetfttypes.MsgIssue{
-		Issuer:             coreumIssuerAddress.String(),
-		Symbol:             "symbol",
-		Subunit:            "subunit",
-		Precision:          tokenDecimals,
-		InitialAmount:      maxHoldingAmount,
-		BurnRate:           sdk.MustNewDecFromStr("0.1"),
-		SendCommissionRate: sdk.MustNewDecFromStr("0.2"),
-	}
-	_, err := client.BroadcastTx(
-		ctx,
-		chains.Coreum.ClientContext.WithFromAddress(coreumIssuerAddress),
-		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
-		issueMsg,
-	)
-	require.NoError(t, err)
-
-	// send coins to sender to test the commission
-	denom := assetfttypes.BuildDenom(issueMsg.Subunit, coreumIssuerAddress)
-	msgSend := &banktypes.MsgSend{
-		FromAddress: coreumIssuerAddress.String(),
-		ToAddress:   coreumSenderAddress.String(),
-		Amount:      sdk.NewCoins(sdk.NewInt64Coin(denom, 10_000_000)),
-	}
-	_, err = client.BroadcastTx(
-		ctx,
-		chains.Coreum.ClientContext.WithFromAddress(coreumIssuerAddress),
-		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
-		msgSend,
-	)
-	require.NoError(t, err)
-
 	envCfg := DefaultRunnerEnvConfig()
 	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
 
@@ -1797,16 +1712,34 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	// recover tickets so we can register tokens
 	runnerEnv.AllocateTickets(ctx, t, 200)
 
-	// register Coreum originated token
-	registeredCoreumOriginatedToken := runnerEnv.RegisterCoreumOriginatedToken(
+	sendingPrecision := int32(2)
+	tokenDecimals := uint32(4)
+	initialAmount := sdkmath.NewIntWithDecimal(1, 16)
+	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 16)
+	registeredCoreumOriginatedToken := runnerEnv.IssueAndRegisterCoreumOriginatedToken(
 		ctx,
 		t,
-		denom,
+		coreumIssuerAddress,
 		tokenDecimals,
+		initialAmount,
 		sendingPrecision,
 		maxHoldingAmount,
 		sdkmath.ZeroInt(),
 	)
+
+	// send coins to sender to test the commission
+	msgSend := &banktypes.MsgSend{
+		FromAddress: coreumIssuerAddress.String(),
+		ToAddress:   coreumSenderAddress.String(),
+		Amount:      sdk.NewCoins(sdk.NewInt64Coin(registeredCoreumOriginatedToken.Denom, 10_000_000)),
+	}
+	_, err := client.BroadcastTx(
+		ctx,
+		chains.Coreum.ClientContext.WithFromAddress(coreumIssuerAddress),
+		chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+		msgSend,
+	)
+	require.NoError(t, err)
 
 	// send TrustSet to be able to receive coins from the bridge
 	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)

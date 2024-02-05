@@ -5,9 +5,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// New returns new metric set.
-func New() *Metrics {
-	return &Metrics{
+// NewRegistry returns new metric registry.
+func NewRegistry() *Registry {
+	return &Registry{
 		ErrorCounter: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "relayer_errors_total",
 			Help: "Error counter",
@@ -15,13 +15,13 @@ func New() *Metrics {
 	}
 }
 
-// Metrics contains set of metrics.
-type Metrics struct {
+// Registry contains metrics.
+type Registry struct {
 	ErrorCounter prometheus.Counter
 }
 
 // Register registers all the metrics to prometheus.
-func (m *Metrics) Register(registry prometheus.Registerer) error {
+func (m *Registry) Register(registry prometheus.Registerer) error {
 	collectors := []prometheus.Collector{
 		m.ErrorCounter,
 	}

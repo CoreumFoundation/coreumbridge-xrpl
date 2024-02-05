@@ -7,7 +7,8 @@ use crate::{
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
         FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefund,
-        PendingRefundsResponse, QueryMsg, XRPLTokensResponse,
+        PendingRefundsResponse, QueryMsg, TransactionEvidence, TransactionEvidencesResponse,
+        XRPLTokensResponse,
     },
     operation::{
         check_operation_exists, create_pending_operation,
@@ -22,8 +23,8 @@ use crate::{
     state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, XRPLToken,
         AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS,
-        PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, USED_TICKETS_COUNTER,
-        XRPL_TOKENS,
+        PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, TX_EVIDENCES,
+        USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
@@ -74,6 +75,7 @@ const XRP_DEFAULT_FEE: Uint128 = Uint128::zero();
 
 pub const MAX_TICKETS: u32 = 250;
 pub const MAX_RELAYERS: u32 = 32;
+pub const XRPL_MAX_TRUNCATED_AMOUNT_LENGTH: usize = 16;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -104,6 +106,9 @@ pub fn instantiate(
     if msg.used_ticket_sequence_threshold <= 1 || msg.used_ticket_sequence_threshold > MAX_TICKETS {
         return Err(ContractError::InvalidUsedTicketSequenceThreshold {});
     }
+
+    // We validate the trust set amount is a valid XRPL amount
+    validate_xrpl_amount(msg.trust_set_limit_amount)?;
 
     // We initialize these values here so that we can immediately start working with them
     USED_TICKETS_COUNTER.save(deps.storage, &0)?;
@@ -382,7 +387,6 @@ fn register_xrpl_token(
     bridging_fee: Uint128,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &info.sender)?;
-    assert_bridge_active(deps.as_ref().into_empty())?;
 
     validate_xrpl_issuer_and_currency(issuer.clone(), currency.clone())?;
 
@@ -625,19 +629,6 @@ fn save_evidence(
             let operation_id = account_sequence.unwrap_or_else(|| ticket_sequence.unwrap());
             let operation = check_operation_exists(deps.storage, operation_id)?;
 
-            if config.bridge_state == BridgeState::Halted {
-                match &operation.operation_type {
-                    // We allow rotate key evidences if there is a rotate keys operation ongoing and allocate ticket evidences
-                    OperationType::RotateKeys { .. } => {
-                        if !PENDING_ROTATE_KEYS.load(deps.storage)? {
-                            return Err(ContractError::BridgeHalted {});
-                        }
-                    }
-                    OperationType::AllocateTickets { .. } => (),
-                    _ => return Err(ContractError::BridgeHalted {}),
-                }
-            }
-
             // Validation for certain operation types that can't have account sequences
             match &operation.operation_type {
                 OperationType::TrustSet { .. } | OperationType::CoreumToXRPLTransfer { .. } => {
@@ -685,6 +676,7 @@ fn save_evidence(
                         handle_coreum_to_xrpl_transfer_confirmation(
                             deps.storage,
                             transaction_result.to_owned(),
+                            tx_hash.clone(),
                             operation_id,
                             &mut response,
                         )?;
@@ -788,7 +780,6 @@ fn recover_xrpl_token_registration(
     currency: String,
 ) -> CoreumResult<ContractError> {
     assert_owner(deps.storage, &sender)?;
-    assert_bridge_active(deps.as_ref())?;
 
     let key = build_xrpl_token_key(issuer.to_owned(), currency.to_owned());
 
@@ -1001,6 +992,12 @@ fn send_to_xrpl(
             // Coreum originated tokens never have transfer rate so the max amount will be the same as amount to send
             max_amount = Some(amount_to_send);
         }
+    }
+
+    // We validate that both amount and max_amount on the operation contain valid XRPL amounts
+    validate_xrpl_amount(amount_to_send)?;
+    if max_amount.is_some() {
+        validate_xrpl_amount(max_amount.unwrap())?;
     }
 
     // Get a ticket and store the pending operation
@@ -1246,6 +1243,9 @@ fn rotate_keys(
         return Err(ContractError::RotateKeysOngoing {});
     }
 
+    // We set the pending rotate keys flag to true so that we don't allow another rotate keys operation until this one is confirmed
+    PENDING_ROTATE_KEYS.save(deps.storage, &true)?;
+
     // We set the bridge state to halted
     update_bridge_state(deps.storage, BridgeState::Halted)?;
 
@@ -1264,9 +1264,6 @@ fn rotate_keys(
             new_evidence_threshold,
         },
     )?;
-
-    // We set the pending rotate keys flag to true so that we don't allow another rotate keys operation until this one is confirmed
-    PENDING_ROTATE_KEYS.save(deps.storage, &true)?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RotateKeys.as_str())
@@ -1306,6 +1303,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_json_binary(&query_fees_collected(deps, relayer_address)?)
         }
         QueryMsg::BridgeState {} => to_json_binary(&query_bridge_state(deps)?),
+        QueryMsg::TransactionEvidence { hash } => {
+            to_json_binary(&query_transaction_evidence(deps, hash)?)
+        }
+        QueryMsg::TransactionEvidences {
+            start_after_key,
+            limit,
+        } => to_json_binary(&query_transaction_evidences(deps, start_after_key, limit)?),
     }
 }
 
@@ -1424,6 +1428,7 @@ fn query_pending_refunds(
             last_key = Some(key);
             PendingRefund {
                 id: pr.id,
+                xrpl_tx_hash: pr.xrpl_tx_hash,
                 coin: pr.coin,
             }
         })
@@ -1432,6 +1437,44 @@ fn query_pending_refunds(
     Ok(PendingRefundsResponse {
         last_key,
         pending_refunds,
+    })
+}
+
+fn query_transaction_evidence(deps: Deps, hash: String) -> StdResult<TransactionEvidence> {
+    let relayer_addresses = TX_EVIDENCES
+        .may_load(deps.storage, hash.to_owned())?
+        .map(|e| e.relayer_coreum_addresses);
+
+    Ok(TransactionEvidence {
+        hash,
+        relayer_addresses: relayer_addresses.unwrap_or_default(),
+    })
+}
+
+fn query_transaction_evidences(
+    deps: Deps,
+    start_after_key: Option<String>,
+    limit: Option<u32>,
+) -> StdResult<TransactionEvidencesResponse> {
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
+    let start = start_after_key.map(Bound::exclusive);
+    let mut last_key = None;
+    let transaction_evidences: Vec<TransactionEvidence> = TX_EVIDENCES
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit as usize)
+        .filter_map(|r| r.ok())
+        .map(|(evidence_hash, e)| {
+            last_key = Some(evidence_hash.to_owned());
+            TransactionEvidence {
+                hash: evidence_hash,
+                relayer_addresses: e.relayer_coreum_addresses,
+            }
+        })
+        .collect();
+
+    Ok(TransactionEvidencesResponse {
+        last_key,
+        transaction_evidences,
     })
 }
 
@@ -1575,6 +1618,22 @@ fn truncate_and_convert_amount(
     Ok((converted_amount, remainder))
 }
 
+// Helper function to validate that we are not sending an invalid amount to XRPL
+// A valid amount is one that doesn't have more than 16 digits after trimming trailing zeroes
+// Example: 1000000000000000000000000000 is valid
+// Example: 1000000000000000000000000001 is not valid
+fn validate_xrpl_amount(amount: Uint128) -> Result<(), ContractError> {
+    let amount_str = amount.to_string();
+    // Trim all zeroes at the end
+    let amount_trimmed = amount_str.trim_end_matches('0');
+
+    if amount_trimmed.len() > XRPL_MAX_TRUNCATED_AMOUNT_LENGTH {
+        return Err(ContractError::InvalidXRPLAmount {});
+    };
+
+    Ok(())
+}
+
 fn convert_currency_to_xrpl_hexadecimal(currency: String) -> String {
     // Fill with zeros to get the correct hex representation in XRPL of our currency.
     format!("{:0<40}", hex::encode(currency)).to_uppercase()
@@ -1589,7 +1648,7 @@ fn assert_owner_or_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractErro
 }
 
 // Helper function to check that bridge is active
-fn assert_bridge_active(deps: Deps) -> Result<(), ContractError> {
+pub fn assert_bridge_active(deps: Deps) -> Result<(), ContractError> {
     let config = CONFIG.load(deps.storage)?;
     if config.bridge_state.ne(&BridgeState::Active) {
         return Err(ContractError::BridgeHalted {});

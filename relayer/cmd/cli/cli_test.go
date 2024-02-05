@@ -31,7 +31,6 @@ import (
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -52,12 +51,12 @@ func TestStartCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	processorMock := NewMockProcessor(ctrl)
-	processorMock.EXPECT().StartAllProcesses(gomock.Any())
-	cmd := cli.StartCmd(func(cmd *cobra.Command, _ *metrics.Metrics) (cli.Processor, error) {
+	processorMock := NewMockRunner(ctrl)
+	processorMock.EXPECT().Start(gomock.Any())
+	cmd := cli.StartCmd(func(cmd *cobra.Command) (cli.Runner, error) {
 		return processorMock, nil
 	})
-	executeCmd(t, cmd, "--telemetry-addr", "") // to disable telemetry server
+	executeCmd(t, cmd) // to disable telemetry server
 }
 
 func TestKeyringCmds(t *testing.T) {
@@ -804,6 +803,25 @@ func TestRotateKeysCmd(t *testing.T) {
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.RotateKeysCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestUpdateXRPLBaseFeeCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+
+	// call rotate-keys with init only
+	args := []string{
+		"17",
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	bridgeClientMock.EXPECT().UpdateXRPLBaseFee(gomock.Any(), gomock.Any(), uint32(17))
+	executeCmd(t, cli.UpdateXRPLBaseFeeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
 func TestRegisteredTokensCmd(t *testing.T) {

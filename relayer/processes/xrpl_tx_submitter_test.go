@@ -66,14 +66,19 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "no_pending_operations",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{}, nil)
 				return contractClientMock
+			},
+			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
+				return NewMockXRPLTxSigner(ctrl)
 			},
 		},
 		{
 			name: "register_signature_for_create_ticket_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().
 					GetPendingOperations(gomock.Any()).
 					Return([]coreum.Operation{allocateTicketsOperation}, nil)
@@ -84,6 +89,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					gomock.Any(),
 					contractRelayers[0].CoreumAddress,
 					allocateTicketsOperation.AccountSequence,
+					allocateTicketsOperation.Version,
 					allocateTicketOperationValidSigners[0].Signer.TxnSignature.String(),
 				)
 				return contractClientMock
@@ -111,6 +117,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "submit_create_ticket_tx_with_filtered_signature",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.
 					EXPECT().
 					GetPendingOperations(gomock.Any()).
@@ -145,11 +152,15 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 
 				return xrplRPCClientMock
 			},
+			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
+				return NewMockXRPLTxSigner(ctrl)
+			},
 		},
 		{
 			name: "register_invalid_create_ticket_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.
 					EXPECT().
 					GetPendingOperations(gomock.Any()).
@@ -178,11 +189,15 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					Times(2)
 				return xrplRPCClientMock
 			},
+			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
+				return NewMockXRPLTxSigner(ctrl)
+			},
 		},
 		{
 			name: "register_signature_for_trust_set_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{trustSetOperation}, nil)
 				contractClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{
 					Relayers: contractRelayers,
@@ -191,6 +206,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					gomock.Any(),
 					contractRelayers[0].CoreumAddress,
 					trustSetOperation.TicketSequence,
+					trustSetOperation.Version,
 					trustSetOperationValidSigners[0].Signer.TxnSignature.String(),
 				)
 				return contractClientMock
@@ -216,6 +232,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "submit_trust_set_tx_with_filtered_signature",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.
 					EXPECT().
 					GetPendingOperations(gomock.Any()).
@@ -248,11 +265,15 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 
 				return xrplRPCClientMock
 			},
+			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
+				return NewMockXRPLTxSigner(ctrl)
+			},
 		},
 		{
 			name: "register_signature_for_coreum_to_XRPL_token_transfer_payment_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.
 					EXPECT().
 					GetPendingOperations(gomock.Any()).
@@ -264,6 +285,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					gomock.Any(),
 					contractRelayers[0].CoreumAddress,
 					coreumToXRPLTokenTransferOperation.TicketSequence,
+					coreumToXRPLTokenTransferOperation.Version,
 					coreumToXRPLTokenTransferOperationValidSigners[0].Signer.TxnSignature.String(),
 				)
 				return contractClientMock
@@ -294,6 +316,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "submit_coreum_to_XRPL_token_transfer_payment_tx_with_filtered_signature",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.
 					EXPECT().
 					GetPendingOperations(gomock.Any()).
@@ -326,11 +349,15 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 
 				return xrplRPCClientMock
 			},
+			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
+				return NewMockXRPLTxSigner(ctrl)
+			},
 		},
 		{
 			name: "register_signature_for_rotate_keys_tx",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.
 					EXPECT().
 					GetPendingOperations(gomock.Any()).
@@ -342,6 +369,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 					gomock.Any(),
 					contractRelayers[0].CoreumAddress,
 					rotateKeysOperation.TicketSequence,
+					rotateKeysOperation.Version,
 					rotateKeysOperationValidSigners[0].Signer.TxnSignature.String(),
 				)
 				return contractClientMock
@@ -372,6 +400,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 			name: "submit_rotate_keys_tx_with_filtered_signature",
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.
 					EXPECT().
 					GetPendingOperations(gomock.Any()).
@@ -404,6 +433,9 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 
 				return xrplRPCClientMock
 			},
+			xrplTxSignerBuilder: func(ctrl *gomock.Controller) processes.XRPLTxSigner {
+				return NewMockXRPLTxSigner(ctrl)
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -429,7 +461,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 				xrplTxSigner = tt.xrplTxSignerBuilder(ctrl)
 			}
 
-			o := processes.NewXRPLTxSubmitter(
+			o, err := processes.NewXRPLTxSubmitter(
 				processes.XRPLTxSubmitterConfig{
 					BridgeXRPLAddress:    bridgeXRPLAddress,
 					RelayerCoreumAddress: contractRelayers[0].CoreumAddress,
@@ -440,6 +472,7 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 				xrplRPCClient,
 				xrplTxSigner,
 			)
+			require.NoError(t, err)
 			require.NoError(t, o.Start(ctx))
 		})
 	}
@@ -496,6 +529,7 @@ func buildAllocateTicketsTestData(
 	coreum.Operation, coreum.Operation, coreum.Operation, []rippledata.Signer,
 ) {
 	operation := coreum.Operation{
+		Version:         1,
 		AccountSequence: 1,
 		Signatures:      nil,
 		OperationType: coreum.OperationType{
@@ -503,9 +537,11 @@ func buildAllocateTicketsTestData(
 				Number: 3,
 			},
 		},
+		XRPLBaseFee: xrpl.DefaultXRPLBaseFee,
 	}
 
 	operationUnexpectedSeqNumber := coreum.Operation{
+		Version:         1,
 		AccountSequence: 999,
 		Signatures:      nil,
 		OperationType: coreum.OperationType{
@@ -513,6 +549,7 @@ func buildAllocateTicketsTestData(
 				Number: 3,
 			},
 		},
+		XRPLBaseFee: xrpl.DefaultXRPLBaseFee,
 	}
 
 	operationWithSignatures, validSigners := multiSignOperationFromMultipleSignersWithLastInvalidSignature(
@@ -536,6 +573,7 @@ func buildTrustSetTestData(
 	coreum.Operation, coreum.Operation, []rippledata.Signer,
 ) {
 	operation := coreum.Operation{
+		Version:        1,
 		TicketSequence: 1,
 		Signatures:     nil,
 		OperationType: coreum.OperationType{
@@ -545,6 +583,7 @@ func buildTrustSetTestData(
 				TrustSetLimitAmount: sdkmath.NewInt(1000000000000),
 			},
 		},
+		XRPLBaseFee: xrpl.DefaultXRPLBaseFee,
 	}
 
 	operationWithSignatures, validSigners := multiSignOperationFromMultipleSignersWithLastInvalidSignature(
@@ -568,6 +607,7 @@ func buildCoreumToXRPLTokenTransferTestData(
 	coreum.Operation, coreum.Operation, []rippledata.Signer,
 ) {
 	operation := coreum.Operation{
+		Version:        1,
 		TicketSequence: 1,
 		Signatures:     nil,
 		OperationType: coreum.OperationType{
@@ -579,6 +619,7 @@ func buildCoreumToXRPLTokenTransferTestData(
 				Recipient: xrpl.GenPrivKeyTxSigner().Account().String(),
 			},
 		},
+		XRPLBaseFee: xrpl.DefaultXRPLBaseFee,
 	}
 
 	operationWithSignatures, validSigners := multiSignOperationFromMultipleSignersWithLastInvalidSignature(
@@ -602,6 +643,7 @@ func buildRotateKeysTestData(
 	coreum.Operation, coreum.Operation, []rippledata.Signer,
 ) {
 	operation := coreum.Operation{
+		Version:        1,
 		TicketSequence: 1,
 		Signatures:     nil,
 		OperationType: coreum.OperationType{
@@ -616,6 +658,7 @@ func buildRotateKeysTestData(
 				NewEvidenceThreshold: 2,
 			},
 		},
+		XRPLBaseFee: xrpl.DefaultXRPLBaseFee,
 	}
 
 	operationWithSignatures, validSigners := multiSignOperationFromMultipleSignersWithLastInvalidSignature(

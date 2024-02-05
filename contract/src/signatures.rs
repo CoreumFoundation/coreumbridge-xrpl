@@ -1,7 +1,13 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, DepsMut};
 
-use crate::{error::ContractError, state::PENDING_OPERATIONS};
+use crate::{
+    error::ContractError,
+    operation::check_valid_operation_if_halt,
+    state::{CONFIG, PENDING_OPERATIONS},
+};
+
+const MAX_SIGNATURE_LENGTH: usize = 200;
 
 #[cw_serde]
 pub struct Signature {
@@ -16,6 +22,8 @@ pub fn add_signature(
     sender: Addr,
     signature: String,
 ) -> Result<(), ContractError> {
+    validate_signature(&signature)?;
+
     // We get the current signatures for this specific operation
     let mut pending_operation = PENDING_OPERATIONS
         .load(deps.storage, operation_id)
@@ -24,6 +32,11 @@ pub fn add_signature(
     if operation_version != pending_operation.version {
         return Err(ContractError::OperationVersionMismatch {});
     }
+
+    let config = CONFIG.load(deps.storage)?;
+
+    // If bridge is halted we prohibit all signatures except for allowed operations
+    check_valid_operation_if_halt(deps.storage, &config, &pending_operation.operation_type)?;
 
     let mut signatures = pending_operation.signatures;
 
@@ -46,5 +59,15 @@ pub fn add_signature(
     pending_operation.signatures = signatures;
     PENDING_OPERATIONS.save(deps.storage, operation_id, &pending_operation)?;
 
+    Ok(())
+}
+
+fn validate_signature(signature: &String) -> Result<(), ContractError> {
+    // The purpose of this function is to avoid attacks
+    // We set a max length of 200, a reasonable length, here to avoid spam attack by a malicious relayer that wants to send a very long signature for an operation
+    // And to also not error out in case a relayer sends a signature that is a bit longer than the one we expect
+    if signature.len() > MAX_SIGNATURE_LENGTH {
+        return Err(ContractError::InvalidSignatureLength {});
+    }
     Ok(())
 }

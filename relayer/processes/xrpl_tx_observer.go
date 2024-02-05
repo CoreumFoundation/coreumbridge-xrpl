@@ -37,27 +37,20 @@ func NewXRPLTxObserver(
 	log logger.Logger,
 	txScanner XRPLAccountTxScanner,
 	contractClient ContractClient,
-) *XRPLTxObserver {
+) (*XRPLTxObserver, error) {
+	if cfg.RelayerCoreumAddress.Empty() {
+		return nil, errors.Errorf("failed to init process, relayer address is nil or empty")
+	}
+	if !contractClient.IsInitialized() {
+		return nil, errors.Errorf("failed to init process, contract client is not initialized")
+	}
+
 	return &XRPLTxObserver{
 		cfg:            cfg,
 		log:            log,
 		txScanner:      txScanner,
 		contractClient: contractClient,
-	}
-}
-
-// Init validates the process state.
-func (o *XRPLTxObserver) Init(ctx context.Context) error {
-	o.log.Debug(ctx, "Initializing process")
-
-	if o.cfg.RelayerCoreumAddress.Empty() {
-		return errors.Errorf("failed to init process, relayer address is nil or empty")
-	}
-	if !o.contractClient.IsInitialized() {
-		return errors.Errorf("failed to init process, contract client is not initialized")
-	}
-
-	return nil
+	}, nil
 }
 
 // Start starts the process.

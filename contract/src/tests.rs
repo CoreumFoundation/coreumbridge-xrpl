@@ -20,7 +20,7 @@ mod tests {
     use sha2::{Digest, Sha256};
 
     use crate::contract::MAX_RELAYERS;
-    use crate::msg::BridgeStateResponse;
+    use crate::msg::{BridgeStateResponse, TransactionEvidence, TransactionEvidencesResponse};
     use crate::state::BridgeState;
     use crate::{
         contract::{XRP_CURRENCY, XRP_ISSUER},
@@ -185,7 +185,7 @@ mod tests {
 
         let relayer_duplicated_xrpl_address = Relayer {
             coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: xrpl_address,
+            xrpl_address,
             xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
@@ -359,7 +359,7 @@ mod tests {
                 1,
                 &InstantiateMsg {
                     owner: Addr::unchecked(signer.address()),
-                    relayers: vec![relayer],
+                    relayers: vec![relayer.clone()],
                     evidence_threshold: 1,
                     used_ticket_sequence_threshold: 1,
                     trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
@@ -436,6 +436,30 @@ mod tests {
         assert!(error
             .to_string()
             .contains(ContractError::TooManyRelayers {}.to_string().as_str()));
+
+        // We check that trying to instantiate with an invalid trust set amount will fail
+        let error = wasm
+            .instantiate(
+                1,
+                &InstantiateMsg {
+                    owner: Addr::unchecked(signer.address()),
+                    relayers: vec![relayer, relayer_correct],
+                    evidence_threshold: 1,
+                    used_ticket_sequence_threshold: 50,
+                    trust_set_limit_amount: Uint128::new(10000000000000001),
+                    bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 10,
+                },
+                None,
+                "label".into(),
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains(ContractError::InvalidXRPLAmount {}.to_string().as_str()));
 
         // We query the issued token by the contract instantiation (XRP)
         let query_response = asset_ft
@@ -561,34 +585,51 @@ mod tests {
     }
 
     #[test]
-    fn query_config() {
+    fn queries() {
         let app = CoreumTestApp::new();
-        let signer = app
-            .init_account(&coins(100_000_000_000, FEE_DENOM))
+        let accounts_number = 4;
+        let accounts = app
+            .init_accounts(&coins(100_000_000_000, FEE_DENOM), accounts_number)
             .unwrap();
+
+        let signer = accounts.get((accounts_number - 1) as usize).unwrap();
+        let xrpl_addresses: Vec<String> = (0..3).map(|_| generate_xrpl_address()).collect();
+        let xrpl_pub_keys: Vec<String> = (0..3).map(|_| generate_xrpl_pub_key()).collect();
+
+        let mut relayer_accounts = vec![];
+        let mut relayers = vec![];
+
+        for i in 0..accounts_number - 1 {
+            relayer_accounts.push(accounts.get(i as usize).unwrap());
+            relayers.push(Relayer {
+                coreum_address: Addr::unchecked(accounts.get(i as usize).unwrap().address()),
+                xrpl_address: xrpl_addresses[i as usize].to_string(),
+                xrpl_pub_key: xrpl_pub_keys[i as usize].to_string(),
+            });
+        }
 
         let wasm = Wasm::new(&app);
         let asset_ft = AssetFT::new(&app);
-        let relayer = Relayer {
-            coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: generate_xrpl_address(),
-            xrpl_pub_key: generate_xrpl_pub_key(),
-        };
 
-        let multisig_address = generate_xrpl_address();
+        let bridge_xrpl_address = generate_xrpl_address();
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
             Addr::unchecked(signer.address()),
-            vec![relayer.clone()],
-            1,
-            50,
+            vec![
+                relayers[0].clone(),
+                relayers[1].clone(),
+                relayers[2].clone(),
+            ],
+            3,
+            5,
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
-            multisig_address.to_owned(),
+            bridge_xrpl_address.to_owned(),
             10,
         );
 
+        // Query the config
         let query_config = wasm
             .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
             .unwrap();
@@ -596,45 +637,21 @@ mod tests {
         assert_eq!(
             query_config,
             Config {
-                relayers: vec![relayer],
-                evidence_threshold: 1,
-                used_ticket_sequence_threshold: 50,
+                relayers: vec![
+                    relayers[0].clone(),
+                    relayers[1].clone(),
+                    relayers[2].clone()
+                ],
+                evidence_threshold: 3,
+                used_ticket_sequence_threshold: 5,
                 trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-                bridge_xrpl_address: multisig_address,
+                bridge_xrpl_address,
                 bridge_state: BridgeState::Active,
                 xrpl_base_fee: 10,
             }
         );
-    }
 
-    #[test]
-    fn query_xrpl_tokens() {
-        let app = CoreumTestApp::new();
-        let signer = app
-            .init_account(&coins(100_000_000_000, FEE_DENOM))
-            .unwrap();
-
-        let wasm = Wasm::new(&app);
-        let asset_ft = AssetFT::new(&app);
-        let relayer = Relayer {
-            coreum_address: Addr::unchecked(signer.address()),
-            xrpl_address: generate_xrpl_address(),
-            xrpl_pub_key: generate_xrpl_pub_key(),
-        };
-
-        let contract_addr = store_and_instantiate(
-            &wasm,
-            &signer,
-            Addr::unchecked(signer.address()),
-            vec![relayer],
-            1,
-            50,
-            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-            query_issue_fee(&asset_ft),
-            generate_xrpl_address(),
-            10,
-        );
-
+        // Query XRPL tokens
         let query_xrpl_tokens = wasm
             .query::<QueryMsg, XRPLTokensResponse>(
                 &contract_addr,
@@ -644,6 +661,7 @@ mod tests {
                 },
             )
             .unwrap();
+
         assert_eq!(
             query_xrpl_tokens.tokens[0],
             QueriedXRPLToken {
@@ -656,6 +674,122 @@ mod tests {
                 bridging_fee: Uint128::zero(),
             }
         );
+
+        // Let's create a ticket operation
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(6),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Two relayers will return the evidence as rejected and one as accepted
+        let tx_hash = generate_hash();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(tx_hash.to_owned()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: Some(OperationResult::TicketsAllocation {
+                        tickets: Some((1..7).collect()),
+                    }),
+                },
+            },
+            &vec![],
+            relayer_accounts[0],
+        )
+        .unwrap();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(tx_hash.to_owned()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: Some(OperationResult::TicketsAllocation {
+                        tickets: Some((1..7).collect()),
+                    }),
+                },
+            },
+            &vec![],
+            relayer_accounts[1],
+        )
+        .unwrap();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(tx_hash.to_owned()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Rejected,
+                    operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
+                },
+            },
+            &vec![],
+            relayer_accounts[2],
+        )
+        .unwrap();
+
+        // Let's query all the transaction evidences (we should get two)
+        let query_transaction_evidences = wasm
+            .query::<QueryMsg, TransactionEvidencesResponse>(
+                &contract_addr,
+                &QueryMsg::TransactionEvidences {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_transaction_evidences.transaction_evidences.len(), 2);
+
+        // Let's query all the transaction evidences with pagination
+        let query_transaction_evidences = wasm
+            .query::<QueryMsg, TransactionEvidencesResponse>(
+                &contract_addr,
+                &QueryMsg::TransactionEvidences {
+                    start_after_key: None,
+                    limit: Some(1),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_transaction_evidences.transaction_evidences.len(), 1);
+
+        let query_transaction_evidences = wasm
+            .query::<QueryMsg, TransactionEvidencesResponse>(
+                &contract_addr,
+                &QueryMsg::TransactionEvidences {
+                    start_after_key: query_transaction_evidences.last_key,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_transaction_evidences.transaction_evidences.len(), 1);
+
+        // Let's query a transaction evidences by evidence hash and verify that we have an address that provided that evidence
+        let query_transaction_evidence = wasm
+            .query::<QueryMsg, TransactionEvidence>(
+                &contract_addr,
+                &QueryMsg::TransactionEvidence {
+                    hash: query_transaction_evidences.transaction_evidences[0]
+                        .hash
+                        .to_owned(),
+                },
+            )
+            .unwrap();
+
+        assert!(!query_transaction_evidence.relayer_addresses.is_empty());
     }
 
     #[test]
@@ -1799,7 +1933,7 @@ mod tests {
         let symbol = "TEST".to_string();
         let subunit = "utest".to_string();
         let decimals = 6;
-        let initial_amount = Uint128::new(100000000);
+        let initial_amount = Uint128::new(100000000000000000000);
         asset_ft
             .issue(
                 MsgIssue {
@@ -1842,7 +1976,7 @@ mod tests {
                 denom: denom.to_owned(),
                 decimals,
                 sending_precision: 5,
-                max_holding_amount: Uint128::new(10000000),
+                max_holding_amount: Uint128::new(100000000000000000000),
                 bridging_fee: Uint128::zero(),
             },
             &vec![],
@@ -1871,6 +2005,23 @@ mod tests {
                 .to_string()
                 .as_str()
         ));
+
+        // If we try to send an amount that will become an invalid XRPL amount, it should fail
+        let send_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                    deliver_amount: None,
+                },
+                &coins(10000000000000000010, denom.to_owned()), // Nothing is truncated, and after transforming into XRPL amount it will have more than 17 digits
+                &sender,
+            )
+            .unwrap_err();
+
+        assert!(send_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLAmount {}.to_string().as_str()));
 
         // Try to bridge the token to the xrpl receiver address so that we can send it back.
         wasm.execute::<ExecuteMsg>(
@@ -1951,12 +2102,13 @@ mod tests {
             }
         );
 
+        let tx_hash = generate_hash();
         // Reject the operation, therefore the tokens should be stored in the pending refunds (except for truncated amount).
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
-                    tx_hash: Some(generate_hash()),
+                    tx_hash: Some(tx_hash.clone()),
                     account_sequence: query_pending_operations.operations[0].account_sequence,
                     ticket_sequence: query_pending_operations.operations[0].ticket_sequence,
                     transaction_result: TransactionResult::Rejected,
@@ -2004,6 +2156,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
+        assert_eq!(
+            query_pending_refunds.pending_refunds[0].xrpl_tx_hash,
+            Some(tx_hash)
+        );
         // Truncated amount (1) is not refundable
         assert_eq!(
             query_pending_refunds.pending_refunds[0].coin,
@@ -2778,9 +2934,9 @@ mod tests {
 
         // *** Test sending XRP back to XRPL, which is already enabled so we can bridge it directly ***
 
-        let amount_to_send = Uint128::new(50000);
+        let amount_to_send_xrp = Uint128::new(50000);
         let amount_to_send_back = Uint128::new(10000);
-        let final_balance = amount_to_send.checked_sub(amount_to_send_back).unwrap();
+        let final_balance_xrp = amount_to_send_xrp.checked_sub(amount_to_send_back).unwrap();
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
@@ -2788,7 +2944,7 @@ mod tests {
                     tx_hash: generate_hash(),
                     issuer: XRP_ISSUER.to_string(),
                     currency: XRP_CURRENCY.to_string(),
-                    amount: amount_to_send.clone(),
+                    amount: amount_to_send_xrp.clone(),
                     recipient: Addr::unchecked(sender.address()),
                 },
             },
@@ -2805,7 +2961,7 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(request_balance.balance, amount_to_send.to_string());
+        assert_eq!(request_balance.balance, amount_to_send_xrp.to_string());
 
         let xrpl_receiver_address = generate_xrpl_address();
         // Trying to send XRP back with a deliver_amount should fail
@@ -2948,7 +3104,7 @@ mod tests {
                 denom: denom_xrp.to_owned(),
             })
             .unwrap();
-        assert_eq!(request_balance.balance, final_balance.to_string());
+        assert_eq!(request_balance.balance, final_balance_xrp.to_string());
 
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
@@ -3022,7 +3178,7 @@ mod tests {
             issuer: generate_xrpl_address(),
             currency: "TST".to_string(),
             sending_precision: 15,
-            max_holding_amount: Uint128::new(500000),
+            max_holding_amount: Uint128::new(50000000000000000000), // 5e20
             bridging_fee: Uint128::zero(),
         };
 
@@ -3069,6 +3225,8 @@ mod tests {
         )
         .unwrap();
 
+        let amount_to_send = Uint128::new(10000000000000000000); // 1e20
+        let final_balance = amount_to_send.checked_sub(amount_to_send_back).unwrap();
         // Bridge some tokens to the sender address
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -3298,7 +3456,7 @@ mod tests {
 
         assert_eq!(
             request_balance.balance,
-            final_balance
+            final_balance_xrp
                 .checked_sub(amount_to_send_back)
                 .unwrap()
                 .to_string()
@@ -3376,7 +3534,7 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(request_balance.balance, final_balance.to_string());
+        assert_eq!(request_balance.balance, final_balance_xrp.to_string());
 
         let request_balance = asset_ft
             .query_balance(&QueryBalanceRequest {
@@ -3388,7 +3546,7 @@ mod tests {
 
         // Let's test sending a token with optional amount
 
-        let max_amount = Uint128::new(10000);
+        let max_amount = Uint128::new(9999999999999999);
         let deliver_amount = Some(Uint128::new(6000));
 
         // Store balance first so we can check it later
@@ -3415,6 +3573,40 @@ mod tests {
         assert!(max_amount_error
             .to_string()
             .contains(ContractError::InvalidDeliverAmount {}.to_string().as_str()));
+
+        // If we send a deliver amount that is an invalid XRPL amount, it should fail
+        let invalid_amount_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                    deliver_amount: Some(Uint128::new(99999999999999999)),
+                },
+                &coins(1000000000000000000, denom_xrpl_origin_token.to_owned()),
+                sender,
+            )
+            .unwrap_err();
+
+        assert!(invalid_amount_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLAmount {}.to_string().as_str()));
+
+        // If we send an amount that is an invalid XRPL amount, it should fail
+        let invalid_amount_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: xrpl_receiver_address.to_owned(),
+                    deliver_amount: Some(Uint128::new(10000000000000000)),
+                },
+                &coins(10000000000000001, denom_xrpl_origin_token.to_owned()),
+                sender,
+            )
+            .unwrap_err();
+
+        assert!(invalid_amount_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLAmount {}.to_string().as_str()));
 
         // Send it correctly
         wasm.execute::<ExecuteMsg>(
@@ -5902,6 +6094,10 @@ mod tests {
                 .as_str()
         ));
 
+        // Check that we can recover tickets and provide signatures for this operation with the bridge halted
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::HaltBridge {}, &vec![], &signer)
+            .unwrap();
+
         // Owner will send a recover tickets operation which will set the pending ticket update flag to true
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -5981,6 +6177,25 @@ mod tests {
 
         assert!(relayer_error.to_string().contains(
             ContractError::PendingOperationNotFound {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Providing an invalid signature for the operation should error
+        let signature_error = wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveSignature {
+                operation_id: account_sequence,
+                operation_version: 1,
+                signature: "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA13045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string(),
+            },
+            &vec![],
+            relayer_accounts[0],
+        )
+        .unwrap_err();
+
+        assert!(signature_error.to_string().contains(
+            ContractError::InvalidSignatureLength {}
                 .to_string()
                 .as_str()
         ));
@@ -6149,6 +6364,15 @@ mod tests {
 
         assert_eq!(query_pending_operations.operations, vec![]);
         assert_eq!(query_available_tickets.tickets, Vec::<u64>::new());
+
+        // Resume bridge
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ResumeBridge {},
+            &vec![],
+            &signer,
+        )
+        .unwrap();
 
         // Let's do the same now but reporting an invalid transaction
         let account_sequence = 2;
@@ -9153,18 +9377,6 @@ mod tests {
             .unwrap();
         }
 
-        // Add a Key Rotation, which will verify that we can update the base fee while the bridge is halted
-        wasm.execute::<ExecuteMsg>(
-            &contract_addr,
-            &ExecuteMsg::RotateKeys {
-                new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
-                new_evidence_threshold: 2,
-            },
-            &vec![],
-            &signer,
-        )
-        .unwrap();
-
         // Query pending operations with limit and start_after_key to verify it works
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
@@ -9188,9 +9400,9 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(query_pending_operations.operations.len(), 149);
+        assert_eq!(query_pending_operations.operations.len(), 148);
 
-        // Verify that we have 249 pending operations
+        // Query all pending operations
         let query_pending_operations = wasm
             .query::<QueryMsg, PendingOperationsResponse>(
                 &contract_addr,
@@ -9201,10 +9413,42 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(query_pending_operations.operations.len(), 249);
+        assert_eq!(query_pending_operations.operations.len(), 248);
+
+        // Halt the bridge to verify that we can't send signatures of pending operations that are not allowed
+        let correct_signature_example = "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string();
+        wasm.execute::<ExecuteMsg>(&contract_addr, &ExecuteMsg::HaltBridge {}, &vec![], &signer)
+            .unwrap();
+
+        let signature_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveSignature {
+                    operation_id: query_pending_operations.operations[0]
+                        .ticket_sequence
+                        .unwrap(),
+                    operation_version: 1,
+                    signature: correct_signature_example.to_owned(),
+                },
+                &vec![],
+                relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(signature_error
+            .to_string()
+            .contains(ContractError::BridgeHalted {}.to_string().as_str()));
+
+        // Resume the bridge to add signatures again
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::ResumeBridge {},
+            &vec![],
+            &signer,
+        )
+        .unwrap();
 
         // Add some signatures to each pending operation
-        let correct_signature_example = "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string();
         for pending_operation in query_pending_operations.operations.iter() {
             for relayer in relayer_accounts.iter() {
                 wasm.execute::<ExecuteMsg>(
@@ -9219,6 +9463,50 @@ mod tests {
                 )
                 .unwrap();
             }
+        }
+
+        // Add a Key Rotation, which will verify that we can update the base fee while the bridge is halted
+        // and to check that we can add signatures for key rotations while bridge is halted
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RotateKeys {
+                new_relayers: vec![relayers[0].clone(), relayers[1].clone()],
+                new_evidence_threshold: 2,
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Verify that we have 249 pending operations
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 249);
+
+        // Sign this last operation with the 3 relayers
+
+        for relayer in relayer_accounts.iter() {
+            wasm.execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SaveSignature {
+                    operation_id: query_pending_operations.operations[248]
+                        .ticket_sequence
+                        .unwrap(),
+                    operation_version: 1,
+                    signature: correct_signature_example.to_owned(),
+                },
+                &vec![],
+                relayer,
+            )
+            .unwrap();
         }
 
         // Verify that all pending operations are in version 1 and have three signatures each
