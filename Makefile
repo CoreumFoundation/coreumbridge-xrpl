@@ -97,7 +97,6 @@ test-integration:
 	for d in $(INTEGRATION_TESTS_DIR)/*/; \
 	 do make test-single-integration TESTS_DIR="$$d" || exit 1; \
 	done
-	# make test-single-integration TESTS_DIR="$$d"
 
 .PHONY: test-single-integration
 test-single-integration:
