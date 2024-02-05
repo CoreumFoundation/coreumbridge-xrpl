@@ -960,7 +960,7 @@ fn send_to_xrpl(
             remainder,
         )?;
     } else {
-        // If it's not an XRPL originated token we need to check that it's registered as a Coreum originated token, and it's enabled
+        // If it's not an XRPL originated token we need to check that it's registered as a Coreum originated token and that it's enabled
         let coreum_token = COREUM_TOKENS
             .load(deps.storage, funds.denom.clone())
             .map_err(|_| ContractError::TokenNotRegistered {})?;
@@ -997,7 +997,7 @@ fn send_to_xrpl(
             remainder,
         )?;
 
-        // For Coreum originated tokens we need to check that we are not going the amount
+        // For Coreum originated tokens we need to check that we are not going over the amount
         // that the bridge will hold in escrow
         if deps
             .querier
