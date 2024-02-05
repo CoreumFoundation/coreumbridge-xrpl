@@ -189,7 +189,7 @@ pub const PENDING_REFUNDS: IndexedMap<(Addr, String), PendingRefund, PendingRefu
         },
     );
 
-// Fees collected that will be slowly accumulated here and relayers can claim them anytime
+// Fees collected that will be slowly accumulated here and relayers can individually claim them anytime
 pub const FEES_COLLECTED: Map<Addr, Vec<Coin>> = Map::new(TopKey::FeesCollected.as_str());
 // Fees Remainders in case that we have some small amounts left after dividing fees between our relayers we will keep them here until next time we collect fees and can add them to the new amount
 // Key is Coin denom and value is Coin amount

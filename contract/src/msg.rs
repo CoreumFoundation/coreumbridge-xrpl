@@ -31,6 +31,8 @@ pub struct InstantiateMsg {
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
+    // Registers a Coreum token so that it can be bridged to XRPL
+    // Only the owner can do this
     RegisterCoreumToken {
         denom: String,
         decimals: u32,
@@ -38,6 +40,8 @@ pub enum ExecuteMsg {
         max_holding_amount: Uint128,
         bridging_fee: Uint128,
     },
+    // Registers an XRPL originated token so that it can be bridge to Coreum
+    // Only the owner can do this
     #[serde(rename = "register_xrpl_token")]
     RegisterXRPLToken {
         issuer: String,
@@ -46,24 +50,35 @@ pub enum ExecuteMsg {
         max_holding_amount: Uint128,
         bridging_fee: Uint128,
     },
+    // Perform a ticket recovery in case the bridge has run out of tickets due to rejected ticket allocation operations on XRPL
+    // Only the owner can do this 
     RecoverTickets {
         account_sequence: u64,
         number_of_tickets: Option<u32>,
     },
+    // Redo an XRPL Token Registration that failed due to a rejected Trust Set operation on XRPL
+    // Only the owner can do this
     #[serde(rename = "recover_xrpl_token_registration")]
     RecoverXRPLTokenRegistration {
         issuer: String,
         currency: String,
     },
+    // Save a signature for a specific Pending Operation
+    // Only relayers can do this
     SaveSignature {
         operation_id: u64,
+        // Version is used in case the XRPL base fee is updated, so that relayers can specify which version of the operation they are signing
         operation_version: u64,
         signature: String,
     },
+    // Provide an evidence for a specific operation that was executed on XRPL
+    // Only relayers can do this
     SaveEvidence {
         evidence: Evidence,
     },
     #[serde(rename = "send_to_xrpl")]
+    // Send a Token from Coreum to XRPL
+    // Anyone can do this
     SendToXRPL {
         recipient: String,
         // This optional field is only allowed for XRPL originated tokens and is used together with attached funds to work with XRPL transfer rate.
@@ -73,21 +88,24 @@ pub enum ExecuteMsg {
         // 3. If the token is XRPL originated, if this is sent, amount = deliver_amount, max_amount = funds sent - bridging fee
         deliver_amount: Option<Uint128>,
     },
-    // All fields that can be updatable for XRPL originated tokens will be updated with this message
-    // They are all optional, so any fields that have to be updated can be included in the message.
+    // Update the information of an XRPL originated token
+    // Only the owner can do this
     #[serde(rename = "update_xrpl_token")]
     UpdateXRPLToken {
         issuer: String,
         currency: String,
+        // All fields that can be updatable for XRPL originated tokens will be updated with this message
+        // They are all optional, so any fields that have to be updated can be included in the message.
         state: Option<TokenState>,
         sending_precision: Option<i32>,
         bridging_fee: Option<Uint128>,
         max_holding_amount: Option<Uint128>,
     },
-    // All fields that can be updatable for Coreum tokens will be updated with this message.
-    // They are all optional, so any fields that have to be updated can be included in the message.
+    // Update the information of a Coreum Token
     UpdateCoreumToken {
         denom: String,
+        // All fields that can be updatable for Coreum tokens will be updated with this message.
+        // They are all optional, so any fields that have to be updated can be included in the message.
         state: Option<TokenState>,
         sending_precision: Option<i32>,
         bridging_fee: Option<Uint128>,
@@ -95,23 +113,29 @@ pub enum ExecuteMsg {
     },
     // Updates the XRPL base fee in config. When this operation is completed, all signatures on current pending operations will be deleted
     // and we will increase the version of all current pending operations.
+    // Only the owner can do this
     #[serde(rename = "update_xrpl_base_fee")]
     UpdateXRPLBaseFee {
         xrpl_base_fee: u64,
     },
-    // Claim refund. User who can claim amounts due to failed transactions can do it with this message.
+    // Claim refund. User who can claim amounts due to failed transactions can do it with this message
+    // Anyone can do this
     ClaimRefund {
         pending_refund_id: String,
     },
-    // Any relayer can claim fees at any point in time. They need to provide what they want to claim.
+    // Any relayer can claim fees at any point in time. They need to provide what they want to claim
+    // Only relayers can do this
     ClaimRelayerFees {
         amounts: Vec<Coin>,
     },
-    // A relayer or the owner can halt the bridge operations if an issue is detected
+    // Halt the bridge. This will prevent certain new operations to be created
+    // Only the owner or a relayer can do this
     HaltBridge {},
-    // Owner can resume the bridge that is in halted state
+    // Resume a bridge in halted state and with no pending key rotations
+    // Only the owner can do this
     ResumeBridge {},
-    // Owner can trigger a rotate keys, removing and/or adding relayers
+    // Trigger a rotate keys operation, removing and/or adding relayers, and specifying a new threshold
+    // Only the owner can do this
     RotateKeys {
         new_relayers: Vec<Relayer>,
         new_evidence_threshold: u32,
