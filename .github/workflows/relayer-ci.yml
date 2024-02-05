@@ -16,45 +16,37 @@ jobs:
         ci_step: [
           "lint",
           "test",
-          "integration tests",
+          "integration tests coreum client",
+          "integration tests processes",
+          "integration tests xrpl",
         ]
         include:
           - ci_step: "lint"
             command: "make lint-go"
-            go-cache: true
-            wasm-cache: true
             linter-cache: true
             docker-cache: false
             build-contract: false
             build-dev-env: false
           - ci_step: "test"
             command: "make test-relayer"
-            go-cache: true
-            wasm-cache: true
             linter-cache: false
             docker-cache: false
             build-contract: false
             build-dev-env: false
           - ci_step: "integration tests coreum client"
             command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/coreum"
-            go-cache: true
-            wasm-cache: true
             linter-cache: false
             docker-cache: true
             build-contract: true
             build-dev-env: true
           - ci_step: "integration tests processes"
             command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/processes"
-            go-cache: true
-            wasm-cache: true
             linter-cache: false
             docker-cache: true
             build-contract: true
             build-dev-env: true
           - ci_step: "integration tests xrpl"
             command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/xrpl"
-            go-cache: true
-            wasm-cache: true
             linter-cache: false
             docker-cache: true
             build-contract: true
@@ -79,26 +71,21 @@ jobs:
         with:
           repository: CoreumFoundation/coreum
           path: coreum
-      - name: Set up crust
+      - name: Setup crust
         run: echo "$(pwd)/crust/bin" >> $GITHUB_PATH
+      - name: Setup crust cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/crust/
+          key: ${{ runner.os }}-crust-cache
       - name: Setup go cache
         uses: actions/cache@v3
-        if: ${{ matrix.go-cache }}
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-      - name: Setup WASM cache
-        uses: actions/cache@v3
-        if: ${{ matrix.wasm-cache }}
-        with:
-          # we need to exclude code-hashes.json from the rest, since the invalidation condition for it is not
-          # same as WASM cache, but it is same as smart contract artifacts.
-          path: |
-            ~/.cache/crust/wasm
-            !/.cache/crust/wasm/code-hashes.json
-          key: ${{ runner.os }}-wasm-cache-${{ hashFiles('~/.cache/crust/wasm/**/*.rs') }}
+          key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.sum') }}
       - name: Setup linter cache
         uses: actions/cache@v3
         if: ${{ matrix.linter-cache }}
@@ -115,23 +102,7 @@ jobs:
         if: ${{ matrix.docker-cache }}
         continue-on-error: true
         with:
-          key: ${{ runner.os }}-docker-v2-${{ steps.get-year-week.outputs.date }} # year-week key
-      - name: Set crust binaries cache
-        uses: actions/cache@v3
-        continue-on-error: true
-        with:
-          path: ~/.cache/crust/bin
-          key: ${{ runner.os }}-bin-${{ steps.get-year-week.outputs.date }} # year-week key
-      - name: Setup smart contract build cache
-        uses: actions/cache@v3
-        with:
-          # we need to cache code-hashes.json under the same key as the artifacts, since the invalidation condition
-          # for both of them are the same.
-          path: |
-            ${{ github.workspace }}/coreum/integration-tests/contracts/**/artifacts/* 
-            ~/.cache/crust/wasm/code-hashes.json
-          key: ${{ runner.os }}-cache-smart-contracts-${{ hashFiles('./coreum/**/*.rs') }}
-        if: ${{ matrix.wasm-cache }}
+          key: ${{ runner.os }}-docker-cache-${{ steps.get-year-week.outputs.date }} # year-week key
       - name: Build contract
         run: make build-contract
         working-directory: ./coreumbridge-xrpl
