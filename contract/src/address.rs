@@ -6,7 +6,7 @@ pub fn validate_xrpl_address(address: &str) -> Result<(), ContractError> {
     // We need to use the base58 dictionary for ripple which is rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz
     // To understand this alphabet, see https://xrpl.org/base58-encodings.html#ripple-base58-alphabet
     // In short, the alphabet represents the bytes values in the address. r = 0, p = 1, s = 2, etc.
-    let data = bs58::decode(&address)
+    let data = bs58::decode(address)
         .with_alphabet(Alphabet::RIPPLE)
         .into_vec()
         .map_err(|_| ContractError::InvalidXRPLAddress {

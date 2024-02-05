@@ -6036,7 +6036,7 @@ func TestUpdateXRPLBaseFeeForMaxOperationCount(t *testing.T) {
 
 	// one ticket will be used for the tickets re-allocation
 	operationCountToGenerate := int(xrpl.MaxTicketsToAllocate - 1)
-	t.Logf("Sendign %d SendToXRPL transactions", operationCountToGenerate)
+	t.Logf("Sending %d SendToXRPL transactions", operationCountToGenerate)
 	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0, operationCountToGenerate)
 	for i := 0; i < operationCountToGenerate; i++ {
 		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
