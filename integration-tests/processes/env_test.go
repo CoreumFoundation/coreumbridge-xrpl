@@ -52,7 +52,7 @@ type RunnerEnvConfig struct {
 // DefaultRunnerEnvConfig returns default runner environment config.
 func DefaultRunnerEnvConfig() RunnerEnvConfig {
 	return RunnerEnvConfig{
-		AwaitTimeout:                15 * time.Second,
+		AwaitTimeout:                time.Minute,
 		SigningThreshold:            2,
 		RelayersCount:               3,
 		MaliciousRelayerNumber:      0,
