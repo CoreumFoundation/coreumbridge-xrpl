@@ -299,7 +299,7 @@ func InitCmd() *cobra.Command {
 				return err
 			}
 
-			if err = runner.InitConfig(home, cfg); err != nil {
+			if err = runner.InitConfig(home, cfg, false); err != nil {
 				return err
 			}
 			log.Info(ctx, "Settings are generated successfully")

@@ -168,57 +168,6 @@ func (r *Runner) withRestartOnError(task parallel.Task) parallel.Task {
 	}
 }
 
-// InitConfig creates config yaml file.
-func InitConfig(homePath string, cfg Config, overwrite bool) error {
-	path := buildFilePath(homePath)
-	if !overwrite {
-		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-			return errors.Errorf("failed to init config, file already exists, path:%s", path)
-		}
-	}
-
-	err := os.MkdirAll(homePath, 0o700)
-	if err != nil {
-		return errors.Errorf("failed to create dirs by path:%s", path)
-	}
-
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create config file, path:%s", path)
-	}
-	defer file.Close()
-	yamlStringConfig, err := yaml.Marshal(cfg)
-	if err != nil {
-		return errors.Wrap(err, "failed convert default config to yaml")
-	}
-	if _, err := file.Write(yamlStringConfig); err != nil {
-		return errors.Wrapf(err, "failed to write yaml config file, path:%s", path)
-	}
-
-	return nil
-}
-
-// ReadConfig reads config yaml file.
-func ReadConfig(homePath string) (Config, error) {
-	path := buildFilePath(homePath)
-	file, err := os.OpenFile(path, os.O_RDONLY, 0o600)
-	defer file.Close() //nolint:staticcheck //we accept the error ignoring
-	if errors.Is(err, os.ErrNotExist) {
-		return Config{}, errors.Errorf("config file does not exist, path:%s", path)
-	}
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		return Config{}, errors.Wrapf(err, "failed to read bytes from file does not exist, path:%s", path)
-	}
-
-	var config Config
-	if err := yaml.Unmarshal(fileBytes, &config); err != nil {
-		return Config{}, errors.Wrapf(err, "failed to unmarshal file to yaml, path:%s", path)
-	}
-
-	return config, nil
-}
-
 // Components groups components required by runner.
 type Components struct {
 	CoreumClientCtx      coreumchainclient.Context

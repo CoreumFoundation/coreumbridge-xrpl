@@ -193,10 +193,12 @@ func DefaultConfig() Config {
 }
 
 // InitConfig creates config yaml file.
-func InitConfig(homePath string, cfg Config) error {
+func InitConfig(homePath string, cfg Config, overwrite bool) error {
 	path := buildFilePath(homePath)
-	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		return errors.Errorf("failed to initi config, file already exists, path:%s", path)
+	if !overwrite {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			return errors.Errorf("failed to init config, file already exists, path:%s", path)
+		}
 	}
 
 	err := os.MkdirAll(homePath, 0o700)
