@@ -9,7 +9,7 @@ use crate::{
 
 #[cw_serde]
 pub enum Evidence {
-    // This evidence is only use for token transfers from XRPL to Coreum
+    // This evidence is only used for token transfers from XRPL to Coreum
     #[serde(rename = "xrpl_to_coreum_transfer")]
     XRPLToCoreumTransfer {
         tx_hash: String,
