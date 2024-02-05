@@ -78,11 +78,13 @@ jobs:
       - name: Setup crust cache
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/crust/
-            # crust build binaries
-            ${{ github.workspace }}/crust/bin/.cache
+          path: ~/.cache/crust/
           key: ${{ runner.os }}-crust-cache
+      - name: Setup crust bin cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/crust/bin/.cache
+          key: ${{ runner.os }}-crust-bin-cache
       - name: Setup go cache
         uses: actions/cache@v3
         with:
