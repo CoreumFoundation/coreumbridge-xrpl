@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/pkg/errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -19,7 +20,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/go-errors/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -6109,7 +6109,6 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 
 				return nil
 			})
-
 		}
 		return nil
 	}))
