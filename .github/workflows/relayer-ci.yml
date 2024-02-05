@@ -134,9 +134,11 @@ jobs:
         if: ${{ matrix.wasm-cache }}
       - name: Build contract
         run: make build-contract
+        working-directory: ./coreumbridge-xrpl
         if: ${{ matrix.build-contract }}
       - name: Build dev environment
         run: make build-dev-env
+        working-directory: ./coreumbridge-xrpl
         if: ${{ matrix.build-dev-env }}
       - name: Run ${{ matrix.ci_step }}
         working-directory: ./coreumbridge-xrpl
