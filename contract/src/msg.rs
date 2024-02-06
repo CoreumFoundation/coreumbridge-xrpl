@@ -88,7 +88,7 @@ pub enum ExecuteMsg {
         // 3. If the token is XRPL originated, if this is sent, amount = deliver_amount, max_amount = funds sent - bridging fee
         deliver_amount: Option<Uint128>,
     },
-    // Update the information of an XRPL originated token
+    // Update the configuration of an XRPL originated token
     // Only the owner can do this
     #[serde(rename = "update_xrpl_token")]
     UpdateXRPLToken {
@@ -101,7 +101,7 @@ pub enum ExecuteMsg {
         bridging_fee: Option<Uint128>,
         max_holding_amount: Option<Uint128>,
     },
-    // Update the information of a Coreum Token
+    // Update the configuration of a Coreum originated token
     UpdateCoreumToken {
         denom: String,
         // All fields that can be updatable for Coreum tokens will be updated with this message.

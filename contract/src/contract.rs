@@ -403,7 +403,7 @@ fn register_xrpl_token(
     )?;
 
     validate_xrpl_address(&issuer)?;
-    validate_currency(&currency)?;
+    validate_xrpl_currency(&currency)?;
 
     validate_sending_precision(sending_precision, XRPL_TOKENS_DECIMALS)?;
 
@@ -904,7 +904,7 @@ fn send_to_xrpl(
     // Check that the recipient is a valid XRPL address
     validate_xrpl_address(&recipient)?;
 
-    // We can't send to the multisig address
+    // We prohibit to send to the multisig address
     let config = CONFIG.load(deps.storage)?;
     if recipient.eq(&config.bridge_xrpl_address) {
         return Err(ContractError::ProhibitedRecipient {});
@@ -1550,7 +1550,7 @@ fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<
     Ok(())
 }
 
-pub fn validate_currency(currency: &str) -> Result<(), ContractError> {
+pub fn validate_xrpl_currency(currency: &str) -> Result<(), ContractError> {
     // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency, any other scenario is invalid
     match currency.len() {
         3 => {
