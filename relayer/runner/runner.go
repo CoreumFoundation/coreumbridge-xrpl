@@ -235,10 +235,12 @@ func NewComponents(
 		}
 	}
 	contractClientCfg := coreum.ContractClientConfig{
-		ContractAddress:    contractAddress,
-		GasAdjustment:      cfg.Coreum.Contract.GasAdjustment,
-		GasPriceAdjustment: sdk.MustNewDecFromStr(fmt.Sprintf("%f", cfg.Coreum.Contract.GasPriceAdjustment)),
-		PageLimit:          cfg.Coreum.Contract.PageLimit,
+		ContractAddress:       contractAddress,
+		GasAdjustment:         cfg.Coreum.Contract.GasAdjustment,
+		GasPriceAdjustment:    sdk.MustNewDecFromStr(fmt.Sprintf("%f", cfg.Coreum.Contract.GasPriceAdjustment)),
+		PageLimit:             cfg.Coreum.Contract.PageLimit,
+		OutOfGasRetryDelay:    cfg.Coreum.Contract.OutOfGasRetryDelay,
+		OutOfGasRetryAttempts: cfg.Coreum.Contract.OutOfGasRetryAttempts,
 	}
 
 	if cfg.Coreum.GRPC.URL != "" {
