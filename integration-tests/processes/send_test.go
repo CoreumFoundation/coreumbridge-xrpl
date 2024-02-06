@@ -152,7 +152,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 	}
 }
 
-func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
+func TestSendFromXRPLToCoreumModuleAccountAndContractAddress(t *testing.T) {
 	t.Parallel()
 
 	ctx, chains := integrationtests.NewTestingContext(t)
@@ -189,9 +189,13 @@ func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
 		Issuer:   xrplIssuerAddress,
 	}
 
-	// send to normal account, then module account and then normal account again, the first and last sends must succeed.
+	// send to normal account, module account, contract address and then normal account again
+	// the first and last sends must succeed, so we know that txs in the middle are processed as well
 	runnerEnv.SendFromXRPLToCoreum(ctx, t, xrplIssuerAddress.String(), amountToSendFromXRPLtoCoreum, coreumRecipient)
 	runnerEnv.SendFromXRPLToCoreum(ctx, t, xrplIssuerAddress.String(), amountToSendFromXRPLtoCoreum, coreumModuleAccount)
+	runnerEnv.SendFromXRPLToCoreum(
+		ctx, t, xrplIssuerAddress.String(), amountToSendFromXRPLtoCoreum, runnerEnv.ContractClient.GetContractAddress(),
+	)
 	runnerEnv.SendFromXRPLToCoreum(ctx, t, xrplIssuerAddress.String(), amountToSendFromXRPLtoCoreum, coreumRecipient)
 
 	runnerEnv.AwaitCoreumBalance(

@@ -408,8 +408,9 @@ type pendingRefundsResponse struct {
 
 // PendingRefund holds the pending refund information.
 type PendingRefund struct {
-	ID   string   `json:"id"`
-	Coin sdk.Coin `json:"coin"`
+	ID         string   `json:"id"`
+	Coin       sdk.Coin `json:"coin"`
+	XRPLTxHash string   `json:"xrpl_tx_hash"`
 }
 
 type pagingStringKeyRequest struct {
@@ -1565,6 +1566,11 @@ func IsDeliverAmountIsProhibitedError(err error) bool {
 // IsOperationVersionMismatchError returns true if error is `OperationVersionMismatch`.
 func IsOperationVersionMismatchError(err error) bool {
 	return isError(err, "OperationVersionMismatch")
+}
+
+// IsProhibitedRecipientError returns true if error is `ProhibitedRecipient`.
+func IsProhibitedRecipientError(err error) bool {
+	return isError(err, "ProhibitedRecipient")
 }
 
 // ******************** Asset FT errors ********************
