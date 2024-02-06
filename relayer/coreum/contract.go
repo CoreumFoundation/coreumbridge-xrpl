@@ -408,8 +408,9 @@ type pendingRefundsResponse struct {
 
 // PendingRefund holds the pending refund information.
 type PendingRefund struct {
-	ID   string   `json:"id"`
-	Coin sdk.Coin `json:"coin"`
+	ID         string   `json:"id"`
+	Coin       sdk.Coin `json:"coin"`
+	XRPLTxHash string   `json:"xrpl_tx_hash"`
 }
 
 type pagingStringKeyRequest struct {
@@ -1376,7 +1377,7 @@ func (c *ContractClient) execute(
 		}
 		if cosmoserrors.ErrOutOfGas.Is(err) {
 			outOfGasRetryAttempt++
-			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution, out of gas", zap.Any("messages", msgs), zap.Error(err))
+			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution, out of gas")
 			return retry.Retryable(errors.Wrapf(err, "retry tx execution, out of gas"))
 		}
 
@@ -1565,6 +1566,11 @@ func IsDeliverAmountIsProhibitedError(err error) bool {
 // IsOperationVersionMismatchError returns true if error is `OperationVersionMismatch`.
 func IsOperationVersionMismatchError(err error) bool {
 	return isError(err, "OperationVersionMismatch")
+}
+
+// IsProhibitedRecipientError returns true if error is `ProhibitedRecipient`.
+func IsProhibitedRecipientError(err error) bool {
+	return isError(err, "ProhibitedRecipient")
 }
 
 // ******************** Asset FT errors ********************
