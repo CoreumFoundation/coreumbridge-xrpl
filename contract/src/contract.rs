@@ -75,6 +75,10 @@ pub const MAX_TICKETS: u32 = 250;
 pub const MAX_RELAYERS: u32 = 32;
 pub const XRPL_MAX_TRUNCATED_AMOUNT_LENGTH: usize = 16;
 
+pub const MIN_DENOM_LENGTH: usize = 3;
+pub const MAX_DENOM_LENGTH: usize = 128;
+pub const DENOM_SPECIAL_CHARACTERS: [char; 5] = ['/', ':', '.', '_', '-'];
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut<CoreumQueries>,
@@ -331,6 +335,8 @@ fn register_coreum_token(
     if COREUM_TOKENS.has(deps.storage, denom.clone()) {
         return Err(ContractError::CoreumTokenAlreadyRegistered { denom });
     }
+
+    validate_coreum_denom(&denom)?;
 
     // We generate a currency creating a Sha256 hash of the denom, the decimals and the current time so that if it fails we can try again
     let to_hash = format!("{}{}{}", denom, decimals, env.block.time.seconds()).into_bytes();
@@ -1533,6 +1539,28 @@ pub fn validate_sending_precision(
     if sending_precision > decimals.try_into().unwrap() {
         return Err(ContractError::TokenSendingPrecisionTooHigh {});
     }
+    Ok(())
+}
+
+// We are going to perform the same validation the CosmosSDK does for the denom
+// which is the following Regex [a-zA-Z][a-zA-Z0-9/:._-]{2,127}
+fn validate_coreum_denom(denom: &str) -> Result<(), ContractError> {
+    if denom.len() < MIN_DENOM_LENGTH || denom.len() > MAX_DENOM_LENGTH {
+        return Err(ContractError::InvalidDenom {});
+    }
+
+    // The first character must be a lowercase or uppercase letter
+    if denom.starts_with(|c: char| !c.is_ascii_alphabetic()) {
+        return Err(ContractError::InvalidDenom {});
+    }
+
+    // All the following characters must be alphanumeric or one of the following special characters: /:._-
+    for c in denom.chars().skip(1) {
+        if !c.is_ascii_alphanumeric() && !DENOM_SPECIAL_CHARACTERS.contains(&c) {
+            return Err(ContractError::InvalidDenom {});
+        }
+    }
+
     Ok(())
 }
 
