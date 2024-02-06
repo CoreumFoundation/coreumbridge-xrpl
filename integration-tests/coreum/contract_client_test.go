@@ -104,7 +104,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
 		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
 		BridgeXRPLAddress:           bridgeXRPLAddress,
-		BridgeState:                 string(coreum.BridgeStateActive),
+		BridgeState:                 coreum.BridgeStateActive,
 		XRPLBaseFee:                 xrplBaseFee,
 	}, contractCfg)
 
@@ -710,6 +710,14 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		wrongXRPLToCoreumTransferEvidence,
 	)
 	require.True(t, coreum.IsTokenNotRegisteredError(err), err)
+
+	// try to provide the evidence with prohibited recipient
+	xrplToCoreumTransferEvidenceWithProhibitedRecipient := xrplToCoreumTransferEvidence
+	xrplToCoreumTransferEvidenceWithProhibitedRecipient.Recipient = contractClient.GetContractAddress()
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(
+		ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidenceWithProhibitedRecipient,
+	)
+	require.True(t, coreum.IsProhibitedRecipientError(err), err)
 
 	// call from first relayer
 	txRes, err := contractClient.SendXRPLToCoreumTransferEvidence(
@@ -2106,6 +2114,18 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 		nil,
 	)
 	require.True(t, coreum.IsInvalidXRPLAddressError(err), err)
+
+	contractCfg, err := contractClient.GetContractConfig(ctx)
+	require.NoError(t, err)
+	// try to send to XRPL bridge account address
+	_, err = contractClient.SendToXRPL(
+		ctx,
+		coreumSenderAddress,
+		contractCfg.BridgeXRPLAddress,
+		sdk.NewCoin(registeredXRPLOriginatedToken.CoreumDenom, amountToSend),
+		nil,
+	)
+	require.True(t, coreum.IsProhibitedRecipientError(err), err)
 
 	// try to send with not registered token
 	_, err = contractClient.SendToXRPL(
@@ -5667,7 +5687,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	contractCfgBeforeRotationStart, err := contractClient.GetContractConfig(ctx)
 	require.NoError(t, err)
 
-	require.Equal(t, string(coreum.BridgeStateActive), contractCfgBeforeRotationStart.BridgeState)
+	require.Equal(t, coreum.BridgeStateActive, contractCfgBeforeRotationStart.BridgeState)
 	require.Equal(t, uint32(2), contractCfgBeforeRotationStart.EvidenceThreshold)
 
 	// keys rotation
@@ -5693,7 +5713,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 
 	// check that the current config set is same as it was (apart from state)
 	expectedBridgeCfg := contractCfgBeforeRotationStart
-	expectedBridgeCfg.BridgeState = string(coreum.BridgeStateHalted)
+	expectedBridgeCfg.BridgeState = coreum.BridgeStateHalted
 
 	require.Equal(t, expectedBridgeCfg, contractCfgAfterRotationStart)
 
@@ -5881,7 +5901,7 @@ func TestUpdateXRPLBaseFee(t *testing.T) {
 		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
 		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
 		BridgeXRPLAddress:           bridgeXRPLAddress,
-		BridgeState:                 string(coreum.BridgeStateActive),
+		BridgeState:                 coreum.BridgeStateActive,
 		XRPLBaseFee:                 xrplBaseFee,
 	}, contractCfg)
 
@@ -5904,7 +5924,7 @@ func TestUpdateXRPLBaseFee(t *testing.T) {
 		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
 		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
 		BridgeXRPLAddress:           bridgeXRPLAddress,
-		BridgeState:                 string(coreum.BridgeStateActive),
+		BridgeState:                 coreum.BridgeStateActive,
 		XRPLBaseFee:                 xrplBaseFee,
 	}, contractCfg)
 
