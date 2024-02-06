@@ -316,9 +316,13 @@ func (b *BridgeClient) GetContractConfig(ctx context.Context) (coreum.ContractCo
 func (b *BridgeClient) RecoverTickets(
 	ctx context.Context,
 	ownerAddress sdk.AccAddress,
-	ticketsToAllocate uint32,
+	ticketsToAllocate *uint32,
 ) error {
-	b.log.Info(ctx, "Recovering tickets", zap.Uint32("numberOfTickets", xrpl.MaxTicketsToAllocate))
+	logFields := make([]zap.Field, 0)
+	if ticketsToAllocate != nil {
+		logFields = append(logFields, zap.Uint32("numberOfTickets", *ticketsToAllocate))
+	}
+	b.log.Info(ctx, "Recovering tickets", logFields...)
 	cfg, err := b.contractClient.GetContractConfig(ctx)
 	if err != nil {
 		return err
@@ -341,7 +345,7 @@ func (b *BridgeClient) RecoverTickets(
 		ctx,
 		ownerAddress,
 		*accInfo.AccountData.Sequence,
-		lo.ToPtr(ticketsToAllocate),
+		ticketsToAllocate,
 	)
 	if err != nil {
 		return err
