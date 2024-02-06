@@ -199,10 +199,9 @@ pub enum ContractActions {
     Instantiation,
     RegisterCoreumToken,
     RegisterXRPLToken,
-    SendFromXRPLToCoreum,
     RecoverTickets,
     RecoverXRPLTokenRegistration,
-    XRPLTransactionResult,
+    SaveEvidence,
     SaveSignature,
     SendToXRPL,
     ClaimFees,
@@ -215,16 +214,43 @@ pub enum ContractActions {
     RotateKeys,
 }
 
+pub enum UserType {
+    Owner,
+    Relayer,
+}
+
+impl UserType {
+    pub fn is_authorized(&self, action: &ContractActions) -> bool {
+        match &action {
+            ContractActions::Instantiation => true,
+            ContractActions::RegisterCoreumToken => matches!(self, Self::Owner),
+            ContractActions::RegisterXRPLToken => matches!(self, Self::Owner),
+            ContractActions::SaveEvidence => matches!(self, Self::Relayer),
+            ContractActions::RecoverTickets => matches!(self, Self::Owner),
+            ContractActions::RecoverXRPLTokenRegistration => matches!(self, Self::Owner),
+            ContractActions::SaveSignature => matches!(self, Self::Relayer),
+            ContractActions::SendToXRPL => true,
+            ContractActions::ClaimFees => matches!(self, Self::Relayer),
+            ContractActions::UpdateXRPLToken => matches!(self, Self::Owner),
+            ContractActions::UpdateCoreumToken => matches!(self, Self::Owner),
+            ContractActions::UpdateXRPLBaseFee => matches!(self, Self::Owner),
+            ContractActions::ClaimRefunds => true,
+            ContractActions::HaltBridge => matches!(self, Self::Owner | Self::Relayer),
+            ContractActions::ResumeBridge => matches!(self, Self::Owner),
+            ContractActions::RotateKeys => matches!(self, Self::Owner),
+        }
+    }
+}
+
 impl ContractActions {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Instantiation => "bridge_instantiation",
             Self::RegisterCoreumToken => "register_coreum_token",
             Self::RegisterXRPLToken => "register_xrpl_token",
-            Self::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
             Self::RecoverTickets => "recover_tickets",
             Self::RecoverXRPLTokenRegistration => "recover_xrpl_token_registration",
-            Self::XRPLTransactionResult => "submit_xrpl_transaction_result",
+            Self::SaveEvidence => "save_evidence",
             Self::SaveSignature => "save_signature",
             Self::SendToXRPL => "send_to_xrpl",
             Self::ClaimFees => "claim_fees",

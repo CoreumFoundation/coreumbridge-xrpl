@@ -22,20 +22,14 @@ pub enum ContractError {
     #[error("Payment error: {0}")]
     Payment(#[from] PaymentError),
 
-    #[error("InvalidThreshold: Threshold can not be higher than amount of relayers")]
+    #[error("InvalidThreshold: Threshold can not be 0 or higher than amount of relayers")]
     InvalidThreshold {},
 
     #[error("InvalidXRPLAddress: XRPL address {} is not valid", address)]
     InvalidXRPLAddress { address: String },
 
-    #[error("DuplicatedRelayerXRPLAddress: All relayers must have different XRPL addresses")]
-    DuplicatedRelayerXRPLAddress {},
-
-    #[error("DuplicatedRelayerXRPLPubKey: All relayers must have different XRPL public keys")]
-    DuplicatedRelayerXRPLPubKey {},
-
-    #[error("DuplicatedRelayerCoreumAddress: All relayers must have different coreum addresses")]
-    DuplicatedRelayerCoreumAddress {},
+    #[error("DuplicatedRelayer: All relayers must have different XRPL addresses, public keys and coreum addresses")]
+    DuplicatedRelayer {},
 
     #[error("CoreumTokenAlreadyRegistered: Token {} already registered", denom)]
     CoreumTokenAlreadyRegistered { denom: String },
@@ -53,7 +47,7 @@ pub enum ContractError {
     #[error("RegistrationFailure: Currency/denom generated already exists, please try again")]
     RegistrationFailure {},
 
-    #[error("UnauthorizedSender: Sender is not a valid relayer")]
+    #[error("UnauthorizedSender: Sender is not authorized for this operation")]
     UnauthorizedSender {},
 
     #[error("TokenNotRegistered: The token must be registered first before bridging")]
@@ -87,7 +81,7 @@ pub enum ContractError {
     )]
     PendingTicketUpdate {},
 
-    #[error("InvalidTransactionResultEvidence: An evidence must contain only one of sequence numer or ticket number")]
+    #[error("InvalidTransactionResultEvidence: An evidence must contain only one of sequence number or ticket number")]
     InvalidTransactionResultEvidence {},
 
     #[error("InvalidSuccessfulTransactionResultEvidence: An evidence with a successful transaction must contain a transaction hash")]
@@ -115,17 +109,11 @@ pub enum ContractError {
     #[error("InvalidTicketSequenceToAllocate: The number of tickets to recover must be greater than used ticket threshold and less than or equal to max allowed")]
     InvalidTicketSequenceToAllocate {},
 
-    #[error("InvalidXRPLIssuer: The issuer must be a valid XRPL address")]
-    InvalidXRPLIssuer {},
-
     #[error("InvalidXRPLCurrency: The currency must be a valid XRPL currency")]
     InvalidXRPLCurrency {},
 
     #[error("TokenNotEnabled: This token must be enabled to be bridged")]
     TokenNotEnabled {},
-
-    #[error("XRPLTokenNotInProcessing: This token must be in processing state to be enabled")]
-    XRPLTokenNotInProcessing {},
 
     #[error("XRPLTokenNotInactive: To recover this token it must be inactive")]
     XRPLTokenNotInactive {},
@@ -140,11 +128,6 @@ pub enum ContractError {
     "InvalidSendingPrecision: The sending precision can't be more than the token decimals or less than the negative token decimals"
     )]
     InvalidSendingPrecision {},
-
-    #[error(
-        "TokenSendingPrecisionTooHigh: The sending precision can't be more than the token decimals"
-    )]
-    TokenSendingPrecisionTooHigh {},
 
     #[error("InvalidOperationResult: OperationResult doesn't match a Pending Operation with the right Operation Type")]
     InvalidOperationResult {},
@@ -172,12 +155,6 @@ pub enum ContractError {
         denom
     )]
     NotEnoughFeesToClaim { denom: String, amount: Uint128 },
-
-    #[error("NotOwnerOrRelayer: The sender is not the owner of the contract or a relayer. Unauthorized.")]
-    NotOwnerOrRelayer {},
-
-    #[error("ThresholdZero: Evidence threshold can't be 0")]
-    ThresholdZero {},
 
     #[error(
         "TooManyRelayers: too many relayers provided, max allowed is {}",

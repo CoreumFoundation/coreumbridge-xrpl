@@ -27,13 +27,8 @@ pub fn validate_relayers(
     let mut set_xrpl_pubkeys = HashSet::new();
     let mut set_coreum_addresses = HashSet::new();
 
-    // Threshold can't be 0
-    if evidence_threshold == 0 {
-        return Err(ContractError::ThresholdZero {});
-    }
-
-    // Threshold can't be more than number of relayers
-    if evidence_threshold as usize > relayers.len() {
+    // Threshold can't be 0 or more than number of relayers
+    if evidence_threshold == 0 || evidence_threshold as usize > relayers.len() {
         return Err(ContractError::InvalidThreshold {});
     }
 
@@ -47,27 +42,23 @@ pub fn validate_relayers(
 
         // If the set returns false during insertion it means that the key already exists and therefore is duplicated
         if !set_xrpl_addresses.insert(relayer.xrpl_address.clone()) {
-            return Err(ContractError::DuplicatedRelayerXRPLAddress {});
+            return Err(ContractError::DuplicatedRelayer {});
         };
         if !set_xrpl_pubkeys.insert(relayer.xrpl_pub_key.clone()) {
-            return Err(ContractError::DuplicatedRelayerXRPLPubKey {});
+            return Err(ContractError::DuplicatedRelayer {});
         };
         if !set_coreum_addresses.insert(relayer.coreum_address.clone()) {
-            return Err(ContractError::DuplicatedRelayerCoreumAddress {});
+            return Err(ContractError::DuplicatedRelayer {});
         };
     }
 
     Ok(())
 }
 
-pub fn assert_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractError> {
-    let config = CONFIG.load(deps.storage)?;
+pub fn is_relayer(storage: &dyn Storage, sender: &Addr) -> Result<bool, ContractError> {
+    let config = CONFIG.load(storage)?;
 
-    if config.relayers.iter().any(|r| r.coreum_address == sender) {
-        return Ok(());
-    }
-
-    Err(ContractError::UnauthorizedSender {})
+    Ok(config.relayers.iter().any(|r| r.coreum_address == sender))
 }
 
 pub fn handle_rotate_keys_confirmation(

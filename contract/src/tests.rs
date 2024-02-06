@@ -250,11 +250,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(error.to_string().contains(
-            ContractError::DuplicatedRelayerXRPLAddress {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(error
+            .to_string()
+            .contains(ContractError::DuplicatedRelayer {}.to_string().as_str()));
 
         // We check that trying to instantiate with relayers with the same xrpl public key fails
         let error = wasm
@@ -276,11 +274,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(error.to_string().contains(
-            ContractError::DuplicatedRelayerXRPLPubKey {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(error
+            .to_string()
+            .contains(ContractError::DuplicatedRelayer {}.to_string().as_str()));
 
         // We check that trying to instantiate with relayers with the same coreum address fails
         let error = wasm
@@ -302,11 +298,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(error.to_string().contains(
-            ContractError::DuplicatedRelayerCoreumAddress {}
-                .to_string()
-                .as_str()
-        ));
+        assert!(error
+            .to_string()
+            .contains(ContractError::DuplicatedRelayer {}.to_string().as_str()));
 
         // We check that trying to instantiate with invalid bridge_xrpl_address fails
         let invalid_address = "rf0BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(); //invalid because contains a 0
@@ -409,7 +403,7 @@ mod tests {
 
         assert!(error
             .to_string()
-            .contains(ContractError::ThresholdZero {}.to_string().as_str()));
+            .contains(ContractError::InvalidThreshold {}.to_string().as_str()));
 
         // Instantiating with too many relayers (> 32) should fail
         let mut too_many_relayers = vec![];
@@ -1018,9 +1012,13 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(issuer_error
+        assert!(issuer_error.to_string().contains(
+            ContractError::InvalidXRPLAddress {
+                address: "not_valid_issuer".to_string()
+            }
             .to_string()
-            .contains(ContractError::InvalidXRPLIssuer {}.to_string().as_str()));
+            .as_str()
+        ));
 
         // Registering a token with an invalid precision should fail.
         let issuer_error = wasm
@@ -7592,7 +7590,7 @@ mod tests {
             .unwrap_err();
 
         assert!(update_error.to_string().contains(
-            ContractError::TokenSendingPrecisionTooHigh {}
+            ContractError::InvalidSendingPrecision {}
                 .to_string()
                 .as_str()
         ));
@@ -9229,7 +9227,7 @@ mod tests {
 
         assert!(halt_error
             .to_string()
-            .contains(ContractError::NotOwnerOrRelayer {}.to_string().as_str()));
+            .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
 
         // Current relayer should be allowed to halt it
         wasm.execute::<ExecuteMsg>(
@@ -9522,7 +9520,7 @@ mod tests {
         }
 
         // If we trigger an XRPL base fee by some who is not the owner, it should fail.
-        let owner_error = wasm
+        let unauthorized_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::UpdateXRPLBaseFee { xrpl_base_fee: 600 },
@@ -9531,11 +9529,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(owner_error.to_string().contains(
-            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
-                .to_string()
-                .as_str()
-        ));
+        assert!(unauthorized_error
+            .to_string()
+            .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
 
         let new_xrpl_base_fee = 20;
         // If we trigger an XRPL base fee update, all signatures must be gone, and pending operations must be in version 2, and pending operations base fee must be the new one
@@ -9766,11 +9762,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(register_coreum_error.to_string().contains(
-            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
-                .to_string()
-                .as_str()
-        ));
+        assert!(register_coreum_error
+            .to_string()
+            .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
 
         // Try registering an XRPL token as not_owner, should fail
         let register_xrpl_error = wasm
@@ -9788,11 +9782,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(register_xrpl_error.to_string().contains(
-            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
-                .to_string()
-                .as_str()
-        ));
+        assert!(register_xrpl_error
+            .to_string()
+            .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
 
         // Trying to send from an address that is not a relayer should fail
         let relayer_error = wasm
@@ -9829,11 +9821,9 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(recover_tickets.to_string().contains(
-            ContractError::Ownership(cw_ownable::OwnershipError::NotOwner)
-                .to_string()
-                .as_str()
-        ));
+        assert!(recover_tickets
+            .to_string()
+            .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
     }
 
     #[test]
