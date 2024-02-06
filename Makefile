@@ -49,8 +49,8 @@ build-relayer-in-docker:
 .PHONY: build-contract
 build-contract:
 	docker run --user $(id -u):$(id -g) --rm -v $(CONTRACT_DIR):/code \
-      --mount type=volume,source="coreumbridge_xrpl_cache",target=/target \
-      --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+      -v $(CONTRACT_DIR)/target:/target \
+      -v $(CONTRACT_DIR)/target:/usr/local/cargo/registry \
       cosmwasm/optimizer:0.15.0
 	mkdir -p $(BUILD_DIR)
 	cp $(CONTRACT_DIR)/artifacts/coreumbridge_xrpl.wasm $(BUILD_DIR)/coreumbridge_xrpl.wasm
