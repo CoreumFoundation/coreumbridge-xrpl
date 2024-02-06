@@ -29,7 +29,7 @@ func BuildTicketCreateTxForMultiSigning(
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	fee, err := xrpl.GetTxFee(&tx)
+	fee, err := xrpl.GetMultiSigningTxFee(operation.XRPLBaseFee)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func BuildTrustSetTxForMultiSigning(
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	fee, err := xrpl.GetTxFee(&tx)
+	fee, err := xrpl.GetMultiSigningTxFee(operation.XRPLBaseFee)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func BuildSignerListSetTxForMultiSigning(
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	fee, err := xrpl.GetTxFee(&tx)
+	fee, err := xrpl.GetMultiSigningTxFee(operation.XRPLBaseFee)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func buildPaymentTx(
 	// important for the multi-signing
 	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
 
-	fee, err := xrpl.GetTxFee(&tx)
+	fee, err := xrpl.GetMultiSigningTxFee(operation.XRPLBaseFee)
 	if err != nil {
 		return rippledata.Payment{}, err
 	}

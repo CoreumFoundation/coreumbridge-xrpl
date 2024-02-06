@@ -198,6 +198,7 @@ pub struct PendingRefundsResponse {
 #[cw_serde]
 pub struct PendingRefund {
     pub id: String,
+    pub xrpl_tx_hash: Option<String>,
     pub coin: Coin,
 }
 

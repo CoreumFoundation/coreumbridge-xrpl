@@ -22,8 +22,10 @@ import (
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
+	"github.com/CoreumFoundation/coreum/v4/pkg/client"
 	coreumconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
 	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
+	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -34,10 +36,11 @@ import (
 // RunnerEnvConfig is runner environment config.
 type RunnerEnvConfig struct {
 	AwaitTimeout                time.Duration
-	SigningThreshold            int
-	RelayersCount               int
-	MaliciousRelayerNumber      int
-	UsedTicketSequenceThreshold int
+	SigningThreshold            uint32
+	RelayersCount               uint32
+	MaliciousRelayerNumber      uint32
+	UsedTicketSequenceThreshold uint32
+	XRPLBaseFee                 uint32
 	TrustSetLimitAmount         sdkmath.Int
 	CustomBridgeXRPLAddress     *rippledata.Account
 	CustomContractAddress       *sdk.AccAddress
@@ -49,11 +52,12 @@ type RunnerEnvConfig struct {
 // DefaultRunnerEnvConfig returns default runner environment config.
 func DefaultRunnerEnvConfig() RunnerEnvConfig {
 	return RunnerEnvConfig{
-		AwaitTimeout:                15 * time.Second,
+		AwaitTimeout:                time.Minute,
 		SigningThreshold:            2,
 		RelayersCount:               3,
 		MaliciousRelayerNumber:      0,
 		UsedTicketSequenceThreshold: 150,
+		XRPLBaseFee:                 xrpl.DefaultXRPLBaseFee,
 		TrustSetLimitAmount:         sdkmath.NewIntWithDecimal(1, 35),
 		CustomBridgeXRPLAddress:     nil,
 		CustomContractAddress:       nil,
@@ -121,7 +125,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	)
 
 	bootstrappingRelayers := make([]bridgeclient.RelayerConfig, 0)
-	for i := 0; i < cfg.RelayersCount; i++ {
+	for i := 0; i < int(cfg.RelayersCount); i++ {
 		relayerCoreumAddress := relayerCoreumAddresses[i]
 		relayerXRPLAddress := relayerXRPLAddresses[i]
 		relayerXRPLPubKey := relayerXRPLPubKeys[i]
@@ -140,6 +144,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		UsedTicketSequenceThreshold: cfg.UsedTicketSequenceThreshold,
 		TrustSetLimitAmount:         cfg.TrustSetLimitAmount.String(),
 		ContractByteCodePath:        integrationtests.CompiledContractFilePath,
+		XRPLBaseFee:                 cfg.XRPLBaseFee,
 		SkipXRPLBalanceValidation:   true,
 	}
 
@@ -157,7 +162,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 
 	runners := make([]*runner.Runner, 0, cfg.RelayersCount)
 	// add correct relayers
-	for i := 0; i < cfg.RelayersCount-cfg.MaliciousRelayerNumber; i++ {
+	for i := 0; i < int(cfg.RelayersCount-cfg.MaliciousRelayerNumber); i++ {
 		runners = append(
 			runners,
 			createDevRunner(
@@ -260,14 +265,13 @@ func (r *RunnerEnv) AwaitNoPendingOperations(ctx context.Context, t *testing.T) 
 func (r *RunnerEnv) AwaitCoreumBalance(
 	ctx context.Context,
 	t *testing.T,
-	coreumChain integrationtests.CoreumChain,
 	address sdk.AccAddress,
 	expectedBalance sdk.Coin,
 ) {
 	t.Helper()
 	awaitContext, awaitContextCancel := context.WithTimeout(ctx, r.Cfg.AwaitTimeout)
 	t.Cleanup(awaitContextCancel)
-	require.NoError(t, coreumChain.AwaitForBalance(awaitContext, t, address, expectedBalance))
+	require.NoError(t, r.Chains.Coreum.AwaitForBalance(awaitContext, t, address, expectedBalance))
 }
 
 // AwaitState waits for stateChecker function to rerun nil and retires in case of failure.
@@ -292,7 +296,7 @@ func (r *RunnerEnv) AllocateTickets(
 	numberOfTicketsToAllocate uint32,
 ) {
 	r.Chains.XRPL.FundAccountForTicketAllocation(ctx, t, r.BridgeXRPLAddress, numberOfTicketsToAllocate)
-	require.NoError(t, r.BridgeClient.RecoverTickets(ctx, r.ContractOwner, numberOfTicketsToAllocate))
+	require.NoError(t, r.BridgeClient.RecoverTickets(ctx, r.ContractOwner, &numberOfTicketsToAllocate))
 
 	r.AwaitNoPendingOperations(ctx, t)
 	availableTickets, err := r.ContractClient.GetAvailableTickets(ctx)
@@ -349,6 +353,45 @@ func (r *RunnerEnv) RegisterCoreumOriginatedToken(
 	)
 	require.NoError(t, err)
 	return token
+}
+
+// IssueAndRegisterCoreumOriginatedToken issues new Coreum originated token and registers it in the contract.
+func (r *RunnerEnv) IssueAndRegisterCoreumOriginatedToken(
+	ctx context.Context,
+	t *testing.T,
+	issuerAddress sdk.AccAddress,
+	tokenDecimals uint32,
+	initialAmount sdkmath.Int,
+	sendingPrecision int32,
+	maxHoldingAmount sdkmath.Int,
+	bridgingFee sdkmath.Int,
+) coreum.CoreumToken {
+	issueMsg := &assetfttypes.MsgIssue{
+		Issuer:        issuerAddress.String(),
+		Symbol:        "symbol" + uuid.NewString()[:4],
+		Subunit:       "subunit" + uuid.NewString()[:4],
+		Precision:     tokenDecimals, // token decimals in terms of the contract
+		InitialAmount: initialAmount,
+	}
+	_, err := client.BroadcastTx(
+		ctx,
+		r.Chains.Coreum.ClientContext.WithFromAddress(issuerAddress),
+		r.Chains.Coreum.TxFactory().WithSimulateAndExecute(true),
+		issueMsg,
+	)
+	require.NoError(t, err)
+	registeredCoreumOriginatedToken := r.RegisterCoreumOriginatedToken(
+		ctx,
+		t,
+		// use Coreum denom
+		assetfttypes.BuildDenom(issueMsg.Subunit, issuerAddress),
+		tokenDecimals,
+		sendingPrecision,
+		maxHoldingAmount,
+		bridgingFee,
+	)
+
+	return registeredCoreumOriginatedToken
 }
 
 // SendFromCoreumToXRPL sends tokens form Coreum to XRPL.
@@ -499,12 +542,12 @@ func genCoreumRelayers(
 	ctx context.Context,
 	t *testing.T,
 	coreumChain integrationtests.CoreumChain,
-	relayersCount int,
+	relayersCount uint32,
 ) []sdk.AccAddress {
 	t.Helper()
 
 	addresses := make([]sdk.AccAddress, 0, relayersCount)
-	for i := 0; i < relayersCount; i++ {
+	for i := 0; i < int(relayersCount); i++ {
 		relayerAddress := coreumChain.GenAccount()
 		coreumChain.FundAccountWithOptions(ctx, t, relayerAddress, coreumintegration.BalancesOptions{
 			Amount: sdkmath.NewIntFromUint64(1_000_000),
@@ -519,7 +562,7 @@ func genBridgeXRPLAccountWithRelayers(
 	ctx context.Context,
 	t *testing.T,
 	xrplChain integrationtests.XRPLChain,
-	signersCount int,
+	signersCount uint32,
 ) (rippledata.Account, []rippledata.Account, []rippledata.PublicKey) {
 	t.Helper()
 	// some fee to cover simple txs all extras must be allocated in the test
@@ -528,7 +571,7 @@ func genBridgeXRPLAccountWithRelayers(
 	t.Logf("Bridge account is generated, address:%s", bridgeXRPLAddress.String())
 	signerAccounts := make([]rippledata.Account, 0, signersCount)
 	signerPubKeys := make([]rippledata.PublicKey, 0, signersCount)
-	for i := 0; i < signersCount; i++ {
+	for i := 0; i < int(signersCount); i++ {
 		signerAcc := xrplChain.GenAccount(ctx, t, 0)
 		signerAccounts = append(signerAccounts, signerAcc)
 		t.Logf("Signer %d is generated, address:%s", i+1, signerAcc.String())

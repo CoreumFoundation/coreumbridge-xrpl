@@ -7,14 +7,17 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	sdkmath "cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	cosmoserrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreum/v4/testutil/event"
 	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
@@ -46,6 +49,7 @@ const (
 	ExecRotateKeys                    ExecMethod = "rotate_keys"
 	ExecHaltBridge                    ExecMethod = "halt_bridge"
 	ExecResumeBridge                  ExecMethod = "resume_bridge"
+	ExecUpdateXRPLBaseFee             ExecMethod = "update_xrpl_base_fee"
 )
 
 // TransactionResult is transaction result.
@@ -105,21 +109,22 @@ type InstantiationConfig struct {
 	Owner                       sdk.AccAddress
 	Admin                       sdk.AccAddress
 	Relayers                    []Relayer
-	EvidenceThreshold           int
-	UsedTicketSequenceThreshold int
+	EvidenceThreshold           uint32
+	UsedTicketSequenceThreshold uint32
 	TrustSetLimitAmount         sdkmath.Int
 	BridgeXRPLAddress           string
-	XRPLBaseFee                 int
+	XRPLBaseFee                 uint32
 }
 
 // ContractConfig is contract config.
 type ContractConfig struct {
 	Relayers                    []Relayer   `json:"relayers"`
-	EvidenceThreshold           int         `json:"evidence_threshold"`
-	UsedTicketSequenceThreshold int         `json:"used_ticket_sequence_threshold"`
+	EvidenceThreshold           uint32      `json:"evidence_threshold"`
+	UsedTicketSequenceThreshold uint32      `json:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         sdkmath.Int `json:"trust_set_limit_amount"`
 	BridgeXRPLAddress           string      `json:"bridge_xrpl_address"`
-	BridgeState                 string      `json:"bridge_state"`
+	BridgeState                 BridgeState `json:"bridge_state"`
+	XRPLBaseFee                 uint32      `json:"xrpl_base_fee"`
 }
 
 // ContractOwnership is owner contract config.
@@ -234,10 +239,12 @@ type OperationType struct {
 
 // Operation is contract operation which should be signed and executed.
 type Operation struct {
+	Version         uint32        `json:"version"`
 	TicketSequence  uint32        `json:"ticket_sequence"`
 	AccountSequence uint32        `json:"account_sequence"`
 	Signatures      []Signature   `json:"signatures"`
 	OperationType   OperationType `json:"operation_type"`
+	XRPLBaseFee     uint32        `json:"xrpl_base_fee"`
 }
 
 // GetOperationID returns operation ID.
@@ -249,16 +256,30 @@ func (o Operation) GetOperationID() uint32 {
 	return o.AccountSequence
 }
 
+// SendToXRPLRequest defines single request to send from coreum to XRPL.
+type SendToXRPLRequest struct {
+	Recipient     string
+	Amount        sdk.Coin
+	DeliverAmount *sdkmath.Int
+}
+
+// SaveSignatureRequest defines single request to save relayer signature.
+type SaveSignatureRequest struct {
+	OperationID      uint32
+	OperationVersion uint32
+	Signature        string
+}
+
 // ******************** Internal transport object  ********************
 
 type instantiateRequest struct {
 	Owner                       sdk.AccAddress `json:"owner"`
 	Relayers                    []Relayer      `json:"relayers"`
-	EvidenceThreshold           int            `json:"evidence_threshold"`
-	UsedTicketSequenceThreshold int            `json:"used_ticket_sequence_threshold"`
+	EvidenceThreshold           uint32         `json:"evidence_threshold"`
+	UsedTicketSequenceThreshold uint32         `json:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         sdkmath.Int    `json:"trust_set_limit_amount"`
 	BridgeXRPLAddress           string         `json:"bridge_xrpl_address"`
-	XRPLBaseFee                 int            `json:"xrpl_base_fee"`
+	XRPLBaseFee                 uint32         `json:"xrpl_base_fee"`
 }
 
 type transferOwnershipRequest struct {
@@ -294,7 +315,7 @@ type recoverTicketsRequest struct {
 
 type rotateKeysRequest struct {
 	NewRelayers          []Relayer `json:"new_relayers"`
-	NewEvidenceThreshold int       `json:"new_evidence_threshold"`
+	NewEvidenceThreshold uint32    `json:"new_evidence_threshold"`
 }
 
 type saveSignatureRequest struct {
@@ -338,6 +359,10 @@ type claimRefundRequest struct {
 	PendingRefundID string `json:"pending_refund_id"`
 }
 
+type updateXRPLBaseFeeRequest struct {
+	XRPLBaseFee uint32 `json:"xrpl_base_fee"`
+}
+
 type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
 	Tickets []uint32 `json:"tickets"`
 }
@@ -367,6 +392,7 @@ type coreumTokensResponse struct {
 }
 
 type pendingOperationsResponse struct {
+	LastKey    uint32      `json:"last_key"`
 	Operations []Operation `json:"operations"`
 }
 
@@ -384,12 +410,18 @@ type pendingRefundsResponse struct {
 
 // PendingRefund holds the pending refund information.
 type PendingRefund struct {
-	ID   string   `json:"id"`
-	Coin sdk.Coin `json:"coin"`
+	ID         string   `json:"id"`
+	Coin       sdk.Coin `json:"coin"`
+	XRPLTxHash string   `json:"xrpl_tx_hash"`
 }
 
-type pagingRequest struct {
+type pagingStringKeyRequest struct {
 	StartAfterKey string  `json:"start_after_key,omitempty"`
+	Limit         *uint32 `json:"limit"`
+}
+
+type pagingUint32KeyRequest struct {
+	StartAfterKey *uint32 `json:"start_after_key,omitempty"`
 	Limit         *uint32 `json:"limit"`
 }
 
@@ -402,19 +434,23 @@ type execRequest struct {
 
 // ContractClientConfig represent the ContractClient config.
 type ContractClientConfig struct {
-	ContractAddress    sdk.AccAddress
-	GasAdjustment      float64
-	GasPriceAdjustment sdk.Dec
-	PageLimit          uint32
+	ContractAddress       sdk.AccAddress
+	GasAdjustment         float64
+	GasPriceAdjustment    sdk.Dec
+	PageLimit             uint32
+	OutOfGasRetryDelay    time.Duration
+	OutOfGasRetryAttempts uint32
 }
 
 // DefaultContractClientConfig returns default ContractClient config.
 func DefaultContractClientConfig(contractAddress sdk.AccAddress) ContractClientConfig {
 	return ContractClientConfig{
-		ContractAddress:    contractAddress,
-		GasAdjustment:      2,
-		GasPriceAdjustment: sdk.MustNewDecFromStr("1.2"),
-		PageLimit:          250,
+		ContractAddress:       contractAddress,
+		GasAdjustment:         1.4,
+		GasPriceAdjustment:    sdk.MustNewDecFromStr("1.2"),
+		PageLimit:             50,
+		OutOfGasRetryDelay:    500 * time.Millisecond,
+		OutOfGasRetryAttempts: 5,
 	}
 }
 
@@ -793,18 +829,39 @@ func (c *ContractClient) SaveSignature(
 	ctx context.Context,
 	sender sdk.AccAddress,
 	operationID uint32,
+	operationVersion uint32,
 	signature string,
 ) (*sdk.TxResponse, error) {
-	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveSignatureRequest{
-			ExecMethodSaveSignature: {
-				OperationID: operationID,
-				// TODO (dzmitryhil) replace this with correct operation version
-				OperationVersion: 1,
-				Signature:        signature,
-			},
+	return c.SaveMultipleSignatures(
+		ctx,
+		sender,
+		SaveSignatureRequest{
+			OperationID:      operationID,
+			OperationVersion: operationVersion,
+			Signature:        signature,
 		},
-	})
+	)
+}
+
+// SaveMultipleSignatures executes `save_signature` method for each request.
+func (c *ContractClient) SaveMultipleSignatures(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	requests ...SaveSignatureRequest,
+) (*sdk.TxResponse, error) {
+	execRequests := make([]execRequest, 0, len(requests))
+	for _, req := range requests {
+		execRequests = append(execRequests, execRequest{
+			Body: map[ExecMethod]saveSignatureRequest{
+				ExecMethodSaveSignature: {
+					OperationID:      req.OperationID,
+					OperationVersion: req.OperationVersion,
+					Signature:        req.Signature,
+				},
+			},
+		})
+	}
+	txRes, err := c.execute(ctx, sender, execRequests...)
 	if err != nil {
 		return nil, err
 	}
@@ -820,15 +877,32 @@ func (c *ContractClient) SendToXRPL(
 	amount sdk.Coin,
 	deliverAmount *sdkmath.Int,
 ) (*sdk.TxResponse, error) {
-	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]sendToXRPLRequest{
-			ExecSendToXRPL: {
-				DeliverAmount: deliverAmount,
-				Recipient:     recipient,
-			},
-		},
-		Funds: sdk.NewCoins(amount),
+	return c.MultiSendToXRPL(ctx, sender, SendToXRPLRequest{
+		Recipient:     recipient,
+		Amount:        amount,
+		DeliverAmount: deliverAmount,
 	})
+}
+
+// MultiSendToXRPL executes `send_to_xrpl` method for each request.
+func (c *ContractClient) MultiSendToXRPL(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	requests ...SendToXRPLRequest,
+) (*sdk.TxResponse, error) {
+	execRequests := make([]execRequest, 0, len(requests))
+	for _, req := range requests {
+		execRequests = append(execRequests, execRequest{
+			Body: map[ExecMethod]sendToXRPLRequest{
+				ExecSendToXRPL: {
+					DeliverAmount: req.DeliverAmount,
+					Recipient:     req.Recipient,
+				},
+			},
+			Funds: sdk.NewCoins(req.Amount),
+		})
+	}
+	txRes, err := c.execute(ctx, sender, execRequests...)
 	if err != nil {
 		return nil, err
 	}
@@ -959,7 +1033,7 @@ func (c *ContractClient) RotateKeys(
 	ctx context.Context,
 	sender sdk.AccAddress,
 	newRelayers []Relayer,
-	newEvidenceThreshold int,
+	newEvidenceThreshold uint32,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]rotateKeysRequest{
@@ -1001,6 +1075,26 @@ func (c *ContractClient) ResumeBridge(
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]struct{}{
 			ExecResumeBridge: {},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
+// UpdateXRPLBaseFee executes `update_xrpl_base_fee` method.
+func (c *ContractClient) UpdateXRPLBaseFee(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	xrplBaseFee uint32,
+) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]updateXRPLBaseFeeRequest{
+			ExecUpdateXRPLBaseFee: {
+				XRPLBaseFee: xrplBaseFee,
+			},
 		},
 	})
 	if err != nil {
@@ -1114,15 +1208,21 @@ func (c *ContractClient) GetCoreumTokens(ctx context.Context) ([]CoreumToken, er
 
 // GetPendingOperations returns a list of all pending operations.
 func (c *ContractClient) GetPendingOperations(ctx context.Context) ([]Operation, error) {
-	var response pendingOperationsResponse
-	err := c.query(ctx, map[QueryMethod]struct{}{
-		QueryMethodPendingOperations: {},
-	}, &response)
-	if err != nil {
-		return nil, err
+	operations := make([]Operation, 0)
+	var startAfterKey *uint32
+	for {
+		response, err := c.getPaginatedPendingOperations(ctx, startAfterKey, &c.cfg.PageLimit)
+		if err != nil {
+			return nil, err
+		}
+		if len(response.Operations) == 0 {
+			break
+		}
+		operations = append(operations, response.Operations...)
+		startAfterKey = &response.LastKey
 	}
 
-	return response.Operations, nil
+	return operations, nil
 }
 
 // GetAvailableTickets returns a list of registered not used tickets.
@@ -1178,7 +1278,7 @@ func (c *ContractClient) getPaginatedXRPLTokens(
 	limit *uint32,
 ) (xrplTokensResponse, error) {
 	var response xrplTokensResponse
-	err := c.query(ctx, map[QueryMethod]pagingRequest{
+	err := c.query(ctx, map[QueryMethod]pagingStringKeyRequest{
 		QueryMethodXRPLTokens: {
 			StartAfterKey: startAfterKey,
 			Limit:         limit,
@@ -1197,7 +1297,7 @@ func (c *ContractClient) getPaginatedCoreumTokens(
 	limit *uint32,
 ) (coreumTokensResponse, error) {
 	var response coreumTokensResponse
-	err := c.query(ctx, map[QueryMethod]pagingRequest{
+	err := c.query(ctx, map[QueryMethod]pagingStringKeyRequest{
 		QueryMethodCoreumTokens: {
 			StartAfterKey: startAfterKey,
 			Limit:         limit,
@@ -1205,6 +1305,25 @@ func (c *ContractClient) getPaginatedCoreumTokens(
 	}, &response)
 	if err != nil {
 		return response, err
+	}
+
+	return response, nil
+}
+
+func (c *ContractClient) getPaginatedPendingOperations(
+	ctx context.Context,
+	startAfterKey *uint32,
+	limit *uint32,
+) (pendingOperationsResponse, error) {
+	var response pendingOperationsResponse
+	err := c.query(ctx, map[QueryMethod]pagingUint32KeyRequest{
+		QueryMethodPendingOperations: {
+			StartAfterKey: startAfterKey,
+			Limit:         limit,
+		},
+	}, &response)
+	if err != nil {
+		return pendingOperationsResponse{}, err
 	}
 
 	return response, nil
@@ -1247,10 +1366,30 @@ func (c *ContractClient) execute(
 	}
 
 	txf := c.getTxFactory().WithMemo(fmt.Sprintf("relayer_version:%s", buildinfo.VersionTag))
-	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), txf, msgs...)
+	var res *sdk.TxResponse
+	outOfGasRetryAttempt := uint32(1)
+	err := retry.Do(ctx, c.cfg.OutOfGasRetryDelay, func() error {
+		var err error
+		res, err = client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), txf, msgs...)
+		if err == nil {
+			return nil
+		}
+		// stop if we have reached the max retires
+		if outOfGasRetryAttempt >= c.cfg.OutOfGasRetryAttempts {
+			return err
+		}
+		if cosmoserrors.ErrOutOfGas.Is(err) {
+			outOfGasRetryAttempt++
+			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution, out of gas")
+			return retry.Retryable(errors.Wrapf(err, "retry tx execution, out of gas"))
+		}
+
+		return errors.Wrapf(err, "failed to execute transaction, message:%+v", msgs)
+	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute transaction, message:%+v", msgs)
+		return nil, err
 	}
+
 	return res, nil
 }
 
@@ -1425,6 +1564,21 @@ func IsInvalidDeliverAmountError(err error) bool {
 // IsDeliverAmountIsProhibitedError returns true if error is `DeliverAmountIsProhibited`.
 func IsDeliverAmountIsProhibitedError(err error) bool {
 	return isError(err, "DeliverAmountIsProhibited")
+}
+
+// IsOperationVersionMismatchError returns true if error is `OperationVersionMismatch`.
+func IsOperationVersionMismatchError(err error) bool {
+	return isError(err, "OperationVersionMismatch")
+}
+
+// IsProhibitedRecipientError returns true if error is `ProhibitedRecipient`.
+func IsProhibitedRecipientError(err error) bool {
+	return isError(err, "ProhibitedRecipient")
+}
+
+// IsNotOwnerOrRelayerError returns true if error is `NotOwnerOrRelayer`.
+func IsNotOwnerOrRelayerError(err error) bool {
+	return isError(err, "NotOwnerOrRelayer")
 }
 
 // ******************** Asset FT errors ********************
