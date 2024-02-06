@@ -2,6 +2,7 @@ package processes
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -241,6 +242,17 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 		)
 		return nil
 	}
+	// These codes indicate that the transaction failed, but it was applied to a ledger to apply the transaction cost.
+	if strings.HasPrefix(txRes.EngineResult.String(), xrpl.TecTxResultPrefix) {
+		s.log.Info(
+			ctx,
+			fmt.Sprintf(
+				"The transaction has been sent, but will be reverted, code:%s, description:%s",
+				txRes.EngineResult.String(), txRes.EngineResult.Human(),
+			),
+		)
+		return nil
+	}
 
 	switch txRes.EngineResult.String() {
 	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult:
@@ -249,36 +261,15 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 			"Transaction has been already submitted",
 		)
 		return nil
-	case xrpl.TecPathDryTxResult:
-		//nolint:lll // breaking down the log line will make it less readable.
-		s.log.Info(
+	case xrpl.TelInsufFeeP:
+		s.log.Warn(
 			ctx,
-			"The transaction has been sent, but will be reverted since the provided path does not have enough liquidity or the receipt doesn't link by trust lines.",
-		)
-		return nil
-	case xrpl.TecPathPartialTxResult:
-		//nolint:lll // breaking down the log line will make it less readable.
-		s.log.Info(
-			ctx,
-			"The transaction has been sent, but will be reverted because the provided paths did not have enough liquidity to send the full amount.",
-		)
-		return nil
-	case xrpl.TecNoDstTxResult:
-		s.log.Info(
-			ctx,
-			"The transaction has been sent, but will be reverted since account used in the transaction doesn't exist.",
-		)
-		return nil
-	case xrpl.TecInsufficientReserveTxResult:
-		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
-		s.log.Error(
-			ctx,
-			"Insufficient reserve to complete the operation",
+			"The Fee from the transaction is not high enough to meet the server's current transaction cost requirement.",
 		)
 		return nil
 	default:
-		// TODO(dzmitryhil) handle the case when the keys are rotated but the bridgeSigners are from the previous state
-		return errors.Errorf("failed to submit transaction, receveid unexpected result, result:%+v", txRes)
+		return errors.Errorf("failed to submit transaction, receveid unexpected result, code:%s result:%+v, tx:%+v",
+			txRes.EngineResult.String(), txRes, tx)
 	}
 }
 
@@ -445,6 +436,7 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 		ctx,
 		s.cfg.RelayerCoreumAddress,
 		operation.GetOperationID(),
+		operation.Version,
 		signer.Signer.TxnSignature.String(),
 	)
 	if err == nil {
@@ -456,10 +448,10 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 		)
 		return nil
 	}
-	if coreum.IsSignatureAlreadyProvidedError(err) {
-		return nil
-	}
-	if coreum.IsPendingOperationNotFoundError(err) {
+	if coreum.IsSignatureAlreadyProvidedError(err) ||
+		coreum.IsPendingOperationNotFoundError(err) ||
+		coreum.IsOperationVersionMismatchError(err) ||
+		coreum.IsBridgeHaltedError(err) {
 		return nil
 	}
 

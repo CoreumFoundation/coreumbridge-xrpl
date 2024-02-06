@@ -66,9 +66,11 @@ coreum:
         chain_id: coreum-mainnet-1
     contract:
         contract_address: ""
-        gas_adjustment: 2
+        gas_adjustment: 1.4
         gas_price_adjustment: 1.2
-        page_limit: 250
+        page_limit: 50
+        out_of_gas_retry_delay: 500ms
+        out_of_gas_retry_attempts: 5
         request_timeout: 10s
         tx_timeout: 1m0s
         tx_status_poll_interval: 500ms

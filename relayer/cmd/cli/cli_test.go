@@ -159,9 +159,24 @@ func TestRecoverTicketsCmd(t *testing.T) {
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
-
 	bridgeClientMock := NewMockBridgeClient(ctrl)
-	bridgeClientMock.EXPECT().RecoverTickets(gomock.Any(), gomock.Any(), xrpl.MaxTicketsToAllocate)
+	bridgeClientMock.EXPECT().RecoverTickets(gomock.Any(), gomock.Any(), nil)
+	executeCmd(t, cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+
+	// with tickets
+	args = []string{
+		flagWithPrefix(cli.FlagTicketsToAllocate), "123",
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	bridgeClientMock = NewMockBridgeClient(ctrl)
+	bridgeClientMock.EXPECT().RecoverTickets(
+		gomock.Any(),
+		gomock.Any(),
+		mock.MatchedBy(func(v *uint32) bool {
+			return *v == 123
+		}),
+	)
 	executeCmd(t, cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
@@ -800,6 +815,25 @@ func TestRotateKeysCmd(t *testing.T) {
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.RotateKeysCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestUpdateXRPLBaseFeeCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+
+	// call rotate-keys with init only
+	args := []string{
+		"17",
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	bridgeClientMock.EXPECT().UpdateXRPLBaseFee(gomock.Any(), gomock.Any(), uint32(17))
+	executeCmd(t, cli.UpdateXRPLBaseFeeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
 func TestRegisteredTokensCmd(t *testing.T) {
