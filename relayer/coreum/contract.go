@@ -1271,11 +1271,6 @@ func (c *ContractClient) GetPendingRefunds(ctx context.Context, address sdk.AccA
 	return response.PendingRefunds, nil
 }
 
-// GetClientCtx returns client.Context.
-func (c *ContractClient) GetClientCtx() client.Context {
-	return c.clientCtx
-}
-
 // SetClientCtx sets the client.Context.
 func (c *ContractClient) SetClientCtx(ctx client.Context) {
 	c.clientCtx = ctx
