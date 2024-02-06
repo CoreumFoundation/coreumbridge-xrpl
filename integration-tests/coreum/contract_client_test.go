@@ -5646,7 +5646,7 @@ func TestBridgeHalting(t *testing.T) {
 
 	// try to halt from not owner and not relayer
 	_, err = contractClient.HaltBridge(ctx, randomAddress)
-	require.True(t, coreum.IsNotOwnerOrRelayerError(err), err)
+	require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
 	// halt from owner
 	_, err = contractClient.HaltBridge(ctx, owner)
