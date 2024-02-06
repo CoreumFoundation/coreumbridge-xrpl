@@ -124,7 +124,7 @@ func TestKeysRotation(t *testing.T) {
 	expectedContractCfgAfterRotationAcceptance := contractCfgBeforeRotationAcceptance
 	expectedContractCfgAfterRotationAcceptance.EvidenceThreshold = newSigningThreshold
 	expectedContractCfgAfterRotationAcceptance.Relayers = convertBridgeClientRelayersToContactRelayers(t, updatedRelayers)
-	expectedContractCfgAfterRotationAcceptance.BridgeState = string(coreum.BridgeStateHalted)
+	expectedContractCfgAfterRotationAcceptance.BridgeState = coreum.BridgeStateHalted
 	require.Equal(t, expectedContractCfgAfterRotationAcceptance, contractCfgAfterRotationAcceptance)
 
 	// activate the bridge to let it work with the new relays

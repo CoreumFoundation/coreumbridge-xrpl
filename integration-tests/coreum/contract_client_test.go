@@ -104,7 +104,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
 		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
 		BridgeXRPLAddress:           bridgeXRPLAddress,
-		BridgeState:                 string(coreum.BridgeStateActive),
+		BridgeState:                 coreum.BridgeStateActive,
 		XRPLBaseFee:                 xrplBaseFee,
 	}, contractCfg)
 
@@ -5895,7 +5895,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	contractCfgBeforeRotationStart, err := contractClient.GetContractConfig(ctx)
 	require.NoError(t, err)
 
-	require.Equal(t, string(coreum.BridgeStateActive), contractCfgBeforeRotationStart.BridgeState)
+	require.Equal(t, coreum.BridgeStateActive, contractCfgBeforeRotationStart.BridgeState)
 	require.Equal(t, uint32(2), contractCfgBeforeRotationStart.EvidenceThreshold)
 
 	// keys rotation
@@ -5921,7 +5921,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 
 	// check that the current config set is same as it was (apart from state)
 	expectedBridgeCfg := contractCfgBeforeRotationStart
-	expectedBridgeCfg.BridgeState = string(coreum.BridgeStateHalted)
+	expectedBridgeCfg.BridgeState = coreum.BridgeStateHalted
 
 	require.Equal(t, expectedBridgeCfg, contractCfgAfterRotationStart)
 
@@ -6109,7 +6109,7 @@ func TestUpdateXRPLBaseFee(t *testing.T) {
 		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
 		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
 		BridgeXRPLAddress:           bridgeXRPLAddress,
-		BridgeState:                 string(coreum.BridgeStateActive),
+		BridgeState:                 coreum.BridgeStateActive,
 		XRPLBaseFee:                 xrplBaseFee,
 	}, contractCfg)
 
@@ -6132,7 +6132,7 @@ func TestUpdateXRPLBaseFee(t *testing.T) {
 		UsedTicketSequenceThreshold: usedTicketSequenceThreshold,
 		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
 		BridgeXRPLAddress:           bridgeXRPLAddress,
-		BridgeState:                 string(coreum.BridgeStateActive),
+		BridgeState:                 coreum.BridgeStateActive,
 		XRPLBaseFee:                 xrplBaseFee,
 	}, contractCfg)
 
