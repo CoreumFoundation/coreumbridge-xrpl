@@ -4,9 +4,13 @@
 package fee_test
 
 import (
+	"encoding/hex"
 	"math/big"
+	"math/rand"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 )
@@ -230,6 +234,44 @@ func TestReceivedCoreumToXRPLAmount(t *testing.T) {
 			}
 		})
 	}
+}
+
+func FuzzAmountConversionCoreumToXRPLAndBack(f *testing.F) {
+	f.Fuzz(func(t *testing.T, amount uint64, randomizerSeed int64) {
+		initial := sdkmath.NewIntFromUint64(amount)
+
+		// init rand with seed
+		rnd := rand.New(rand.NewSource(randomizerSeed))
+
+		// randomize issuer
+		issuerBytes := make([]byte, 20)
+		rnd.Read(issuerBytes)
+		issuer := rippledata.Account(issuerBytes).String()
+
+		// randomize currency
+		currencyByte, err := generateHex(rnd, 40)
+		require.NoError(t, err)
+
+		// convert to and back from xrpl
+		rippleAmount, err := processes.ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+			initial,
+			issuer,
+			string(currencyByte),
+		)
+		require.NoError(t, err)
+		coreumAmount, err := processes.ConvertXRPLAmountToCoreumAmount(rippleAmount)
+		require.NoError(t, err)
+
+		require.EqualValues(t, initial.String(), coreumAmount.String())
+	})
+}
+
+func generateHex(rnd *rand.Rand, size int) (string, error) {
+	bytes := make([]byte, size/2)
+	if _, err := rnd.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 func computeReceivedTransferAmountFromXRPLToCoreum(
