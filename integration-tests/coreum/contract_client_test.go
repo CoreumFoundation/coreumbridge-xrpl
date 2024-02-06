@@ -5782,7 +5782,7 @@ func TestBridgeHalting(t *testing.T) {
 	// check that the bridge is still halted
 	cfg, err := contractClient.GetContractConfig(ctx)
 	require.NoError(t, err)
-	require.Equal(t, string(coreum.BridgeStateHalted), cfg.BridgeState)
+	require.Equal(t, coreum.BridgeStateHalted, cfg.BridgeState)
 }
 
 func TestKeysRotationWithRecovery(t *testing.T) {
