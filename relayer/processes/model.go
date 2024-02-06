@@ -78,5 +78,6 @@ func IsExpectedEvidenceSubmissionError(err error) bool {
 		coreum.IsPendingOperationNotFoundError(err) ||
 		coreum.IsMaximumBridgedAmountReachedError(err) ||
 		coreum.IsTokenNotEnabledError(err) ||
-		coreum.IsProhibitedRecipientError(err)
+		coreum.IsProhibitedRecipientError(err) ||
+		coreum.IsBridgeHaltedError(err)
 }
