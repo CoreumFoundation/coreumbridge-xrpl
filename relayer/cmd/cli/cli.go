@@ -77,6 +77,8 @@ const (
 	FlagMaxHoldingAmount = "max-holding-amount"
 	// FlagDeliverAmount is deliver amount flag.
 	FlagDeliverAmount = "deliver-amount"
+	// FlagTicketsToAllocate is tickets to allocate flag.
+	FlagTicketsToAllocate = "tickets-to-allocate"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -92,7 +94,7 @@ type BridgeClient interface {
 	RecoverTickets(
 		ctx context.Context,
 		ownerAddress sdk.AccAddress,
-		ticketsToAllocate uint32,
+		ticketsToAllocate *uint32,
 	) error
 	RegisterCoreumToken(
 		ctx context.Context,
@@ -573,17 +575,22 @@ func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 func RecoverTicketsCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "recovery-tickets",
-		Short: "Recovers 250 tickets in the bridge contract.",
+		Short: "Recovers tickets in the bridge contract.",
 		Long: strings.TrimSpace(fmt.Sprintf(
 			`Recovers 250 tickets in the bridge contract.
 Example:
-$ recovery-tickets --%s owner
-`, FlagKeyName)),
+$ recovery-tickets --%s 250 --%s owner
+`, FlagTicketsToAllocate, FlagKeyName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
+			}
+
+			ticketsToAllocated, err := getFlagUint32IfPresent(cmd, FlagTicketsToAllocate)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get %s", FlagTicketsToAllocate)
 			}
 
 			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
@@ -599,12 +606,15 @@ $ recovery-tickets --%s owner
 				return err
 			}
 
-			return bridgeClient.RecoverTickets(ctx, owner, xrpl.MaxTicketsToAllocate)
+			return bridgeClient.RecoverTickets(ctx, owner, ticketsToAllocated)
 		},
 	}
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	cmd.PersistentFlags().Uint32(
+		FlagTicketsToAllocate, 0, "tickets to allocate (if not provided the contract uses used tickets count)",
+	)
 
 	return cmd
 }
@@ -1829,21 +1839,6 @@ func readUpdateTokenFlags(cmd *cobra.Command) (*string, *int32, *sdkmath.Int, *s
 	return state, sendingPrecision, maxHoldingAmount, bridgingFee, nil
 }
 
-func getFlagSDKIntIfPresent(cmd *cobra.Command, flag string) (*sdkmath.Int, error) {
-	stringVal, err := getFlagStringIfPresent(cmd, flag)
-	if err != nil {
-		return nil, err
-	}
-	if stringVal != nil {
-		bridgingFeeInt, ok := sdkmath.NewIntFromString(*stringVal)
-		if !ok {
-			return nil, errors.Errorf("failed to convert string to sdkmath.Int, string:%s", *stringVal)
-		}
-		return &bridgingFeeInt, nil
-	}
-	return nil, nil //nolint:nilnil // expected result
-}
-
 func convertStateStringTokenState(state *string) (*coreum.TokenState, error) {
 	if state == nil {
 		return nil, nil //nolint:nilnil // nil is expected value
@@ -1859,6 +1854,21 @@ func convertStateStringTokenState(state *string) (*coreum.TokenState, error) {
 
 func addKeyNameFlag(cmd *cobra.Command) {
 	cmd.PersistentFlags().String(FlagKeyName, "", "Key name from the keyring")
+}
+
+func getFlagSDKIntIfPresent(cmd *cobra.Command, flag string) (*sdkmath.Int, error) {
+	stringVal, err := getFlagStringIfPresent(cmd, flag)
+	if err != nil {
+		return nil, err
+	}
+	if stringVal != nil {
+		bridgingFeeInt, ok := sdkmath.NewIntFromString(*stringVal)
+		if !ok {
+			return nil, errors.Errorf("failed to convert string to sdkmath.Int, string:%s", *stringVal)
+		}
+		return &bridgingFeeInt, nil
+	}
+	return nil, nil //nolint:nilnil // expected result
 }
 
 func getFlagStringIfPresent(cmd *cobra.Command, flagName string) (*string, error) {
@@ -1881,6 +1891,18 @@ func getFlagInt32IfPresent(cmd *cobra.Command, flagName string) (*int32, error) 
 		return nil, nil //nolint:nilnil // nil is expected value
 	}
 	val, err := cmd.Flags().GetInt32(flagName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &val, nil
+}
+
+func getFlagUint32IfPresent(cmd *cobra.Command, flagName string) (*uint32, error) {
+	if !cmd.Flags().Lookup(flagName).Changed {
+		return nil, nil //nolint:nilnil // nil is expected value
+	}
+	val, err := cmd.Flags().GetUint32(flagName)
 	if err != nil {
 		return nil, err
 	}

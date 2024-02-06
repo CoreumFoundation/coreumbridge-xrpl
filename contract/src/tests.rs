@@ -902,6 +902,83 @@ mod tests {
                 .as_str()
         ));
 
+        // Registering tokens with invalid denoms will fail
+        let invalid_denom_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: "1aa".to_string(), // Starts with a number
+                    decimals: test_tokens[0].decimals,
+                    sending_precision: test_tokens[0].sending_precision,
+                    max_holding_amount: test_tokens[0].max_holding_amount,
+                    bridging_fee: test_tokens[0].bridging_fee,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(invalid_denom_error
+            .to_string()
+            .contains(ContractError::InvalidDenom {}.to_string().as_str()));
+
+        let invalid_denom_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: "aa".to_string(), // Too short
+                    decimals: test_tokens[0].decimals,
+                    sending_precision: test_tokens[0].sending_precision,
+                    max_holding_amount: test_tokens[0].max_holding_amount,
+                    bridging_fee: test_tokens[0].bridging_fee,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(invalid_denom_error
+            .to_string()
+            .contains(ContractError::InvalidDenom {}.to_string().as_str()));
+
+        let invalid_denom_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(), // Too long
+                    decimals: test_tokens[0].decimals,
+                    sending_precision: test_tokens[0].sending_precision,
+                    max_holding_amount: test_tokens[0].max_holding_amount,
+                    bridging_fee: test_tokens[0].bridging_fee,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(invalid_denom_error
+            .to_string()
+            .contains(ContractError::InvalidDenom {}.to_string().as_str()));
+
+        let invalid_denom_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: "aa$".to_string(), // Invalid symbols
+                    decimals: test_tokens[0].decimals,
+                    sending_precision: test_tokens[0].sending_precision,
+                    max_holding_amount: test_tokens[0].max_holding_amount,
+                    bridging_fee: test_tokens[0].bridging_fee,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(invalid_denom_error
+            .to_string()
+            .contains(ContractError::InvalidDenom {}.to_string().as_str()));
+
         // Query all tokens
         let query_coreum_tokens = wasm
             .query::<QueryMsg, CoreumTokensResponse>(

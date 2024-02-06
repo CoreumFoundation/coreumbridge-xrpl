@@ -191,4 +191,7 @@ pub enum ContractError {
         "InvalidXRPLAmount: Amounts sent to XRPL can't have more than 17 digits after trimming trailing zeroes"
     )]
     InvalidXRPLAmount {},
+
+    #[error("InvalidDenom: A valid denom must fulfil the following Regex criteria: [a-zA-Z][a-zA-Z0-9/:._-]{{2,127}}")]
+    InvalidDenom {},
 }
