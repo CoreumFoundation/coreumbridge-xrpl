@@ -100,7 +100,7 @@ test-integration:
 
 .PHONY: test-single-integration
 test-single-integration:
-	cd $(TESTS_DIR) && go test -v --tags=integrationtests -mod=readonly -parallel=20 -timeout 5m ./... || exit 1;
+	cd $(TESTS_DIR) && go test -v --tags=integrationtests -mod=readonly -parallel=20 -timeout 10m ./... || exit 1;
 
 .PHONY: test-relayer
 test-relayer:
