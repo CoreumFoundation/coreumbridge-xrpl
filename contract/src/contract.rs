@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::{
+    address::validate_xrpl_address,
     error::ContractError,
     evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
     fees::{amount_after_bridge_fees, handle_fee_collection, substract_relayer_fees},
@@ -15,10 +16,7 @@ use crate::{
         handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation,
         remove_pending_refund, Operation, OperationType,
     },
-    relayer::{
-        assert_relayer, handle_rotate_keys_confirmation, validate_relayers, validate_xrpl_address,
-        Relayer,
-    },
+    relayer::{assert_relayer, handle_rotate_keys_confirmation, validate_relayers, Relayer},
     signatures::add_signature,
     state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, XRPLToken,
@@ -676,6 +674,7 @@ fn save_evidence(
                         handle_coreum_to_xrpl_transfer_confirmation(
                             deps.storage,
                             transaction_result.to_owned(),
+                            tx_hash.clone(),
                             operation_id,
                             &mut response,
                         )?;
@@ -1427,6 +1426,7 @@ fn query_pending_refunds(
             last_key = Some(key);
             PendingRefund {
                 id: pr.id,
+                xrpl_tx_hash: pr.xrpl_tx_hash,
                 coin: pr.coin,
             }
         })

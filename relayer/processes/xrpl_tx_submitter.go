@@ -2,6 +2,7 @@ package processes
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -241,6 +242,17 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 		)
 		return nil
 	}
+	// These codes indicate that the transaction failed, but it was applied to a ledger to apply the transaction cost.
+	if strings.HasPrefix(txRes.EngineResult.String(), xrpl.TecTxResultPrefix) {
+		s.log.Info(
+			ctx,
+			fmt.Sprintf(
+				"The transaction has been sent, but will be reverted, code:%s, description:%s",
+				txRes.EngineResult.String(), txRes.EngineResult.Human(),
+			),
+		)
+		return nil
+	}
 
 	switch txRes.EngineResult.String() {
 	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult:
@@ -249,52 +261,15 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 			"Transaction has been already submitted",
 		)
 		return nil
-	case xrpl.TecPathDryTxResult:
-		//nolint:lll // breaking down the log line will make it less readable.
-		s.log.Info(
-			ctx,
-			"The transaction has been sent, but will be reverted since the provided path does not have enough liquidity or the receipt doesn't link by trust lines.",
-		)
-		return nil
-	case xrpl.TecPathPartialTxResult:
-		//nolint:lll // breaking down the log line will make it less readable.
-		s.log.Info(
-			ctx,
-			"The transaction has been sent, but will be reverted because the provided paths did not have enough liquidity to send the full amount.",
-		)
-		return nil
-	case xrpl.TecNoDstTxResult:
-		s.log.Info(
-			ctx,
-			"The transaction has been sent, but will be reverted since account used in the transaction doesn't exist.",
-		)
-		return nil
-	case xrpl.TecNoPermission:
-		//nolint:lll // breaking down the log line will make it less readable.
-		s.log.Info(
-			ctx,
-			"The transaction has been sent, but will be reverted since the sender does not have permission to do this operation.",
-		)
-		return nil
 	case xrpl.TelInsufFeeP:
-		// TODO(dzmitryhil) add metric/alert here
 		s.log.Warn(
 			ctx,
 			"The Fee from the transaction is not high enough to meet the server's current transaction cost requirement.",
 		)
 		return nil
-	case xrpl.TecInsufficientReserveTxResult:
-		// for that case the tx will be accepted by the node and its rejection will be handled in the observer
-		s.log.Error(
-			ctx,
-			"Insufficient reserve to complete the operation",
-			zap.Error(err),
-		)
-		return nil
-
 	default:
-		// TODO(dzmitryhil) handle the case when the keys are rotated but the bridgeSigners are from the previous state
-		return errors.Errorf("failed to submit transaction, receveid unexpected result, result:%+v, tx:%+v", txRes, tx)
+		return errors.Errorf("failed to submit transaction, receveid unexpected result, code:%s result:%+v, tx:%+v",
+			txRes.EngineResult.String(), txRes, tx)
 	}
 }
 
