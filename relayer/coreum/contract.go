@@ -121,7 +121,7 @@ type ContractConfig struct {
 	UsedTicketSequenceThreshold uint32      `json:"used_ticket_sequence_threshold"`
 	TrustSetLimitAmount         sdkmath.Int `json:"trust_set_limit_amount"`
 	BridgeXRPLAddress           string      `json:"bridge_xrpl_address"`
-	BridgeState                 string      `json:"bridge_state"`
+	BridgeState                 BridgeState `json:"bridge_state"`
 	XRPLBaseFee                 uint32      `json:"xrpl_base_fee"`
 }
 
@@ -1571,6 +1571,11 @@ func IsOperationVersionMismatchError(err error) bool {
 // IsProhibitedRecipientError returns true if error is `ProhibitedRecipient`.
 func IsProhibitedRecipientError(err error) bool {
 	return isError(err, "ProhibitedRecipient")
+}
+
+// IsNotOwnerOrRelayerError returns true if error is `NotOwnerOrRelayer`.
+func IsNotOwnerOrRelayerError(err error) bool {
+	return isError(err, "NotOwnerOrRelayer")
 }
 
 // ******************** Asset FT errors ********************

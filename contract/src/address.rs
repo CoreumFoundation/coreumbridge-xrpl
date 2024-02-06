@@ -13,9 +13,9 @@ pub fn validate_xrpl_address(address: String) -> Result<(), ContractError> {
             address: address.to_owned(),
         })?;
 
-    // An XRPL address, once decoded from its base58 representation, should be exactly 25 bytes long. 
+    // An XRPL address, once decoded from its base58 representation, should be exactly 25 bytes long.
     // This length is a standard for XRPL addresses and includes various components like the actual address, a version byte, and a checksum.
-    // The first part of the address is usually a version byte ('r' which is 0 in the Base58 Alphabet for XRPL), 
+    // The first part of the address is usually a version byte ('r' which is 0 in the Base58 Alphabet for XRPL),
     // followed by the 20-byte address itself, and then a 4-byte checksum at the end. The total is thus 1 + 20 + 4 = 25 bytes.
     // If the decoded data is not 25 bytes long, it's not a valid XRPL address.
     // If the first byte is not 0 ('r'), it's not a valid XRPL address.

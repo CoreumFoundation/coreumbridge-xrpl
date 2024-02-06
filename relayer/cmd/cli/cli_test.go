@@ -159,9 +159,24 @@ func TestRecoverTicketsCmd(t *testing.T) {
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
-
 	bridgeClientMock := NewMockBridgeClient(ctrl)
-	bridgeClientMock.EXPECT().RecoverTickets(gomock.Any(), gomock.Any(), xrpl.MaxTicketsToAllocate)
+	bridgeClientMock.EXPECT().RecoverTickets(gomock.Any(), gomock.Any(), nil)
+	executeCmd(t, cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+
+	// with tickets
+	args = []string{
+		flagWithPrefix(cli.FlagTicketsToAllocate), "123",
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	bridgeClientMock = NewMockBridgeClient(ctrl)
+	bridgeClientMock.EXPECT().RecoverTickets(
+		gomock.Any(),
+		gomock.Any(),
+		mock.MatchedBy(func(v *uint32) bool {
+			return *v == 123
+		}),
+	)
 	executeCmd(t, cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
