@@ -78,7 +78,6 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumSender,
 		sdk.NewCoin(
 			registeredXRPLToken.CoreumDenom,
@@ -201,7 +200,6 @@ func TestSendFromXRPLToCoreumModuleAccountAndContractAddress(t *testing.T) {
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumRecipient,
 		sdk.NewCoin(
 			registeredXRPLToken.CoreumDenom,
@@ -282,7 +280,6 @@ func TestSendXRPLOriginatedTokenWithTransferRateAndDeliverAmountFromXRPLToCoreum
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumSender,
 		sdk.NewCoin(
 			registeredXRPLToken.CoreumDenom,
@@ -508,7 +505,6 @@ func TestSendXRPLOriginatedTokenWithoutTransferRateButWithDeliverAmountFromXRPLT
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumSender,
 		sdk.NewCoin(
 			registeredXRPLToken.CoreumDenom,
@@ -586,7 +582,6 @@ func TestSendXRPTokenFromXRPLToCoreumAndBack(t *testing.T) {
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumSender,
 		sdk.NewCoin(
 			registeredXRPToken.CoreumDenom,
@@ -676,7 +671,6 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithMaliciousRelayer(t *testing.
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumSender,
 		sdk.NewCoin(
 			registeredXRPLToken.CoreumDenom,
@@ -759,7 +753,6 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithTicketsReallocation(t *testi
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumSender,
 		sdk.NewCoin(
 			registeredXRPLToken.CoreumDenom,
@@ -953,7 +946,6 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumRecipient,
 		sdk.NewCoin(
 			registeredXRPLToken.CoreumDenom,
@@ -963,7 +955,6 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithDifferentAmountAndPartialAm
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumRecipient,
 		sdk.NewCoin(
 			registeredXRPLHexCurrencyToken.CoreumDenom,
@@ -1039,7 +1030,6 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumWithAmountGreaterThanMax(t *tes
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumRecipient,
 		sdk.NewCoin(
 			registeredXRPLToken.CoreumDenom,
@@ -1128,7 +1118,6 @@ func TestRecoverXRPLOriginatedTokenRegistrationAndSendFromXRPLToCoreumAndBack(t 
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumSender,
 		sdk.NewCoin(
 			registeredXRPLToken.CoreumDenom,
@@ -1167,6 +1156,51 @@ func TestRecoverXRPLOriginatedTokenRegistrationAndSendFromXRPLToCoreumAndBack(t 
 		registeredXRPLCurrency,
 	)
 	require.Equal(t, valueToSendFromXRPLtoCoreum.String(), xrplRecipientBalance.Value.String())
+}
+
+func TestXRPLOriginatedTokenRegistrationForAccountWithDisallowIncomingTrustLine(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerProcesses()
+	runnerEnv.AllocateTickets(ctx, t, uint32(200))
+
+	registeredXRPLCurrency, err := rippledata.NewCurrency("RCP")
+	require.NoError(t, err)
+	runnerEnv.Chains.Coreum.FundAccountWithOptions(ctx, t, runnerEnv.ContractOwner, coreumintegration.BalancesOptions{
+		Amount: runnerEnv.Chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount,
+	})
+
+	xrplIssuerAddress := chains.XRPL.GenAccount(ctx, t, 1)
+	setTransferRateTx := rippledata.AccountSet{
+		SetFlag: lo.ToPtr(uint32(15)), // asfDisallowIncomingTrustline
+		TxBase: rippledata.TxBase{
+			Account:         xrplIssuerAddress,
+			TransactionType: rippledata.ACCOUNT_SET,
+		},
+	}
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &setTransferRateTx, xrplIssuerAddress))
+
+	_, err = runnerEnv.ContractClient.RegisterXRPLToken(
+		ctx,
+		runnerEnv.ContractOwner,
+		xrplIssuerAddress.String(),
+		xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
+		int32(6),
+		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		sdkmath.ZeroInt(),
+	)
+	require.NoError(t, err)
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+
+	registeredXRPLToken, err := runnerEnv.ContractClient.GetXRPLTokenByIssuerAndCurrency(
+		ctx, xrplIssuerAddress.String(), xrpl.ConvertCurrencyToString(registeredXRPLCurrency),
+	)
+	require.NoError(t, err)
+	require.Equal(t, coreum.TokenStateInactive, registeredXRPLToken.State)
 }
 
 func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAndPartialAmount(t *testing.T) {
@@ -1316,7 +1350,6 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithDifferentAmountsAnd
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumRecipientAddress,
 		sdk.NewCoin(
 			registeredCoreumOriginatedToken.Denom,
@@ -1393,7 +1426,6 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumRecipientAddress,
 		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdk.NewInt(9000000)),
 	)
@@ -1479,7 +1511,6 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumAndBackWithTokenDisabling(t *tes
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumSender,
 		sdk.NewCoin(
 			registeredXRPLToken.CoreumDenom,
@@ -1677,7 +1708,6 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithTokenDisabling(t *t
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumRecipientAddress,
 		sdk.NewCoin(
 			registeredCoreumOriginatedToken.Denom,
@@ -1764,7 +1794,6 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		runnerEnv.ContractClient.GetContractAddress(),
 		sdk.NewCoin(
 			registeredCoreumOriginatedToken.Denom,
@@ -1786,7 +1815,6 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		coreumRecipientAddress,
 		sdk.NewCoin(
 			registeredCoreumOriginatedToken.Denom,
@@ -1797,7 +1825,6 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	runnerEnv.AwaitCoreumBalance(
 		ctx,
 		t,
-		chains.Coreum,
 		runnerEnv.ContractClient.GetContractAddress(),
 		sdk.NewCoin(
 			registeredCoreumOriginatedToken.Denom,

@@ -443,7 +443,8 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 	}
 	if coreum.IsSignatureAlreadyProvidedError(err) ||
 		coreum.IsPendingOperationNotFoundError(err) ||
-		coreum.IsOperationVersionMismatchError(err) {
+		coreum.IsOperationVersionMismatchError(err) ||
+		coreum.IsBridgeHaltedError(err) {
 		return nil
 	}
 

@@ -189,7 +189,7 @@ func (mr *MockBridgeClientMockRecorder) HaltBridge(arg0, arg1 interface{}) *gomo
 }
 
 // RecoverTickets mocks base method.
-func (m *MockBridgeClient) RecoverTickets(arg0 context.Context, arg1 types.AccAddress, arg2 uint32) error {
+func (m *MockBridgeClient) RecoverTickets(arg0 context.Context, arg1 types.AccAddress, arg2 *uint32) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RecoverTickets", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

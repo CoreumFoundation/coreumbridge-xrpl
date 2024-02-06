@@ -258,14 +258,13 @@ func (r *RunnerEnv) AwaitNoPendingOperations(ctx context.Context, t *testing.T) 
 func (r *RunnerEnv) AwaitCoreumBalance(
 	ctx context.Context,
 	t *testing.T,
-	coreumChain integrationtests.CoreumChain,
 	address sdk.AccAddress,
 	expectedBalance sdk.Coin,
 ) {
 	t.Helper()
 	awaitContext, awaitContextCancel := context.WithTimeout(ctx, r.Cfg.AwaitTimeout)
 	t.Cleanup(awaitContextCancel)
-	require.NoError(t, coreumChain.AwaitForBalance(awaitContext, t, address, expectedBalance))
+	require.NoError(t, r.Chains.Coreum.AwaitForBalance(awaitContext, t, address, expectedBalance))
 }
 
 // AwaitState waits for stateChecker function to rerun nil and retires in case of failure.
@@ -290,7 +289,7 @@ func (r *RunnerEnv) AllocateTickets(
 	numberOfTicketsToAllocate uint32,
 ) {
 	r.Chains.XRPL.FundAccountForTicketAllocation(ctx, t, r.BridgeXRPLAddress, numberOfTicketsToAllocate)
-	require.NoError(t, r.BridgeClient.RecoverTickets(ctx, r.ContractOwner, numberOfTicketsToAllocate))
+	require.NoError(t, r.BridgeClient.RecoverTickets(ctx, r.ContractOwner, &numberOfTicketsToAllocate))
 
 	r.AwaitNoPendingOperations(ctx, t)
 	availableTickets, err := r.ContractClient.GetAvailableTickets(ctx)
