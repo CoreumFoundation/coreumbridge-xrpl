@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use coreum_test_tube::{Account, AssetFT, Bank, CoreumTestApp, Module, SigningAccount, Wasm};
     use coreum_wasm_sdk::types::coreum::asset::ft::v1::{MsgFreeze, MsgUnfreeze};
     use coreum_wasm_sdk::types::cosmos::bank::v1beta1::QueryTotalSupplyRequest;
@@ -17,8 +15,11 @@ mod tests {
     };
     use cosmwasm_std::{coin, coins, Addr, Coin, Uint128};
     use rand::{distributions::Alphanumeric, thread_rng, Rng};
+    use ripple_keypairs::Seed;
     use sha2::{Digest, Sha256};
+    use std::collections::HashMap;
 
+    use crate::address::validate_xrpl_address;
     use crate::contract::MAX_RELAYERS;
     use crate::msg::{BridgeStateResponse, TransactionEvidence, TransactionEvidencesResponse};
     use crate::state::BridgeState;
@@ -32,7 +33,7 @@ mod tests {
             XRPLTokensResponse,
         },
         operation::{Operation, OperationType},
-        relayer::{validate_xrpl_address, Relayer},
+        relayer::Relayer,
         signatures::Signature,
         state::{Config, TokenState, XRPLToken as QueriedXRPLToken},
     };
@@ -133,6 +134,13 @@ mod tests {
     }
 
     pub fn generate_xrpl_address() -> String {
+        let seed = Seed::random();
+        let (_, public_key) = seed.derive_keypair().unwrap();
+        let address = public_key.derive_address();
+        address
+    }
+
+    pub fn generate_invalid_xrpl_address() -> String {
         let mut address = 'r'.to_string();
         let mut rand = String::from_utf8(
             thread_rng()
@@ -9993,13 +10001,17 @@ mod tests {
             "rPbPkTSrAqANkoTFpwheTxRyT8EQ38U5ok".to_string(),
             "rQ3fNyLjbvcDaPNS4EAJY8aT9zR3uGk17c".to_string(),
             "rnATJKpFCsFGfEvMC3uVWHvCEJrh5QMuYE".to_string(),
+            generate_xrpl_address(),
+            generate_xrpl_address(),
+            generate_xrpl_address(),
+            generate_xrpl_address(),
         ];
 
         for address in valid_addresses {
             validate_xrpl_address(address).unwrap();
         }
 
-        let invalid_addresses = vec![
+        let mut invalid_addresses = vec![
             "zDTXLQ7ZKZVKz33zJbHjgVShjsBnqMBhmN".to_string(), // Invalid prefix
             "rf1BiGeXwwQoi8Z2u".to_string(),                  // Too short
             "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1hBBaU29".to_string(), // Too long
@@ -10008,6 +10020,10 @@ mod tests {
             "rLUEXYuLiQptky37OqLcm9USQpPiz5rkpD".to_string(), // Contains invalid character O
             "rLUEXYuLiQpIky37CqLcm9USQpPiz5rkpD".to_string(), // Contains invalid character I
         ];
+
+        for _ in 0..100 {
+            invalid_addresses.push(generate_invalid_xrpl_address()); // Just random address without checksum calculation
+        }
 
         for address in invalid_addresses {
             validate_xrpl_address(address).unwrap_err();
