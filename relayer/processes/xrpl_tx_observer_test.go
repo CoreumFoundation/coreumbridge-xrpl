@@ -89,6 +89,29 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 		},
 	}
 
+	tooHighValue, err := rippledata.NewValue("1e85", false)
+	require.NoError(t, err)
+	tooHighXRPLAmount := rippledata.Amount{
+		Value:    tooHighValue,
+		Currency: xrplCurrency,
+		Issuer:   bridgeXRPLAddress,
+	}
+	coreumOriginatedTokenPaymentWithTooHighAmountAndMetadataTx := rippledata.TransactionWithMetaData{
+		Transaction: &rippledata.Payment{
+			Destination: bridgeXRPLAddress,
+			Amount:      tooHighXRPLAmount,
+			TxBase: rippledata.TxBase{
+				TransactionType: rippledata.PAYMENT,
+				Memos: rippledata.Memos{
+					memo,
+				},
+			},
+		},
+		MetaData: rippledata.MetaData{
+			DeliveredAmount: &tooHighXRPLAmount,
+		},
+	}
+
 	tests := []struct {
 		name                  string
 		errorsCount           int
@@ -208,6 +231,20 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 								},
 							},
 						}
+						cancel()
+						return nil
+					})
+
+				return xrplAccountTxScannerMock
+			},
+		},
+		{
+			name: "incoming_coreum_originated_token_valid_payment_with_too_high_amount",
+			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
+				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
+				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+						ch <- coreumOriginatedTokenPaymentWithTooHighAmountAndMetadataTx
 						cancel()
 						return nil
 					})

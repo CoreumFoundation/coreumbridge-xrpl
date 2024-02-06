@@ -182,10 +182,11 @@ func DefaultBootstrappingConfig() BootstrappingConfig {
 		Relayers:                    []RelayerConfig{{}},
 		EvidenceThreshold:           0,
 		UsedTicketSequenceThreshold: 150,
-		TrustSetLimitAmount:         sdkmath.NewIntWithDecimal(1, 35).String(),
-		ContractByteCodePath:        "",
-		SkipXRPLBalanceValidation:   false,
-		XRPLBaseFee:                 10,
+		// default trust set limit amount is close to max amount valid on both XRPL and Coreum chains
+		TrustSetLimitAmount:       sdkmath.NewIntWithDecimal(34, 37).String(),
+		ContractByteCodePath:      "",
+		SkipXRPLBalanceValidation: false,
+		XRPLBaseFee:               xrpl.DefaultXRPLBaseFee,
 	}
 }
 
