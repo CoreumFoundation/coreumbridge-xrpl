@@ -1714,7 +1714,7 @@ func TestRecoverTickets(t *testing.T) {
 	_, err := contractClient.RecoverTickets(
 		ctx, relayers[0].CoreumAddress, bridgeXRPLAccountFirstSeqNumber, &numberOfTicketsToInit,
 	)
-	require.True(t, coreum.IsNotOwnerError(err), err)
+	require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
 	// try to use more than max allowed tickets
 	_, err = contractClient.RecoverTickets(ctx, owner, bridgeXRPLAccountFirstSeqNumber, lo.ToPtr(uint32(251)))
