@@ -19,11 +19,13 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreum/v4/testutil/event"
 	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
@@ -708,6 +710,14 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		wrongXRPLToCoreumTransferEvidence,
 	)
 	require.True(t, coreum.IsTokenNotRegisteredError(err), err)
+
+	// try to provide the evidence with prohibited recipient
+	xrplToCoreumTransferEvidenceWithProhibitedRecipient := xrplToCoreumTransferEvidence
+	xrplToCoreumTransferEvidenceWithProhibitedRecipient.Recipient = contractClient.GetContractAddress()
+	_, err = contractClient.SendXRPLToCoreumTransferEvidence(
+		ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidenceWithProhibitedRecipient,
+	)
+	require.True(t, coreum.IsProhibitedRecipientError(err), err)
 
 	// call from first relayer
 	txRes, err := contractClient.SendXRPLToCoreumTransferEvidence(
@@ -2105,6 +2115,18 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	)
 	require.True(t, coreum.IsInvalidXRPLAddressError(err), err)
 
+	contractCfg, err := contractClient.GetContractConfig(ctx)
+	require.NoError(t, err)
+	// try to send to XRPL bridge account address
+	_, err = contractClient.SendToXRPL(
+		ctx,
+		coreumSenderAddress,
+		contractCfg.BridgeXRPLAddress,
+		sdk.NewCoin(registeredXRPLOriginatedToken.CoreumDenom, amountToSend),
+		nil,
+	)
+	require.True(t, coreum.IsProhibitedRecipientError(err), err)
+
 	// try to send with not registered token
 	_, err = contractClient.SendToXRPL(
 		ctx,
@@ -2616,6 +2638,7 @@ func TestSendFromCoreumXRPLOriginatedTokenWithDeliverAmount(t *testing.T) {
 	pendingRefunds, err := contractClient.GetPendingRefunds(ctx, coreumSenderAddress)
 	require.NoError(t, err)
 	require.Len(t, pendingRefunds, 1)
+	require.Equal(t, pendingRefunds[0].XRPLTxHash, rejectedTxEvidence.TxHash)
 	_, err = contractClient.ClaimRefund(ctx, coreumSenderAddress, pendingRefunds[0].ID)
 	require.NoError(t, err)
 
@@ -6283,27 +6306,41 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 	initialOperationVersion := uint32(1)
 
 	chunkSize := 50
-	for i, relayer := range relayers {
-		t.Logf("Saving signatures for all operations for relayer %d out of %d", i, len(relayers))
-		signatures := make([]coreum.SaveSignatureRequest, 0)
-		for i := 0; i < len(pendingOperations); i++ {
-			operation := pendingOperations[i]
-			require.Equal(t, initialOperationVersion, operation.Version)
-			require.Equal(t, oldXRPLBaseFee, operation.XRPLBaseFee)
+	require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+		for i, relayer := range relayers {
+			t.Logf("Saving signatures for all operations for relayer %d out of %d", i, len(relayers))
+			relayerCopy := relayer
+			spawn(fmt.Sprintf("relayer-%d", i), parallel.Continue, func(ctx context.Context) error {
+				signatures := make([]coreum.SaveSignatureRequest, 0)
+				for j := 0; j < len(pendingOperations); j++ {
+					operation := pendingOperations[j]
+					if initialOperationVersion != operation.Version {
+						return errors.Errorf(
+							"versions mismatch, expected: %d, got: %d", initialOperationVersion, operation.Version)
+					}
+					if oldXRPLBaseFee != operation.XRPLBaseFee {
+						return errors.Errorf(
+							"base fee mismatch, expected: %d, got: %d", oldXRPLBaseFee, operation.XRPLBaseFee)
+					}
+					signatures = append(signatures, coreum.SaveSignatureRequest{
+						OperationID:      operation.TicketSequence,
+						OperationVersion: operation.Version,
+						Signature:        xrplTxSignature,
+					})
+				}
+				for _, saveSignatureRequestsChunk := range lo.Chunk(signatures, chunkSize) {
+					if _, err := contractClient.SaveMultipleSignatures(
+						ctx, relayerCopy.CoreumAddress, saveSignatureRequestsChunk...,
+					); err != nil {
+						return err
+					}
+				}
 
-			signatures = append(signatures, coreum.SaveSignatureRequest{
-				OperationID:      operation.TicketSequence,
-				OperationVersion: operation.Version,
-				Signature:        xrplTxSignature,
+				return nil
 			})
 		}
-		for _, saveSignatureRequestsChunk := range lo.Chunk(signatures, chunkSize) {
-			_, err := contractClient.SaveMultipleSignatures(
-				ctx, relayer.CoreumAddress, saveSignatureRequestsChunk...,
-			)
-			require.NoError(t, err)
-		}
-	}
+		return nil
+	}))
 
 	pendingOperations, err = contractClient.GetPendingOperations(ctx)
 	require.NoError(t, err)
