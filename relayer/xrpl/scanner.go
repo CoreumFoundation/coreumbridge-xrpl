@@ -108,7 +108,7 @@ func (s *AccountScanner) scanRecentHistory(
 	currentLedger int64,
 	ch chan<- rippledata.TransactionWithMetaData,
 ) {
-	// in case we don't have enough ledges for the window we start from the initla
+	// in case we don't have enough ledges for the window we start from the initial
 	minLedger := int64(0)
 	if currentLedger > s.cfg.RecentScanWindow {
 		minLedger = currentLedger - s.cfg.RecentScanWindow

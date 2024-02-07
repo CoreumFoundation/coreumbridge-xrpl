@@ -91,15 +91,15 @@ type CoreumConfig struct {
 	Contract       CoreumContractConfig `yaml:"contract"`
 }
 
-// XRPLTxSubmitterConfig is XRPLTxSubmitter config.
-type XRPLTxSubmitterConfig struct {
+// CoreumToXRPLProcessConfig is CoreumToXRPLProcess config.
+type CoreumToXRPLProcessConfig struct {
 	RepeatDelay time.Duration `yaml:"repeat_delay"`
 }
 
 // ProcessesConfig  is processes config.
 type ProcessesConfig struct {
-	XRPLTxSubmitter XRPLTxSubmitterConfig `yaml:"xrpl_tx_submitter"`
-	ExitOnError     bool                  `yaml:"-"`
+	CoreumToXRPLProcess CoreumToXRPLProcessConfig `yaml:"coreum_to_xrpl"`
+	ExitOnError         bool                      `yaml:"-"`
 }
 
 // MetricsServerConfig is metric server config.
@@ -131,7 +131,10 @@ func DefaultConfig() Config {
 	defaultCoreumContactConfig := coreum.DefaultContractClientConfig(sdk.AccAddress(nil))
 	defaultClientCtxDefaultCfg := coreumchainclient.DefaultContextConfig()
 
-	defaultXRPLTxSubmitterConfig := processes.DefaultXRPLTxSubmitterConfig(rippledata.Account{}, sdk.AccAddress(nil))
+	defaultCoreumToXRPLProcessConfig := processes.DefaultCoreumToXRPLProcessConfig(
+		rippledata.Account{},
+		sdk.AccAddress(nil),
+	)
 	return Config{
 		Version:       configVersion,
 		LoggingConfig: LoggingConfig(logger.DefaultZapLoggerConfig()),
@@ -179,8 +182,8 @@ func DefaultConfig() Config {
 		},
 
 		Processes: ProcessesConfig{
-			XRPLTxSubmitter: XRPLTxSubmitterConfig{
-				RepeatDelay: defaultXRPLTxSubmitterConfig.RepeatDelay,
+			CoreumToXRPLProcess: CoreumToXRPLProcessConfig{
+				RepeatDelay: defaultCoreumToXRPLProcessConfig.RepeatDelay,
 			},
 		},
 

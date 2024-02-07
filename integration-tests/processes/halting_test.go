@@ -28,7 +28,7 @@ func TestBridgeHalting(t *testing.T) {
 	coreumSender := chains.Coreum.GenAccount()
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSender, coreumintegration.BalancesOptions{
-		Amount: issueFee.Amount.Add(sdkmath.NewInt(10_000_000)),
+		Amount: issueFee.Amount.Add(sdkmath.NewIntWithDecimal(1, 7)),
 	})
 
 	coreumRecipient := chains.Coreum.GenAccount()
@@ -63,7 +63,7 @@ func TestBridgeHalting(t *testing.T) {
 	require.NoError(t, err)
 	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency)
 
-	amountToSendToXRPL := sdkmath.NewInt(1000000)
+	amountToSendToXRPL := sdkmath.NewIntWithDecimal(1, 6)
 	_, err = runnerEnv.ContractClient.SendToXRPL(
 		ctx,
 		coreumSender,
