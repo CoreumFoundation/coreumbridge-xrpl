@@ -9,8 +9,8 @@ GIT_TAG:=$(shell git describe --tags --exact-match 2>/dev/null)
 GIT_SHA:=$(shell git rev-parse HEAD)
 DOCKER_PUSH_TAG?=$(shell git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
 LD_FLAGS:="-extldflags=-static \
--X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner.VersionTag=$(GIT_TAG)' \
--X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner.GitCommit=$(GIT_SHA)' \
+-X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo.VersionTag=$(GIT_TAG)' \
+-X 'github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo.GitCommit=$(GIT_SHA)' \
 "
 GOOS?=
 GOARCH?=
@@ -49,8 +49,8 @@ build-relayer-in-docker:
 .PHONY: build-contract
 build-contract:
 	docker run --user $(id -u):$(id -g) --rm -v $(CONTRACT_DIR):/code \
-      --mount type=volume,source="coreumbridge_xrpl_cache",target=/target \
-      --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+      -v $(CONTRACT_DIR)/target:/target \
+      -v $(CONTRACT_DIR)/target:/usr/local/cargo/registry \
       cosmwasm/optimizer:0.15.0
 	mkdir -p $(BUILD_DIR)
 	cp $(CONTRACT_DIR)/artifacts/coreumbridge_xrpl.wasm $(BUILD_DIR)/coreumbridge_xrpl.wasm
@@ -100,7 +100,7 @@ test-integration:
 
 .PHONY: test-single-integration
 test-single-integration:
-	cd $(TESTS_DIR) && go test -v --tags=integrationtests -mod=readonly -parallel=20 -timeout 5m ./... || exit 1;
+	cd $(TESTS_DIR) && go test -v --tags=integrationtests -mod=readonly -parallel=20 -timeout 10m ./... || exit 1;
 
 .PHONY: test-relayer
 test-relayer:

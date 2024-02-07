@@ -11,12 +11,12 @@ import (
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/run"
 	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
-	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -92,41 +92,61 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	return cmd, nil
 }
 
-func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
-	rnr, err := cli.GetRunnerFromHome(cmd)
-	if err != nil {
-		return nil, err
+func isGenerateOnly(
+	cmd *cobra.Command,
+) bool {
+	flagSet := cmd.Flags()
+	if flagSet.Changed(flags.FlagGenerateOnly) {
+		genOnly, _ := flagSet.GetBool(flags.FlagGenerateOnly)
+		return genOnly
 	}
 
+	return false
+}
+
+func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 	log, err := cli.GetCLILogger()
 	if err != nil {
 		return nil, err
 	}
-	rnr.CoreumContractClient.SetGenerateOnly(true)
+
+	cfg, err := cli.GetHomeRunnerConfig(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	clientCtx, err := client.GetClientQueryContext(cmd)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get client context")
+	}
+	xrplClientCtx, err := cli.WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to configure xrpl keyring")
+	}
+	coreumClientCtx, err := cli.WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to configure coreum keyring")
+	}
+
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log, true)
+	if err != nil {
+		return nil, err
+	}
+
+	generateOnly := isGenerateOnly(cmd)
+	components.CoreumContractClient.SetGenerateOnly(generateOnly)
 	// for the bridge client we use the CLI logger
 	return bridgeclient.NewBridgeClient(
-		log,
-		rnr.CoreumClientCtx.WithGenerateOnly(true),
-		rnr.CoreumContractClient,
-		rnr.XRPLRPCClient,
-		rnr.XRPLKeyringTxSigner,
+		components.Log,
+		components.CoreumClientCtx.WithGenerateOnly(generateOnly),
+		components.CoreumContractClient,
+		components.XRPLRPCClient,
+		components.XRPLKeyringTxSigner,
 	), nil
 }
 
-func processCoreumClientContextFlags(
-	cmd *cobra.Command, clientCtx coreumchainclient.Context,
-) coreumchainclient.Context {
-	flagSet := cmd.Flags()
-	if !clientCtx.GenerateOnly() || flagSet.Changed(flags.FlagGenerateOnly) {
-		genOnly, _ := flagSet.GetBool(flags.FlagGenerateOnly)
-		clientCtx = clientCtx.WithGenerateOnly(genOnly)
-	}
-
-	return clientCtx
-}
-
-func processorProvider(cmd *cobra.Command) (cli.Processor, error) {
-	rnr, err := cli.GetRunnerFromHome(cmd)
+func processorProvider(cmd *cobra.Command) (cli.Runner, error) {
+	rnr, err := cli.NewRunnerFromHome(cmd)
 	if err != nil {
 		return nil, err
 	}
