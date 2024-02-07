@@ -7,15 +7,13 @@ use crate::{
 };
 
 // Build the key to access the Tokens saved in state
-pub fn build_xrpl_token_key(issuer: String, currency: String) -> String {
+pub fn build_xrpl_token_key(issuer: &str, currency: &str) -> String {
     // Issuer+currency is the key we use to find an XRPL
-    let mut key = issuer;
-    key.push_str(currency.as_str());
-    key
+    [issuer, currency].concat()
 }
 
 // Helper to distinguish between the XRP token and other XRPL originated tokens
-pub fn is_token_xrp(issuer: String, currency: String) -> bool {
+pub fn is_token_xrp(issuer: &str, currency: &str) -> bool {
     issuer == XRP_ISSUER && currency == XRP_CURRENCY
 }
 
