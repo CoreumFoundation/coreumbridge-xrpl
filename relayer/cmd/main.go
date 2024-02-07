@@ -102,12 +102,11 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	coreumClientCtx := processCoreumClientContextFlags(cmd, rnr.CoreumClientCtx)
-	rnr.CoreumContractClient.SetClientCtx(coreumClientCtx)
+	rnr.CoreumContractClient.SetGenerateOnly(true)
 	// for the bridge client we use the CLI logger
 	return bridgeclient.NewBridgeClient(
 		log,
-		coreumClientCtx,
+		rnr.CoreumClientCtx.WithGenerateOnly(true),
 		rnr.CoreumContractClient,
 		rnr.XRPLRPCClient,
 		rnr.XRPLKeyringTxSigner,
