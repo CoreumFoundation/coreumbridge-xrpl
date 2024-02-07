@@ -257,6 +257,11 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 		},
 		{
 			name: "incoming_coreum_originated_token_valid_payment_with_too_high_amount",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
+				return contractClientMock
+			},
 			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
