@@ -38,12 +38,6 @@ const (
 	DefaultCoreumChainID = coreumchainconstant.ChainIDMain
 )
 
-// Build vars, that must be passed at build time.
-var (
-	VersionTag = "devel"
-	GitCommit  = ""
-)
-
 // Runner is relayer runner which aggregates all relayer components.
 type Runner struct {
 	cfg     Config

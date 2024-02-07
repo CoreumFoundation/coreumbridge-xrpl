@@ -23,6 +23,7 @@ import (
 
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
@@ -1434,8 +1435,8 @@ func VersionCmd() *cobra.Command {
 			log.Info(
 				cmd.Context(),
 				"Version Info",
-				zap.String("Git Tag", runner.VersionTag),
-				zap.String("Git Commit", runner.GitCommit),
+				zap.String("Git Tag", buildinfo.VersionTag),
+				zap.String("Git Commit", buildinfo.GitCommit),
 			)
 			return nil
 		},
