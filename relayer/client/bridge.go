@@ -479,10 +479,10 @@ func (b *BridgeClient) RecoverXRPLTokenRegistration(
 
 	b.log.Info(
 		ctx,
-		"Recovering xrpl token registraiton was successful",
+		"Recovering xrpl token registration was successful",
 		zap.String("currency", currency),
 		zap.String("issuer", issuer),
-		zap.String("txhash", txRes.TxHash),
+		zap.String("txHash", txRes.TxHash),
 	)
 
 	return nil
@@ -875,7 +875,7 @@ func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Accou
 	return balances, nil
 }
 
-// GetPendingRefunds queries for the pending refunds of an addreess.
+// GetPendingRefunds queries for the pending refunds of an address.
 func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error) {
 	b.log.Info(ctx, "getting pending refunds", zap.String("address", address.String()))
 	return b.contractClient.GetPendingRefunds(ctx, address)
@@ -950,7 +950,7 @@ func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
 	return contractRelayers, xrplSignerEntries, nil
 }
 
-// HaltBridge halts the bridg.
+// HaltBridge halts the bridge.
 func (b *BridgeClient) HaltBridge(
 	ctx context.Context,
 	sender sdk.AccAddress,

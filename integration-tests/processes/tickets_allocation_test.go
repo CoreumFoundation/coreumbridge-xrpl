@@ -4,15 +4,20 @@
 package processes_test
 
 import (
-	"fmt"
+	"context"
 	"testing"
+	"time"
 
 	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
+	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func TestTicketsAllocationRecoveryWithAccountSequence(t *testing.T) {
@@ -205,8 +210,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	})
 
 	for i := 0; i < int(numberOfXRPLTokensToRegister); i++ {
-		registeredXRPLCurrency, err := rippledata.NewCurrency(fmt.Sprintf("CR%d", i))
-		require.NoError(t, err)
+		registeredXRPLCurrency := integrationtests.GenerateXRPLCurrency(t)
 		runnerEnv.RegisterXRPLOriginatedToken(
 			ctx,
 			t,
@@ -227,8 +231,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 
 	// use re-allocated tickets
 	for i := 0; i < int(numberOfXRPLTokensToRegister); i++ {
-		registeredXRPLCurrency, err := rippledata.NewCurrency(fmt.Sprintf("DR%d", i))
-		require.NoError(t, err)
+		registeredXRPLCurrency := integrationtests.GenerateXRPLCurrency(t)
 		runnerEnv.RegisterXRPLOriginatedToken(
 			ctx,
 			t,
@@ -244,4 +247,106 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqualValues(t, initialAvailableTickets, availableTicketsAfterSecondReallocation)
 	require.NotEqualValues(t, availableTicketsAfterReallocation, availableTicketsAfterSecondReallocation)
+}
+
+func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithTicketsReallocation(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.UsedTicketSequenceThreshold = 3
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerProcesses()
+	runnerEnv.AllocateTickets(ctx, t, uint32(5))
+	sendingCount := 10
+
+	coreumSender := chains.Coreum.GenAccount()
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSender, coreumintegration.BalancesOptions{
+		Amount: sdkmath.NewIntFromUint64(1_000_000),
+	})
+	t.Logf("Coreum sender: %s", coreumSender.String())
+	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("XRPL recipient: %s", xrplRecipientAddress.String())
+
+	xrplIssuerAddress := chains.XRPL.GenAccount(ctx, t, 1)
+	// enable to be able to send to any address
+	runnerEnv.EnableXRPLAccountRippling(ctx, t, xrplIssuerAddress)
+
+	registeredXRPLCurrency := integrationtests.GenerateXRPLCurrency(t)
+	registeredXRPLToken := runnerEnv.RegisterXRPLOriginatedToken(
+		ctx,
+		t,
+		xrplIssuerAddress,
+		registeredXRPLCurrency,
+		int32(6),
+		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		sdkmath.ZeroInt(),
+	)
+
+	valueToSendFromXRPLtoCoreum, err := rippledata.NewValue("1e10", false)
+	require.NoError(t, err)
+	amountToSendFromXRPLtoCoreum := rippledata.Amount{
+		Value:    valueToSendFromXRPLtoCoreum,
+		Currency: registeredXRPLCurrency,
+		Issuer:   xrplIssuerAddress,
+	}
+
+	runnerEnv.SendFromXRPLToCoreum(ctx, t, xrplIssuerAddress.String(), amountToSendFromXRPLtoCoreum, coreumSender)
+	runnerEnv.AwaitCoreumBalance(
+		ctx,
+		t,
+		coreumSender,
+		sdk.NewCoin(
+			registeredXRPLToken.CoreumDenom,
+			integrationtests.ConvertStringWithDecimalsToSDKInt(
+				t,
+				valueToSendFromXRPLtoCoreum.String(),
+				xrpl.XRPLIssuedTokenDecimals,
+			),
+		),
+	)
+
+	// send TrustSet to be able to receive coins
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, xrplIssuerAddress, registeredXRPLCurrency)
+
+	totalSent := sdkmath.ZeroInt()
+	amountToSend := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "10", xrpl.XRPLIssuedTokenDecimals)
+	for i := 0; i < sendingCount; i++ {
+		retryCtx, retryCtxCancel := context.WithTimeout(ctx, 15*time.Second)
+		require.NoError(t, retry.Do(retryCtx, 500*time.Millisecond, func() error {
+			_, err = runnerEnv.ContractClient.SendToXRPL(
+				ctx,
+				coreumSender,
+				xrplRecipientAddress.String(),
+				sdk.NewCoin(registeredXRPLToken.CoreumDenom, amountToSend),
+				nil,
+			)
+			if err == nil {
+				return nil
+			}
+			if coreum.IsLastTicketReservedError(err) || coreum.IsNoAvailableTicketsError(err) {
+				t.Logf("No tickets left, waiting for new tickets...")
+				return retry.Retryable(err)
+			}
+			require.NoError(t, err)
+			return nil
+		}))
+		retryCtxCancel()
+		totalSent = totalSent.Add(amountToSend)
+	}
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+
+	xrplRecipientBalance := runnerEnv.Chains.XRPL.GetAccountBalance(
+		ctx,
+		t,
+		xrplRecipientAddress,
+		xrplIssuerAddress,
+		registeredXRPLCurrency,
+	)
+	require.Equal(
+		t,
+		totalSent.Quo(sdkmath.NewIntWithDecimal(1, xrpl.XRPLIssuedTokenDecimals)).String(),
+		xrplRecipientBalance.Value.String(),
+	)
 }

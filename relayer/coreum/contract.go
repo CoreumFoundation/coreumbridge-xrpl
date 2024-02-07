@@ -1379,7 +1379,7 @@ func (c *ContractClient) execute(
 		}
 		if cosmoserrors.ErrOutOfGas.Is(err) {
 			outOfGasRetryAttempt++
-			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution, out of gas")
+			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution")
 			return retry.Retryable(errors.Wrapf(err, "retry tx execution, out of gas"))
 		}
 
@@ -1430,7 +1430,7 @@ func (c *ContractClient) getTxFactory() client.Factory {
 		WithKeybase(c.clientCtx.Keyring()).
 		WithChainID(c.clientCtx.ChainID()).
 		WithTxConfig(c.clientCtx.TxConfig()).
-		WithMemo(fmt.Sprintf("relayer_version:%s", buildinfo.VersionTag)).
+		WithMemo(fmt.Sprintf("Coreum XRPL bridge relayer version: %s", buildinfo.VersionTag)).
 		WithSimulateAndExecute(true)
 }
 
