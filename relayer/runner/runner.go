@@ -44,8 +44,8 @@ type Runner struct {
 	log     logger.Logger
 	metrics *metrics.Registry
 
-	xrplTxObserver  *processes.XRPLTxObserver
-	xrplTxSubmitter *processes.XRPLTxSubmitter
+	xrplToCoreumProcess *processes.XRPLToCoreumProcess
+	coreumToXRPLProcess *processes.CoreumToXRPLProcess
 }
 
 // NewRunner return new runner from the config.
@@ -79,8 +79,8 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 		RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
 	}, components.Log, components.XRPLRPCClient)
 
-	xrplTxObserver, err := processes.NewXRPLTxObserver(
-		processes.XRPLTxObserverConfig{
+	xrplToCoreumProcess, err := processes.NewXRPLToCoreumProcess(
+		processes.XRPLToCoreumProcessConfig{
 			BridgeXRPLAddress:    *bridgeXRPLAddress,
 			RelayerCoreumAddress: relayerAddress,
 		},
@@ -92,13 +92,13 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 		return nil, err
 	}
 
-	xrplTxSubmitter, err := processes.NewXRPLTxSubmitter(
-		processes.XRPLTxSubmitterConfig{
+	coreumToXRPLProcess, err := processes.NewCoreumToXRPLProcess(
+		processes.CoreumToXRPLProcessConfig{
 			BridgeXRPLAddress:    *bridgeXRPLAddress,
 			RelayerCoreumAddress: relayerAddress,
 			XRPLTxSignerKeyName:  cfg.XRPL.MultiSignerKeyName,
 			RepeatRecentScan:     true,
-			RepeatDelay:          cfg.Processes.XRPLTxSubmitter.RepeatDelay,
+			RepeatDelay:          cfg.Processes.CoreumToXRPLProcess.RepeatDelay,
 		},
 		components.Log,
 		components.CoreumContractClient,
@@ -110,18 +110,18 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 	}
 
 	return &Runner{
-		cfg:             cfg,
-		log:             components.Log,
-		xrplTxObserver:  xrplTxObserver,
-		xrplTxSubmitter: xrplTxSubmitter,
+		cfg:                 cfg,
+		log:                 components.Log,
+		xrplToCoreumProcess: xrplToCoreumProcess,
+		coreumToXRPLProcess: coreumToXRPLProcess,
 	}, nil
 }
 
 // Start starts runner.
 func (r *Runner) Start(ctx context.Context) error {
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-		spawn("xrplTxObserver", parallel.Continue, r.withRestartOnError(r.xrplTxObserver.Start))
-		spawn("xrplTxSubmitter", parallel.Continue, r.withRestartOnError(r.xrplTxSubmitter.Start))
+		spawn("xrplToCoreumProcess", parallel.Continue, r.withRestartOnError(r.xrplToCoreumProcess.Start))
+		spawn("coreumToXRPLProcess", parallel.Continue, r.withRestartOnError(r.coreumToXRPLProcess.Start))
 		if r.cfg.Metrics.Server.Enable {
 			spawn("metrics", parallel.Fail, r.withRestartOnError(func(ctx context.Context) error {
 				return metrics.Start(ctx, r.cfg.Metrics.Server.ListenAddress, r.metrics)

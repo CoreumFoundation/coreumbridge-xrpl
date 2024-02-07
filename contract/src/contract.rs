@@ -69,7 +69,6 @@ pub const XRP_ISSUER: &str = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
 const XRP_DEFAULT_SENDING_PRECISION: i32 = 6;
 const XRP_DEFAULT_MAX_HOLDING_AMOUNT: u128 =
     10u128.pow(16 - XRP_DEFAULT_SENDING_PRECISION as u32 + XRP_DECIMALS);
-// TODO(keyleu): Update the value of the fee for XRP when we decide it
 const XRP_DEFAULT_FEE: Uint128 = Uint128::zero();
 
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
