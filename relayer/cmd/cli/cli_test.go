@@ -30,6 +30,7 @@ import (
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
+	overridecryptokeyring "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/override/crypto/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -62,7 +63,7 @@ func TestStartCmd(t *testing.T) {
 func TestKeyringCmds(t *testing.T) {
 	unsealConfig()
 
-	cmd, err := cli.KeyringCmd(coreum.KeyringSuffix, constant.CoinType)
+	cmd, err := cli.KeyringCmd(coreum.KeyringSuffix, constant.CoinType, overridecryptokeyring.CoreumAddressFormatter)
 	require.NoError(t, err)
 
 	configPath := t.TempDir()
