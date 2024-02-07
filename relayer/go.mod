@@ -17,12 +17,14 @@ replace (
 	// https://github.com/cosmos/cosmos-sdk/issues/14949
 	// pin the version of goleveldb to v1.0.1-0.20210819022825-2ae1ddf74ef7 required by SDK v47 upgrade guide.
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
+
+// github.com/CoreumFoundation/coreum/v4 => /home/milad/Development/coreum
 )
 
 require (
 	cosmossdk.io/math v1.1.2
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20231219065050-077b204f5543
-	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240201081312-a2f48c6a0a26
+	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240204220401-5cbf342c8b5e
 	github.com/CosmWasm/wasmd v0.44.0
 	github.com/cosmos/cosmos-sdk v0.47.5
 	github.com/golang/mock v1.6.0

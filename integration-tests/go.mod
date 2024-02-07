@@ -22,7 +22,7 @@ replace (
 
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20231219065050-077b204f5543
-	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240201081312-a2f48c6a0a26
+	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240204220401-5cbf342c8b5e
 	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
 	github.com/samber/lo v1.38.1
