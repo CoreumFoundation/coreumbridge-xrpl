@@ -51,12 +51,12 @@ func TestStartCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	processorMock := NewMockProcessor(ctrl)
-	processorMock.EXPECT().StartAllProcesses(gomock.Any())
-	cmd := cli.StartCmd(func(cmd *cobra.Command) (cli.Processor, error) {
+	processorMock := NewMockRunner(ctrl)
+	processorMock.EXPECT().Start(gomock.Any())
+	cmd := cli.StartCmd(func(cmd *cobra.Command) (cli.Runner, error) {
 		return processorMock, nil
 	})
-	executeCmd(t, cmd)
+	executeCmd(t, cmd) // to disable telemetry server
 }
 
 func TestKeyringCmds(t *testing.T) {

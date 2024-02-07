@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Deps, Empty, Storage};
+use cosmwasm_std::{Addr, Deps, Storage};
 
 use crate::{
     address::validate_xrpl_address,
@@ -23,67 +23,49 @@ pub fn validate_relayers(
     relayers: &Vec<Relayer>,
     evidence_threshold: u32,
 ) -> Result<(), ContractError> {
-    let mut map_xrpl_addresses = HashMap::new();
-    let mut map_xrpl_pubkeys = HashMap::new();
-    let mut map_coreum_addresses = HashMap::new();
+    let mut set_xrpl_addresses = HashSet::new();
+    let mut set_xrpl_pubkeys = HashSet::new();
+    let mut set_coreum_addresses = HashSet::new();
 
-    // Threshold can't be 0
-    if evidence_threshold == 0 {
-        return Err(ContractError::ThresholdZero {});
-    }
-
-    // Threshold can't be more than number of relayers
-    if evidence_threshold > relayers.len() as u32 {
+    // Threshold can't be 0 or more than number of relayers
+    if evidence_threshold == 0 || evidence_threshold as usize > relayers.len() {
         return Err(ContractError::InvalidThreshold {});
     }
 
-    if relayers.len() as u32 > MAX_RELAYERS {
+    if relayers.len() > MAX_RELAYERS {
         return Err(ContractError::TooManyRelayers {});
     }
 
-    for relayer in relayers.iter() {
+    for relayer in relayers {
         deps.api.addr_validate(relayer.coreum_address.as_ref())?;
-        validate_xrpl_address(relayer.xrpl_address.to_owned())?;
+        validate_xrpl_address(&relayer.xrpl_address)?;
 
-        // If the map returns a value during insertion, it means that the key already exists and therefore is duplicated
-        if map_xrpl_addresses
-            .insert(relayer.xrpl_address.to_owned(), Empty {})
-            .is_some()
-        {
-            return Err(ContractError::DuplicatedRelayerXRPLAddress {});
+        // If the set returns false during insertion it means that the key already exists and therefore is duplicated
+        if !set_xrpl_addresses.insert(relayer.xrpl_address.clone()) {
+            return Err(ContractError::DuplicatedRelayer {});
         };
-        if map_xrpl_pubkeys
-            .insert(relayer.xrpl_pub_key.to_owned(), Empty {})
-            .is_some()
-        {
-            return Err(ContractError::DuplicatedRelayerXRPLPubKey {});
+        if !set_xrpl_pubkeys.insert(relayer.xrpl_pub_key.clone()) {
+            return Err(ContractError::DuplicatedRelayer {});
         };
-        if map_coreum_addresses
-            .insert(relayer.coreum_address.to_owned(), Empty {})
-            .is_some()
-        {
-            return Err(ContractError::DuplicatedRelayerCoreumAddress {});
+        if !set_coreum_addresses.insert(relayer.coreum_address.clone()) {
+            return Err(ContractError::DuplicatedRelayer {});
         };
     }
 
     Ok(())
 }
 
-pub fn assert_relayer(deps: Deps, sender: &Addr) -> Result<(), ContractError> {
-    let config = CONFIG.load(deps.storage)?;
+pub fn is_relayer(storage: &dyn Storage, sender: &Addr) -> Result<bool, ContractError> {
+    let config = CONFIG.load(storage)?;
 
-    if config.relayers.iter().any(|r| r.coreum_address == sender) {
-        return Ok(());
-    }
-
-    Err(ContractError::UnauthorizedSender {})
+    Ok(config.relayers.iter().any(|r| r.coreum_address == sender))
 }
 
 pub fn handle_rotate_keys_confirmation(
     storage: &mut dyn Storage,
     relayers: Vec<Relayer>,
     new_evidence_threshold: u32,
-    transaction_result: TransactionResult,
+    transaction_result: &TransactionResult,
 ) -> Result<(), ContractError> {
     // If transaction was accepted, update the relayers and evidence threshold and clear all current evidences
     // Bridge will stay halted until owner resumes it.

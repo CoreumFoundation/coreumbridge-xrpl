@@ -189,7 +189,7 @@ pub const PENDING_REFUNDS: IndexedMap<(Addr, String), PendingRefund, PendingRefu
         },
     );
 
-// Fees collected that will be slowly accumulated here and relayers can claim them anytime
+// Fees collected that will be slowly accumulated here and relayers can individually claim them anytime
 pub const FEES_COLLECTED: Map<Addr, Vec<Coin>> = Map::new(TopKey::FeesCollected.as_str());
 // Fees Remainders in case that we have some small amounts left after dividing fees between our relayers we will keep them here until next time we collect fees and can add them to the new amount
 // Key is Coin denom and value is Coin amount
@@ -199,10 +199,9 @@ pub enum ContractActions {
     Instantiation,
     RegisterCoreumToken,
     RegisterXRPLToken,
-    SendFromXRPLToCoreum,
     RecoverTickets,
     RecoverXRPLTokenRegistration,
-    XRPLTransactionResult,
+    SaveEvidence,
     SaveSignature,
     SendToXRPL,
     ClaimFees,
@@ -215,26 +214,53 @@ pub enum ContractActions {
     RotateKeys,
 }
 
+pub enum UserType {
+    Owner,
+    Relayer,
+}
+
+impl UserType {
+    pub fn is_authorized(&self, action: &ContractActions) -> bool {
+        match &action {
+            ContractActions::Instantiation => true,
+            ContractActions::RegisterCoreumToken => matches!(self, Self::Owner),
+            ContractActions::RegisterXRPLToken => matches!(self, Self::Owner),
+            ContractActions::SaveEvidence => matches!(self, Self::Relayer),
+            ContractActions::RecoverTickets => matches!(self, Self::Owner),
+            ContractActions::RecoverXRPLTokenRegistration => matches!(self, Self::Owner),
+            ContractActions::SaveSignature => matches!(self, Self::Relayer),
+            ContractActions::SendToXRPL => true,
+            ContractActions::ClaimFees => matches!(self, Self::Relayer),
+            ContractActions::UpdateXRPLToken => matches!(self, Self::Owner),
+            ContractActions::UpdateCoreumToken => matches!(self, Self::Owner),
+            ContractActions::UpdateXRPLBaseFee => matches!(self, Self::Owner),
+            ContractActions::ClaimRefunds => true,
+            ContractActions::HaltBridge => matches!(self, Self::Owner | Self::Relayer),
+            ContractActions::ResumeBridge => matches!(self, Self::Owner),
+            ContractActions::RotateKeys => matches!(self, Self::Owner),
+        }
+    }
+}
+
 impl ContractActions {
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            ContractActions::Instantiation => "bridge_instantiation",
-            ContractActions::RegisterCoreumToken => "register_coreum_token",
-            ContractActions::RegisterXRPLToken => "register_xrpl_token",
-            ContractActions::SendFromXRPLToCoreum => "send_from_xrpl_to_coreum",
-            ContractActions::RecoverTickets => "recover_tickets",
-            ContractActions::RecoverXRPLTokenRegistration => "recover_xrpl_token_registration",
-            ContractActions::XRPLTransactionResult => "submit_xrpl_transaction_result",
-            ContractActions::SaveSignature => "save_signature",
-            ContractActions::SendToXRPL => "send_to_xrpl",
-            ContractActions::ClaimFees => "claim_fees",
-            ContractActions::ClaimRefunds => "claim_refunds",
-            ContractActions::UpdateXRPLToken => "update_xrpl_token",
-            ContractActions::UpdateCoreumToken => "update_coreum_token",
-            ContractActions::UpdateXRPLBaseFee => "update_xrpl_base_fee",
-            ContractActions::HaltBridge => "halt_bridge",
-            ContractActions::ResumeBridge => "resume_bridge",
-            ContractActions::RotateKeys => "rotate_keys",
+            Self::Instantiation => "bridge_instantiation",
+            Self::RegisterCoreumToken => "register_coreum_token",
+            Self::RegisterXRPLToken => "register_xrpl_token",
+            Self::RecoverTickets => "recover_tickets",
+            Self::RecoverXRPLTokenRegistration => "recover_xrpl_token_registration",
+            Self::SaveEvidence => "save_evidence",
+            Self::SaveSignature => "save_signature",
+            Self::SendToXRPL => "send_to_xrpl",
+            Self::ClaimFees => "claim_fees",
+            Self::ClaimRefunds => "claim_refunds",
+            Self::UpdateXRPLToken => "update_xrpl_token",
+            Self::UpdateCoreumToken => "update_coreum_token",
+            Self::UpdateXRPLBaseFee => "update_xrpl_base_fee",
+            Self::HaltBridge => "halt_bridge",
+            Self::ResumeBridge => "resume_bridge",
+            Self::RotateKeys => "rotate_keys",
         }
     }
 }
