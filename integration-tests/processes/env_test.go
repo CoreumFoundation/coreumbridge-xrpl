@@ -51,14 +51,19 @@ type RunnerEnvConfig struct {
 
 // DefaultRunnerEnvConfig returns default runner environment config.
 func DefaultRunnerEnvConfig() RunnerEnvConfig {
+	defBootstrappingCfg := bridgeclient.DefaultBootstrappingConfig()
+	defaultTrustSetLimitAmount, ok := sdkmath.NewIntFromString(defBootstrappingCfg.TrustSetLimitAmount)
+	if !ok {
+		panic(errors.Errorf("failed to convert string to sdkmath.Int, string:%s", defBootstrappingCfg.TrustSetLimitAmount))
+	}
 	return RunnerEnvConfig{
 		AwaitTimeout:                time.Minute,
 		SigningThreshold:            2,
 		RelayersCount:               3,
 		MaliciousRelayerNumber:      0,
-		UsedTicketSequenceThreshold: 150,
-		XRPLBaseFee:                 xrpl.DefaultXRPLBaseFee,
-		TrustSetLimitAmount:         sdkmath.NewIntWithDecimal(1, 35),
+		UsedTicketSequenceThreshold: defBootstrappingCfg.UsedTicketSequenceThreshold,
+		XRPLBaseFee:                 defBootstrappingCfg.XRPLBaseFee,
+		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
 		CustomBridgeXRPLAddress:     nil,
 		CustomContractAddress:       nil,
 		CustomContractOwner:         nil,
@@ -473,7 +478,7 @@ func (r *RunnerEnv) SendXRPLMaxTrustSetTx(
 	issuer rippledata.Account,
 	currency rippledata.Currency,
 ) {
-	value, err := rippledata.NewValue("1e80", false)
+	value, err := rippledata.NewValue("9999999999999999e80", false)
 	require.NoError(t, err)
 	require.NoError(t, r.BridgeClient.SetXRPLTrustSet(ctx, account.String(), rippledata.Amount{
 		Value:    value,

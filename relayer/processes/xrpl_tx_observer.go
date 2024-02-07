@@ -123,6 +123,14 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 
 	coreumAmount, err := ConvertXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
 	if err != nil {
+		if errors.Is(err, ErrSDKMathIntOutOfBounds) || errors.Is(err, ErrContractUint128OutOfBounds) {
+			o.log.Info(
+				ctx,
+				"Found XRPL transaction with out of bounds amount",
+				zap.String("amount", deliveredXRPLAmount.String()),
+			)
+			return nil
+		}
 		return err
 	}
 

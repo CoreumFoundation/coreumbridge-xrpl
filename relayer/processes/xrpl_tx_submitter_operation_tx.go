@@ -44,7 +44,7 @@ func BuildTrustSetTxForMultiSigning(
 	operation coreum.Operation,
 ) (*rippledata.TrustSet, error) {
 	trustSetType := operation.OperationType.TrustSet
-	value, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+	value, err := ConvertCoreumAmountToXRPLAmount(
 		trustSetType.TrustSetLimitAmount,
 		trustSetType.Issuer,
 		trustSetType.Currency,
@@ -79,7 +79,7 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 	operation coreum.Operation,
 ) (*rippledata.Payment, error) {
 	coreumToXRPLTransferOperationType := operation.OperationType.CoreumToXRPLTransfer
-	amount, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+	amount, err := ConvertCoreumAmountToXRPLAmount(
 		coreumToXRPLTransferOperationType.Amount,
 		coreumToXRPLTransferOperationType.Issuer,
 		coreumToXRPLTransferOperationType.Currency,
@@ -90,7 +90,7 @@ func BuildCoreumToXRPLXRPLOriginatedTokenTransferPaymentTxForMultiSigning(
 	// if the max amount was provided set it or use nil
 	var maxAmount *rippledata.Amount
 	if coreumToXRPLTransferOperationType.MaxAmount != nil {
-		convertedMaxAmount, err := ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+		convertedMaxAmount, err := ConvertCoreumAmountToXRPLAmount(
 			*coreumToXRPLTransferOperationType.MaxAmount,
 			coreumToXRPLTransferOperationType.Issuer,
 			coreumToXRPLTransferOperationType.Currency,

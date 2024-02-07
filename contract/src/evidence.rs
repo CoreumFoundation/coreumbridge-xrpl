@@ -9,6 +9,7 @@ use crate::{
 
 #[cw_serde]
 pub enum Evidence {
+    // This evidence is only used for token transfers from XRPL to Coreum
     #[serde(rename = "xrpl_to_coreum_transfer")]
     XRPLToCoreumTransfer {
         tx_hash: String,
@@ -17,7 +18,7 @@ pub enum Evidence {
         amount: Uint128,
         recipient: Addr,
     },
-    // This type will be used for ANY transaction that comes from XRPL and that is notifying a confirmation or rejection.
+    // This type will be used for ANY transaction that comes from XRPL and that is notifying a confirmation or rejection
     #[serde(rename = "xrpl_transaction_result")]
     XRPLTransactionResult {
         tx_hash: Option<String>,
@@ -34,17 +35,17 @@ pub enum TransactionResult {
     Accepted,
     // Transactions that were rejected in XRPL and have their corresponding Transaction Hash
     Rejected,
-    // These transactions have no transaction hash because they couldn't be processed in XRPL.
+    // These transactions have no transaction hash because they couldn't be processed in XRPL
     Invalid,
 }
 
-// For convenience in the responses.
+// For convenience in the responses
 impl TransactionResult {
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            TransactionResult::Accepted => "transaction_accepted",
-            TransactionResult::Rejected => "transaction_rejected",
-            TransactionResult::Invalid => "transaction_invalid",
+            Self::Accepted => "transaction_accepted",
+            Self::Rejected => "transaction_rejected",
+            Self::Invalid => "transaction_invalid",
         }
     }
 }
@@ -63,15 +64,17 @@ impl Evidence {
 
     pub fn get_tx_hash(&self) -> String {
         match self {
-            Evidence::XRPLToCoreumTransfer { tx_hash, .. } => tx_hash.clone(),
-            Evidence::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone().unwrap(),
+            Self::XRPLToCoreumTransfer { tx_hash, .. } => tx_hash.clone(),
+            Self::XRPLTransactionResult { tx_hash, .. } => tx_hash.clone().unwrap(),
         }
         .to_uppercase()
     }
     pub fn is_operation_valid(&self) -> bool {
         match self {
-            Evidence::XRPLToCoreumTransfer { .. } => true,
-            Evidence::XRPLTransactionResult {
+            // All transfers are valid operations
+            Self::XRPLToCoreumTransfer { .. } => true,
+            // All rejected/confirmed transactions are valid operations
+            Self::XRPLTransactionResult {
                 transaction_result, ..
             } => transaction_result.clone() != TransactionResult::Invalid,
         }
@@ -79,19 +82,20 @@ impl Evidence {
     // Function for basic validation of evidences in case relayers send something that is not valid
     pub fn validate_basic(&self) -> Result<(), ContractError> {
         match self {
-            Evidence::XRPLToCoreumTransfer { amount, .. } => {
+            Self::XRPLToCoreumTransfer { amount, .. } => {
                 if amount.is_zero() {
                     return Err(ContractError::InvalidAmount {});
                 }
                 Ok(())
             }
-            Evidence::XRPLTransactionResult {
+            Self::XRPLTransactionResult {
                 tx_hash,
                 account_sequence,
                 ticket_sequence,
                 transaction_result,
                 operation_result,
             } => {
+                // A transaction result can only have an account sequence or a ticket sequence, not both
                 if (account_sequence.is_none() && ticket_sequence.is_none())
                     || (account_sequence.is_some() && ticket_sequence.is_some())
                 {
@@ -110,6 +114,7 @@ impl Evidence {
 
                 match operation_result {
                     Some(OperationResult::TicketsAllocation { tickets }) => {
+                        // If a transaction is invalid or rejected, we can't provide tickets in the operation result
                         if (transaction_result.eq(&TransactionResult::Invalid)
                             || transaction_result.eq(&TransactionResult::Rejected))
                             && tickets.is_some()
@@ -147,7 +152,7 @@ pub fn hash_bytes(bytes: Vec<u8>) -> String {
 pub fn handle_evidence(
     storage: &mut dyn Storage,
     sender: Addr,
-    evidence: Evidence,
+    evidence: &Evidence,
 ) -> Result<bool, ContractError> {
     let operation_valid = evidence.is_operation_valid();
 
@@ -156,13 +161,14 @@ pub fn handle_evidence(
     }
 
     let mut evidences: Evidences;
+    // Relayers can only provide the evidence once
     match TX_EVIDENCES.may_load(storage, evidence.get_hash())? {
         Some(stored_evidences) => {
             if stored_evidences.relayer_coreum_addresses.contains(&sender) {
                 return Err(ContractError::EvidenceAlreadyProvided {});
             }
             evidences = stored_evidences;
-            evidences.relayer_coreum_addresses.push(sender)
+            evidences.relayer_coreum_addresses.push(sender);
         }
         None => {
             evidences = Evidences {
@@ -172,8 +178,8 @@ pub fn handle_evidence(
     }
 
     let config = CONFIG.load(storage)?;
-    if evidences.relayer_coreum_addresses.len() >= config.evidence_threshold.try_into().unwrap() {
-        // We only registered the transaction as processed if its execution didn't fail
+    if evidences.relayer_coreum_addresses.len() >= config.evidence_threshold as usize {
+        // We only registered the transaction as processed if its execution didn't fail (it wasn't Invalid)
         if operation_valid {
             PROCESSED_TXS.save(storage, evidence.get_tx_hash(), &Empty {})?;
         }
