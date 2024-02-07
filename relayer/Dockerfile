@@ -21,6 +21,6 @@ RUN make build-relayer GOOS=${GOOS} GOARCH=${GOARCH}
 
 FROM --platform=$TARGETPLATFORM  alpine:3.18
 
-COPY --from=builder /code/build/coreumbridge-xrpl-relayer /app/coreumbridge-xrpl-relayer
+COPY --from=builder /code/build/coreumbridge-xrpl-relayer /bin/coreumbridge-xrpl-relayer
 
-ENTRYPOINT ["/app/coreumbridge-xrpl-relayer"]
+ENTRYPOINT ["/bin/coreumbridge-xrpl-relayer"]
