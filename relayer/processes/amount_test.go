@@ -24,7 +24,7 @@ func TestConvertXRPLAmountToCoreumAmount(t *testing.T) {
 		name       string
 		xrplAmount rippledata.Amount
 		want       sdkmath.Int
-		wantErr    bool
+		wantErr    error
 	}{
 		{
 			name:       "one_XRPL_XRP_to_coreum_XRP",
@@ -68,13 +68,18 @@ func TestConvertXRPLAmountToCoreumAmount(t *testing.T) {
 		},
 		{
 			name:       "high_value_XRPL_FOO_to_coreum_FOO",
-			xrplAmount: amountStringToXRPLAmount(t, fmt.Sprintf("1.1e10/%s/%s", fooCurrency, fooIssuer)),
-			want:       stringToSDKInt(t, "11000000000000000000000000"),
+			xrplAmount: amountStringToXRPLAmount(t, fmt.Sprintf("34e22/%s/%s", fooCurrency, fooIssuer)),
+			want:       stringToSDKInt(t, "340000000000000000000000000000000000000"),
 		},
 		{
-			name:       "invalid_foo_amount",
-			xrplAmount: amountStringToXRPLAmount(t, fmt.Sprintf("1e92/%s/%s", fooCurrency, fooIssuer)),
-			wantErr:    true,
+			name:       "invalid_foo_amount_contract_out_of_bound",
+			xrplAmount: amountStringToXRPLAmount(t, fmt.Sprintf("34e23/%s/%s", fooCurrency, fooIssuer)),
+			wantErr:    processes.ErrContractUint128OutOfBounds,
+		},
+		{
+			name:       "invalid_foo_amount_sdkmath_out_of_bound",
+			xrplAmount: amountStringToXRPLAmount(t, fmt.Sprintf("1e80/%s/%s", fooCurrency, fooIssuer)),
+			wantErr:    processes.ErrSDKMathIntOutOfBounds,
 		},
 	}
 	for _, tt := range tests {
@@ -82,8 +87,8 @@ func TestConvertXRPLAmountToCoreumAmount(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := processes.ConvertXRPLAmountToCoreumAmount(tt.xrplAmount)
-			if tt.wantErr {
-				require.Error(t, err)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
 			} else {
 				require.NoError(t, err)
 			}
@@ -92,7 +97,7 @@ func TestConvertXRPLAmountToCoreumAmount(t *testing.T) {
 	}
 }
 
-func TestConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(t *testing.T) {
+func TestConvertCoreumAmountToXRPLAmount(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -176,7 +181,7 @@ func TestConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := processes.ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(tt.coreumAmount, tt.issuer, tt.currency)
+			got, err := processes.ConvertCoreumAmountToXRPLAmount(tt.coreumAmount, tt.issuer, tt.currency)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
