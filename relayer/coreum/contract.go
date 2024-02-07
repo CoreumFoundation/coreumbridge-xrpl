@@ -1365,12 +1365,11 @@ func (c *ContractClient) execute(
 		msgs = append(msgs, msg)
 	}
 
-	txf := c.getTxFactory().WithMemo(fmt.Sprintf("relayer_version:%s", buildinfo.VersionTag))
 	var res *sdk.TxResponse
 	outOfGasRetryAttempt := uint32(1)
 	err := retry.Do(ctx, c.cfg.OutOfGasRetryDelay, func() error {
 		var err error
-		res, err = client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), txf, msgs...)
+		res, err = client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgs...)
 		if err == nil {
 			return nil
 		}
@@ -1431,6 +1430,7 @@ func (c *ContractClient) getTxFactory() client.Factory {
 		WithKeybase(c.clientCtx.Keyring()).
 		WithChainID(c.clientCtx.ChainID()).
 		WithTxConfig(c.clientCtx.TxConfig()).
+		WithMemo(fmt.Sprintf("relayer_version:%s", buildinfo.VersionTag)).
 		WithSimulateAndExecute(true)
 }
 
