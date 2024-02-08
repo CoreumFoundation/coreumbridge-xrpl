@@ -87,6 +87,8 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.ClaimRefundCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.ClaimRelayerFeesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.GetRelayerFeesCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.HaltBridgeCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.ResumeBridgeCmd(bridgeClientProvider))
 
 	return cmd, nil
 }
