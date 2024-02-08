@@ -41,7 +41,7 @@ func TestKeysRotation(t *testing.T) {
 	coreumSenderAddress := chains.Coreum.GenAccount()
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
 	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
-		Amount: issueFee.Amount.Add(sdkmath.NewInt(1_000_000)),
+		Amount: issueFee.Amount.Add(sdkmath.NewIntWithDecimal(1, 6)),
 	})
 
 	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
@@ -202,7 +202,7 @@ func TestKeysRotationWithMaxSignerCount(t *testing.T) {
 
 	coreumSenderAddress := chains.Coreum.GenAccount()
 	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
-		Amount: sdkmath.NewInt(1_000_000),
+		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
 

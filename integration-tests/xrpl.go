@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -352,4 +354,18 @@ func ExtractTicketsFromMeta(txRes xrpl.TxResult) []*rippledata.Ticket {
 	}
 
 	return createdTickets
+}
+
+// GenerateXRPLCurrency generates random XRPL currency.
+func GenerateXRPLCurrency(t *testing.T) rippledata.Currency {
+	// from 3 to 20 symbols
+	currencyString := lo.RandomString(rand.Intn(20-4)+3, []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+	if len(currencyString) != 3 {
+		currencyString = hex.EncodeToString([]byte(currencyString))
+		currencyString += strings.Repeat("0", 40-len(currencyString))
+	}
+	currency, err := rippledata.NewCurrency(currencyString)
+	require.NoError(t, err)
+
+	return currency
 }

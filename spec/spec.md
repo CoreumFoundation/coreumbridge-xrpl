@@ -105,7 +105,7 @@ evidence queue). Once such evidence is confirmed, the tx result and data will be
 
 The XRPL tickets allow us to execute a transaction with non-sequential sequence numbers, hence we can execute multiple
 transactions in parallel. Any workflow can allocate a ticket and the ticket allocation mechanism either returns a ticket
-number or errors out, in case of lack of the free tickets. The ticket re-allocation will be triggered by the tx
+number, or errors out, in case of lack of the free tickets. The ticket re-allocation will be triggered by the tx
 confirmation (Submit XRPL transaction last step) once the used tickets count is greater than the allowed threshold. The
 contract initiates the `allocate tickets` operation to increase the amount. Once the operation is confirmed, the
 contract increases the free slots on the contract as well (based on the tx result). In the case the `allocate tickets`

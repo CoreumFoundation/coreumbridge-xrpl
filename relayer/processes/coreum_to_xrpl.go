@@ -31,8 +31,8 @@ type BridgeSigners struct {
 	CoreumToXRPLAccount map[string]rippledata.Account
 }
 
-// XRPLTxSubmitterConfig is the XRPLTxSubmitter config.
-type XRPLTxSubmitterConfig struct {
+// CoreumToXRPLProcessConfig is the CoreumToXRPLProcess config.
+type CoreumToXRPLProcessConfig struct {
 	BridgeXRPLAddress    rippledata.Account
 	RelayerCoreumAddress sdk.AccAddress
 	XRPLTxSignerKeyName  string
@@ -40,12 +40,12 @@ type XRPLTxSubmitterConfig struct {
 	RepeatDelay          time.Duration
 }
 
-// DefaultXRPLTxSubmitterConfig returns the default XRPLTxSubmitter.
-func DefaultXRPLTxSubmitterConfig(
+// DefaultCoreumToXRPLProcessConfig returns the default CoreumToXRPLProcess.
+func DefaultCoreumToXRPLProcessConfig(
 	bridgeXRPLAddress rippledata.Account,
 	relayerAddress sdk.AccAddress,
-) XRPLTxSubmitterConfig {
-	return XRPLTxSubmitterConfig{
+) CoreumToXRPLProcessConfig {
+	return CoreumToXRPLProcessConfig{
 		BridgeXRPLAddress:    bridgeXRPLAddress,
 		RelayerCoreumAddress: relayerAddress,
 		RepeatRecentScan:     true,
@@ -53,23 +53,23 @@ func DefaultXRPLTxSubmitterConfig(
 	}
 }
 
-// XRPLTxSubmitter is process which observes pending XRPL operations, signs them and executes them.
-type XRPLTxSubmitter struct {
-	cfg            XRPLTxSubmitterConfig
+// CoreumToXRPLProcess is process which observes pending XRPL operations, signs them and executes them.
+type CoreumToXRPLProcess struct {
+	cfg            CoreumToXRPLProcessConfig
 	log            logger.Logger
 	contractClient ContractClient
 	xrplRPCClient  XRPLRPCClient
 	xrplSigner     XRPLTxSigner
 }
 
-// NewXRPLTxSubmitter returns a new instance of the XRPLTxSubmitter.
-func NewXRPLTxSubmitter(
-	cfg XRPLTxSubmitterConfig,
+// NewCoreumToXRPLProcess returns a new instance of the CoreumToXRPLProcess.
+func NewCoreumToXRPLProcess(
+	cfg CoreumToXRPLProcessConfig,
 	log logger.Logger,
 	contractClient ContractClient,
 	xrplRPCClient XRPLRPCClient,
 	xrplSigner XRPLTxSigner,
-) (*XRPLTxSubmitter, error) {
+) (*CoreumToXRPLProcess, error) {
 	if cfg.RelayerCoreumAddress.Empty() {
 		return nil, errors.Errorf("failed to init process, relayer address is nil or empty")
 	}
@@ -80,7 +80,7 @@ func NewXRPLTxSubmitter(
 		return nil, errors.Errorf("nil xrplSigner")
 	}
 
-	return &XRPLTxSubmitter{
+	return &CoreumToXRPLProcess{
 		cfg:            cfg,
 		log:            log,
 		contractClient: contractClient,
@@ -90,7 +90,7 @@ func NewXRPLTxSubmitter(
 }
 
 // Start starts the process.
-func (s *XRPLTxSubmitter) Start(ctx context.Context) error {
+func (s *CoreumToXRPLProcess) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -113,7 +113,7 @@ func (s *XRPLTxSubmitter) Start(ctx context.Context) error {
 	}
 }
 
-func (s *XRPLTxSubmitter) processPendingOperations(ctx context.Context) error {
+func (s *CoreumToXRPLProcess) processPendingOperations(ctx context.Context) error {
 	operations, err := s.contractClient.GetPendingOperations(ctx)
 	if err != nil {
 		return err
@@ -136,7 +136,7 @@ func (s *XRPLTxSubmitter) processPendingOperations(ctx context.Context) error {
 	return nil
 }
 
-func (s *XRPLTxSubmitter) getBridgeSigners(ctx context.Context) (BridgeSigners, error) {
+func (s *CoreumToXRPLProcess) getBridgeSigners(ctx context.Context) (BridgeSigners, error) {
 	xrplWeights, xrplWeightsQuorum, err := s.getBridgeXRPLSignerAccountsWithWeights(ctx)
 	if err != nil {
 		return BridgeSigners{}, err
@@ -179,7 +179,7 @@ func (s *XRPLTxSubmitter) getBridgeSigners(ctx context.Context) (BridgeSigners, 
 	}, nil
 }
 
-func (s *XRPLTxSubmitter) getBridgeXRPLSignerAccountsWithWeights(
+func (s *CoreumToXRPLProcess) getBridgeXRPLSignerAccountsWithWeights(
 	ctx context.Context,
 ) (map[rippledata.Account]uint16, uint32, error) {
 	accountInfo, err := s.xrplRPCClient.AccountInfo(ctx, s.cfg.BridgeXRPLAddress)
@@ -200,7 +200,7 @@ func (s *XRPLTxSubmitter) getBridgeXRPLSignerAccountsWithWeights(
 	return accountWights, weightsQuorum, nil
 }
 
-func (s *XRPLTxSubmitter) signOrSubmitOperation(
+func (s *CoreumToXRPLProcess) signOrSubmitOperation(
 	ctx context.Context,
 	operation coreum.Operation,
 	bridgeSigners BridgeSigners,
@@ -266,7 +266,7 @@ func (s *XRPLTxSubmitter) signOrSubmitOperation(
 	}
 }
 
-func (s *XRPLTxSubmitter) buildSubmittableTransaction(
+func (s *CoreumToXRPLProcess) buildSubmittableTransaction(
 	ctx context.Context,
 	operation coreum.Operation,
 	bridgeSigners BridgeSigners,
@@ -296,7 +296,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		}
 		var txSignature rippledata.VariableLength
 		if err := txSignature.UnmarshalText([]byte(signature.Signature)); err != nil {
-			s.log.Warn(
+			s.log.Error(
 				ctx,
 				"Failed to unmarshal tx signature",
 				zap.Error(err),
@@ -321,7 +321,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 		}
 		isValid, _, err := rippledata.CheckMultiSignature(tx)
 		if err != nil {
-			s.log.Warn(
+			s.log.Error(
 				ctx,
 				"failed to check transaction signature, err:%s, signer:%+v",
 				zap.Error(err),
@@ -330,7 +330,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 			continue
 		}
 		if !isValid {
-			s.log.Warn(
+			s.log.Error(
 				ctx,
 				"Invalid tx signature",
 				zap.Error(err),
@@ -365,7 +365,7 @@ func (s *XRPLTxSubmitter) buildSubmittableTransaction(
 // preValidateOperation checks if the operation is valid, and it makes sense to submit the corresponding transaction
 // or the operation should be canceled with the `invalid` state. For now the main purpose of the function is to filter
 // out the `AllocateTickets` operation with the invalid sequence.
-func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation coreum.Operation) (bool, error) {
+func (s *CoreumToXRPLProcess) preValidateOperation(ctx context.Context, operation coreum.Operation) (bool, error) {
 	// no need to check if the current relayer has already provided the signature
 	// this check prevents the state when relayer votes and then changes its vote because of different current state
 	for _, signature := range operation.Signatures {
@@ -416,7 +416,7 @@ func (s *XRPLTxSubmitter) preValidateOperation(ctx context.Context, operation co
 	return false, nil
 }
 
-func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation coreum.Operation) error {
+func (s *CoreumToXRPLProcess) registerTxSignature(ctx context.Context, operation coreum.Operation) error {
 	tx, err := s.buildXRPLTxFromOperation(operation)
 	if err != nil {
 		return err
@@ -451,7 +451,7 @@ func (s *XRPLTxSubmitter) registerTxSignature(ctx context.Context, operation cor
 	return errors.Wrap(err, "failed to register transaction signature")
 }
 
-func (s *XRPLTxSubmitter) buildXRPLTxFromOperation(operation coreum.Operation) (MultiSignableTransaction, error) {
+func (s *CoreumToXRPLProcess) buildXRPLTxFromOperation(operation coreum.Operation) (MultiSignableTransaction, error) {
 	switch {
 	case isAllocateTicketsOperation(operation):
 		return BuildTicketCreateTxForMultiSigning(s.cfg.BridgeXRPLAddress, operation)
