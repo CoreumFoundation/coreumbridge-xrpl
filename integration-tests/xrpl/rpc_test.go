@@ -82,8 +82,7 @@ func TestMultisigPayment(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	multisigAcc := chains.XRPL.GenEmptyAccount(t)
-	chains.XRPL.FundAccount(ctx, t, multisigAcc, xrpl.ReserveToActivateAccount)
+	multisigAcc := chains.XRPL.GenAccount(ctx, t, 10)
 	t.Logf("Multisig account: %s", multisigAcc)
 
 	signer1Acc := chains.XRPL.GenAccount(ctx, t, 0)
