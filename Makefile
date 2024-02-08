@@ -44,7 +44,7 @@ push-relayer-docker: build-relayer-docker
 build-relayer-in-docker:
 	make build-relayer-docker
 	mkdir -p $(BUILD_DIR)
-	docker run --rm --entrypoint cat coreumbridge-xrpl-relayer:local /app/coreumbridge-xrpl-relayer > $(BUILD_DIR)/$(BINARY_NAME)
+	docker run --rm --entrypoint cat coreumbridge-xrpl-relayer:local /bin/coreumbridge-xrpl-relayer > $(BUILD_DIR)/$(BINARY_NAME)
 
 .PHONY: build-contract
 build-contract:
