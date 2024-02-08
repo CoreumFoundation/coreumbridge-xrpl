@@ -92,8 +92,7 @@ The balance should cover the token issuance fee and fee for the deployment trans
 #### Generate config template
 
 ```bash
-export RELAYERS_COUNT={Relayes count to be used}
-./coreumbridge-xrpl-relayer bootstrap-bridge bootstrapping.yaml --key-name bridge-account --init-only --relayers-count $RELAYERS_COUNT 
+./coreumbridge-xrpl-relayer bootstrap-bridge bootstrapping.yaml --key-name bridge-account --init-only --relayers-count 32
 ```
 
 The output will print the XRPL bridge address and min XRPL bridge account balance. Fund it and proceed to the nex step.

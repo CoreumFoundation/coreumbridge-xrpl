@@ -56,6 +56,10 @@ const (
 	FlagHome = "home"
 	// FlagKeyName is key name flag.
 	FlagKeyName = "key-name"
+	// FlagCoreumKeyName is coreum key name flag.
+	FlagCoreumKeyName = "coreum-key-name"
+	// FlagXRPLKeyName is XRPL key name flag.
+	FlagXRPLKeyName = "xrpl-key-name"
 	// FlagCoreumChainID is chain-id flag.
 	FlagCoreumChainID = "coreum-chain-id"
 	// FlagCoreumGRPCURL is Coreum GRPC URL flag.
@@ -496,28 +500,41 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-
 			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
-
-			keyName, err := cmd.Flags().GetString(FlagKeyName)
+			xrplKeyName, err := cmd.Flags().GetString(FlagXRPLKeyName)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get %s", FlagKeyName)
+				return errors.Wrapf(err, "failed to get %s", FlagXRPLKeyName)
 			}
-
 			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
 			if err != nil {
 				return err
 			}
-
 			xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(xrplClientCtx.Keyring)
-			xrplBridgeAddress, err := xrplKeyringTxSigner.Account(keyName)
+			xrplBridgeAddress, err := xrplKeyringTxSigner.Account(xrplKeyName)
 			if err != nil {
 				return err
 			}
 			log.Info(ctx, "XRPL bridge address", zap.String("address", xrplBridgeAddress.String()))
+			coreumKeyName, err := cmd.Flags().GetString(FlagCoreumKeyName)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get %s", FlagCoreumKeyName)
+			}
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			coreumKRRecord, err := coreumClientCtx.Keyring.Key(coreumKeyName)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get key by name:%s", coreumKeyName)
+			}
+			coreumAddress, err := coreumKRRecord.GetAddress()
+			if err != nil {
+				return errors.Wrapf(err, "failed to address for key name:%s", coreumKeyName)
+			}
+			log.Info(ctx, "Coreum deployer address", zap.String("address", coreumAddress.String()))
 
 			filePath := args[0]
 			initOnly, err := cmd.Flags().GetBool(FlagInitOnly)
@@ -541,14 +558,6 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 				return nil
 			}
 
-			record, err := xrplClientCtx.Keyring.Key(keyName)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get key by name:%s", keyName)
-			}
-			addr, err := record.GetAddress()
-			if err != nil {
-				return errors.Wrapf(err, "failed to address for key name:%s", keyName)
-			}
 			cfg, err := bridgeclient.ReadBootstrappingConfig(filePath)
 			if err != nil {
 				return err
@@ -558,16 +567,17 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 			input := bufio.NewScanner(os.Stdin)
 			input.Scan()
 
-			_, err = bridgeClient.Bootstrap(ctx, addr, keyName, cfg)
+			_, err = bridgeClient.Bootstrap(ctx, coreumAddress, xrplKeyName, cfg)
 			return err
 		},
 	}
 	addKeyringFlags(cmd)
-	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 
 	cmd.PersistentFlags().Bool(FlagInitOnly, false, "Init default config")
 	cmd.PersistentFlags().Int(FlagRelayersCount, 0, "Relayers count")
+	cmd.PersistentFlags().String(FlagCoreumKeyName, "", "Key name from the Coreum keyring")
+	cmd.PersistentFlags().String(FlagXRPLKeyName, "", "Key name from the XRPL keyring")
 
 	return cmd
 }

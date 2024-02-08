@@ -114,25 +114,29 @@ func TestBootstrapCmd(t *testing.T) {
 	configPath := path.Join(t.TempDir(), "bootstrapping.yaml")
 
 	keyringDir := t.TempDir()
-	keyName := "deployer"
-	addKeyToTestKeyring(t, keyringDir, keyName, xrpl.KeyringSuffix, xrpl.XRPLHDPath)
+	xrplKeyName := "xrpl-bridge"
+	addKeyToTestKeyring(t, keyringDir, xrplKeyName, xrpl.KeyringSuffix, xrpl.XRPLHDPath)
+	contractDeployer := "contract-deployer"
+	addKeyToTestKeyring(t, keyringDir, contractDeployer, coreum.KeyringSuffix, xrpl.XRPLHDPath)
 
 	// call bootstrap with init only
 	args := []string{
 		configPath,
 		flagWithPrefix(cli.FlagInitOnly),
 		flagWithPrefix(cli.FlagRelayersCount), "3",
-		flagWithPrefix(cli.FlagKeyName), keyName,
+		flagWithPrefix(cli.FlagXRPLKeyName), xrplKeyName,
+		flagWithPrefix(cli.FlagCoreumKeyName), contractDeployer,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.BootstrapBridgeCmd(mockBridgeClientProvider(nil)), args...)
 
 	// use generated file
 	bridgeClientMock := NewMockBridgeClient(ctrl)
-	bridgeClientMock.EXPECT().Bootstrap(gomock.Any(), gomock.Any(), keyName, bridgeclient.DefaultBootstrappingConfig())
+	bridgeClientMock.EXPECT().Bootstrap(gomock.Any(), gomock.Any(), xrplKeyName, bridgeclient.DefaultBootstrappingConfig())
 	args = []string{
 		configPath,
-		flagWithPrefix(cli.FlagKeyName), keyName,
+		flagWithPrefix(cli.FlagXRPLKeyName), xrplKeyName,
+		flagWithPrefix(cli.FlagCoreumKeyName), contractDeployer,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.BootstrapBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
