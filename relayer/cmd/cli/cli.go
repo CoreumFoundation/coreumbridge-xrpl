@@ -933,7 +933,7 @@ $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 // UpdateXRPLTokenCmd updates the XRPL originated token in the bridge contract.
 func UpdateXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update-xrpl-token [denom]",
+		Use:   "update-xrpl-token [issuer] [currency]",
 		Short: "Updates XRPL token in the bridge contract.",
 		//nolint:lll // long example
 		Long: strings.TrimSpace(
