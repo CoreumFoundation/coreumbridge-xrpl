@@ -445,6 +445,12 @@ func (s *CoreumToXRPLProcess) registerTxSignature(ctx context.Context, operation
 		coreum.IsPendingOperationNotFoundError(err) ||
 		coreum.IsOperationVersionMismatchError(err) ||
 		coreum.IsBridgeHaltedError(err) {
+		s.log.Debug(
+			ctx,
+			"Received expected evidence error on saving signature",
+			zap.String("errText", err.Error()),
+		)
+
 		return nil
 	}
 
