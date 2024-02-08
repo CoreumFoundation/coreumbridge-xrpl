@@ -230,7 +230,7 @@ func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 		return nil, err
 	}
 
-	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true)
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true, true)
 	if err != nil {
 		return nil, err
 	}

@@ -115,7 +115,7 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 		return nil, errors.Wrap(err, "failed to configure coreum keyring")
 	}
 
-	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log, true)
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log, true, false)
 	if err != nil {
 		return nil, err
 	}

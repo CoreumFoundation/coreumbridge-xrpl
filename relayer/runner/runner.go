@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"go.uber.org/zap"
@@ -23,6 +24,7 @@ import (
 	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
 	coreumchainconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
 	coreumchainconstant "github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
+	coreumkeyring "github.com/CoreumFoundation/coreum/v4/pkg/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
@@ -185,13 +187,26 @@ func NewComponents(
 	coreumKeyring keyring.Keyring,
 	log logger.Logger,
 	setCoreumSDKConfig bool,
+	reimportRelayerKeys bool,
 ) (Components, error) {
+	// if enabled, re-import the relayer keys from the config to in-memory keyring
+	if reimportRelayerKeys {
+		var err error
+		xrplKeyring, err = reimportKeyIntoInMemoryKR(xrplKeyring, cfg.XRPL.MultiSignerKeyName)
+		if err != nil {
+			return Components{}, err
+		}
+		coreumKeyring, err = reimportKeyIntoInMemoryKR(coreumKeyring, cfg.Coreum.RelayerKeyName)
+		if err != nil {
+			return Components{}, err
+		}
+	}
+
 	metricSet := metrics.NewRegistry()
 	log, err := logger.WithMetrics(log, metricSet.ErrorCounter)
 	if err != nil {
 		return Components{}, err
 	}
-
 	components := Components{
 		Metrics: metricSet,
 		Log:     log,
@@ -266,7 +281,6 @@ func NewComponents(
 	}
 
 	components.CoreumClientCtx = coreumClientCtx
-
 	return components, nil
 }
 
@@ -284,6 +298,25 @@ func getAddressFromKeyring(kr keyring.Keyring, keyName string) (sdk.AccAddress, 
 		)
 	}
 	return addr, nil
+}
+
+func reimportKeyIntoInMemoryKR(sourceKr keyring.Keyring, keyName string) (keyring.Keyring, error) {
+	keyInfo, err := sourceKr.Key(keyName)
+	if err != nil {
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to get key from keyring, key name:%s", keyName))
+	}
+	pass := uuid.NewString()
+	armor, err := sourceKr.ExportPrivKeyArmor(keyInfo.Name, pass)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to export key")
+	}
+	encodingConfig := coreumchainconfig.NewEncodingConfig(coreumapp.ModuleBasics)
+	kr := coreumkeyring.NewConcurrentSafeKeyring(keyring.NewInMemory(encodingConfig.Codec))
+	if err := kr.ImportPrivKey(keyInfo.Name, armor, pass); err != nil {
+		return nil, errors.Wrapf(err, "failed to import key")
+	}
+
+	return kr, nil
 }
 
 func getGRPCClientConn(grpcURL string) (*grpc.ClientConn, error) {
