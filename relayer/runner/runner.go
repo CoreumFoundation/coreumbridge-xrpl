@@ -54,9 +54,15 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 		return nil, errors.New("contract address is not configured")
 	}
 
-	relayerAddress, err := getAddressFromKeyring(components.CoreumClientCtx.Keyring(), cfg.Coreum.RelayerKeyName)
+	coreumRelayerAddress, err := getAddressFromKeyring(components.CoreumClientCtx.Keyring(), cfg.Coreum.RelayerKeyName)
 	if err != nil {
 		return nil, err
+	}
+
+	// load the key form the XRPL KR to check that it exists, and to let the user give access to the KR
+	_, err = components.XRPLKeyringTxSigner.Account(cfg.XRPL.MultiSignerKeyName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get key from the XRPL keyring, key name:%s", cfg.XRPL.MultiSignerKeyName)
 	}
 
 	contractConfig, err := components.CoreumContractClient.GetContractConfig(ctx)
@@ -82,7 +88,7 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 	xrplToCoreumProcess, err := processes.NewXRPLToCoreumProcess(
 		processes.XRPLToCoreumProcessConfig{
 			BridgeXRPLAddress:    *bridgeXRPLAddress,
-			RelayerCoreumAddress: relayerAddress,
+			RelayerCoreumAddress: coreumRelayerAddress,
 		},
 		components.Log,
 		xrplScanner,
@@ -95,7 +101,7 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 	coreumToXRPLProcess, err := processes.NewCoreumToXRPLProcess(
 		processes.CoreumToXRPLProcessConfig{
 			BridgeXRPLAddress:    *bridgeXRPLAddress,
-			RelayerCoreumAddress: relayerAddress,
+			RelayerCoreumAddress: coreumRelayerAddress,
 			XRPLTxSignerKeyName:  cfg.XRPL.MultiSignerKeyName,
 			RepeatRecentScan:     true,
 			RepeatDelay:          cfg.Processes.CoreumToXRPLProcess.RepeatDelay,
