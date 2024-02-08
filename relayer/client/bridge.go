@@ -1139,12 +1139,7 @@ func (b *BridgeClient) autoFillSignSubmitAndAwaitXRPLTx(
 		return err
 	}
 
-	b.log.Info(
-		ctx,
-		"Submitting XRPL transaction",
-		zap.String("txHash", tx.GetHash().String()),
-		zap.Any("tx", tx),
-	)
+	b.log.Info(ctx, "Submitting XRPL transaction", zap.String("txHash", tx.GetHash().String()))
 	if err = b.xrplRPCClient.SubmitAndAwaitSuccess(ctx, tx); err != nil {
 		return err
 	}

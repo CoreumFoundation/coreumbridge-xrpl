@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -450,6 +451,15 @@ func (c *yamlConsoleEncoder) appendCustomTypes(value interface{}) bool {
 		c.AppendString(addr.String())
 		return true
 	}
+	if intVal, ok := value.(sdk.Int); ok { //nolint:staticcheck //the type is deprecated by still used
+		c.AppendString(intVal.String())
+		return true
+	}
+	if intVal, ok := value.(sdkmath.Int); ok {
+		c.AppendString(intVal.String())
+		return true
+	}
+
 	return false
 }
 

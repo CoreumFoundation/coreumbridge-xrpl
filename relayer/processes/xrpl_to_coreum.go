@@ -149,6 +149,7 @@ func (o *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 
 	_, err = o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerCoreumAddress, evidence)
 	if err == nil {
+		o.log.Info(ctx, "Successfully sent XRPL to Coreum transfer evidence", zap.Any("evidence", evidence))
 		return nil
 	}
 
@@ -240,7 +241,7 @@ func (o *XRPLToCoreumProcess) sendXRPLTicketsAllocationTransactionResultEvidence
 		evidence,
 	)
 
-	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+	return o.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
 func (o *XRPLToCoreumProcess) sendXRPLTrustSetTransactionResultEvidence(
@@ -265,7 +266,7 @@ func (o *XRPLToCoreumProcess) sendXRPLTrustSetTransactionResultEvidence(
 		evidence,
 	)
 
-	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+	return o.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
 func (o *XRPLToCoreumProcess) sendCoreumToXRPLTransferTransactionResultEvidence(
@@ -290,7 +291,7 @@ func (o *XRPLToCoreumProcess) sendCoreumToXRPLTransferTransactionResultEvidence(
 		evidence,
 	)
 
-	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+	return o.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
 func (o *XRPLToCoreumProcess) sendKeysRotationTransactionResultEvidence(
@@ -325,19 +326,22 @@ func (o *XRPLToCoreumProcess) sendKeysRotationTransactionResultEvidence(
 		evidence,
 	)
 
-	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+	return o.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLToCoreumProcess) handleEvidenceSubmissionError(
+func (o *XRPLToCoreumProcess) handleOperationEvidenceSubmissionError(
 	ctx context.Context,
 	err error,
 	tx rippledata.TransactionWithMetaData,
 	evidence coreum.XRPLTransactionResultEvidence,
 ) error {
 	if err == nil {
-		if evidence.TransactionResult != coreum.TransactionResultAccepted {
-			o.log.Info(ctx, "Transaction was rejected", zap.String("txResult", tx.MetaData.TransactionResult.String()))
-		}
+		o.log.Info(
+			ctx,
+			"Successfully sent operation evidence",
+			zap.String("txResult", tx.MetaData.TransactionResult.String()),
+			zap.Any("evidence", evidence),
+		)
 		return nil
 	}
 	if IsExpectedEvidenceSubmissionError(err) {
