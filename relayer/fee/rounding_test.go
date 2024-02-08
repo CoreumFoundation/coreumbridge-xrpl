@@ -11,6 +11,7 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 )
@@ -25,6 +26,10 @@ const (
 	TransferRateDenominator = int64(1000000000)
 	// TransferRateDenominatorOnePercent for one percent fee.
 	TransferRateDenominatorOnePercent = int64(1010000000)
+)
+
+var (
+	maxXRPLAllowedSignificantDigits = uint64(9_999_999_999_999_999)
 )
 
 func TestReceivedXRPLToCoreumAmount(t *testing.T) {
@@ -237,32 +242,50 @@ func TestReceivedCoreumToXRPLAmount(t *testing.T) {
 }
 
 func FuzzAmountConversionCoreumToXRPLAndBack(f *testing.F) {
-	f.Fuzz(func(t *testing.T, amount uint64, randomizerSeed int64) {
-		initial := sdkmath.NewIntFromUint64(amount)
-
-		// init rand with seed
-		rnd := rand.New(rand.NewSource(randomizerSeed))
-
-		// randomize issuer
-		issuerBytes := make([]byte, 20)
-		rnd.Read(issuerBytes)
-		issuer := rippledata.Account(issuerBytes).String()
-
-		// randomize currency
-		currencyByte, err := generateHex(rnd, 40)
-		require.NoError(t, err)
+	f.Add(uint64(1000000000000000001), int8(3))
+	f.Fuzz(func(t *testing.T, number uint64, power int8) {
+		significantPart := number % (maxXRPLAllowedSignificantDigits + 1)
+		// 62 is calculated as 77 (max allowed power) - 16 (significant digits) +1 (we want 61 to be included)
+		randomPowerExponent := big.NewInt(int64(power % 62))
+		randomPower := sdkmath.NewIntFromBigInt(big.NewInt(0).Exp(big.NewInt(10), randomPowerExponent, nil))
+		initial := sdkmath.NewIntFromUint64(significantPart).Mul(randomPower)
 
 		// convert to and back from xrpl
 		rippleAmount, err := processes.ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
 			initial,
-			issuer,
-			string(currencyByte),
+			xrpl.XRPTokenIssuer.String(),
+			"AAA",
 		)
 		require.NoError(t, err)
 		coreumAmount, err := processes.ConvertXRPLAmountToCoreumAmount(rippleAmount)
 		require.NoError(t, err)
 
 		require.EqualValues(t, initial.String(), coreumAmount.String())
+	})
+}
+
+func FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber(f *testing.F) {
+	f.Add(uint64(1000000000000000001), int8(13))
+	f.Add(maxXRPLAllowedSignificantDigits, int8(4))
+	f.Fuzz(func(t *testing.T, significantDigitInput uint64, powerInput int8) {
+		significantDigitInput = 0
+		if significantDigitInput < maxXRPLAllowedSignificantDigits {
+			significantDigitInput += maxXRPLAllowedSignificantDigits + 2
+		}
+		// significantPartExceedingLimit := number%(maxXRPLAllowedSignificantDigits+1) + maxXRPLAllowedSignificantDigits
+		// 62 is calculated as 77 (max allowed power) - 16 (significant digits) +1 (we want 61 to be included)
+		powerExponent := big.NewInt(int64(powerInput % 62))
+		randomPower := sdkmath.NewIntFromBigInt(big.NewInt(0).Exp(big.NewInt(10), powerExponent, nil))
+		initial := sdkmath.NewIntFromUint64(significantDigitInput).Mul(randomPower)
+
+		// convert to and back from xrpl
+		_, err := processes.ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+			initial,
+			xrpl.XRPTokenIssuer.String(),
+			"AAA",
+		)
+
+		require.Error(t, err)
 	})
 }
 
