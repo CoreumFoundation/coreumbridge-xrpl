@@ -201,8 +201,8 @@ func FuzzAmountConversionCoreumToXRPLAndBack(f *testing.F) {
 	f.Add(uint64(1000000000000000001), int8(3))
 	f.Fuzz(func(t *testing.T, number uint64, power int8) {
 		significantPart := number % (maxXRPLAllowedSignificantDigits + 1)
-		// 62 is calculated as 77 (max allowed power) - 16 (significant digits) +1 (we want 61 to be included)
-		randomPowerExponent := big.NewInt(int64(power % 62))
+		// 39 (max int128 digits) - 16
+		randomPowerExponent := big.NewInt(int64(power % 23))
 		randomPower := sdkmath.NewIntFromBigInt(big.NewInt(0).Exp(big.NewInt(10), randomPowerExponent, nil))
 		initial := sdkmath.NewIntFromUint64(significantPart).Mul(randomPower)
 
@@ -228,9 +228,8 @@ func FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber(f *testi
 		if significantDigitInput < maxXRPLAllowedSignificantDigits {
 			significantDigitInput += maxXRPLAllowedSignificantDigits + 2
 		}
-		// significantPartExceedingLimit := number%(maxXRPLAllowedSignificantDigits+1) + maxXRPLAllowedSignificantDigits
-		// 62 is calculated as 77 (max allowed power) - 16 (significant digits) +1 (we want 61 to be included)
-		powerExponent := big.NewInt(int64(powerInput % 62))
+		// 39 (max int128 digits) - 16
+		powerExponent := big.NewInt(int64(powerInput % 23))
 		randomPower := sdkmath.NewIntFromBigInt(big.NewInt(0).Exp(big.NewInt(10), powerExponent, nil))
 		initial := sdkmath.NewIntFromUint64(significantDigitInput).Mul(randomPower)
 
