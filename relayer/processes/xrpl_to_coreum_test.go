@@ -16,7 +16,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-func TestXRPLTxObserver_Start(t *testing.T) {
+func TestXRPLToCoreumProcess_Start(t *testing.T) {
 	t.Parallel()
 
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
@@ -89,6 +89,29 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 		},
 	}
 
+	tooHighValue, err := rippledata.NewValue("1e85", false)
+	require.NoError(t, err)
+	tooHighXRPLAmount := rippledata.Amount{
+		Value:    tooHighValue,
+		Currency: xrplCurrency,
+		Issuer:   bridgeXRPLAddress,
+	}
+	coreumOriginatedTokenPaymentWithTooHighAmountAndMetadataTx := rippledata.TransactionWithMetaData{
+		Transaction: &rippledata.Payment{
+			Destination: bridgeXRPLAddress,
+			Amount:      tooHighXRPLAmount,
+			TxBase: rippledata.TxBase{
+				TransactionType: rippledata.PAYMENT,
+				Memos: rippledata.Memos{
+					memo,
+				},
+			},
+		},
+		MetaData: rippledata.MetaData{
+			DeliveredAmount: &tooHighXRPLAmount,
+		},
+	}
+
 	tests := []struct {
 		name                  string
 		errorsCount           int
@@ -110,6 +133,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().SendXRPLToCoreumTransferEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -140,8 +164,9 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
-				stringCurrency := xrpl.ConvertCurrencyToString(xrplOriginatedTokenXRPLAmount.Currency)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 
+				stringCurrency := xrpl.ConvertCurrencyToString(xrplOriginatedTokenXRPLAmount.Currency)
 				contractClientMock.EXPECT().SendXRPLToCoreumTransferEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -159,6 +184,11 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 		},
 		{
 			name: "incoming_not_success_tx",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
+				return contractClientMock
+			},
 			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -178,6 +208,11 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 		},
 		{
 			name: "incoming_not_confirmed_tx",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
+				return contractClientMock
+			},
 			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -197,6 +232,11 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 		},
 		{
 			name: "incoming_not_payment_tx",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
+				return contractClientMock
+			},
 			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -208,6 +248,25 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 								},
 							},
 						}
+						cancel()
+						return nil
+					})
+
+				return xrplAccountTxScannerMock
+			},
+		},
+		{
+			name: "incoming_coreum_originated_token_valid_payment_with_too_high_amount",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
+				return contractClientMock
+			},
+			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
+				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
+				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
+						ch <- coreumOriginatedTokenPaymentWithTooHighAmountAndMetadataTx
 						cancel()
 						return nil
 					})
@@ -239,6 +298,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().SendXRPLTicketsAllocationTransactionResultEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -279,6 +339,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().SendXRPLTicketsAllocationTransactionResultEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -321,6 +382,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().SendXRPLTicketsAllocationTransactionResultEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -361,6 +423,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().SendXRPLTrustSetTransactionResultEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -403,6 +466,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().SendXRPLTrustSetTransactionResultEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -443,6 +507,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().SendCoreumToXRPLTransferTransactionResultEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -486,6 +551,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().SendCoreumToXRPLTransferTransactionResultEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -524,6 +590,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().SendKeysRotationTransactionResultEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -541,6 +608,11 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 		},
 		{
 			name: "outgoing_signer_list_set_tx_with_account_seq",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
+				return contractClientMock
+			},
 			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -587,6 +659,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			},
 			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
 				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
 				contractClientMock.EXPECT().SendKeysRotationTransactionResultEvidence(
 					gomock.Any(),
 					relayerAddress,
@@ -604,6 +677,11 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 		},
 		{
 			name: "outgoing_not_expected_tx",
+			contractClientBuilder: func(ctrl *gomock.Controller) processes.ContractClient {
+				contractClientMock := NewMockContractClient(ctrl)
+				contractClientMock.EXPECT().IsInitialized().Return(true)
+				return contractClientMock
+			},
 			txScannerBuilder: func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner {
 				xrplAccountTxScannerMock := NewMockXRPLAccountTxScanner(ctrl)
 				xrplAccountTxScannerMock.EXPECT().ScanTxs(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -640,8 +718,8 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			if tt.contractClientBuilder != nil {
 				contractClient = tt.contractClientBuilder(ctrl)
 			}
-			o := processes.NewXRPLTxObserver(
-				processes.XRPLTxObserverConfig{
+			o, err := processes.NewXRPLToCoreumProcess(
+				processes.XRPLToCoreumProcessConfig{
 					BridgeXRPLAddress:    bridgeXRPLAddress,
 					RelayerCoreumAddress: relayerAddress,
 				},
@@ -649,6 +727,7 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 				tt.txScannerBuilder(ctrl, cancel),
 				contractClient,
 			)
+			require.NoError(t, err)
 			require.ErrorIs(t, o.Start(ctx), context.Canceled)
 		})
 	}

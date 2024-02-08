@@ -51,14 +51,19 @@ type RunnerEnvConfig struct {
 
 // DefaultRunnerEnvConfig returns default runner environment config.
 func DefaultRunnerEnvConfig() RunnerEnvConfig {
+	defBootstrappingCfg := bridgeclient.DefaultBootstrappingConfig()
+	defaultTrustSetLimitAmount, ok := sdkmath.NewIntFromString(defBootstrappingCfg.TrustSetLimitAmount)
+	if !ok {
+		panic(errors.Errorf("failed to convert string to sdkmath.Int, string:%s", defBootstrappingCfg.TrustSetLimitAmount))
+	}
 	return RunnerEnvConfig{
 		AwaitTimeout:                time.Minute,
 		SigningThreshold:            2,
 		RelayersCount:               3,
 		MaliciousRelayerNumber:      0,
-		UsedTicketSequenceThreshold: 150,
-		XRPLBaseFee:                 xrpl.DefaultXRPLBaseFee,
-		TrustSetLimitAmount:         sdkmath.NewIntWithDecimal(1, 35),
+		UsedTicketSequenceThreshold: defBootstrappingCfg.UsedTicketSequenceThreshold,
+		XRPLBaseFee:                 defBootstrappingCfg.XRPLBaseFee,
+		TrustSetLimitAmount:         defaultTrustSetLimitAmount,
 		CustomBridgeXRPLAddress:     nil,
 		CustomContractAddress:       nil,
 		CustomContractOwner:         nil,
@@ -236,18 +241,11 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 func (r *RunnerEnv) StartAllRunnerProcesses() {
 	for i := range r.Runners {
 		relayerRunner := r.Runners[i]
-		r.RunnersParallelGroup.Spawn(fmt.Sprintf("runner-%d", i), parallel.Exit, func(ctx context.Context) error {
-			// disable restart on error to handler unexpected errors
-			xrplTxObserverProcess := relayerRunner.Processes.XRPLTxObserver
-			xrplTxObserverProcess.IsRestartableOnError = false
-			xrplTxSubmitterProcess := relayerRunner.Processes.XRPLTxSubmitter
-			xrplTxSubmitterProcess.IsRestartableOnError = false
-			return relayerRunner.Processor.StartProcesses(ctx, xrplTxObserverProcess, xrplTxSubmitterProcess)
-		})
+		r.RunnersParallelGroup.Spawn(fmt.Sprintf("runner-%d", i), parallel.Exit, relayerRunner.Start)
 	}
 }
 
-// AwaitNoPendingOperations waits for no pendoing contract transactions.
+// AwaitNoPendingOperations waits for no pending contract transactions.
 func (r *RunnerEnv) AwaitNoPendingOperations(ctx context.Context, t *testing.T) {
 	t.Helper()
 
@@ -480,7 +478,7 @@ func (r *RunnerEnv) SendXRPLMaxTrustSetTx(
 	issuer rippledata.Account,
 	currency rippledata.Currency,
 ) {
-	value, err := rippledata.NewValue("1e80", false)
+	value, err := rippledata.NewValue("9999999999999999e80", false)
 	require.NoError(t, err)
 	require.NoError(t, r.BridgeClient.SetXRPLTrustSet(ctx, account.String(), rippledata.Amount{
 		Value:    value,
@@ -624,9 +622,15 @@ func createDevRunner(
 	relayerRunnerCfg.Coreum.Contract.ContractAddress = contractAddress.String()
 	relayerRunnerCfg.Coreum.Network.ChainID = chains.Coreum.ChainSettings.ChainID
 	// make operation fetcher fast
-	relayerRunnerCfg.Processes.XRPLTxSubmitter.RepeatDelay = 500 * time.Millisecond
+	relayerRunnerCfg.Processes.CoreumToXRPLProcess.RepeatDelay = 500 * time.Millisecond
 
-	relayerRunner, err := runner.NewRunner(ctx, xrplKeyring, coreumKeyring, relayerRunnerCfg, false)
+	// exit on errors
+	relayerRunnerCfg.Processes.ExitOnError = true
+
+	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false)
+	require.NoError(t, err)
+
+	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg)
 	require.NoError(t, err)
 	return relayerRunner
 }

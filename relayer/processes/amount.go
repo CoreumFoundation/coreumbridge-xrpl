@@ -7,7 +7,17 @@ import (
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
+)
+
+var (
+	// ErrSDKMathIntOutOfBounds is error which indicates that during the conversion we have reached the max possible value
+	// for the sdkmath.Int.
+	ErrSDKMathIntOutOfBounds = errors.New("sdkmath.Int, out of bounds")
+	// ErrContractUint128OutOfBounds is error which indicates that during the conversion we have reached the max possible
+	// value for the contract Uint128.
+	ErrContractUint128OutOfBounds = errors.New("contract Uint128, out of bounds")
 )
 
 // ConvertXRPLAmountToCoreumAmount converts the XRPL native token amount from XRPL to coreum amount
@@ -24,9 +34,9 @@ func ConvertXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount) (sdkmath.Int,
 	return convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount, xrpl.XRPLIssuedTokenDecimals)
 }
 
-// ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount converts the XRPL originated token amount from
+// ConvertCoreumAmountToXRPLAmount converts the XRPL originated token amount from
 // coreum to XRPL amount based on the currency type.
-func ConvertXRPLOriginatedTokenCoreumAmountToXRPLAmount(
+func ConvertCoreumAmountToXRPLAmount(
 	coreumAmount sdkmath.Int,
 	issuerString,
 	currencyString string,
@@ -64,10 +74,19 @@ func convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount rippledata.Amount, d
 	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
 	binIntAmount := big.NewInt(0).Quo(big.NewInt(0).Mul(tenPowerDec, xrplRatAmount.Num()), xrplRatAmount.Denom())
 	if binIntAmount.BitLen() > sdkmath.MaxBitLen {
-		return sdkmath.Int{}, errors.New("failed to convert big.Int to sdkmath.Int, out of bound")
+		return sdkmath.Int{}, errors.Wrapf(
+			ErrSDKMathIntOutOfBounds, "failed to convert XRPL amount to Coreum, XRPL amount:%s", xrplAmount.String(),
+		)
 	}
 
-	return sdkmath.NewIntFromBigInt(binIntAmount), nil
+	sdkMathAmount := sdkmath.NewIntFromBigInt(binIntAmount)
+	if sdkMathAmount.GT(coreum.MaxContractAmount) {
+		return sdkmath.Int{}, errors.Wrapf(
+			ErrContractUint128OutOfBounds, "failed to XRPL amount to Coreum, XRPL amount:%s", xrplAmount.String(),
+		)
+	}
+
+	return sdkMathAmount, nil
 }
 
 func convertCoreumAmountToXRPLAmountWithDecimals(

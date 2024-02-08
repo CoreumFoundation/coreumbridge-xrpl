@@ -75,7 +75,11 @@ coreum:
         tx_timeout: 1m0s
         tx_status_poll_interval: 500ms
 processes:
-    xrpl_tx_submitter:
+    coreum_to_xrpl:
         repeat_delay: 10s
+metrics:
+    server:
+        enable: false
+        listen_address: localhost:9090
 `
 }

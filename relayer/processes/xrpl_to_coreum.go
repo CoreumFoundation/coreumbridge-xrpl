@@ -17,51 +17,44 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-// XRPLTxObserverConfig is XRPLTxObserver config.
-type XRPLTxObserverConfig struct {
+// XRPLToCoreumProcessConfig is XRPLToCoreumProcess config.
+type XRPLToCoreumProcessConfig struct {
 	BridgeXRPLAddress    rippledata.Account
 	RelayerCoreumAddress sdk.AccAddress
 }
 
-// XRPLTxObserver is process which observes the XRPL txs and register the evidences in the contract.
-type XRPLTxObserver struct {
-	cfg            XRPLTxObserverConfig
+// XRPLToCoreumProcess is process which observes the XRPL txs and register the evidences in the contract.
+type XRPLToCoreumProcess struct {
+	cfg            XRPLToCoreumProcessConfig
 	log            logger.Logger
 	txScanner      XRPLAccountTxScanner
 	contractClient ContractClient
 }
 
-// NewXRPLTxObserver returns a new instance of the XRPLTxObserver.
-func NewXRPLTxObserver(
-	cfg XRPLTxObserverConfig,
+// NewXRPLToCoreumProcess returns a new instance of the XRPLToCoreumProcess.
+func NewXRPLToCoreumProcess(
+	cfg XRPLToCoreumProcessConfig,
 	log logger.Logger,
 	txScanner XRPLAccountTxScanner,
 	contractClient ContractClient,
-) *XRPLTxObserver {
-	return &XRPLTxObserver{
+) (*XRPLToCoreumProcess, error) {
+	if cfg.RelayerCoreumAddress.Empty() {
+		return nil, errors.Errorf("failed to init process, relayer address is nil or empty")
+	}
+	if !contractClient.IsInitialized() {
+		return nil, errors.Errorf("failed to init process, contract client is not initialized")
+	}
+
+	return &XRPLToCoreumProcess{
 		cfg:            cfg,
 		log:            log,
 		txScanner:      txScanner,
 		contractClient: contractClient,
-	}
-}
-
-// Init validates the process state.
-func (o *XRPLTxObserver) Init(ctx context.Context) error {
-	o.log.Debug(ctx, "Initializing process")
-
-	if o.cfg.RelayerCoreumAddress.Empty() {
-		return errors.Errorf("failed to init process, relayer address is nil or empty")
-	}
-	if !o.contractClient.IsInitialized() {
-		return errors.Errorf("failed to init process, contract client is not initialized")
-	}
-
-	return nil
+	}, nil
 }
 
 // Start starts the process.
-func (o *XRPLTxObserver) Start(ctx context.Context) error {
+func (o *XRPLToCoreumProcess) Start(ctx context.Context) error {
 	txCh := make(chan rippledata.TransactionWithMetaData)
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		spawn("tx-scanner", parallel.Continue, func(ctx context.Context) error {
@@ -85,7 +78,7 @@ func (o *XRPLTxObserver) Start(ctx context.Context) error {
 	}, parallel.WithGroupLogger(o.log))
 }
 
-func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+func (o *XRPLToCoreumProcess) processTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	ctx = tracing.WithTracingXRPLTxHash(tracing.WithTracingID(ctx), strings.ToUpper(tx.GetHash().String()))
 	if !txIsFinal(tx) {
 		o.log.Debug(ctx, "Transaction is not final", zap.String("txStatus", tx.MetaData.TransactionResult.String()))
@@ -98,7 +91,7 @@ func (o *XRPLTxObserver) processTx(ctx context.Context, tx rippledata.Transactio
 	return o.processIncomingTx(ctx, tx)
 }
 
-func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+func (o *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	txType := tx.GetType()
 	if !tx.MetaData.TransactionResult.Success() {
 		o.log.Debug(
@@ -130,6 +123,14 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 
 	coreumAmount, err := ConvertXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
 	if err != nil {
+		if errors.Is(err, ErrSDKMathIntOutOfBounds) || errors.Is(err, ErrContractUint128OutOfBounds) {
+			o.log.Info(
+				ctx,
+				"Found XRPL transaction with out of bounds amount",
+				zap.String("amount", deliveredXRPLAmount.String()),
+			)
+			return nil
+		}
 		return err
 	}
 
@@ -182,7 +183,7 @@ func (o *XRPLTxObserver) processIncomingTx(ctx context.Context, tx rippledata.Tr
 	return err
 }
 
-func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+func (o *XRPLToCoreumProcess) processOutgoingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	txType := tx.GetType()
 	o.log.Debug(ctx, "Start processing of XRPL outgoing tx",
 		zap.String("type", txType),
@@ -202,13 +203,12 @@ func (o *XRPLTxObserver) processOutgoingTx(ctx context.Context, tx rippledata.Tr
 		o.log.Debug(ctx, "Skipped expected tx type", zap.String("txType", txType), zap.Any("tx", tx))
 		return nil
 	default:
-		// TODO(dzmitryhil) replace with the error once we integrate all supported types
-		o.log.Warn(ctx, "Found unsupported transaction type", zap.Any("tx", tx))
+		o.log.Error(ctx, "Found unsupported transaction type", zap.Any("tx", tx))
 		return nil
 	}
 }
 
-func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(
+func (o *XRPLToCoreumProcess) sendXRPLTicketsAllocationTransactionResultEvidence(
 	ctx context.Context,
 	tx rippledata.TransactionWithMetaData,
 ) error {
@@ -243,7 +243,7 @@ func (o *XRPLTxObserver) sendXRPLTicketsAllocationTransactionResultEvidence(
 	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(
+func (o *XRPLToCoreumProcess) sendXRPLTrustSetTransactionResultEvidence(
 	ctx context.Context,
 	tx rippledata.TransactionWithMetaData,
 ) error {
@@ -268,7 +268,7 @@ func (o *XRPLTxObserver) sendXRPLTrustSetTransactionResultEvidence(
 	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLTxObserver) sendCoreumToXRPLTransferTransactionResultEvidence(
+func (o *XRPLToCoreumProcess) sendCoreumToXRPLTransferTransactionResultEvidence(
 	ctx context.Context,
 	tx rippledata.TransactionWithMetaData,
 ) error {
@@ -293,7 +293,7 @@ func (o *XRPLTxObserver) sendCoreumToXRPLTransferTransactionResultEvidence(
 	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLTxObserver) sendKeysRotationTransactionResultEvidence(
+func (o *XRPLToCoreumProcess) sendKeysRotationTransactionResultEvidence(
 	ctx context.Context,
 	tx rippledata.TransactionWithMetaData,
 ) error {
@@ -328,7 +328,7 @@ func (o *XRPLTxObserver) sendKeysRotationTransactionResultEvidence(
 	return o.handleEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLTxObserver) handleEvidenceSubmissionError(
+func (o *XRPLToCoreumProcess) handleEvidenceSubmissionError(
 	ctx context.Context,
 	err error,
 	tx rippledata.TransactionWithMetaData,
@@ -336,7 +336,7 @@ func (o *XRPLTxObserver) handleEvidenceSubmissionError(
 ) error {
 	if err == nil {
 		if evidence.TransactionResult != coreum.TransactionResultAccepted {
-			o.log.Warn(ctx, "Transaction was rejected", zap.String("txResult", tx.MetaData.TransactionResult.String()))
+			o.log.Info(ctx, "Transaction was rejected", zap.String("txResult", tx.MetaData.TransactionResult.String()))
 		}
 		return nil
 	}

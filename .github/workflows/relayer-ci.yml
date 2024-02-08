@@ -4,8 +4,6 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-  schedule:
-    - cron: '0 1 * * 1' # At 01:00 on Monday
   workflow_dispatch:
 
 jobs:
@@ -16,7 +14,7 @@ jobs:
         ci_step: [
           "lint",
           "test",
-          "integration tests coreum client",
+          "integration tests contract",
           "integration tests processes",
           "integration tests xrpl",
         ]
@@ -26,86 +24,91 @@ jobs:
             linter-cache: true
             docker-cache: false
             build-contract: false
-            build-dev-env: false
           - ci_step: "test"
             command: "make test-relayer"
             linter-cache: false
             docker-cache: false
             build-contract: false
-            build-dev-env: false
-          - ci_step: "integration tests coreum client"
-            command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/coreum"
+          - ci_step: "integration tests contract"
+            command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/contract"
             linter-cache: false
             docker-cache: true
             build-contract: true
-            build-dev-env: true
           - ci_step: "integration tests processes"
             command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/processes"
             linter-cache: false
             docker-cache: true
             build-contract: true
-            build-dev-env: true
           - ci_step: "integration tests xrpl"
             command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/xrpl"
             linter-cache: false
             docker-cache: true
             build-contract: true
-            build-dev-env: true
 
     runs-on: ubuntu-22.04
     steps:
       - name: Go version used to build crust tool
         run: go version
       - name: Checkout coreumbridge-xrpl
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           path: coreumbridge-xrpl
       - name: Checkout crust
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: CoreumFoundation/crust
           path: crust
           ref: 527be2f938308cb4b1a7b868a2ebf550e2d3ba03
       - name: Checkout coreum
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: CoreumFoundation/coreum
           path: coreum
           ref: v3.0.3
+      - name: Get crust-coreum cache key
+        id: crust-coreum-cache-key
+        run: |
+          cd ${{ github.workspace }}/crust
+          CRUST_HASH=$(git rev-parse HEAD)
+          cd ${{ github.workspace }}/coreum
+          COREM_HASH=$(git rev-parse HEAD)
+          echo "key=$CRUST_HASH-$COREM_HASH" >> $GITHUB_OUTPUT
+        shell: bash
       - name: Set up crust
         run: echo "$(pwd)/crust/bin" >> $GITHUB_PATH
       - name: Set up crust cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/crust/
             ${{ github.workspace }}/crust/bin/.cache
-          key: ${{ runner.os }}-crust-cache
+          key: ${{ runner.os }}-crust-cache-${{ steps.crust-coreum-cache-key.outputs.key }}
       - name: Set up go cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.sum') }}
       - name: Set up linter cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         if: ${{ matrix.linter-cache }}
         with:
           path: ~/.cache/golangci-lint
           key: ${{ runner.os }}-linter-cache
-      - name: Get Date
-        id: get-year-week
-        run: |
-          echo "date=$(/bin/date -u "+%Y-%U")" >> $GITHUB_OUTPUT
-        shell: bash
-      - name: Set docker cache
+      - name: Set up wasm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/coreumbridge-xrpl/contract/target/
+          key: ${{ runner.os }}-wasm-cache-${{ hashFiles('**/Cargo.lock') }}
+        if: ${{ matrix.build-contract }}
+      - name: Set up docker cache
         uses: satackey/action-docker-layer-caching@v0.0.11
         if: ${{ matrix.docker-cache }}
         continue-on-error: true
         with:
-          key: ${{ runner.os }}-docker-cache-${{ steps.get-year-week.outputs.date }} # year-week key
+          key: ${{ runner.os }}-docker-cache-${{ steps.crust-coreum-cache-key.outputs.key }}
       - name: Build contract
         run: make build-contract
         working-directory: ./coreumbridge-xrpl
@@ -113,7 +116,6 @@ jobs:
       - name: Build dev environment
         run: make build-dev-env
         working-directory: ./coreumbridge-xrpl
-        if: ${{ matrix.build-dev-env }}
       - name: Run ${{ matrix.ci_step }}
         working-directory: ./coreumbridge-xrpl
         run: ${{ matrix.command }}

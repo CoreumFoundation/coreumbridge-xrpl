@@ -4,6 +4,7 @@ package coreum
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreum/v4/testutil/event"
 	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
@@ -1377,7 +1379,7 @@ func (c *ContractClient) execute(
 		}
 		if cosmoserrors.ErrOutOfGas.Is(err) {
 			outOfGasRetryAttempt++
-			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution, out of gas")
+			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution")
 			return retry.Retryable(errors.Wrapf(err, "retry tx execution, out of gas"))
 		}
 
@@ -1428,6 +1430,7 @@ func (c *ContractClient) getTxFactory() client.Factory {
 		WithKeybase(c.clientCtx.Keyring()).
 		WithChainID(c.clientCtx.ChainID()).
 		WithTxConfig(c.clientCtx.TxConfig()).
+		WithMemo(fmt.Sprintf("Coreum XRPL bridge relayer version: %s", buildinfo.VersionTag)).
 		WithSimulateAndExecute(true)
 }
 
@@ -1571,11 +1574,6 @@ func IsOperationVersionMismatchError(err error) bool {
 // IsProhibitedRecipientError returns true if error is `ProhibitedRecipient`.
 func IsProhibitedRecipientError(err error) bool {
 	return isError(err, "ProhibitedRecipient")
-}
-
-// IsNotOwnerOrRelayerError returns true if error is `NotOwnerOrRelayer`.
-func IsNotOwnerOrRelayerError(err error) bool {
-	return isError(err, "NotOwnerOrRelayer")
 }
 
 // ******************** Asset FT errors ********************

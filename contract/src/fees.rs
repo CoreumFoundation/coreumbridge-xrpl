@@ -33,7 +33,7 @@ fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractErro
     // We only collect fees if there is something to collect
     // If for some reason there is a coin that we are not charging fees for, we don't collect it
     if !fee.amount.is_zero() {
-        let fees_remainder = FEE_REMAINDERS.may_load(storage, fee.denom.to_owned())?;
+        let fees_remainder = FEE_REMAINDERS.may_load(storage, fee.denom.clone())?;
         // We add the new fees to the possible remainders that we had before and use those amounts to allocate them to relayers
         let total_fee = match fees_remainder {
             Some(fees_remainder) => fee.amount.checked_add(fees_remainder)?,
@@ -47,20 +47,21 @@ fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractErro
 
         // If the amount is 0, there's nothing to send to the relayers
         if !amount_for_each_relayer.is_zero() {
-            for relayer in relayers.iter() {
+            for relayer in &relayers {
                 // We get previous relayer fees collected to update them. If it's the first time the relayer gets fees, we initialize the array
                 let mut fees_collected = FEES_COLLECTED
-                    .may_load(storage, relayer.coreum_address.to_owned())?
+                    .may_load(storage, relayer.coreum_address.clone())?
                     .unwrap_or_default();
 
                 // Add fees to the relayer fees collected
                 match fees_collected.iter_mut().find(|c| c.denom == fee.denom) {
                     Some(coin) => coin.amount += amount_for_each_relayer,
-                    None => fees_collected
-                        .push(coin(amount_for_each_relayer.u128(), fee.denom.to_owned())),
+                    None => {
+                        fees_collected.push(coin(amount_for_each_relayer.u128(), fee.denom.clone()))
+                    }
                 }
 
-                FEES_COLLECTED.save(storage, relayer.coreum_address.to_owned(), &fees_collected)?;
+                FEES_COLLECTED.save(storage, relayer.coreum_address.clone(), &fees_collected)?;
             }
         }
 
@@ -79,10 +80,10 @@ fn collect_fees(storage: &mut dyn Storage, fee: Coin) -> Result<(), ContractErro
 
 pub fn substract_relayer_fees(
     storage: &mut dyn Storage,
-    sender: Addr,
+    sender: &Addr,
     amounts: &Vec<Coin>,
 ) -> Result<(), ContractError> {
-    let mut fees_collected = FEES_COLLECTED.load(storage, sender.to_owned())?;
+    let mut fees_collected = FEES_COLLECTED.load(storage, sender.clone())?;
     // We are going to check that the amounts sent to claim are available in the fees collected and if they are, substract them
     // If they are not, we will return an error
     for coin in amounts {
@@ -93,7 +94,7 @@ pub fn substract_relayer_fees(
             Some(found_coin) => found_coin.amount -= coin.amount,
             None => {
                 return Err(ContractError::NotEnoughFeesToClaim {
-                    denom: coin.denom.to_owned(),
+                    denom: coin.denom.clone(),
                     amount: coin.amount,
                 })
             }
@@ -103,7 +104,7 @@ pub fn substract_relayer_fees(
     // Clean if amount is zero
     fees_collected.retain(|c| !c.amount.is_zero());
 
-    FEES_COLLECTED.save(storage, sender, &fees_collected)?;
+    FEES_COLLECTED.save(storage, sender.clone(), &fees_collected)?;
 
     Ok(())
 }
