@@ -224,7 +224,6 @@ func FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber(f *testi
 	f.Add(uint64(1000000000000000001), int8(13))
 	f.Add(maxXRPLAllowedSignificantDigits, int8(4))
 	f.Fuzz(func(t *testing.T, significantDigitInput uint64, powerInput int8) {
-		significantDigitInput = 0
 		if significantDigitInput < maxXRPLAllowedSignificantDigits {
 			significantDigitInput += maxXRPLAllowedSignificantDigits + 2
 		}
