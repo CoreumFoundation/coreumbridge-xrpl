@@ -355,7 +355,6 @@ func (b *BridgeClient) RecoverTickets(
 	b.log.Info(
 		ctx,
 		"Successfully submitted recovery tickets transaction",
-		zap.Uint32("numberOfTickets", xrpl.MaxTicketsToAllocate),
 		zap.String("txHash", txRes.TxHash),
 	)
 

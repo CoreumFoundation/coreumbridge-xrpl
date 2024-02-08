@@ -616,12 +616,12 @@ func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 // RecoverTicketsCmd recovers 250 tickets in the bridge contract.
 func RecoverTicketsCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "recovery-tickets",
+		Use:   "recover-tickets",
 		Short: "Recovers tickets in the bridge contract.",
 		Long: strings.TrimSpace(fmt.Sprintf(
-			`Recovers 250 tickets in the bridge contract.
+			`Recovers tickets in the bridge contract.
 Example:
-$ recovery-tickets --%s 250 --%s owner
+$ recover-tickets --%s 250 --%s owner
 `, FlagTicketsToAllocate, FlagKeyName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -640,7 +640,7 @@ $ recovery-tickets --%s 250 --%s owner
 				return errors.Wrapf(err, "failed to get %s", FlagTicketsToAllocate)
 			}
 
-			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
 			if err != nil {
 				return err
 			}

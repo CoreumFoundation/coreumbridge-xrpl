@@ -232,7 +232,7 @@ Additionally, set the bridge contract address in the `relayer.yaml`
 ### Recover tickets to allow XRPL to coreum operations
 
 ```bash
-./coreumbridge-xrpl-relayer recovery-tickets --key-name owner --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
+./coreumbridge-xrpl-relayer recover-tickets --key-name owner --keyring-dir $HOME/.coreumbridge-xrpl-relayer/keys
 ```
 
 ### Register Coreum token
