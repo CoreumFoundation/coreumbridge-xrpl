@@ -220,17 +220,27 @@ func FuzzAmountConversionCoreumToXRPLAndBack(f *testing.F) {
 	})
 }
 
+func significantDigitsCount(input uint64) int {
+	inputStr := fmt.Sprint(input)
+	trailingZeros := 0
+	for i := len(inputStr) - 1; i >= 0; i-- {
+		if string(inputStr[i]) != "0" {
+			break
+		}
+		trailingZeros++
+	}
+
+	return len(inputStr) - trailingZeros
+}
+
 func FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber(f *testing.F) {
 	f.Add(uint64(1000000000000000001), int8(13))
 	f.Add(maxXRPLAllowedSignificantDigits, int8(4))
-	f.Fuzz(func(t *testing.T, significantDigitInput uint64, powerInput int8) {
-		if significantDigitInput < maxXRPLAllowedSignificantDigits {
-			significantDigitInput += maxXRPLAllowedSignificantDigits + 2
-		}
+	f.Fuzz(func(t *testing.T, inputAmount uint64, powerInput int8) {
 		// 39 (max int128 digits) - 16
 		powerExponent := big.NewInt(int64(powerInput % 23))
 		randomPower := sdkmath.NewIntFromBigInt(big.NewInt(0).Exp(big.NewInt(10), powerExponent, nil))
-		initial := sdkmath.NewIntFromUint64(significantDigitInput).Mul(randomPower)
+		initial := sdkmath.NewIntFromUint64(inputAmount).Mul(randomPower)
 
 		// convert to and back from xrpl
 		_, err := processes.ConvertCoreumAmountToXRPLAmount(
@@ -239,7 +249,11 @@ func FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber(f *testi
 			"AAA",
 		)
 
-		require.Error(t, err)
+		if significantDigitsCount(inputAmount) > 16 {
+			require.Error(t, err)
+		} else {
+			require.NoError(t, err)
+		}
 	})
 }
 
