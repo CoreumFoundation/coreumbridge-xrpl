@@ -54,18 +54,19 @@ func NewXRPLToCoreumProcess(
 }
 
 // Start starts the process.
-func (o *XRPLToCoreumProcess) Start(ctx context.Context) error {
+func (p *XRPLToCoreumProcess) Start(ctx context.Context) error {
+	p.log.Info(ctx, "Starting XRPL to Coreum process")
 	txCh := make(chan rippledata.TransactionWithMetaData)
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		spawn("tx-scanner", parallel.Continue, func(ctx context.Context) error {
 			defer close(txCh)
-			return o.txScanner.ScanTxs(ctx, txCh)
+			return p.txScanner.ScanTxs(ctx, txCh)
 		})
 		spawn("tx-processor", parallel.Fail, func(ctx context.Context) error {
 			for tx := range txCh {
-				if err := o.processTx(ctx, tx); err != nil {
+				if err := p.processTx(ctx, tx); err != nil {
 					if errors.Is(err, context.Canceled) {
-						o.log.Warn(ctx, "Context canceled during the XRPL tx processing", zap.String("error", err.Error()))
+						p.log.Warn(ctx, "Context canceled during the XRPL tx processing", zap.String("error", err.Error()))
 					} else {
 						return errors.Wrapf(err, "failed to process XRPL tx, txHash:%s", strings.ToUpper(tx.GetHash().String()))
 					}
@@ -75,26 +76,26 @@ func (o *XRPLToCoreumProcess) Start(ctx context.Context) error {
 		})
 
 		return nil
-	}, parallel.WithGroupLogger(o.log))
+	}, parallel.WithGroupLogger(p.log))
 }
 
-func (o *XRPLToCoreumProcess) processTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+func (p *XRPLToCoreumProcess) processTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	ctx = tracing.WithTracingXRPLTxHash(tracing.WithTracingID(ctx), strings.ToUpper(tx.GetHash().String()))
 	if !txIsFinal(tx) {
-		o.log.Debug(ctx, "Transaction is not final", zap.String("txStatus", tx.MetaData.TransactionResult.String()))
+		p.log.Debug(ctx, "Transaction is not final", zap.String("txStatus", tx.MetaData.TransactionResult.String()))
 		return nil
 	}
-	if o.cfg.BridgeXRPLAddress == tx.GetBase().Account {
-		return o.processOutgoingTx(ctx, tx)
+	if p.cfg.BridgeXRPLAddress == tx.GetBase().Account {
+		return p.processOutgoingTx(ctx, tx)
 	}
 
-	return o.processIncomingTx(ctx, tx)
+	return p.processIncomingTx(ctx, tx)
 }
 
-func (o *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	txType := tx.GetType()
 	if !tx.MetaData.TransactionResult.Success() {
-		o.log.Debug(
+		p.log.Debug(
 			ctx,
 			"Skipping not successful transaction",
 			zap.String("type", txType),
@@ -103,10 +104,10 @@ func (o *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 		return nil
 	}
 
-	o.log.Debug(ctx, "Start processing of XRPL incoming tx", zap.String("type", txType))
+	p.log.Debug(ctx, "Start processing of XRPL incoming tx", zap.String("type", txType))
 	// we process only incoming payment transactions, other transactions are ignored
 	if txType != rippledata.PAYMENT.String() {
-		o.log.Debug(ctx, "Skipping not payment transaction", zap.String("type", txType))
+		p.log.Debug(ctx, "Skipping not payment transaction", zap.String("type", txType))
 		return nil
 	}
 	paymentTx, ok := tx.Transaction.(*rippledata.Payment)
@@ -115,7 +116,7 @@ func (o *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 	coreumRecipient := xrpl.DecodeCoreumRecipientFromMemo(paymentTx.Memos)
 	if coreumRecipient == nil {
-		o.log.Info(ctx, "Bridge memo does not include expected structure", zap.Any("memos", paymentTx.Memos))
+		p.log.Info(ctx, "Bridge memo does not include expected structure", zap.Any("memos", paymentTx.Memos))
 		return nil
 	}
 
@@ -124,7 +125,7 @@ func (o *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	coreumAmount, err := ConvertXRPLAmountToCoreumAmount(*deliveredXRPLAmount)
 	if err != nil {
 		if errors.Is(err, ErrSDKMathIntOutOfBounds) || errors.Is(err, ErrContractUint128OutOfBounds) {
-			o.log.Info(
+			p.log.Info(
 				ctx,
 				"Found XRPL transaction with out of bounds amount",
 				zap.String("amount", deliveredXRPLAmount.String()),
@@ -135,7 +136,7 @@ func (o *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 
 	if coreumAmount.IsZero() {
-		o.log.Info(ctx, "Nothing to send, amount is zero")
+		p.log.Info(ctx, "Nothing to send, amount is zero")
 		return nil
 	}
 
@@ -147,24 +148,24 @@ func (o *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 		Recipient: coreumRecipient,
 	}
 
-	_, err = o.contractClient.SendXRPLToCoreumTransferEvidence(ctx, o.cfg.RelayerCoreumAddress, evidence)
+	_, err = p.contractClient.SendXRPLToCoreumTransferEvidence(ctx, p.cfg.RelayerCoreumAddress, evidence)
 	if err == nil {
-		o.log.Info(ctx, "Successfully sent XRPL to Coreum transfer evidence", zap.Any("evidence", evidence))
+		p.log.Info(ctx, "Successfully sent XRPL to Coreum transfer evidence", zap.Any("evidence", evidence))
 		return nil
 	}
 
 	if coreum.IsTokenNotRegisteredError(err) {
-		o.log.Info(ctx, "Token not registered")
+		p.log.Info(ctx, "Token not registered")
 		return nil
 	}
 
 	if IsExpectedEvidenceSubmissionError(err) {
-		o.log.Debug(ctx, "Received expected evidence submission error", zap.String("errText", err.Error()))
+		p.log.Debug(ctx, "Received expected evidence submission error", zap.String("errText", err.Error()))
 		return nil
 	}
 
 	if coreum.IsAssetFTStateError(err) {
-		o.log.Info(
+		p.log.Info(
 			ctx,
 			"The evidence saving is failed because of the asset FT rules, the evidence is skipped",
 			zap.Any("evidence", evidence),
@@ -173,7 +174,7 @@ func (o *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 
 	if coreum.IsRecipientBlockedError(err) {
-		o.log.Info(
+		p.log.Info(
 			ctx,
 			"The evidence saving is failed because of the recipient address is blocked, the evidence is skipped",
 			zap.Any("evidence", evidence),
@@ -184,32 +185,32 @@ func (o *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	return err
 }
 
-func (o *XRPLToCoreumProcess) processOutgoingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
+func (p *XRPLToCoreumProcess) processOutgoingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
 	txType := tx.GetType()
-	o.log.Debug(ctx, "Start processing of XRPL outgoing tx",
+	p.log.Debug(ctx, "Start processing of XRPL outgoing tx",
 		zap.String("type", txType),
 	)
 
 	switch txType {
 	case rippledata.TICKET_CREATE.String():
-		return o.sendXRPLTicketsAllocationTransactionResultEvidence(ctx, tx)
+		return p.sendXRPLTicketsAllocationTransactionResultEvidence(ctx, tx)
 	case rippledata.TRUST_SET.String():
-		return o.sendXRPLTrustSetTransactionResultEvidence(ctx, tx)
+		return p.sendXRPLTrustSetTransactionResultEvidence(ctx, tx)
 	case rippledata.PAYMENT.String():
-		return o.sendCoreumToXRPLTransferTransactionResultEvidence(ctx, tx)
+		return p.sendCoreumToXRPLTransferTransactionResultEvidence(ctx, tx)
 	case rippledata.SIGNER_LIST_SET.String():
-		return o.sendKeysRotationTransactionResultEvidence(ctx, tx)
+		return p.sendKeysRotationTransactionResultEvidence(ctx, tx)
 	// types which we use initially for the account set up
 	case rippledata.ACCOUNT_SET.String():
-		o.log.Debug(ctx, "Skipped expected tx type", zap.String("txType", txType), zap.Any("tx", tx))
+		p.log.Debug(ctx, "Skipped expected tx type", zap.String("txType", txType), zap.Any("tx", tx))
 		return nil
 	default:
-		o.log.Error(ctx, "Found unsupported transaction type", zap.Any("tx", tx))
+		p.log.Error(ctx, "Found unsupported transaction type", zap.Any("tx", tx))
 		return nil
 	}
 }
 
-func (o *XRPLToCoreumProcess) sendXRPLTicketsAllocationTransactionResultEvidence(
+func (p *XRPLToCoreumProcess) sendXRPLTicketsAllocationTransactionResultEvidence(
 	ctx context.Context,
 	tx rippledata.TransactionWithMetaData,
 ) error {
@@ -235,16 +236,16 @@ func (o *XRPLToCoreumProcess) sendXRPLTicketsAllocationTransactionResultEvidence
 	if ticketCreateTx.TicketSequence != nil && *ticketCreateTx.TicketSequence != 0 {
 		evidence.TicketSequence = lo.ToPtr(*ticketCreateTx.TicketSequence)
 	}
-	_, err := o.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(
+	_, err := p.contractClient.SendXRPLTicketsAllocationTransactionResultEvidence(
 		ctx,
-		o.cfg.RelayerCoreumAddress,
+		p.cfg.RelayerCoreumAddress,
 		evidence,
 	)
 
-	return o.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+	return p.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLToCoreumProcess) sendXRPLTrustSetTransactionResultEvidence(
+func (p *XRPLToCoreumProcess) sendXRPLTrustSetTransactionResultEvidence(
 	ctx context.Context,
 	tx rippledata.TransactionWithMetaData,
 ) error {
@@ -260,16 +261,16 @@ func (o *XRPLToCoreumProcess) sendXRPLTrustSetTransactionResultEvidence(
 		},
 	}
 
-	_, err := o.contractClient.SendXRPLTrustSetTransactionResultEvidence(
+	_, err := p.contractClient.SendXRPLTrustSetTransactionResultEvidence(
 		ctx,
-		o.cfg.RelayerCoreumAddress,
+		p.cfg.RelayerCoreumAddress,
 		evidence,
 	)
 
-	return o.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+	return p.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLToCoreumProcess) sendCoreumToXRPLTransferTransactionResultEvidence(
+func (p *XRPLToCoreumProcess) sendCoreumToXRPLTransferTransactionResultEvidence(
 	ctx context.Context,
 	tx rippledata.TransactionWithMetaData,
 ) error {
@@ -285,16 +286,16 @@ func (o *XRPLToCoreumProcess) sendCoreumToXRPLTransferTransactionResultEvidence(
 		},
 	}
 
-	_, err := o.contractClient.SendCoreumToXRPLTransferTransactionResultEvidence(
+	_, err := p.contractClient.SendCoreumToXRPLTransferTransactionResultEvidence(
 		ctx,
-		o.cfg.RelayerCoreumAddress,
+		p.cfg.RelayerCoreumAddress,
 		evidence,
 	)
 
-	return o.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+	return p.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLToCoreumProcess) sendKeysRotationTransactionResultEvidence(
+func (p *XRPLToCoreumProcess) sendKeysRotationTransactionResultEvidence(
 	ctx context.Context,
 	tx rippledata.TransactionWithMetaData,
 ) error {
@@ -310,7 +311,7 @@ func (o *XRPLToCoreumProcess) sendKeysRotationTransactionResultEvidence(
 	}
 	// handle the case when the tx was set initially to set up the bridge
 	if signerListSetTx.Sequence != 0 {
-		o.log.Debug(
+		p.log.Debug(
 			ctx,
 			"Skipping the evidence sending for the tx, since the SignerListSet tx contains account sequence.",
 			zap.Any("tx", tx),
@@ -320,23 +321,23 @@ func (o *XRPLToCoreumProcess) sendKeysRotationTransactionResultEvidence(
 	if signerListSetTx.TicketSequence != nil && *signerListSetTx.TicketSequence != 0 {
 		evidence.TicketSequence = lo.ToPtr(*signerListSetTx.TicketSequence)
 	}
-	_, err := o.contractClient.SendKeysRotationTransactionResultEvidence(
+	_, err := p.contractClient.SendKeysRotationTransactionResultEvidence(
 		ctx,
-		o.cfg.RelayerCoreumAddress,
+		p.cfg.RelayerCoreumAddress,
 		evidence,
 	)
 
-	return o.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
+	return p.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence.XRPLTransactionResultEvidence)
 }
 
-func (o *XRPLToCoreumProcess) handleOperationEvidenceSubmissionError(
+func (p *XRPLToCoreumProcess) handleOperationEvidenceSubmissionError(
 	ctx context.Context,
 	err error,
 	tx rippledata.TransactionWithMetaData,
 	evidence coreum.XRPLTransactionResultEvidence,
 ) error {
 	if err == nil {
-		o.log.Info(
+		p.log.Info(
 			ctx,
 			"Successfully sent operation evidence",
 			zap.String("txResult", tx.MetaData.TransactionResult.String()),
@@ -345,7 +346,7 @@ func (o *XRPLToCoreumProcess) handleOperationEvidenceSubmissionError(
 		return nil
 	}
 	if IsExpectedEvidenceSubmissionError(err) {
-		o.log.Debug(ctx, "Received expected evidence submission error", zap.String("errText", err.Error()))
+		p.log.Debug(ctx, "Received expected evidence submission error", zap.String("errText", err.Error()))
 		return nil
 	}
 	return err
