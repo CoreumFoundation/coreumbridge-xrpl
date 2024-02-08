@@ -447,20 +447,16 @@ func (c *yamlConsoleEncoder) AppendReflected(value interface{}) error {
 }
 
 func (c *yamlConsoleEncoder) appendCustomTypes(value interface{}) bool {
-	if addr, ok := value.(sdk.AccAddress); ok {
-		c.AppendString(addr.String())
-		return true
-	}
-	if intVal, ok := value.(sdk.Int); ok { //nolint:staticcheck //the type is deprecated by still used
-		c.AppendString(intVal.String())
-		return true
-	}
-	if intVal, ok := value.(sdkmath.Int); ok {
-		c.AppendString(intVal.String())
-		return true
+	switch v := value.(type) {
+	case sdk.AccAddress:
+		c.AppendString(v.String())
+	case sdkmath.Int:
+		c.AppendString(v.String())
+	default:
+		return false
 	}
 
-	return false
+	return true
 }
 
 func (c *yamlConsoleEncoder) indentation() string {
