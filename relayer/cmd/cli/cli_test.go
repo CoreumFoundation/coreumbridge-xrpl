@@ -157,7 +157,7 @@ func TestRecoverTicketsCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner" //nolint:goconst // testing only variable
-	addKeyToTestKeyring(t, keyringDir, keyName, xrpl.KeyringSuffix, xrpl.XRPLHDPath)
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, xrpl.XRPLHDPath)
 
 	args := []string{
 		flagWithPrefix(cli.FlagKeyName), keyName,
