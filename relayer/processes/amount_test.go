@@ -3,6 +3,7 @@ package processes_test
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
@@ -221,7 +222,7 @@ func FuzzAmountConversionCoreumToXRPLAndBack(f *testing.F) {
 }
 
 func significantDigitsCount(input uint64) int {
-	inputStr := fmt.Sprint(input)
+	inputStr := strconv.FormatUint(input, 10)
 	trailingZeros := 0
 	for i := len(inputStr) - 1; i >= 0; i-- {
 		if string(inputStr[i]) != "0" {
