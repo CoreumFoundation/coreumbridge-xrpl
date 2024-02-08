@@ -125,7 +125,7 @@ func TestBootstrapCmd(t *testing.T) {
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
-	executeCmd(t, cli.BootstrapBridgeCmd(nil), args...)
+	executeCmd(t, cli.BootstrapBridgeCmd(mockBridgeClientProvider(nil)), args...)
 
 	// use generated file
 	bridgeClientMock := NewMockBridgeClient(ctrl)
@@ -804,7 +804,7 @@ func TestRotateKeysCmd(t *testing.T) {
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
-	executeCmd(t, cli.RotateKeysCmd(nil), args...)
+	executeCmd(t, cli.RotateKeysCmd(mockBridgeClientProvider(nil)), args...)
 
 	// use generated file
 	bridgeClientMock := NewMockBridgeClient(ctrl)
