@@ -142,8 +142,9 @@ pub enum ExecuteMsg {
     },
     // Update the invalid recipients list
     // Only the owner can do this
-    UpdateInvalidRecipients {
-        invalid_recipients: Vec<String>,
+    #[serde(rename = "update_invalid_xrpl_recipients")]
+    UpdateInvalidXRPLRecipients {
+        invalid_xrpl_recipients: Vec<String>,
     },
 }
 
@@ -195,8 +196,9 @@ pub enum QueryMsg {
         start_after_key: Option<String>,
         limit: Option<u32>,
     },
-    #[returns(InvalidRecipientsResponse)]
-    InvalidRecipients {},
+    #[returns(InvalidXRPLRecipientsResponse)]
+    #[serde(rename = "invalid_xrpl_recipients")]
+    InvalidXRPLRecipients {},
 }
 
 #[cw_serde]
@@ -264,6 +266,6 @@ pub struct ProcessedTxsResponse {
 }
 
 #[cw_serde]
-pub struct InvalidRecipientsResponse {
-    pub invalid_recipients: Vec<String>,
+pub struct InvalidXRPLRecipientsResponse {
+    pub invalid_xrpl_recipients: Vec<String>,
 }

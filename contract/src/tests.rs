@@ -20,10 +20,10 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::address::validate_xrpl_address;
-    use crate::contract::{INITIAL_INVALID_RECIPIENTS, MAX_RELAYERS};
+    use crate::contract::{INITIAL_INVALID_XRPL_RECIPIENTS, MAX_RELAYERS};
     use crate::msg::{
-        BridgeStateResponse, InvalidRecipientsResponse, ProcessedTxsResponse, TransactionEvidence,
-        TransactionEvidencesResponse,
+        BridgeStateResponse, InvalidXRPLRecipientsResponse, ProcessedTxsResponse,
+        TransactionEvidence, TransactionEvidencesResponse,
     };
     use crate::state::BridgeState;
     use crate::{
@@ -798,27 +798,28 @@ mod tests {
 
         // Let's query the invalid recipients
         let query_invalid_recipients = wasm
-            .query::<QueryMsg, InvalidRecipientsResponse>(
+            .query::<QueryMsg, InvalidXRPLRecipientsResponse>(
                 &contract_addr,
-                &QueryMsg::InvalidRecipients {},
+                &QueryMsg::InvalidXRPLRecipients {},
             )
             .unwrap();
 
         assert_eq!(
-            query_invalid_recipients.invalid_recipients.len(),
-            INITIAL_INVALID_RECIPIENTS.len() + 1
+            query_invalid_recipients.invalid_xrpl_recipients.len(),
+            INITIAL_INVALID_XRPL_RECIPIENTS.len() + 1
         );
         assert!(query_invalid_recipients
-            .invalid_recipients
+            .invalid_xrpl_recipients
             .contains(&bridge_xrpl_address));
 
-        // Let's try to update this and query again
-        // This will remove all current invalid recipients (but still keep the bridge xrpl address) and add a new one
-        let invalid_recipient = generate_xrpl_address();
+        // Let's try to update this by adding a new one and query again
+        let new_invalid_recipient = generate_xrpl_address();
+        let mut invalid_recipients = query_invalid_recipients.invalid_xrpl_recipients.clone();
+        invalid_recipients.push(new_invalid_recipient.clone());
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::UpdateInvalidRecipients {
-                invalid_recipients: vec![invalid_recipient.clone()],
+            &ExecuteMsg::UpdateInvalidXRPLRecipients {
+                invalid_xrpl_recipients: invalid_recipients,
             },
             &vec![],
             &signer,
@@ -826,27 +827,30 @@ mod tests {
         .unwrap();
 
         let query_invalid_recipients = wasm
-            .query::<QueryMsg, InvalidRecipientsResponse>(
+            .query::<QueryMsg, InvalidXRPLRecipientsResponse>(
                 &contract_addr,
-                &QueryMsg::InvalidRecipients {},
+                &QueryMsg::InvalidXRPLRecipients {},
             )
             .unwrap();
 
-        assert_eq!(query_invalid_recipients.invalid_recipients.len(), 2);
+        assert_eq!(
+            query_invalid_recipients.invalid_xrpl_recipients.len(),
+            INITIAL_INVALID_XRPL_RECIPIENTS.len() + 2
+        );
         assert!(query_invalid_recipients
-            .invalid_recipients
+            .invalid_xrpl_recipients
             .contains(&bridge_xrpl_address));
 
         assert!(query_invalid_recipients
-            .invalid_recipients
-            .contains(&invalid_recipient));
+            .invalid_xrpl_recipients
+            .contains(&new_invalid_recipient));
 
         // If we try to update this from an account that is not the owner it will fail
         let update_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::UpdateInvalidRecipients {
-                    invalid_recipients: vec![invalid_recipient.clone()],
+                &ExecuteMsg::UpdateInvalidXRPLRecipients {
+                    invalid_xrpl_recipients: vec![],
                 },
                 &vec![],
                 &relayer_accounts[0],
@@ -3221,7 +3225,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
-                    recipient: INITIAL_INVALID_RECIPIENTS[0].to_string(),
+                    recipient: INITIAL_INVALID_XRPL_RECIPIENTS[0].to_string(),
                     deliver_amount: None,
                 },
                 &coins(1, denom_xrp.clone()),
@@ -10207,7 +10211,7 @@ mod tests {
         ];
 
         // Add the current invalid recipients and check that they are valid generated xrpl addresses
-        for invalid_recipient in INITIAL_INVALID_RECIPIENTS {
+        for invalid_recipient in INITIAL_INVALID_XRPL_RECIPIENTS {
             valid_addresses.push(invalid_recipient.to_string());
         }
 
