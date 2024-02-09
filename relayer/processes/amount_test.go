@@ -199,6 +199,7 @@ func TestConvertCoreumAmountToXRPLAmount(t *testing.T) {
 }
 
 func FuzzAmountConversionCoreumToXRPLAndBack(f *testing.F) {
+	issuerString := xrpl.GenPrivKeyTxSigner().Account().String()
 	f.Add(uint64(1000000000000000001), int8(3))
 	f.Fuzz(func(t *testing.T, number uint64, power int8) {
 		significantPart := number % (maxXRPLAllowedSignificantDigits + 1)
@@ -210,7 +211,7 @@ func FuzzAmountConversionCoreumToXRPLAndBack(f *testing.F) {
 		// convert to and back from xrpl
 		rippleAmount, err := processes.ConvertCoreumAmountToXRPLAmount(
 			initial,
-			xrpl.XRPTokenIssuer.String(),
+			issuerString,
 			"AAA",
 		)
 		require.NoError(t, err)
@@ -235,6 +236,7 @@ func significantDigitsCount(input uint64) int {
 }
 
 func FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber(f *testing.F) {
+	issuerString := xrpl.GenPrivKeyTxSigner().Account().String()
 	f.Add(uint64(1000000000000000001), int8(13))
 	f.Add(maxXRPLAllowedSignificantDigits, int8(4))
 	f.Fuzz(func(t *testing.T, inputAmount uint64, powerInput int8) {
@@ -246,7 +248,7 @@ func FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber(f *testi
 		// convert to and back from xrpl
 		_, err := processes.ConvertCoreumAmountToXRPLAmount(
 			initial,
-			xrpl.XRPTokenIssuer.String(),
+			issuerString,
 			"AAA",
 		)
 
