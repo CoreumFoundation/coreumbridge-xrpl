@@ -140,6 +140,12 @@ pub enum ExecuteMsg {
         new_relayers: Vec<Relayer>,
         new_evidence_threshold: u32,
     },
+    // Update the prohibited recipients list
+    // Only the owner can do this
+    #[serde(rename = "update_prohibited_xrpl_recipients")]
+    UpdateProhibitedXRPLRecipients {
+        prohibited_xrpl_recipients: Vec<String>,
+    },
 }
 
 #[cw_ownable_query]
@@ -183,6 +189,16 @@ pub enum QueryMsg {
         start_after_key: Option<String>,
         limit: Option<u32>,
     },
+    #[returns(bool)]
+    ProcessedTx { hash: String },
+    #[returns(ProcessedTxsResponse)]
+    ProcessedTxs {
+        start_after_key: Option<String>,
+        limit: Option<u32>,
+    },
+    #[returns(ProhibitedXRPLRecipientsResponse)]
+    #[serde(rename = "prohibited_xrpl_recipients")]
+    ProhibitedXRPLRecipients {},
 }
 
 #[cw_serde]
@@ -241,4 +257,15 @@ pub struct TransactionEvidence {
 pub struct TransactionEvidencesResponse {
     pub last_key: Option<String>,
     pub transaction_evidences: Vec<TransactionEvidence>,
+}
+
+#[cw_serde]
+pub struct ProcessedTxsResponse {
+    pub last_key: Option<String>,
+    pub processed_txs: Vec<String>,
+}
+
+#[cw_serde]
+pub struct ProhibitedXRPLRecipientsResponse {
+    pub prohibited_xrpl_recipients: Vec<String>,
 }

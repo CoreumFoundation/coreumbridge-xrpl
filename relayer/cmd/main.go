@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -93,6 +94,18 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	return cmd, nil
 }
 
+func isGenerateOnly(
+	cmd *cobra.Command,
+) bool {
+	flagSet := cmd.Flags()
+	if flagSet.Changed(flags.FlagGenerateOnly) {
+		genOnly, _ := flagSet.GetBool(flags.FlagGenerateOnly)
+		return genOnly
+	}
+
+	return false
+}
+
 func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 	log, err := cli.GetCLILogger()
 	if err != nil {
@@ -122,10 +135,12 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 		return nil, err
 	}
 
+	generateOnly := isGenerateOnly(cmd)
+	components.CoreumContractClient.SetGenerateOnly(generateOnly)
 	// for the bridge client we use the CLI logger
 	return bridgeclient.NewBridgeClient(
 		components.Log,
-		components.CoreumClientCtx,
+		components.CoreumClientCtx.WithGenerateOnly(generateOnly),
 		components.CoreumContractClient,
 		components.XRPLRPCClient,
 		components.XRPLKeyringTxSigner,

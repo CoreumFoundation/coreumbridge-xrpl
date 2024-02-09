@@ -24,6 +24,7 @@ pub enum TopKey {
     FeesCollected = b'c',
     FeeRemainders = b'd',
     PendingRotateKeys = b'e',
+    ProhibitedXRPLRecipients = b'f',
 }
 
 impl TopKey {
@@ -194,6 +195,9 @@ pub const FEES_COLLECTED: Map<Addr, Vec<Coin>> = Map::new(TopKey::FeesCollected.
 // Fees Remainders in case that we have some small amounts left after dividing fees between our relayers we will keep them here until next time we collect fees and can add them to the new amount
 // Key is Coin denom and value is Coin amount
 pub const FEE_REMAINDERS: Map<String, Uint128> = Map::new(TopKey::FeeRemainders.as_str());
+// XRPL addresses that have been marked as prohibited and can't be used for receiving funds
+pub const PROHIBITED_XRPL_RECIPIENTS: Map<String, Empty> =
+    Map::new(TopKey::ProhibitedXRPLRecipients.as_str());
 
 pub enum ContractActions {
     Instantiation,
@@ -208,6 +212,7 @@ pub enum ContractActions {
     UpdateXRPLToken,
     UpdateCoreumToken,
     UpdateXRPLBaseFee,
+    UpdateProhibitedXRPLRecipients,
     ClaimRefunds,
     HaltBridge,
     ResumeBridge,
@@ -234,6 +239,7 @@ impl UserType {
             ContractActions::UpdateXRPLToken => matches!(self, Self::Owner),
             ContractActions::UpdateCoreumToken => matches!(self, Self::Owner),
             ContractActions::UpdateXRPLBaseFee => matches!(self, Self::Owner),
+            ContractActions::UpdateProhibitedXRPLRecipients => matches!(self, Self::Owner),
             ContractActions::ClaimRefunds => true,
             ContractActions::HaltBridge => matches!(self, Self::Owner | Self::Relayer),
             ContractActions::ResumeBridge => matches!(self, Self::Owner),
@@ -258,6 +264,7 @@ impl ContractActions {
             Self::UpdateXRPLToken => "update_xrpl_token",
             Self::UpdateCoreumToken => "update_coreum_token",
             Self::UpdateXRPLBaseFee => "update_xrpl_base_fee",
+            Self::UpdateProhibitedXRPLRecipients => "update_invalid_xrpl_recipients",
             Self::HaltBridge => "halt_bridge",
             Self::ResumeBridge => "resume_bridge",
             Self::RotateKeys => "rotate_keys",

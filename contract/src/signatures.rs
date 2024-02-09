@@ -62,7 +62,7 @@ pub fn add_signature(
     Ok(())
 }
 
-fn validate_signature(signature: &String) -> Result<(), ContractError> {
+fn validate_signature(signature: &str) -> Result<(), ContractError> {
     // The purpose of this function is to avoid attacks
     // We set a max length of 200, a reasonable length, here to avoid spam attack by a malicious relayer that wants to send a very long signature for an operation
     // And to also not error out in case a relayer sends a signature that is a bit longer than the one we expect
