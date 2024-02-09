@@ -473,7 +473,7 @@ func TestMultisigSignerSetWithMaxSigners(t *testing.T) {
 	multiSigAcc := chains.XRPL.GenAccount(ctx, t, 10)
 	t.Logf("Multisig account: %s", multiSigAcc)
 	signerCount := xrpl.MaxAllowedXRPLSigners
-	chains.XRPL.FundAccountForSignerListSet(ctx, t, multiSigAcc, signerCount)
+	chains.XRPL.FundAccountForSignerListSet(ctx, t, multiSigAcc)
 	signerSignerEntries := make([]rippledata.SignerEntry, 0)
 	for i := 0; i < int(signerCount); i++ {
 		signer := chains.XRPL.GenAccount(ctx, t, 0)

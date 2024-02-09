@@ -576,7 +576,7 @@ func genBridgeXRPLAccountWithRelayers(
 		signerPubKeys = append(signerPubKeys, xrplChain.GetSignerPubKey(t, signerAcc))
 	}
 	// fund for the signers SignerListSet
-	xrplChain.FundAccountForSignerListSet(ctx, t, bridgeXRPLAddress, signersCount)
+	xrplChain.FundAccountForSignerListSet(ctx, t, bridgeXRPLAddress)
 	return bridgeXRPLAddress, signerAccounts, signerPubKeys
 }
 
