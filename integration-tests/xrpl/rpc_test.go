@@ -1045,7 +1045,11 @@ func buildUpdateSignerListSetTxForMultiSigning(
 	return tx
 }
 
-func buildSignerListSetTx(t *testing.T, xrplChain integrationtests.XRPLChain, signerCount, quorum int) rippledata.SignerListSet {
+func buildSignerListSetTx(
+	t *testing.T,
+	xrplChain integrationtests.XRPLChain,
+	signerCount, quorum int,
+) rippledata.SignerListSet {
 	t.Helper()
 
 	signerEntries := lo.Times(signerCount, func(_ int) rippledata.SignerEntry {
