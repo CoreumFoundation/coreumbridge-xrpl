@@ -20,9 +20,9 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::address::validate_xrpl_address;
-    use crate::contract::MAX_RELAYERS;
+    use crate::contract::{INITIAL_INVALID_RECIPIENTS, MAX_RELAYERS};
     use crate::msg::{
-        BridgeStateResponse, ProcessedTxsResponse, TransactionEvidence,
+        BridgeStateResponse, InvalidRecipientsResponse, ProcessedTxsResponse, TransactionEvidence,
         TransactionEvidencesResponse,
     };
     use crate::state::BridgeState;
@@ -650,7 +650,7 @@ mod tests {
                 evidence_threshold: 3,
                 used_ticket_sequence_threshold: 5,
                 trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
-                bridge_xrpl_address,
+                bridge_xrpl_address: bridge_xrpl_address.clone(),
                 bridge_state: BridgeState::Active,
                 xrpl_base_fee: 10,
             }
@@ -795,6 +795,46 @@ mod tests {
             .unwrap();
 
         assert!(!query_transaction_evidence.relayer_addresses.is_empty());
+
+        // Let's query the invalid recipients
+        let query_invalid_recipients = wasm
+            .query::<QueryMsg, InvalidRecipientsResponse>(
+                &contract_addr,
+                &QueryMsg::InvalidRecipients {},
+            )
+            .unwrap();
+
+        assert_eq!(
+            query_invalid_recipients.invalid_recipients.len(),
+            INITIAL_INVALID_RECIPIENTS.len() + 1
+        );
+        assert!(query_invalid_recipients
+            .invalid_recipients
+            .contains(&bridge_xrpl_address));
+
+        // Let's try to update this and query again
+        // This will remove all current invalid recipients (but still keep the bridge xrpl address)
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateInvalidRecipients {
+                invalid_recipients: vec![],
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let query_invalid_recipients = wasm
+            .query::<QueryMsg, InvalidRecipientsResponse>(
+                &contract_addr,
+                &QueryMsg::InvalidRecipients {},
+            )
+            .unwrap();
+
+        assert_eq!(query_invalid_recipients.invalid_recipients.len(), 1);
+        assert!(query_invalid_recipients
+            .invalid_recipients
+            .contains(&bridge_xrpl_address));
     }
 
     #[test]
@@ -3144,6 +3184,23 @@ mod tests {
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
                     recipient: multisig_address,
+                    deliver_amount: None,
+                },
+                &coins(1, denom_xrp.clone()),
+                sender,
+            )
+            .unwrap_err();
+
+        assert!(bridge_error
+            .to_string()
+            .contains(ContractError::ProhibitedRecipient {}.to_string().as_str()));
+
+        // If we try to send tokens from Coreum to XRPL using an invalid address recipient, it should fail.
+        let bridge_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::SendToXRPL {
+                    recipient: INITIAL_INVALID_RECIPIENTS[0].to_string(),
                     deliver_amount: None,
                 },
                 &coins(1, denom_xrp.clone()),
@@ -10114,7 +10171,7 @@ mod tests {
 
     #[test]
     fn validate_xrpl_addresses() {
-        let valid_addresses = vec![
+        let mut valid_addresses = vec![
             "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1".to_string(),
             "rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD".to_string(),
             "rBTwLga3i2gz3doX6Gva3MgEV8ZCD8jjah".to_string(),
@@ -10127,6 +10184,11 @@ mod tests {
             generate_xrpl_address(),
             generate_xrpl_address(),
         ];
+
+        // Add the current invalid recipients and check that they are valid generated xrpl addresses
+        for invalid_recipient in INITIAL_INVALID_RECIPIENTS {
+            valid_addresses.push(invalid_recipient.to_string());
+        }
 
         for address in valid_addresses.iter() {
             validate_xrpl_address(address).unwrap();

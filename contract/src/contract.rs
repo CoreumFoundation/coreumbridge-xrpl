@@ -7,9 +7,9 @@ use crate::{
     fees::{amount_after_bridge_fees, handle_fee_collection, substract_relayer_fees},
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
-        FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefund,
-        PendingRefundsResponse, ProcessedTxsResponse, QueryMsg, TransactionEvidence,
-        TransactionEvidencesResponse, XRPLTokensResponse,
+        FeesCollectedResponse, InstantiateMsg, InvalidRecipientsResponse,
+        PendingOperationsResponse, PendingRefund, PendingRefundsResponse, ProcessedTxsResponse,
+        QueryMsg, TransactionEvidence, TransactionEvidencesResponse, XRPLTokensResponse,
     },
     operation::{
         check_operation_exists, create_pending_operation,
@@ -20,9 +20,9 @@ use crate::{
     signatures::add_signature,
     state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, UserType, XRPLToken,
-        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS,
-        PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, PROCESSED_TXS, TX_EVIDENCES,
-        USED_TICKETS_COUNTER, XRPL_TOKENS,
+        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, INVALID_RECIPIENTS,
+        PENDING_OPERATIONS, PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE,
+        PROCESSED_TXS, TX_EVIDENCES, USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
@@ -39,7 +39,7 @@ use coreum_wasm_sdk::{
 };
 use cosmwasm_std::{
     coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps,
-    DepsMut, Env, MessageInfo, Order, Response, StdResult, Storage, Uint128,
+    DepsMut, Empty, Env, MessageInfo, Order, Response, StdResult, Storage, Uint128,
 };
 use cw2::set_contract_version;
 use cw_ownable::{get_ownership, initialize_owner, is_owner, Action};
@@ -82,6 +82,14 @@ pub const XRPL_MAX_TRUNCATED_AMOUNT_LENGTH: usize = 16;
 pub const MIN_DENOM_LENGTH: usize = 3;
 pub const MAX_DENOM_LENGTH: usize = 128;
 pub const DENOM_SPECIAL_CHARACTERS: [char; 5] = ['/', ':', '.', '_', '-'];
+
+pub const INITIAL_INVALID_RECIPIENTS: [&str; 5] = [
+    "rrrrrrrrrrrrrrrrrrrrrhoLvTp", // ACCOUNT_ZERO: An address that is the XRP Ledger's base58 encoding of the value 0. In peer-to-peer communications, rippled uses this address as the issuer for XRP.
+    "rrrrrrrrrrrrrrrrrrrrBZbvji", // ACCOUNT_ONE: An address that is the XRP Ledger's base58 encoding of the value 1. In the ledger, RippleState entries use this address as a placeholder for the issuer of a trust line balance.
+    "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", // Genesis account: When rippled starts a new genesis ledger from scratch (for example, in stand-alone mode), this account holds all the XRP. This address is generated from the seed value masterpassphrase which is hard-coded.
+    "rrrrrrrrrrrrrrrrrNAMEtxvNvQ", // Ripple Name reservation black-hole: In the past, Ripple asked users to send XRP to this account to reserve Ripple Names.
+    "rrrrrrrrrrrrrrrrrrrn5RM1rHd", // NaN Address: Previous versions of ripple-lib generated this address when encoding the value NaN using the XRP Ledger's base58 string encoding format.
+];
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -128,7 +136,7 @@ pub fn instantiate(
         evidence_threshold: msg.evidence_threshold,
         used_ticket_sequence_threshold: msg.used_ticket_sequence_threshold,
         trust_set_limit_amount: msg.trust_set_limit_amount,
-        bridge_xrpl_address: msg.bridge_xrpl_address,
+        bridge_xrpl_address: msg.bridge_xrpl_address.clone(),
         bridge_state: BridgeState::Active,
         xrpl_base_fee: msg.xrpl_base_fee,
     };
@@ -165,6 +173,12 @@ pub fn instantiate(
 
     let key = build_xrpl_token_key(XRP_ISSUER, XRP_CURRENCY);
     XRPL_TOKENS.save(deps.storage, key, &token)?;
+
+    // We will store all the invalid recipients in state, including the multisig address, which is also invalid to send to
+    for address in INITIAL_INVALID_RECIPIENTS {
+        INVALID_RECIPIENTS.save(deps.storage, address.to_string(), &Empty {})?;
+    }
+    INVALID_RECIPIENTS.save(deps.storage, msg.bridge_xrpl_address, &Empty {})?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::Instantiation.as_str())
@@ -308,6 +322,9 @@ pub fn execute(
             new_relayers,
             new_evidence_threshold,
         ),
+        ExecuteMsg::UpdateInvalidRecipients { invalid_recipients } => {
+            update_invalid_recipients(deps.into_empty(), info.sender, invalid_recipients)
+        }
     }
 }
 
@@ -903,9 +920,8 @@ fn send_to_xrpl(
     // Check that the recipient is a valid XRPL address
     validate_xrpl_address(&recipient)?;
 
-    // We prohibit to send to the multisig address
-    let config = CONFIG.load(deps.storage)?;
-    if recipient.eq(&config.bridge_xrpl_address) {
+    // We prohibit to sending to an invalid recipient
+    if INVALID_RECIPIENTS.has(deps.storage, recipient.clone()) {
         return Err(ContractError::ProhibitedRecipient {});
     }
 
@@ -1327,6 +1343,34 @@ fn rotate_keys(
         .add_attribute("sender", sender))
 }
 
+fn update_invalid_recipients(
+    deps: DepsMut,
+    sender: Addr,
+    invalid_recipients: Vec<String>,
+) -> CoreumResult<ContractError> {
+    check_authorization(
+        deps.as_ref().storage,
+        &sender,
+        &ContractActions::UpdateInvalidRecipients,
+    )?;
+
+    // We clear the previous invalid recipients
+    INVALID_RECIPIENTS.clear(deps.storage);
+
+    // We add the current multisig address which is always invalid
+    let config = CONFIG.load(deps.storage)?;
+    INVALID_RECIPIENTS.save(deps.storage, config.bridge_xrpl_address, &Empty {})?;
+
+    // Add all invalid recipients provided
+    for recipient in invalid_recipients {
+        INVALID_RECIPIENTS.save(deps.storage, recipient, &Empty {})?;
+    }
+
+    Ok(Response::new()
+        .add_attribute("action", ContractActions::UpdateInvalidRecipients.as_str())
+        .add_attribute("sender", sender))
+}
+
 // ********** Queries **********
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
@@ -1372,6 +1416,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after_key,
             limit,
         } => to_json_binary(&query_processed_txs(deps, start_after_key, limit)),
+        QueryMsg::InvalidRecipients {} => to_json_binary(&query_invalid_recipients(deps)),
     }
 }
 
@@ -1566,6 +1611,16 @@ fn query_processed_txs(
         last_key,
         processed_txs,
     }
+}
+
+fn query_invalid_recipients(deps: Deps) -> InvalidRecipientsResponse {
+    let invalid_recipients: Vec<String> = INVALID_RECIPIENTS
+        .range(deps.storage, None, None, Order::Ascending)
+        .filter_map(Result::ok)
+        .map(|(addr, _)| addr)
+        .collect();
+
+    InvalidRecipientsResponse { invalid_recipients }
 }
 
 // ********** Helpers **********

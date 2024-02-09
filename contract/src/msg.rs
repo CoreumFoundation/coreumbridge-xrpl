@@ -140,6 +140,11 @@ pub enum ExecuteMsg {
         new_relayers: Vec<Relayer>,
         new_evidence_threshold: u32,
     },
+    // Update the invalid recipients list
+    // Only the owner can do this
+    UpdateInvalidRecipients {
+        invalid_recipients: Vec<String>,
+    },
 }
 
 #[cw_ownable_query]
@@ -190,6 +195,8 @@ pub enum QueryMsg {
         start_after_key: Option<String>,
         limit: Option<u32>,
     },
+    #[returns(InvalidRecipientsResponse)]
+    InvalidRecipients {},
 }
 
 #[cw_serde]
@@ -254,4 +261,9 @@ pub struct TransactionEvidencesResponse {
 pub struct ProcessedTxsResponse {
     pub last_key: Option<String>,
     pub processed_txs: Vec<String>,
+}
+
+#[cw_serde]
+pub struct InvalidRecipientsResponse {
+    pub invalid_recipients: Vec<String>,
 }
