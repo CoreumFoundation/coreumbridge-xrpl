@@ -813,11 +813,12 @@ mod tests {
             .contains(&bridge_xrpl_address));
 
         // Let's try to update this and query again
-        // This will remove all current invalid recipients (but still keep the bridge xrpl address)
+        // This will remove all current invalid recipients (but still keep the bridge xrpl address) and add a new one
+        let invalid_recipient = generate_xrpl_address();
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::UpdateInvalidRecipients {
-                invalid_recipients: vec![],
+                invalid_recipients: vec![invalid_recipient.clone()],
             },
             &vec![],
             &signer,
@@ -831,10 +832,14 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(query_invalid_recipients.invalid_recipients.len(), 1);
+        assert_eq!(query_invalid_recipients.invalid_recipients.len(), 2);
         assert!(query_invalid_recipients
             .invalid_recipients
             .contains(&bridge_xrpl_address));
+
+        assert!(query_invalid_recipients
+            .invalid_recipients
+            .contains(&invalid_recipient));
     }
 
     #[test]

@@ -1363,6 +1363,8 @@ fn update_invalid_recipients(
 
     // Add all invalid recipients provided
     for recipient in invalid_recipients {
+        // Validate the address that we are adding, to not add useless things
+        validate_xrpl_address(&recipient)?;
         INVALID_RECIPIENTS.save(deps.storage, recipient, &Empty {})?;
     }
 
