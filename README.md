@@ -57,6 +57,8 @@ coreumbridge-xrpl-relayer init \
 
 #### Generate the relayer keys
 
+Generate new keys:
+
 ```bash
 coreumbridge-xrpl-relayer keys-coreum add coreum-relayer
 
@@ -67,6 +69,13 @@ coreumbridge-xrpl-relayer keys-xrpl add xrpl-relayer
 
 The `coreum-relayer` and `xrpl-relayer` are key names set by default in the `relayer.yaml`. If for some reason you want
 to update them, then updated them in the `relayer.yaml` as well.
+
+Or import the existing mnemonics:
+```bash
+coreumbridge-xrpl-relayer keys-coreum add coreum-relayer --recover
+
+coreumbridge-xrpl-relayer keys-xrpl add xrpl-relayer --recover
+```
 
 #### Extract keys info for the contract deployment
 
