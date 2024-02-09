@@ -7,9 +7,9 @@ use crate::{
     fees::{amount_after_bridge_fees, handle_fee_collection, substract_relayer_fees},
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
-        FeesCollectedResponse, InstantiateMsg, InvalidXRPLRecipientsResponse,
-        PendingOperationsResponse, PendingRefund, PendingRefundsResponse, ProcessedTxsResponse,
-        QueryMsg, TransactionEvidence, TransactionEvidencesResponse, XRPLTokensResponse,
+        FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefund,
+        PendingRefundsResponse, ProcessedTxsResponse, ProhibitedXRPLRecipientsResponse, QueryMsg,
+        TransactionEvidence, TransactionEvidencesResponse, XRPLTokensResponse,
     },
     operation::{
         check_operation_exists, create_pending_operation,
@@ -20,9 +20,9 @@ use crate::{
     signatures::add_signature,
     state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, UserType, XRPLToken,
-        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, INVALID_XRPL_RECIPIENTS,
-        PENDING_OPERATIONS, PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE,
-        PROCESSED_TXS, TX_EVIDENCES, USED_TICKETS_COUNTER, XRPL_TOKENS,
+        AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS,
+        PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, PROCESSED_TXS,
+        PROHIBITED_XRPL_RECIPIENTS, TX_EVIDENCES, USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
         allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
@@ -83,7 +83,7 @@ pub const MIN_DENOM_LENGTH: usize = 3;
 pub const MAX_DENOM_LENGTH: usize = 128;
 pub const DENOM_SPECIAL_CHARACTERS: [char; 5] = ['/', ':', '.', '_', '-'];
 
-pub const INITIAL_INVALID_XRPL_RECIPIENTS: [&str; 5] = [
+pub const INITIAL_PROHIBITED_XRPL_RECIPIENTS: [&str; 5] = [
     "rrrrrrrrrrrrrrrrrrrrrhoLvTp", // ACCOUNT_ZERO: An address that is the XRP Ledger's base58 encoding of the value 0. In peer-to-peer communications, rippled uses this address as the issuer for XRP.
     "rrrrrrrrrrrrrrrrrrrrBZbvji", // ACCOUNT_ONE: An address that is the XRP Ledger's base58 encoding of the value 1. In the ledger, RippleState entries use this address as a placeholder for the issuer of a trust line balance.
     "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", // Genesis account: When rippled starts a new genesis ledger from scratch (for example, in stand-alone mode), this account holds all the XRP. This address is generated from the seed value masterpassphrase which is hard-coded.
@@ -175,10 +175,10 @@ pub fn instantiate(
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
     // We store all the invalid recipients in state, including the multisig address, which is also invalid to send to
-    for address in INITIAL_INVALID_XRPL_RECIPIENTS {
-        INVALID_XRPL_RECIPIENTS.save(deps.storage, address.to_string(), &Empty {})?;
+    for address in INITIAL_PROHIBITED_XRPL_RECIPIENTS {
+        PROHIBITED_XRPL_RECIPIENTS.save(deps.storage, address.to_string(), &Empty {})?;
     }
-    INVALID_XRPL_RECIPIENTS.save(deps.storage, msg.bridge_xrpl_address, &Empty {})?;
+    PROHIBITED_XRPL_RECIPIENTS.save(deps.storage, msg.bridge_xrpl_address, &Empty {})?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::Instantiation.as_str())
@@ -322,11 +322,13 @@ pub fn execute(
             new_relayers,
             new_evidence_threshold,
         ),
-        ExecuteMsg::UpdateInvalidXRPLRecipients {
-            invalid_xrpl_recipients,
-        } => {
-            update_invalid_xrpl_recipients(deps.into_empty(), info.sender, invalid_xrpl_recipients)
-        }
+        ExecuteMsg::UpdateProhibitedXRPLRecipients {
+            prohibited_xrpl_recipients,
+        } => update_prohibited_xrpl_recipients(
+            deps.into_empty(),
+            info.sender,
+            prohibited_xrpl_recipients,
+        ),
     }
 }
 
@@ -922,8 +924,8 @@ fn send_to_xrpl(
     // Check that the recipient is a valid XRPL address
     validate_xrpl_address(&recipient)?;
 
-    // We prohibit to sending to an invalid recipient
-    if INVALID_XRPL_RECIPIENTS.has(deps.storage, recipient.clone()) {
+    // We don't allow sending to a prohibited recipient
+    if PROHIBITED_XRPL_RECIPIENTS.has(deps.storage, recipient.clone()) {
         return Err(ContractError::ProhibitedRecipient {});
     }
 
@@ -1345,35 +1347,35 @@ fn rotate_keys(
         .add_attribute("sender", sender))
 }
 
-fn update_invalid_xrpl_recipients(
+fn update_prohibited_xrpl_recipients(
     deps: DepsMut,
     sender: Addr,
-    invalid_xrpl_recipients: Vec<String>,
+    prohibited_xrpl_recipients: Vec<String>,
 ) -> CoreumResult<ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
-        &ContractActions::UpdateInvalidXRPLRecipients,
+        &ContractActions::UpdateProhibitedXRPLRecipients,
     )?;
 
-    // We clear the previous invalid recipients
-    INVALID_XRPL_RECIPIENTS.clear(deps.storage);
+    // We clear the previous prohibited recipients
+    PROHIBITED_XRPL_RECIPIENTS.clear(deps.storage);
 
-    // We add the current multisig address which is always invalid
+    // We add the current multisig address which is always prohibited
     let config = CONFIG.load(deps.storage)?;
-    INVALID_XRPL_RECIPIENTS.save(deps.storage, config.bridge_xrpl_address, &Empty {})?;
+    PROHIBITED_XRPL_RECIPIENTS.save(deps.storage, config.bridge_xrpl_address, &Empty {})?;
 
-    // Add all invalid recipients provided
-    for invalid_xrpl_recipient in invalid_xrpl_recipients {
+    // Add all prohibited recipients provided
+    for prohibited_xrpl_recipient in prohibited_xrpl_recipients {
         // Validate the address that we are adding, to not add useless things
-        validate_xrpl_address(&invalid_xrpl_recipient)?;
-        INVALID_XRPL_RECIPIENTS.save(deps.storage, invalid_xrpl_recipient, &Empty {})?;
+        validate_xrpl_address(&prohibited_xrpl_recipient)?;
+        PROHIBITED_XRPL_RECIPIENTS.save(deps.storage, prohibited_xrpl_recipient, &Empty {})?;
     }
 
     Ok(Response::new()
         .add_attribute(
             "action",
-            ContractActions::UpdateInvalidXRPLRecipients.as_str(),
+            ContractActions::UpdateProhibitedXRPLRecipients.as_str(),
         )
         .add_attribute("sender", sender))
 }
@@ -1423,7 +1425,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after_key,
             limit,
         } => to_json_binary(&query_processed_txs(deps, start_after_key, limit)),
-        QueryMsg::InvalidXRPLRecipients {} => to_json_binary(&query_invalid_xrpl_recipients(deps)),
+        QueryMsg::ProhibitedXRPLRecipients {} => {
+            to_json_binary(&query_prohibited_xrpl_recipients(deps))
+        }
     }
 }
 
@@ -1620,15 +1624,15 @@ fn query_processed_txs(
     }
 }
 
-fn query_invalid_xrpl_recipients(deps: Deps) -> InvalidXRPLRecipientsResponse {
-    let invalid_xrpl_recipients: Vec<String> = INVALID_XRPL_RECIPIENTS
+fn query_prohibited_xrpl_recipients(deps: Deps) -> ProhibitedXRPLRecipientsResponse {
+    let prohibited_xrpl_recipients: Vec<String> = PROHIBITED_XRPL_RECIPIENTS
         .range(deps.storage, None, None, Order::Ascending)
         .filter_map(Result::ok)
         .map(|(addr, _)| addr)
         .collect();
 
-    InvalidXRPLRecipientsResponse {
-        invalid_xrpl_recipients,
+    ProhibitedXRPLRecipientsResponse {
+        prohibited_xrpl_recipients,
     }
 }
 

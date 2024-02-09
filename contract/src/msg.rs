@@ -140,11 +140,11 @@ pub enum ExecuteMsg {
         new_relayers: Vec<Relayer>,
         new_evidence_threshold: u32,
     },
-    // Update the invalid recipients list
+    // Update the prohibited recipients list
     // Only the owner can do this
-    #[serde(rename = "update_invalid_xrpl_recipients")]
-    UpdateInvalidXRPLRecipients {
-        invalid_xrpl_recipients: Vec<String>,
+    #[serde(rename = "update_prohibited_xrpl_recipients")]
+    UpdateProhibitedXRPLRecipients {
+        prohibited_xrpl_recipients: Vec<String>,
     },
 }
 
@@ -196,9 +196,9 @@ pub enum QueryMsg {
         start_after_key: Option<String>,
         limit: Option<u32>,
     },
-    #[returns(InvalidXRPLRecipientsResponse)]
-    #[serde(rename = "invalid_xrpl_recipients")]
-    InvalidXRPLRecipients {},
+    #[returns(ProhibitedXRPLRecipientsResponse)]
+    #[serde(rename = "prohibited_xrpl_recipients")]
+    ProhibitedXRPLRecipients {},
 }
 
 #[cw_serde]
@@ -266,6 +266,6 @@ pub struct ProcessedTxsResponse {
 }
 
 #[cw_serde]
-pub struct InvalidXRPLRecipientsResponse {
-    pub invalid_xrpl_recipients: Vec<String>,
+pub struct ProhibitedXRPLRecipientsResponse {
+    pub prohibited_xrpl_recipients: Vec<String>,
 }

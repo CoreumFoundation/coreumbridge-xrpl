@@ -20,9 +20,9 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::address::validate_xrpl_address;
-    use crate::contract::{INITIAL_INVALID_XRPL_RECIPIENTS, MAX_RELAYERS};
+    use crate::contract::{INITIAL_PROHIBITED_XRPL_RECIPIENTS, MAX_RELAYERS};
     use crate::msg::{
-        BridgeStateResponse, InvalidXRPLRecipientsResponse, ProcessedTxsResponse,
+        BridgeStateResponse, ProcessedTxsResponse, ProhibitedXRPLRecipientsResponse,
         TransactionEvidence, TransactionEvidencesResponse,
     };
     use crate::state::BridgeState;
@@ -796,61 +796,63 @@ mod tests {
 
         assert!(!query_transaction_evidence.relayer_addresses.is_empty());
 
-        // Let's query the invalid recipients
-        let query_invalid_recipients = wasm
-            .query::<QueryMsg, InvalidXRPLRecipientsResponse>(
+        // Let's query the prohibited recipients
+        let query_prohibited_recipients = wasm
+            .query::<QueryMsg, ProhibitedXRPLRecipientsResponse>(
                 &contract_addr,
-                &QueryMsg::InvalidXRPLRecipients {},
+                &QueryMsg::ProhibitedXRPLRecipients {},
             )
             .unwrap();
 
         assert_eq!(
-            query_invalid_recipients.invalid_xrpl_recipients.len(),
-            INITIAL_INVALID_XRPL_RECIPIENTS.len() + 1
+            query_prohibited_recipients.prohibited_xrpl_recipients.len(),
+            INITIAL_PROHIBITED_XRPL_RECIPIENTS.len() + 1
         );
-        assert!(query_invalid_recipients
-            .invalid_xrpl_recipients
+        assert!(query_prohibited_recipients
+            .prohibited_xrpl_recipients
             .contains(&bridge_xrpl_address));
 
         // Let's try to update this by adding a new one and query again
-        let new_invalid_recipient = generate_xrpl_address();
-        let mut invalid_recipients = query_invalid_recipients.invalid_xrpl_recipients.clone();
-        invalid_recipients.push(new_invalid_recipient.clone());
+        let new_prohibited_recipient = generate_xrpl_address();
+        let mut prohibited_recipients = query_prohibited_recipients
+            .prohibited_xrpl_recipients
+            .clone();
+        prohibited_recipients.push(new_prohibited_recipient.clone());
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::UpdateInvalidXRPLRecipients {
-                invalid_xrpl_recipients: invalid_recipients,
+            &ExecuteMsg::UpdateProhibitedXRPLRecipients {
+                prohibited_xrpl_recipients: prohibited_recipients,
             },
             &vec![],
             &signer,
         )
         .unwrap();
 
-        let query_invalid_recipients = wasm
-            .query::<QueryMsg, InvalidXRPLRecipientsResponse>(
+        let query_prohibited_recipients = wasm
+            .query::<QueryMsg, ProhibitedXRPLRecipientsResponse>(
                 &contract_addr,
-                &QueryMsg::InvalidXRPLRecipients {},
+                &QueryMsg::ProhibitedXRPLRecipients {},
             )
             .unwrap();
 
         assert_eq!(
-            query_invalid_recipients.invalid_xrpl_recipients.len(),
-            INITIAL_INVALID_XRPL_RECIPIENTS.len() + 2
+            query_prohibited_recipients.prohibited_xrpl_recipients.len(),
+            INITIAL_PROHIBITED_XRPL_RECIPIENTS.len() + 2
         );
-        assert!(query_invalid_recipients
-            .invalid_xrpl_recipients
+        assert!(query_prohibited_recipients
+            .prohibited_xrpl_recipients
             .contains(&bridge_xrpl_address));
 
-        assert!(query_invalid_recipients
-            .invalid_xrpl_recipients
-            .contains(&new_invalid_recipient));
+        assert!(query_prohibited_recipients
+            .prohibited_xrpl_recipients
+            .contains(&new_prohibited_recipient));
 
         // If we try to update this from an account that is not the owner it will fail
         let update_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::UpdateInvalidXRPLRecipients {
-                    invalid_xrpl_recipients: vec![],
+                &ExecuteMsg::UpdateProhibitedXRPLRecipients {
+                    prohibited_xrpl_recipients: vec![],
                 },
                 &vec![],
                 &relayer_accounts[0],
@@ -3220,12 +3222,12 @@ mod tests {
             .to_string()
             .contains(ContractError::ProhibitedRecipient {}.to_string().as_str()));
 
-        // If we try to send tokens from Coreum to XRPL using an invalid address recipient, it should fail.
+        // If we try to send tokens from Coreum to XRPL using a prohibited recipient address, it should fail.
         let bridge_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
-                    recipient: INITIAL_INVALID_XRPL_RECIPIENTS[0].to_string(),
+                    recipient: INITIAL_PROHIBITED_XRPL_RECIPIENTS[0].to_string(),
                     deliver_amount: None,
                 },
                 &coins(1, denom_xrp.clone()),
@@ -10210,9 +10212,9 @@ mod tests {
             generate_xrpl_address(),
         ];
 
-        // Add the current invalid recipients and check that they are valid generated xrpl addresses
-        for invalid_recipient in INITIAL_INVALID_XRPL_RECIPIENTS {
-            valid_addresses.push(invalid_recipient.to_string());
+        // Add the current prohibited recipients and check that they are valid generated xrpl addresses
+        for prohibited_recipient in INITIAL_PROHIBITED_XRPL_RECIPIENTS {
+            valid_addresses.push(prohibited_recipient.to_string());
         }
 
         for address in valid_addresses.iter() {
