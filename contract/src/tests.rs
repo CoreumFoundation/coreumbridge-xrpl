@@ -21,7 +21,10 @@ mod tests {
 
     use crate::address::validate_xrpl_address;
     use crate::contract::MAX_RELAYERS;
-    use crate::msg::{BridgeStateResponse, TransactionEvidence, TransactionEvidencesResponse};
+    use crate::msg::{
+        BridgeStateResponse, ProcessedTxsResponse, TransactionEvidence,
+        TransactionEvidencesResponse,
+    };
     use crate::state::BridgeState;
     use crate::{
         contract::{XRP_CURRENCY, XRP_ISSUER},
@@ -2997,11 +3000,12 @@ mod tests {
         )
         .unwrap();
 
+        let tx_hash = generate_hash();
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveEvidence {
                 evidence: Evidence::XRPLTransactionResult {
-                    tx_hash: Some(generate_hash()),
+                    tx_hash: Some(tx_hash.clone()),
                     account_sequence: Some(1),
                     ticket_sequence: None,
                     transaction_result: TransactionResult::Accepted,
@@ -3014,6 +3018,30 @@ mod tests {
             relayer_account,
         )
         .unwrap();
+
+        // If we query processed Txes with this tx_hash it should return true
+        let query_processed_tx = wasm
+            .query::<QueryMsg, bool>(
+                &contract_addr,
+                &QueryMsg::ProcessedTx {
+                    hash: tx_hash.to_uppercase(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_processed_tx, true);
+
+        // If we query something that is not processed it should return false
+        let query_processed_tx = wasm
+            .query::<QueryMsg, bool>(
+                &contract_addr,
+                &QueryMsg::ProcessedTx {
+                    hash: generate_hash(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_processed_tx, false);
 
         // *** Test sending XRP back to XRPL, which is already enabled so we can bridge it directly ***
 
@@ -4052,6 +4080,44 @@ mod tests {
             })
             .unwrap();
         assert_eq!(request_balance.balance, Uint128::new(2).to_string());
+
+        // Let's query all processed transactions
+        let query_processed_txs = wasm
+            .query::<QueryMsg, ProcessedTxsResponse>(
+                &contract_addr,
+                &QueryMsg::ProcessedTxs {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_processed_txs.processed_txs.len(), 11);
+
+        // Let's query with pagination
+        let query_processed_txs = wasm
+            .query::<QueryMsg, ProcessedTxsResponse>(
+                &contract_addr,
+                &QueryMsg::ProcessedTxs {
+                    start_after_key: None,
+                    limit: Some(4),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_processed_txs.processed_txs.len(), 4);
+
+        let query_processed_txs = wasm
+            .query::<QueryMsg, ProcessedTxsResponse>(
+                &contract_addr,
+                &QueryMsg::ProcessedTxs {
+                    start_after_key: query_processed_txs.last_key,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_processed_txs.processed_txs.len(), 7);
     }
 
     #[test]

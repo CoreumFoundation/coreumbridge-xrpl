@@ -183,6 +183,13 @@ pub enum QueryMsg {
         start_after_key: Option<String>,
         limit: Option<u32>,
     },
+    #[returns(bool)]
+    ProcessedTx { hash: String },
+    #[returns(ProcessedTxsResponse)]
+    ProcessedTxs {
+        start_after_key: Option<String>,
+        limit: Option<u32>,
+    },
 }
 
 #[cw_serde]
@@ -241,4 +248,10 @@ pub struct TransactionEvidence {
 pub struct TransactionEvidencesResponse {
     pub last_key: Option<String>,
     pub transaction_evidences: Vec<TransactionEvidence>,
+}
+
+#[cw_serde]
+pub struct ProcessedTxsResponse {
+    pub last_key: Option<String>,
+    pub processed_txs: Vec<String>,
 }
