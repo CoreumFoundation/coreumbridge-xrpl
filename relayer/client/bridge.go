@@ -295,10 +295,10 @@ func (b *BridgeClient) Bootstrap(
 	}
 	b.log.Info(ctx, "Deploying contract", zap.Any("settings", instantiationCfg))
 	contractAddress, err := b.contractClient.DeployAndInstantiate(ctx, senderAddress, contactByteCode, instantiationCfg)
-	b.log.Info(ctx, "Contract is deployed successfully", zap.String("address", contractAddress.String()))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deploy contract")
 	}
+	b.log.Info(ctx, "Contract is deployed successfully", zap.String("address", contractAddress.String()))
 
 	if err := b.setUpXRPLBridgeAccount(ctx, bridgeAccountKeyName, cfg, xrplSignerEntries); err != nil {
 		return nil, err
@@ -359,7 +359,6 @@ func (b *BridgeClient) RecoverTickets(
 	b.log.Info(
 		ctx,
 		"Successfully submitted recovery tickets transaction",
-		zap.Uint32("numberOfTickets", xrpl.MaxTicketsToAllocate),
 		zap.String("txHash", txRes.TxHash),
 	)
 
@@ -1178,12 +1177,7 @@ func (b *BridgeClient) autoFillSignSubmitAndAwaitXRPLTx(
 		return err
 	}
 
-	b.log.Info(
-		ctx,
-		"Submitting XRPL transaction",
-		zap.String("txHash", tx.GetHash().String()),
-		zap.Any("tx", tx),
-	)
+	b.log.Info(ctx, "Submitting XRPL transaction", zap.String("txHash", tx.GetHash().String()))
 	if err = b.xrplRPCClient.SubmitAndAwaitSuccess(ctx, tx); err != nil {
 		return err
 	}
