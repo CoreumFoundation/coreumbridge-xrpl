@@ -200,12 +200,16 @@ func TestXRPReserves(t *testing.T) {
 
 	// Set multising to max allowed signer to verify that multisig reserve doesn't depend on signer entries.
 	// Note that reserve is used to pay fees here. It is possible when don't create a new ledger object.
-	signerListSetTx2 := buildSignerListSetTx(t, chains.XRPL, int(xrpl.MaxAllowedXRPLSigners), int(xrpl.MaxAllowedXRPLSigners))
+	signerListSetTx2 := buildSignerListSetTx(
+		t,
+		chains.XRPL,
+		int(xrpl.MaxAllowedXRPLSigners),
+		int(xrpl.MaxAllowedXRPLSigners),
+	)
 	chains.XRPL.FundAccount(ctx, t, multisigAcc, 3*singleSigTxFee.Float())
 	require.NoError(t, chains.XRPL.RPCClient().AutoFillTx(ctx, &signerListSetTx2, multisigAcc, 1))
 	err = chains.XRPL.SignAndSubmitTx(ctx, t, &signerListSetTx2, multisigAcc)
 	require.NoError(t, err)
-
 }
 
 func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
