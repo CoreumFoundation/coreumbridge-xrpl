@@ -174,7 +174,7 @@ pub fn instantiate(
     let key = build_xrpl_token_key(XRP_ISSUER, XRP_CURRENCY);
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
-    // We store all the invalid recipients in state, including the multisig address, which is also invalid to send to
+    // We store all the prohibited recipients in state, including the multisig address, which is also prohibited to send to
     for address in INITIAL_PROHIBITED_XRPL_RECIPIENTS {
         PROHIBITED_XRPL_RECIPIENTS.save(deps.storage, address.to_string(), &Empty {})?;
     }
