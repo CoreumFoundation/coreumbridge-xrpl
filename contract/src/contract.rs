@@ -8,8 +8,8 @@ use crate::{
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
         FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefund,
-        PendingRefundsResponse, QueryMsg, TransactionEvidence, TransactionEvidencesResponse,
-        XRPLTokensResponse,
+        PendingRefundsResponse, ProcessedTxsResponse, QueryMsg, TransactionEvidence,
+        TransactionEvidencesResponse, XRPLTokensResponse,
     },
     operation::{
         check_operation_exists, create_pending_operation,
@@ -21,7 +21,7 @@ use crate::{
     state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, UserType, XRPLToken,
         AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS,
-        PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, TX_EVIDENCES,
+        PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, PROCESSED_TXS, TX_EVIDENCES,
         USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{
@@ -1367,6 +1367,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after_key,
             limit,
         } => to_json_binary(&query_transaction_evidences(deps, start_after_key, limit)),
+        QueryMsg::ProcessedTx { hash } => to_json_binary(&query_processed_tx(deps, hash)),
+        QueryMsg::ProcessedTxs {
+            start_after_key,
+            limit,
+        } => to_json_binary(&query_processed_txs(deps, start_after_key, limit)),
     }
 }
 
@@ -1519,7 +1524,7 @@ fn query_transaction_evidences(
     let transaction_evidences: Vec<TransactionEvidence> = TX_EVIDENCES
         .range(deps.storage, start, None, Order::Ascending)
         .take(limit as usize)
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .map(|(evidence_hash, e)| {
             last_key = Some(evidence_hash.clone());
             TransactionEvidence {
@@ -1532,6 +1537,34 @@ fn query_transaction_evidences(
     TransactionEvidencesResponse {
         last_key,
         transaction_evidences,
+    }
+}
+
+fn query_processed_tx(deps: Deps, hash: String) -> bool {
+    PROCESSED_TXS.has(deps.storage, hash)
+}
+
+fn query_processed_txs(
+    deps: Deps,
+    start_after_key: Option<String>,
+    limit: Option<u32>,
+) -> ProcessedTxsResponse {
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
+    let start = start_after_key.map(Bound::exclusive);
+    let mut last_key = None;
+    let processed_txs: Vec<String> = PROCESSED_TXS
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit as usize)
+        .filter_map(Result::ok)
+        .map(|(hash, _)| {
+            last_key = Some(hash.clone());
+            hash
+        })
+        .collect();
+
+    ProcessedTxsResponse {
+        last_key,
+        processed_txs,
     }
 }
 
