@@ -644,6 +644,7 @@ $ recovery-tickets --%s 250 --%s owner
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 	cmd.PersistentFlags().Uint32(
 		FlagTicketsToAllocate, 0, "tickets to allocate (if not provided the contract uses used tickets count)",
 	)
@@ -720,6 +721,7 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 
 	return cmd
 }
@@ -783,6 +785,7 @@ $ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s own
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 
 	return cmd
 }
@@ -860,6 +863,7 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 
 	return cmd
 }
@@ -913,6 +917,7 @@ $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 
 	return cmd
 }
@@ -978,6 +983,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 
 	return cmd
 }
@@ -1053,6 +1059,7 @@ $ rotate-keys new-keys.yaml --%s owner
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 
 	cmd.PersistentFlags().Bool(FlagInitOnly, false, "Init default config")
 
@@ -1200,6 +1207,7 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender 
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 
 	return cmd
 }
@@ -1547,6 +1555,7 @@ $ claim-refund --%s claimer --%s 1705664693-2
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 	cmd.PersistentFlags().String(FlagRefundID, "", "pending refund id")
 
 	return cmd
@@ -1657,6 +1666,7 @@ $ claim-relayer-fees --key-name address --%s %s
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 	cmd.PersistentFlags().String(FlagAmount, "", "specific amount to be collected")
+	addGenerateOnlyFlag(cmd)
 
 	return cmd
 }
@@ -1703,6 +1713,7 @@ $ halt-bridge --%s owner
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 
 	return cmd
 }
@@ -1749,6 +1760,7 @@ $ resume-bridge --%s owner
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
 
 	return cmd
 }
@@ -1887,6 +1899,10 @@ func convertStateStringTokenState(state *string) (*coreum.TokenState, error) {
 
 func addKeyNameFlag(cmd *cobra.Command) {
 	cmd.PersistentFlags().String(FlagKeyName, "", "Key name from the keyring")
+}
+
+func addGenerateOnlyFlag(cmd *cobra.Command) {
+	cmd.PersistentFlags().Bool(flags.FlagGenerateOnly, false, "generate unsigned transaction")
 }
 
 func getFlagSDKIntIfPresent(cmd *cobra.Command, flag string) (*sdkmath.Int, error) {
