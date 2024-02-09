@@ -840,6 +840,22 @@ mod tests {
         assert!(query_invalid_recipients
             .invalid_recipients
             .contains(&invalid_recipient));
+
+        // If we try to update this from an account that is not the owner it will fail
+        let update_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateInvalidRecipients {
+                    invalid_recipients: vec![invalid_recipient.clone()],
+                },
+                &vec![],
+                &relayer_accounts[0],
+            )
+            .unwrap_err();
+
+        assert!(update_error
+            .to_string()
+            .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
     }
 
     #[test]
