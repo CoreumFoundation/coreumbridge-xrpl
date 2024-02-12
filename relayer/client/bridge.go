@@ -127,6 +127,12 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		xrplBaseFee uint32,
 	) (*sdk.TxResponse, error)
+	GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error)
+	UpdateProhibitedXRPLRecipients(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		prohibitedXRPLRecipients []string,
+	) (*sdk.TxResponse, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -911,13 +917,12 @@ func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Accou
 
 // GetPendingRefunds queries for the pending refunds of an address.
 func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error) {
-	b.log.Info(ctx, "getting pending refunds", zap.String("address", address.String()))
 	return b.contractClient.GetPendingRefunds(ctx, address)
 }
 
 // ClaimRefund claims pending refund.
 func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, refundID string) error {
-	b.log.Info(ctx, "claiming pending refund",
+	b.log.Info(ctx, "Claiming pending refund",
 		zap.String("address", address.String()),
 		zap.String("refundID", refundID))
 	txRes, err := b.contractClient.ClaimRefund(ctx, address, refundID)
@@ -929,9 +934,38 @@ func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, 
 		return nil
 	}
 
-	b.log.Info(ctx, "finished execution of claiming pending refund",
+	b.log.Info(ctx, "Finished execution of claiming pending refund",
 		zap.String("address", address.String()),
 		zap.String("refundID", refundID),
+		zap.String("txHash", txRes.TxHash),
+	)
+	return nil
+}
+
+// GetProhibitedXRPLRecipients queries for the list of the prohibited XRPL recipients.
+func (b *BridgeClient) GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error) {
+	return b.contractClient.GetProhibitedXRPLRecipients(ctx)
+}
+
+// UpdateProhibitedXRPLRecipients updates the list of the prohibited XRPL recipients.
+func (b *BridgeClient) UpdateProhibitedXRPLRecipients(
+	ctx context.Context, address sdk.AccAddress, prohibitedXRPLRecipients []string,
+) error {
+	b.log.Info(ctx, "Updating prohibited XRPL recipients",
+		zap.Any("prohibitedXRPLRecipients", prohibitedXRPLRecipients))
+
+	txRes, err := b.contractClient.UpdateProhibitedXRPLRecipients(ctx, address, prohibitedXRPLRecipients)
+	if err != nil {
+		return err
+	}
+
+	if txRes == nil {
+		return nil
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully updated prohibited XRPL recipients",
 		zap.String("txHash", txRes.TxHash),
 	)
 	return nil

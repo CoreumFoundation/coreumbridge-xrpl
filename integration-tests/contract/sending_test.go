@@ -2133,6 +2133,102 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	require.True(t, coreum.IsLastTicketReservedError(err))
 }
 
+func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	coreumSenderAddress := chains.Coreum.GenAccount()
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.MulRaw(2).Add(sdkmath.NewIntWithDecimal(1, 7)),
+	})
+
+	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
+
+	relayers := genRelayers(ctx, t, chains, 2)
+	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		uint32(len(relayers)),
+		3,
+		defaultTrustSetLimitAmount,
+		bridgeXRPLAddress,
+		10,
+	)
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 10)
+
+	prohibitedXRPLRecipients, err := contractClient.GetProhibitedXRPLRecipients(ctx)
+	require.NoError(t, err)
+
+	initialProhibitedRecipients := []string{
+		"rrrrrrrrrrrrrrrrrrrrrhoLvTp",
+		"rrrrrrrrrrrrrrrrrrrrBZbvji",
+		"rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+		"rrrrrrrrrrrrrrrrrNAMEtxvNvQ",
+		"rrrrrrrrrrrrrrrrrrrn5RM1rHd",
+	}
+	initialProhibitedRecipients = append(initialProhibitedRecipients, bridgeXRPLAddress)
+	require.ElementsMatch(t, initialProhibitedRecipients, prohibitedXRPLRecipients)
+
+	tokenDecimals := uint32(6)
+	sendingPrecision := int32(6)
+	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 9)
+	initialAmount := sdkmath.NewIntWithDecimal(1, 9)
+	registeredCoreumOriginatedToken := issueAndRegisterCoreumOriginatedToken(
+		ctx,
+		t,
+		contractClient,
+		chains.Coreum,
+		coreumSenderAddress,
+		owner,
+		tokenDecimals,
+		initialAmount,
+		sendingPrecision,
+		maxHoldingAmount,
+		sdkmath.ZeroInt(),
+	)
+
+	for _, recipient := range prohibitedXRPLRecipients {
+		_, err = contractClient.SendToXRPL(
+			ctx,
+			coreumSenderAddress,
+			recipient,
+			sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(1)),
+			nil,
+		)
+		require.True(t, coreum.IsProhibitedRecipientError(err), err)
+	}
+
+	_, err = contractClient.SendToXRPL(
+		ctx,
+		coreumSenderAddress,
+		xrplRecipientAddress.String(),
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(1)),
+		nil,
+	)
+	require.NoError(t, err)
+	//nolint:gocritic // append new item to old list for the assertion
+	newProhibitedRecipients := append(initialProhibitedRecipients, xrplRecipientAddress.String())
+
+	// try to update the prohibited recipient list from not owner
+	_, err = contractClient.UpdateProhibitedXRPLRecipients(ctx, relayers[0].CoreumAddress, newProhibitedRecipients)
+	require.True(t, coreum.IsUnauthorizedSenderError(err), err)
+
+	// update form owner
+	_, err = contractClient.UpdateProhibitedXRPLRecipients(ctx, owner, newProhibitedRecipients)
+	require.NoError(t, err)
+
+	prohibitedXRPLRecipients, err = contractClient.GetProhibitedXRPLRecipients(ctx)
+	require.NoError(t, err)
+
+	require.ElementsMatch(t, newProhibitedRecipients, prohibitedXRPLRecipients)
+}
+
 //nolint:tparallel // the test is parallel, but test cases are not
 func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionAndDecimals(t *testing.T) {
 	t.Parallel()

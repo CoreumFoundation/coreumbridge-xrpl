@@ -159,6 +159,21 @@ func (mr *MockBridgeClientMockRecorder) GetPendingRefunds(arg0, arg1 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingRefunds", reflect.TypeOf((*MockBridgeClient)(nil).GetPendingRefunds), arg0, arg1)
 }
 
+// GetProhibitedXRPLRecipients mocks base method.
+func (m *MockBridgeClient) GetProhibitedXRPLRecipients(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProhibitedXRPLRecipients", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProhibitedXRPLRecipients indicates an expected call of GetProhibitedXRPLRecipients.
+func (mr *MockBridgeClientMockRecorder) GetProhibitedXRPLRecipients(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProhibitedXRPLRecipients", reflect.TypeOf((*MockBridgeClient)(nil).GetProhibitedXRPLRecipients), arg0)
+}
+
 // GetXRPLBalances mocks base method.
 func (m *MockBridgeClient) GetXRPLBalances(arg0 context.Context, arg1 data.Account) ([]data.Amount, error) {
 	m.ctrl.T.Helper()
@@ -328,6 +343,20 @@ func (m *MockBridgeClient) UpdateCoreumToken(arg0 context.Context, arg1 types.Ac
 func (mr *MockBridgeClientMockRecorder) UpdateCoreumToken(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCoreumToken", reflect.TypeOf((*MockBridgeClient)(nil).UpdateCoreumToken), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+}
+
+// UpdateProhibitedXRPLRecipients mocks base method.
+func (m *MockBridgeClient) UpdateProhibitedXRPLRecipients(arg0 context.Context, arg1 types.AccAddress, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateProhibitedXRPLRecipients", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateProhibitedXRPLRecipients indicates an expected call of UpdateProhibitedXRPLRecipients.
+func (mr *MockBridgeClientMockRecorder) UpdateProhibitedXRPLRecipients(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProhibitedXRPLRecipients", reflect.TypeOf((*MockBridgeClient)(nil).UpdateProhibitedXRPLRecipients), arg0, arg1, arg2)
 }
 
 // UpdateXRPLBaseFee mocks base method.
