@@ -245,7 +245,7 @@ func (r *RunnerEnv) StartAllRunnerProcesses() {
 	}
 }
 
-// AwaitNoPendingOperations waits for no pendoing contract transactions.
+// AwaitNoPendingOperations waits for no pending contract transactions.
 func (r *RunnerEnv) AwaitNoPendingOperations(ctx context.Context, t *testing.T) {
 	t.Helper()
 
@@ -622,12 +622,12 @@ func createDevRunner(
 	relayerRunnerCfg.Coreum.Contract.ContractAddress = contractAddress.String()
 	relayerRunnerCfg.Coreum.Network.ChainID = chains.Coreum.ChainSettings.ChainID
 	// make operation fetcher fast
-	relayerRunnerCfg.Processes.XRPLTxSubmitter.RepeatDelay = 500 * time.Millisecond
+	relayerRunnerCfg.Processes.CoreumToXRPLProcess.RepeatDelay = 500 * time.Millisecond
 
 	// exit on errors
 	relayerRunnerCfg.Processes.ExitOnError = true
 
-	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false)
+	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false, false)
 	require.NoError(t, err)
 
 	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg)

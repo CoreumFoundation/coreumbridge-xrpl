@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"go.uber.org/zap"
@@ -23,6 +24,7 @@ import (
 	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
 	coreumchainconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
 	coreumchainconstant "github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
+	coreumkeyring "github.com/CoreumFoundation/coreum/v4/pkg/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
@@ -44,8 +46,8 @@ type Runner struct {
 	log     logger.Logger
 	metrics *metrics.Registry
 
-	xrplTxObserver  *processes.XRPLTxObserver
-	xrplTxSubmitter *processes.XRPLTxSubmitter
+	xrplToCoreumProcess *processes.XRPLToCoreumProcess
+	coreumToXRPLProcess *processes.CoreumToXRPLProcess
 }
 
 // NewRunner return new runner from the config.
@@ -54,9 +56,15 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 		return nil, errors.New("contract address is not configured")
 	}
 
-	relayerAddress, err := getAddressFromKeyring(components.CoreumClientCtx.Keyring(), cfg.Coreum.RelayerKeyName)
+	coreumRelayerAddress, err := getAddressFromKeyring(components.CoreumClientCtx.Keyring(), cfg.Coreum.RelayerKeyName)
 	if err != nil {
 		return nil, err
+	}
+
+	// load the key form the XRPL KR to check that it exists, and to let the user give access to the KR
+	_, err = components.XRPLKeyringTxSigner.Account(cfg.XRPL.MultiSignerKeyName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get key from the XRPL keyring, key name:%s", cfg.XRPL.MultiSignerKeyName)
 	}
 
 	contractConfig, err := components.CoreumContractClient.GetContractConfig(ctx)
@@ -79,10 +87,10 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 		RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
 	}, components.Log, components.XRPLRPCClient)
 
-	xrplTxObserver, err := processes.NewXRPLTxObserver(
-		processes.XRPLTxObserverConfig{
+	xrplToCoreumProcess, err := processes.NewXRPLToCoreumProcess(
+		processes.XRPLToCoreumProcessConfig{
 			BridgeXRPLAddress:    *bridgeXRPLAddress,
-			RelayerCoreumAddress: relayerAddress,
+			RelayerCoreumAddress: coreumRelayerAddress,
 		},
 		components.Log,
 		xrplScanner,
@@ -92,13 +100,13 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 		return nil, err
 	}
 
-	xrplTxSubmitter, err := processes.NewXRPLTxSubmitter(
-		processes.XRPLTxSubmitterConfig{
+	coreumToXRPLProcess, err := processes.NewCoreumToXRPLProcess(
+		processes.CoreumToXRPLProcessConfig{
 			BridgeXRPLAddress:    *bridgeXRPLAddress,
-			RelayerCoreumAddress: relayerAddress,
+			RelayerCoreumAddress: coreumRelayerAddress,
 			XRPLTxSignerKeyName:  cfg.XRPL.MultiSignerKeyName,
 			RepeatRecentScan:     true,
-			RepeatDelay:          cfg.Processes.XRPLTxSubmitter.RepeatDelay,
+			RepeatDelay:          cfg.Processes.CoreumToXRPLProcess.RepeatDelay,
 		},
 		components.Log,
 		components.CoreumContractClient,
@@ -110,18 +118,18 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 	}
 
 	return &Runner{
-		cfg:             cfg,
-		log:             components.Log,
-		xrplTxObserver:  xrplTxObserver,
-		xrplTxSubmitter: xrplTxSubmitter,
+		cfg:                 cfg,
+		log:                 components.Log,
+		xrplToCoreumProcess: xrplToCoreumProcess,
+		coreumToXRPLProcess: coreumToXRPLProcess,
 	}, nil
 }
 
 // Start starts runner.
 func (r *Runner) Start(ctx context.Context) error {
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-		spawn("xrplTxObserver", parallel.Continue, r.withRestartOnError(r.xrplTxObserver.Start))
-		spawn("xrplTxSubmitter", parallel.Continue, r.withRestartOnError(r.xrplTxSubmitter.Start))
+		spawn("xrplToCoreumProcess", parallel.Continue, r.withRestartOnError(r.xrplToCoreumProcess.Start))
+		spawn("coreumToXRPLProcess", parallel.Continue, r.withRestartOnError(r.coreumToXRPLProcess.Start))
 		if r.cfg.Metrics.Server.Enable {
 			spawn("metrics", parallel.Fail, r.withRestartOnError(func(ctx context.Context) error {
 				return metrics.Start(ctx, r.cfg.Metrics.Server.ListenAddress, r.metrics)
@@ -179,13 +187,26 @@ func NewComponents(
 	coreumKeyring keyring.Keyring,
 	log logger.Logger,
 	setCoreumSDKConfig bool,
+	reimportRelayerKeys bool,
 ) (Components, error) {
+	// if enabled, re-import the relayer keys from the config to in-memory keyring
+	if reimportRelayerKeys {
+		var err error
+		xrplKeyring, err = reimportKeyIntoInMemoryKR(xrplKeyring, cfg.XRPL.MultiSignerKeyName)
+		if err != nil {
+			return Components{}, err
+		}
+		coreumKeyring, err = reimportKeyIntoInMemoryKR(coreumKeyring, cfg.Coreum.RelayerKeyName)
+		if err != nil {
+			return Components{}, err
+		}
+	}
+
 	metricSet := metrics.NewRegistry()
 	log, err := logger.WithMetrics(log, metricSet.ErrorCounter)
 	if err != nil {
 		return Components{}, err
 	}
-
 	components := Components{
 		Metrics: metricSet,
 		Log:     log,
@@ -260,7 +281,6 @@ func NewComponents(
 	}
 
 	components.CoreumClientCtx = coreumClientCtx
-
 	return components, nil
 }
 
@@ -278,6 +298,25 @@ func getAddressFromKeyring(kr keyring.Keyring, keyName string) (sdk.AccAddress, 
 		)
 	}
 	return addr, nil
+}
+
+func reimportKeyIntoInMemoryKR(sourceKr keyring.Keyring, keyName string) (keyring.Keyring, error) {
+	keyInfo, err := sourceKr.Key(keyName)
+	if err != nil {
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to get key from keyring, key name:%s", keyName))
+	}
+	pass := uuid.NewString()
+	armor, err := sourceKr.ExportPrivKeyArmor(keyInfo.Name, pass)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to export key")
+	}
+	encodingConfig := coreumchainconfig.NewEncodingConfig(coreumapp.ModuleBasics)
+	kr := coreumkeyring.NewConcurrentSafeKeyring(keyring.NewInMemory(encodingConfig.Codec))
+	if err := kr.ImportPrivKey(keyInfo.Name, armor, pass); err != nil {
+		return nil, errors.Wrapf(err, "failed to import key")
+	}
+
+	return kr, nil
 }
 
 func getGRPCClientConn(grpcURL string) (*grpc.ClientConn, error) {

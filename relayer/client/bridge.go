@@ -295,10 +295,10 @@ func (b *BridgeClient) Bootstrap(
 	}
 	b.log.Info(ctx, "Deploying contract", zap.Any("settings", instantiationCfg))
 	contractAddress, err := b.contractClient.DeployAndInstantiate(ctx, senderAddress, contactByteCode, instantiationCfg)
-	b.log.Info(ctx, "Contract is deployed successfully", zap.String("address", contractAddress.String()))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deploy contract")
 	}
+	b.log.Info(ctx, "Contract is deployed successfully", zap.String("address", contractAddress.String()))
 
 	if err := b.setUpXRPLBridgeAccount(ctx, bridgeAccountKeyName, cfg, xrplSignerEntries); err != nil {
 		return nil, err
@@ -352,10 +352,13 @@ func (b *BridgeClient) RecoverTickets(
 		return err
 	}
 
+	if txRes == nil {
+		return nil
+	}
+
 	b.log.Info(
 		ctx,
 		"Successfully submitted recovery tickets transaction",
-		zap.Uint32("numberOfTickets", xrpl.MaxTicketsToAllocate),
 		zap.String("txHash", txRes.TxHash),
 	)
 
@@ -393,6 +396,10 @@ func (b *BridgeClient) RegisterCoreumToken(
 	)
 	if err != nil {
 		return coreum.CoreumToken{}, err
+	}
+
+	if txRes == nil {
+		return coreum.CoreumToken{}, nil
 	}
 
 	token, err := b.contractClient.GetCoreumTokenByDenom(ctx, denom)
@@ -477,12 +484,15 @@ func (b *BridgeClient) RecoverXRPLTokenRegistration(
 		return err
 	}
 
+	if txRes == nil {
+		return nil
+	}
 	b.log.Info(
 		ctx,
-		"Recovering xrpl token registraiton was successful",
+		"Recovering xrpl token registration was successful",
 		zap.String("currency", currency),
 		zap.String("issuer", issuer),
-		zap.String("txhash", txRes.TxHash),
+		zap.String("txHash", txRes.TxHash),
 	)
 
 	return nil
@@ -527,6 +537,10 @@ func (b *BridgeClient) SendFromCoreumToXRPL(
 	txRes, err := b.contractClient.SendToXRPL(ctx, sender, recipient.String(), amount, deliverAmount)
 	if err != nil {
 		return err
+	}
+
+	if txRes == nil {
+		return nil
 	}
 
 	b.log.Info(
@@ -657,6 +671,10 @@ func (b *BridgeClient) UpdateCoreumToken(
 		return err
 	}
 
+	if txRes == nil {
+		return nil
+	}
+
 	b.log.Info(
 		ctx,
 		"Successfully sent tx to update Coreum token",
@@ -705,6 +723,10 @@ func (b *BridgeClient) UpdateXRPLToken(
 		return err
 	}
 
+	if txRes == nil {
+		return nil
+	}
+
 	b.log.Info(
 		ctx,
 		"Successfully sent tx to update XRPL token",
@@ -727,6 +749,10 @@ func (b *BridgeClient) ResumeBridge(
 	txRes, err := b.contractClient.ResumeBridge(ctx, sender)
 	if err != nil {
 		return err
+	}
+
+	if txRes == nil {
+		return nil
 	}
 
 	b.log.Info(
@@ -758,6 +784,10 @@ func (b *BridgeClient) RotateKeys(
 	txRes, err := b.contractClient.RotateKeys(ctx, sender, relayers, cfg.EvidenceThreshold)
 	if err != nil {
 		return err
+	}
+
+	if txRes == nil {
+		return nil
 	}
 
 	b.log.Info(
@@ -815,6 +845,10 @@ func (b *BridgeClient) ClaimRelayerFees(
 	txRes, err := b.contractClient.ClaimRelayerFees(ctx, sender, amounts)
 	if err != nil {
 		return err
+	}
+
+	if txRes == nil {
+		return nil
 	}
 
 	b.log.Info(
@@ -875,7 +909,7 @@ func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Accou
 	return balances, nil
 }
 
-// GetPendingRefunds queries for the pending refunds of an addreess.
+// GetPendingRefunds queries for the pending refunds of an address.
 func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error) {
 	b.log.Info(ctx, "getting pending refunds", zap.String("address", address.String()))
 	return b.contractClient.GetPendingRefunds(ctx, address)
@@ -889,6 +923,10 @@ func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, 
 	txRes, err := b.contractClient.ClaimRefund(ctx, address, refundID)
 	if err != nil {
 		return err
+	}
+
+	if txRes == nil {
+		return nil
 	}
 
 	b.log.Info(ctx, "finished execution of claiming pending refund",
@@ -950,7 +988,7 @@ func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
 	return contractRelayers, xrplSignerEntries, nil
 }
 
-// HaltBridge halts the bridg.
+// HaltBridge halts the bridge.
 func (b *BridgeClient) HaltBridge(
 	ctx context.Context,
 	sender sdk.AccAddress,
@@ -1139,12 +1177,7 @@ func (b *BridgeClient) autoFillSignSubmitAndAwaitXRPLTx(
 		return err
 	}
 
-	b.log.Info(
-		ctx,
-		"Submitting XRPL transaction",
-		zap.String("txHash", tx.GetHash().String()),
-		zap.Any("tx", tx),
-	)
+	b.log.Info(ctx, "Submitting XRPL transaction", zap.String("txHash", tx.GetHash().String()))
 	if err = b.xrplRPCClient.SubmitAndAwaitSuccess(ctx, tx); err != nil {
 		return err
 	}

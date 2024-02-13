@@ -1272,6 +1272,11 @@ func (c *ContractClient) GetPendingRefunds(ctx context.Context, address sdk.AccA
 	return response.PendingRefunds, nil
 }
 
+// SetGenerateOnly sets the client.Context.GenerateOnly.
+func (c *ContractClient) SetGenerateOnly(generateOnly bool) {
+	c.clientCtx = c.clientCtx.WithGenerateOnly(generateOnly)
+}
+
 func (c *ContractClient) getPaginatedXRPLTokens(
 	ctx context.Context,
 	startAfterKey string,
@@ -1365,11 +1370,26 @@ func (c *ContractClient) execute(
 		msgs = append(msgs, msg)
 	}
 
+	clientCtx := c.clientCtx.WithFromAddress(sender)
+	if clientCtx.GenerateOnly() {
+		unsignedTx, err := client.GenerateUnsignedTx(ctx, clientCtx, c.getTxFactory(), msgs...)
+		if err != nil {
+			return nil, err
+		}
+
+		json, err := clientCtx.TxConfig().TxJSONEncoder()(unsignedTx.GetTx())
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, clientCtx.PrintString(fmt.Sprintf("%s\n", json))
+	}
+
 	var res *sdk.TxResponse
 	outOfGasRetryAttempt := uint32(1)
 	err := retry.Do(ctx, c.cfg.OutOfGasRetryDelay, func() error {
 		var err error
-		res, err = client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgs...)
+		res, err = client.BroadcastTx(ctx, clientCtx.WithFromAddress(sender), c.getTxFactory(), msgs...)
 		if err == nil {
 			return nil
 		}
@@ -1379,7 +1399,7 @@ func (c *ContractClient) execute(
 		}
 		if cosmoserrors.ErrOutOfGas.Is(err) {
 			outOfGasRetryAttempt++
-			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution, out of gas")
+			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution")
 			return retry.Retryable(errors.Wrapf(err, "retry tx execution, out of gas"))
 		}
 
@@ -1430,7 +1450,7 @@ func (c *ContractClient) getTxFactory() client.Factory {
 		WithKeybase(c.clientCtx.Keyring()).
 		WithChainID(c.clientCtx.ChainID()).
 		WithTxConfig(c.clientCtx.TxConfig()).
-		WithMemo(fmt.Sprintf("relayer_version:%s", buildinfo.VersionTag)).
+		WithMemo(fmt.Sprintf("Coreum XRPL bridge relayer version: %s", buildinfo.VersionTag)).
 		WithSimulateAndExecute(true)
 }
 

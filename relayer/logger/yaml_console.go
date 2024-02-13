@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -44,16 +45,16 @@ type yamlConsoleEncoder struct {
 	buffer                 *buffer.Buffer
 }
 
-func (c *yamlConsoleEncoder) AddArray(key string, marshaler zapcore.ArrayMarshaler) error {
+func (c *yamlConsoleEncoder) AddArray(key string, marshaller zapcore.ArrayMarshaler) error {
 	c.addKey(key)
 	c.buffer.AppendByte('\n')
-	return c.AppendArray(marshaler)
+	return c.AppendArray(marshaller)
 }
 
-func (c *yamlConsoleEncoder) AddObject(key string, marshaler zapcore.ObjectMarshaler) error {
+func (c *yamlConsoleEncoder) AddObject(key string, marshaller zapcore.ObjectMarshaler) error {
 	c.addKey(key)
 	c.buffer.AppendByte('\n')
-	return c.AppendObject(marshaler)
+	return c.AppendObject(marshaller)
 }
 
 func (c *yamlConsoleEncoder) AddBinary(key string, value []byte) {
@@ -357,12 +358,12 @@ func (c *yamlConsoleEncoder) AppendTime(value time.Time) {
 	c.buffer.AppendByte('\n')
 }
 
-func (c *yamlConsoleEncoder) AppendArray(marshaler zapcore.ArrayMarshaler) error {
+func (c *yamlConsoleEncoder) AppendArray(marshaller zapcore.ArrayMarshaler) error {
 	subEncoder := newYamlConsoleEncoder(c.nested + 1)
 	subEncoder.array = true
 	defer subEncoder.buffer.Free()
 
-	if err := marshaler.MarshalLogArray(subEncoder); err != nil {
+	if err := marshaller.MarshalLogArray(subEncoder); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -373,7 +374,7 @@ func (c *yamlConsoleEncoder) AppendArray(marshaler zapcore.ArrayMarshaler) error
 	return nil
 }
 
-func (c *yamlConsoleEncoder) AppendObject(marshaler zapcore.ObjectMarshaler) error {
+func (c *yamlConsoleEncoder) AppendObject(marshaller zapcore.ObjectMarshaler) error {
 	subEncoder := newYamlConsoleEncoder(c.nested + 1)
 	if c.array {
 		subEncoder.nested--
@@ -381,7 +382,7 @@ func (c *yamlConsoleEncoder) AppendObject(marshaler zapcore.ObjectMarshaler) err
 	}
 	defer subEncoder.buffer.Free()
 
-	if err := marshaler.MarshalLogObject(subEncoder); err != nil {
+	if err := marshaller.MarshalLogObject(subEncoder); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -446,11 +447,16 @@ func (c *yamlConsoleEncoder) AppendReflected(value interface{}) error {
 }
 
 func (c *yamlConsoleEncoder) appendCustomTypes(value interface{}) bool {
-	if addr, ok := value.(sdk.AccAddress); ok {
-		c.AppendString(addr.String())
-		return true
+	switch v := value.(type) {
+	case sdk.AccAddress:
+		c.AppendString(v.String())
+	case sdkmath.Int:
+		c.AppendString(v.String())
+	default:
+		return false
 	}
-	return false
+
+	return true
 }
 
 func (c *yamlConsoleEncoder) indentation() string {

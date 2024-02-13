@@ -874,7 +874,7 @@ func TestXRPLHighLowAmountsPayments(t *testing.T) {
 			senderBalanceAfter := getBalanceAccount(ctx, t, chains.XRPL, senderAcc, issuerAcc, currency)
 			recipientBalanceAfter := getBalanceAccount(ctx, t, chains.XRPL, recipientAcc, issuerAcc, currency)
 
-			//nolint:lll // breaking down the log line will make it less redable.
+			//nolint:lll // breaking down the log line will make it less readable.
 			t.Logf(
 				"Sender before: %s | Recipient before: %s | Sending amounts: %+v | Sender after: %s | Recipient after: %s | Delivered amount: %v",
 				senderBalanceBefore, recipientBalanceBefore, tt.sendingAmounts, senderBalanceAfter, recipientBalanceAfter, deliveredAmounts,
