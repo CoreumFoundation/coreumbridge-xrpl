@@ -329,6 +329,9 @@ pub fn execute(
             info.sender,
             prohibited_xrpl_recipients,
         ),
+        ExecuteMsg::CancelOperation { operation_id } => {
+            cancel_operation(deps.into_empty(), info.sender, operation_id)
+        }
     }
 }
 
@@ -1377,6 +1380,57 @@ fn update_prohibited_xrpl_recipients(
             "action",
             ContractActions::UpdateProhibitedXRPLRecipients.as_str(),
         )
+        .add_attribute("sender", sender))
+}
+
+fn cancel_operation(deps: DepsMut, sender: Addr, operation_id: u64) -> CoreumResult<ContractError> {
+    check_authorization(
+        deps.as_ref().storage,
+        &sender,
+        &ContractActions::CancelOperation,
+    )?;
+
+    let operation = check_operation_exists(deps.storage, operation_id)?;
+    // We'll provide an invalid transaction result evidence to the handlers
+    let transaction_result = &TransactionResult::Invalid;
+    let mut response = Response::new();
+
+    // We handle the operation with an invalid result
+    match &operation.operation_type {
+        OperationType::AllocateTickets { .. } => {
+            handle_ticket_allocation_confirmation(deps.storage, Some(vec![]), transaction_result)?
+        }
+        OperationType::TrustSet {
+            issuer, currency, ..
+        } => handle_trust_set_confirmation(deps.storage, issuer, currency, transaction_result)?,
+        OperationType::RotateKeys {
+            new_relayers,
+            new_evidence_threshold,
+        } => handle_rotate_keys_confirmation(
+            deps.storage,
+            new_relayers.to_owned(),
+            new_evidence_threshold.to_owned(),
+            transaction_result,
+        )?,
+        OperationType::CoreumToXRPLTransfer { .. } => handle_coreum_to_xrpl_transfer_confirmation(
+            deps.storage,
+            transaction_result,
+            None,
+            operation_id,
+            &mut response,
+        )?,
+    }
+
+    // Operation is removed because it was cancelled
+    PENDING_OPERATIONS.remove(deps.storage, operation_id);
+
+    // If the operation cancelled had a ticket assigned, we return it to the ticket array
+    if operation.ticket_sequence.is_some() {
+        return_ticket(deps.storage, operation.ticket_sequence.unwrap())?;
+    }
+
+    Ok(response
+        .add_attribute("action", ContractActions::CancelOperation.as_str())
         .add_attribute("sender", sender))
 }
 

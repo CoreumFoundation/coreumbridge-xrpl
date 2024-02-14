@@ -217,6 +217,7 @@ pub enum ContractActions {
     HaltBridge,
     ResumeBridge,
     RotateKeys,
+    CancelOperation,
 }
 
 pub enum UserType {
@@ -244,6 +245,7 @@ impl UserType {
             ContractActions::HaltBridge => matches!(self, Self::Owner | Self::Relayer),
             ContractActions::ResumeBridge => matches!(self, Self::Owner),
             ContractActions::RotateKeys => matches!(self, Self::Owner),
+            ContractActions::CancelOperation => matches!(self, Self::Owner),
         }
     }
 }
@@ -268,6 +270,7 @@ impl ContractActions {
             Self::HaltBridge => "halt_bridge",
             Self::ResumeBridge => "resume_bridge",
             Self::RotateKeys => "rotate_keys",
+            Self::CancelOperation => "cancel_operation",
         }
     }
 }
