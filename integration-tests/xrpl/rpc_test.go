@@ -649,10 +649,10 @@ func TestServerState(t *testing.T) {
 	ctx, chains := integrationtests.NewTestingContext(t)
 	serverState, err := chains.XRPL.RPCClient().ServerState(ctx)
 	require.NoError(t, err)
-	require.Equal(t, "Success", serverState.Status)
-	require.Equal(t, int64(256), serverState.State.LoadFactor)
-	require.Equal(t, int64(256), serverState.State.LoadBase)
-	require.Equal(t, int64(10), serverState.State.ValidatedLedger.BaseFee)
+	require.Equal(t, "success", serverState.Status)
+	require.Equal(t, uint32(256), serverState.State.LoadFactor)
+	require.Equal(t, uint32(256), serverState.State.LoadBase)
+	require.Equal(t, uint32(10), serverState.State.ValidatedLedger.BaseFee)
 }
 
 func TestAccountTx(t *testing.T) {
