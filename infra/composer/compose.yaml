@@ -7,6 +7,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./prometheus:/etc/prometheus
+    networks:
+      - znet
   grafana:
     image: grafana/grafana
     container_name: coreumbridge-xrpl-grafana
@@ -18,6 +20,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=grafana
     volumes:
       - ./grafana:/etc/grafana/provisioning/datasources
+    networks:
+      - znet
   relayer:
     image: coreumbridge-xrpl-relayer:local
     container_name: coreumbridge-xrpl-relayer
@@ -25,3 +29,9 @@ services:
     volumes:
       - ./relayer:/app
     entrypoint: /app/run.sh
+    networks:
+      - znet
+networks:
+  znet:
+    external:
+      name: znet

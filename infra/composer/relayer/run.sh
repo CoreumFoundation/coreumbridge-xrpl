@@ -2,7 +2,6 @@
 
 set -ex
 
-ZNET_IP="172.18.0.1"
 CONTRACT_ADDR="devcore14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sd4f0ak"
 
 # coreum-relayer account: devcore1d3et2s6wy0ltc0ju6zxtejhgkxnn3ykzgmq4gp
@@ -14,8 +13,8 @@ MNEMONIC_XRPL="goat fish barrel afford voice coil injury run trade retire soluti
 coreumbridge-xrpl-relayer init \
   --coreum-chain-id coreum-devnet-1 \
   --coreum-contract-address "$CONTRACT_ADDR" \
-  --coreum-grpc-url "http://$ZNET_IP:9090" \
-  --xrpl-rpc-url "http://$ZNET_IP:5005" \
+  --coreum-grpc-url http://znet-cored-00-val:9090 \
+  --xrpl-rpc-url http://znet-xrpl-xrpl:5005 \
   --metrics-enable \
   --metrics-listen-addr=:9090
 
