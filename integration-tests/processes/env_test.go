@@ -237,6 +237,18 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	return runnerEnv
 }
 
+// StartAllRunnerPeriodicMetricCollectors starts all relayer periodic metrics collector.
+func (r *RunnerEnv) StartAllRunnerPeriodicMetricCollectors() {
+	for i := range r.Runners {
+		relayerRunner := r.Runners[i]
+		r.RunnersParallelGroup.Spawn(
+			fmt.Sprintf("runner-periodic-metric-collector-%d", i),
+			parallel.Exit,
+			relayerRunner.Components.MetricsPeriodicCollector.Start,
+		)
+	}
+}
+
 // StartAllRunnerProcesses starts all relayer processes.
 func (r *RunnerEnv) StartAllRunnerProcesses() {
 	for i := range r.Runners {
@@ -627,9 +639,11 @@ func createDevRunner(
 	// exit on errors
 	relayerRunnerCfg.Processes.ExitOnError = true
 
+	// make the collector faster
+	relayerRunnerCfg.Metrics.PeriodicCollector.RepeatDelay = 500 * time.Millisecond
+
 	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false, false)
 	require.NoError(t, err)
-
 	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg)
 	require.NoError(t, err)
 	return relayerRunner
