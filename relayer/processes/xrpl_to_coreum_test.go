@@ -16,7 +16,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-func TestXRPLTxObserver_Start(t *testing.T) {
+func TestXRPLToCoreumProcess_Start(t *testing.T) {
 	t.Parallel()
 
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
@@ -718,8 +718,8 @@ func TestXRPLTxObserver_Start(t *testing.T) {
 			if tt.contractClientBuilder != nil {
 				contractClient = tt.contractClientBuilder(ctrl)
 			}
-			o, err := processes.NewXRPLTxObserver(
-				processes.XRPLTxObserverConfig{
+			o, err := processes.NewXRPLToCoreumProcess(
+				processes.XRPLToCoreumProcessConfig{
 					BridgeXRPLAddress:    bridgeXRPLAddress,
 					RelayerCoreumAddress: relayerAddress,
 				},

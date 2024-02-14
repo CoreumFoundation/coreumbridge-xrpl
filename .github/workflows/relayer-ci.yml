@@ -14,7 +14,7 @@ jobs:
         ci_step: [
           "lint",
           "test",
-          "integration tests coreum client",
+          "integration tests contract",
           "integration tests processes",
           "integration tests xrpl",
         ]
@@ -29,8 +29,8 @@ jobs:
             linter-cache: false
             docker-cache: false
             build-contract: false
-          - ci_step: "integration tests coreum client"
-            command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/coreum"
+          - ci_step: "integration tests contract"
+            command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/contract"
             linter-cache: false
             docker-cache: true
             build-contract: true

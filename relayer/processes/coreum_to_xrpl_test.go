@@ -17,7 +17,7 @@ import (
 )
 
 //nolint:tparallel // the test is parallel, but test cases are not
-func TestXRPLTxSubmitter_Start(t *testing.T) {
+func TestCoreumToXRPLProcess_Start(t *testing.T) {
 	t.Parallel()
 
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
@@ -461,8 +461,8 @@ func TestXRPLTxSubmitter_Start(t *testing.T) {
 				xrplTxSigner = tt.xrplTxSignerBuilder(ctrl)
 			}
 
-			o, err := processes.NewXRPLTxSubmitter(
-				processes.XRPLTxSubmitterConfig{
+			o, err := processes.NewCoreumToXRPLProcess(
+				processes.CoreumToXRPLProcessConfig{
 					BridgeXRPLAddress:    bridgeXRPLAddress,
 					RelayerCoreumAddress: contractRelayers[0].CoreumAddress,
 					XRPLTxSignerKeyName:  xrplTxSignerKeyName,
