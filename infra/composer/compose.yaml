@@ -1,0 +1,27 @@
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: coreumbridge-xrpl-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    restart: unless-stopped
+    volumes:
+      - ./prometheus:/etc/prometheus
+  grafana:
+    image: grafana/grafana
+    container_name: coreumbridge-xrpl-grafana
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=grafana
+    volumes:
+      - ./grafana:/etc/grafana/provisioning/datasources
+  relayer:
+    image: coreumbridge-xrpl-relayer:local
+    container_name: coreumbridge-xrpl-relayer
+    restart: "no"
+    volumes:
+      - ./relayer:/app
+    entrypoint: /app/run.sh

@@ -25,7 +25,6 @@ func (l metricLogger) Debug(ctx context.Context, msg string, fields ...zap.Field
 }
 
 func (l metricLogger) Info(ctx context.Context, msg string, fields ...zap.Field) {
-	l.errorCounter.Inc()
 	l.parentLogger.Info(ctx, msg, fields...)
 }
 
