@@ -222,27 +222,19 @@ func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 		return nil, err
 	}
 
-	xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to configure xrpl keyring")
-	}
-	xrplClientCtx, err = WithPreloadedKeyring(cmd.Context(), xrplClientCtx, cfg.XRPL.MultiSignerKeyName,
+	xrplClientCtx, err := WithPreloadedKeyring(cmd.Context(), clientCtx, cmd.Flags(), cfg.XRPL.MultiSignerKeyName,
 		xrpl.KeyringSuffix, zapLogger)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to configure xrpl keyring")
 	}
 
-	coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to configure coreum keyring")
-	}
-	coreumClientCtx, err = WithPreloadedKeyring(cmd.Context(), coreumClientCtx, cfg.Coreum.RelayerKeyName,
+	coreumClientCtx, err := WithPreloadedKeyring(cmd.Context(), clientCtx, cmd.Flags(), cfg.Coreum.RelayerKeyName,
 		coreum.KeyringSuffix, zapLogger)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to configure xrpl keyring")
 	}
 
-	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true, true)
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true)
 	if err != nil {
 		return nil, err
 	}
@@ -387,9 +379,15 @@ func WithKeyring(clientCtx client.Context, flagSet *pflag.FlagSet, suffix string
 func WithPreloadedKeyring(
 	ctx context.Context,
 	clientCtx client.Context,
+	flagSet *pflag.FlagSet,
 	keyName, suffix string,
 	log logger.Logger,
 ) (client.Context, error) {
+	clientCtx, err := WithKeyring(clientCtx, flagSet, suffix)
+	if err != nil {
+		return client.Context{}, err
+	}
+
 	log.Info(ctx, "Loading private key", zap.String("keyring", suffix), zap.String("key", keyName))
 
 	keyInfo, err := clientCtx.Keyring.Key(keyName)
