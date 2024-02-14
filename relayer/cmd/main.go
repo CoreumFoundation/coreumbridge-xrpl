@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -87,8 +88,22 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.ClaimRefundCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.ClaimRelayerFeesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.GetRelayerFeesCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.HaltBridgeCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.ResumeBridgeCmd(bridgeClientProvider))
 
 	return cmd, nil
+}
+
+func isGenerateOnly(
+	cmd *cobra.Command,
+) bool {
+	flagSet := cmd.Flags()
+	if flagSet.Changed(flags.FlagGenerateOnly) {
+		genOnly, _ := flagSet.GetBool(flags.FlagGenerateOnly)
+		return genOnly
+	}
+
+	return false
 }
 
 func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
@@ -115,15 +130,17 @@ func bridgeClientProvider(cmd *cobra.Command) (cli.BridgeClient, error) {
 		return nil, errors.Wrap(err, "failed to configure coreum keyring")
 	}
 
-	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log, true)
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log, true, false)
 	if err != nil {
 		return nil, err
 	}
 
+	generateOnly := isGenerateOnly(cmd)
+	components.CoreumContractClient.SetGenerateOnly(generateOnly)
 	// for the bridge client we use the CLI logger
 	return bridgeclient.NewBridgeClient(
 		components.Log,
-		components.CoreumClientCtx,
+		components.CoreumClientCtx.WithGenerateOnly(generateOnly),
 		components.CoreumContractClient,
 		components.XRPLRPCClient,
 		components.XRPLKeyringTxSigner,
