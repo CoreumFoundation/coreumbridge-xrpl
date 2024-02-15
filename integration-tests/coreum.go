@@ -57,7 +57,8 @@ func NewCoreumChain(cfg CoreumChainConfig) (CoreumChain, error) {
 	// Set address & public key prefixes
 	config.SetBech32PrefixForAccount(coreumSettings.AddressPrefix, coreumSettings.AddressPrefix+"pub")
 	config.SetBech32PrefixForValidator(coreumSettings.AddressPrefix+"valoper", coreumSettings.AddressPrefix+"valoperpub")
-	config.SetBech32PrefixForConsensusNode(coreumSettings.AddressPrefix+"valcons", coreumSettings.AddressPrefix+"valconspub")
+	config.SetBech32PrefixForConsensusNode(coreumSettings.AddressPrefix+"valcons",
+		coreumSettings.AddressPrefix+"valconspub")
 
 	// Set BIP44 coin type corresponding to CORE
 	config.SetCoinType(constant.CoinType)
