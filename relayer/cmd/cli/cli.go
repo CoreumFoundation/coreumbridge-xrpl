@@ -13,9 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/keys"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
@@ -209,32 +207,17 @@ type RunnerProvider func(cmd *cobra.Command) (Runner, error)
 
 // NewRunnerFromHome returns runner from home.
 func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
-	clientCtx, err := client.GetClientQueryContext(cmd)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get client context")
-	}
 	cfg, err := GetHomeRunnerConfig(cmd)
 	if err != nil {
 		return nil, err
 	}
+
 	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig(cfg.LoggingConfig))
 	if err != nil {
 		return nil, err
 	}
 
-	xrplClientCtx, err := WithPreloadedKeyring(cmd.Context(), clientCtx, cmd.Flags(), cfg.XRPL.MultiSignerKeyName,
-		xrpl.KeyringSuffix, zapLogger)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to configure xrpl keyring")
-	}
-
-	coreumClientCtx, err := WithPreloadedKeyring(cmd.Context(), clientCtx, cmd.Flags(), cfg.Coreum.RelayerKeyName,
-		coreum.KeyringSuffix, zapLogger)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to configure xrpl keyring")
-	}
-
-	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger)
+	components, err := NewComponents(cmd, zapLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -258,11 +241,11 @@ func NewComponents(cmd *cobra.Command, log logger.Logger) (runner.Components, er
 	if err != nil {
 		return runner.Components{}, errors.Wrap(err, "failed to get client context")
 	}
-	xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+	xrplClientCtx, err := withKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix, log)
 	if err != nil {
 		return runner.Components{}, errors.Wrap(err, "failed to configure xrpl keyring")
 	}
-	coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+	coreumClientCtx, err := withKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix, log)
 	if err != nil {
 		return runner.Components{}, errors.Wrap(err, "failed to configure coreum keyring")
 	}
@@ -376,8 +359,13 @@ func StartCmd(pp RunnerProvider) *cobra.Command {
 	return cmd
 }
 
-// WithKeyring adds suffix-specific keyring to the context.
-func WithKeyring(clientCtx client.Context, flagSet *pflag.FlagSet, suffix string) (client.Context, error) {
+// withKeyring adds suffix-specific keyring witch decoded private key caching to the context.
+func withKeyring(
+	clientCtx client.Context,
+	flagSet *pflag.FlagSet,
+	suffix string,
+	log logger.Logger,
+) (client.Context, error) {
 	if flagSet.Lookup(flags.FlagKeyringDir) == nil || flagSet.Lookup(flags.FlagKeyringBackend) == nil {
 		return clientCtx, nil
 	}
@@ -400,39 +388,7 @@ func WithKeyring(clientCtx client.Context, flagSet *pflag.FlagSet, suffix string
 		return client.Context{}, errors.WithStack(err)
 	}
 
-	return clientCtx.WithKeyring(kr), nil
-}
-
-// WithPreloadedKeyring preloads private key into memory keyring.
-func WithPreloadedKeyring(
-	ctx context.Context,
-	clientCtx client.Context,
-	flagSet *pflag.FlagSet,
-	keyName, suffix string,
-	log logger.Logger,
-) (client.Context, error) {
-	clientCtx, err := WithKeyring(clientCtx, flagSet, suffix)
-	if err != nil {
-		return client.Context{}, err
-	}
-
-	log.Info(ctx, "Loading private key", zap.String("keyring", suffix), zap.String("key", keyName))
-
-	keyInfo, err := clientCtx.Keyring.Key(keyName)
-	if err != nil {
-		return client.Context{}, errors.Wrapf(err, fmt.Sprintf("failed to get key %q from keyring", keyName))
-	}
-	pass := uuid.NewString()
-	armor, err := clientCtx.Keyring.ExportPrivKeyArmor(keyInfo.Name, pass)
-	if err != nil {
-		return client.Context{}, errors.Wrapf(err, "failed to export key")
-	}
-	kr := keyring.NewInMemory(clientCtx.Codec)
-	if err := kr.ImportPrivKey(keyInfo.Name, armor, pass); err != nil {
-		return client.Context{}, errors.Wrapf(err, "failed to import key")
-	}
-
-	return clientCtx.WithKeyring(kr), nil
+	return clientCtx.WithKeyring(newCacheKeyring(suffix, kr, clientCtx.Codec, log)), nil
 }
 
 // KeyringCmd returns cosmos keyring cmd inti with the correct keys home.
