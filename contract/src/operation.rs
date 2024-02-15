@@ -113,6 +113,7 @@ pub fn create_pending_operation(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_operation(
     storage: &mut dyn Storage,
     operation: &Operation,
