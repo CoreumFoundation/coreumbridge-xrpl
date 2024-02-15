@@ -118,6 +118,7 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 	return &Runner{
 		cfg:                 cfg,
 		log:                 components.Log,
+		metrics:             components.Metrics,
 		xrplToCoreumProcess: xrplToCoreumProcess,
 		coreumToXRPLProcess: coreumToXRPLProcess,
 	}, nil
