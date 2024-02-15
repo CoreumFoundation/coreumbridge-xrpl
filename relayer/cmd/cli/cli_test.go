@@ -428,7 +428,8 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
 			bridgeClientMock := NewMockBridgeClient(ctrl)
 			tt.mock(bridgeClientMock)
-			executeCmd(t, cli.UpdateCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)), append(initConfig(t), tt.args...)...)
+			executeCmd(t, cli.UpdateCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)),
+				append(initConfig(t), tt.args...)...)
 		})
 	}
 }
@@ -756,7 +757,8 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
 			bridgeClientMock := NewMockBridgeClient(ctrl)
 			tt.mock(bridgeClientMock)
-			executeCmd(t, cli.UpdateXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)), append(initConfig(t), tt.args...)...)
+			executeCmd(t, cli.UpdateXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)),
+				append(initConfig(t), tt.args...)...)
 		})
 	}
 }
@@ -881,7 +883,8 @@ func TestCoreumBalancesCmd(t *testing.T) {
 
 	account := coreum.GenAccount()
 	bridgeClientMock.EXPECT().GetCoreumBalances(gomock.Any(), account).Return(sdk.NewCoins(), nil)
-	executeCmd(t, cli.CoreumBalancesCmd(mockBridgeClientProvider(bridgeClientMock)), append(initConfig(t), account.String())...)
+	executeCmd(t, cli.CoreumBalancesCmd(mockBridgeClientProvider(bridgeClientMock)),
+		append(initConfig(t), account.String())...)
 }
 
 func TestXRPBalancesCmd(t *testing.T) {
@@ -892,7 +895,8 @@ func TestXRPBalancesCmd(t *testing.T) {
 
 	account := xrpl.GenPrivKeyTxSigner().Account()
 	bridgeClientMock.EXPECT().GetXRPLBalances(gomock.Any(), account).Return([]rippledata.Amount{}, nil)
-	executeCmd(t, cli.XRPLBalancesCmd(mockBridgeClientProvider(bridgeClientMock)), append(initConfig(t), account.String())...)
+	executeCmd(t, cli.XRPLBalancesCmd(mockBridgeClientProvider(bridgeClientMock)),
+		append(initConfig(t), account.String())...)
 }
 
 func TestSetXRPLTrustSetCmd(t *testing.T) {
@@ -984,7 +988,8 @@ func TestGetPendingRefundsCmd(t *testing.T) {
 
 	account := coreum.GenAccount()
 	bridgeClientMock.EXPECT().GetPendingRefunds(gomock.Any(), account).Return([]coreum.PendingRefund{}, nil)
-	executeCmd(t, cli.GetPendingRefundsCmd(mockBridgeClientProvider(bridgeClientMock)), append(initConfig(t), account.String())...)
+	executeCmd(t, cli.GetPendingRefundsCmd(mockBridgeClientProvider(bridgeClientMock)),
+		append(initConfig(t), account.String())...)
 }
 
 func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
@@ -1045,7 +1050,8 @@ func TestGetRelayerFees(t *testing.T) {
 	fees, err := sdk.ParseCoinsNormalized("100ucore,100mycoin")
 	require.NoError(t, err)
 	bridgeClientMock.EXPECT().GetFeesCollected(gomock.Any(), account).Return(fees, nil)
-	executeCmd(t, cli.GetRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), append(initConfig(t), account.String())...)
+	executeCmd(t, cli.GetRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)),
+		append(initConfig(t), account.String())...)
 }
 
 func TestHaltBridgeCmd(t *testing.T) {
@@ -1082,10 +1088,6 @@ func TestResumeBridgeCmd(t *testing.T) {
 
 func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {
 	return executeCmdWithOutputOption(t, cmd, "text", args...)
-}
-
-func executeCmdWithJSONOutput(t *testing.T, cmd *cobra.Command, args ...string) string {
-	return executeCmdWithOutputOption(t, cmd, "json", args...)
 }
 
 func executeCmdWithOutputOption(t *testing.T, cmd *cobra.Command, outOpt string, args ...string) string {
