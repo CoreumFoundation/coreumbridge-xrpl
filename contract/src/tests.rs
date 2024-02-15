@@ -9798,7 +9798,7 @@ mod tests {
     }
 
     #[test]
-    fn cancel_operation() {
+    fn cancel_pending_operation() {
         let app = CoreumTestApp::new();
         let signer = app
             .init_account(&coins(100_000_000_000, FEE_DENOM))
