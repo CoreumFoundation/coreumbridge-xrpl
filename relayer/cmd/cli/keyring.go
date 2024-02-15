@@ -54,12 +54,46 @@ func (ck *cacheKeyring) SupportedAlgorithms() (keyring.SigningAlgoList, keyring.
 
 // Key return key by uid.
 func (ck *cacheKeyring) Key(uid string) (*keyring.Record, error) {
-	return ck.parentKeyring.Key(uid)
+	ck.mu.Lock()
+	defer ck.mu.Unlock()
+
+	keyInfo, err := ck.cacheKeyring.Key(uid)
+	if err != nil {
+		ck.log.Info(context.Background(), "Access to keyring requested", zap.String("keyring", ck.name),
+			zap.String("key", uid))
+
+		keyInfo, err = ck.parentKeyring.Key(uid)
+		if err != nil {
+			return nil, err
+		}
+		if err := ck.cacheKey(keyInfo); err != nil {
+			return nil, err
+		}
+	}
+
+	return keyInfo, nil
 }
 
 // KeyByAddress returns key by address.
 func (ck *cacheKeyring) KeyByAddress(address sdk.Address) (*keyring.Record, error) {
-	return ck.parentKeyring.KeyByAddress(address)
+	ck.mu.Lock()
+	defer ck.mu.Unlock()
+
+	keyInfo, err := ck.cacheKeyring.KeyByAddress(address)
+	if err != nil {
+		ck.log.Info(context.Background(), "Access to keyring requested", zap.String("keyring", ck.name),
+			zap.Stringer("address", address))
+
+		keyInfo, err = ck.parentKeyring.KeyByAddress(address)
+		if err != nil {
+			return nil, err
+		}
+		if err := ck.cacheKey(keyInfo); err != nil {
+			return nil, err
+		}
+	}
+
+	return keyInfo, nil
 }
 
 // Delete removes key from the keyring.
@@ -147,17 +181,8 @@ func (ck *cacheKeyring) Sign(uid string, msg []byte) ([]byte, types.PubKey, erro
 	ck.mu.Lock()
 	defer ck.mu.Unlock()
 
-	if _, err := ck.cacheKeyring.Key(uid); err != nil {
-		ck.log.Info(context.Background(), "Loading private key", zap.String("keyring", ck.name),
-			zap.String("key", uid))
-
-		keyInfo, err := ck.parentKeyring.Key(uid)
-		if err != nil {
-			return nil, nil, err
-		}
-		if err := ck.cacheKey(keyInfo); err != nil {
-			return nil, nil, err
-		}
+	if _, err := ck.Key(uid); err != nil {
+		return nil, nil, err
 	}
 
 	return ck.cacheKeyring.Sign(uid, msg)
@@ -168,17 +193,8 @@ func (ck *cacheKeyring) SignByAddress(address sdk.Address, msg []byte) ([]byte, 
 	ck.mu.Lock()
 	defer ck.mu.Unlock()
 
-	if _, err := ck.cacheKeyring.KeyByAddress(address); err != nil {
-		ck.log.Info(context.Background(), "Loading private key", zap.String("keyring", ck.name),
-			zap.Stringer("address", address))
-
-		keyInfo, err := ck.parentKeyring.KeyByAddress(address)
-		if err != nil {
-			return nil, nil, err
-		}
-		if err := ck.cacheKey(keyInfo); err != nil {
-			return nil, nil, err
-		}
+	if _, err := ck.KeyByAddress(address); err != nil {
+		return nil, nil, err
 	}
 
 	return ck.cacheKeyring.SignByAddress(address, msg)
