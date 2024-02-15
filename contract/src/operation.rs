@@ -5,13 +5,14 @@ use cosmwasm_std::{coin, Addr, Coin, CosmosMsg, Response, Storage, Uint128};
 use crate::{
     contract::{convert_amount_decimals, XRPL_TOKENS_DECIMALS},
     error::ContractError,
-    evidence::TransactionResult,
-    relayer::Relayer,
+    evidence::{OperationResult, TransactionResult},
+    relayer::{handle_rotate_keys_confirmation, Relayer},
     signatures::Signature,
     state::{
         BridgeState, Config, PendingRefund, TokenState, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS,
         PENDING_REFUNDS, PENDING_ROTATE_KEYS, XRPL_TOKENS,
     },
+    tickets::handle_ticket_allocation_confirmation,
     token::build_xrpl_token_key,
 };
 
@@ -108,6 +109,59 @@ pub fn create_pending_operation(
         return Err(ContractError::PendingOperationAlreadyExists {});
     }
     PENDING_OPERATIONS.save(storage, operation_id, &operation)?;
+
+    Ok(())
+}
+
+pub fn handle_operation(
+    storage: &mut dyn Storage,
+    operation: &Operation,
+    operation_result: &Option<OperationResult>,
+    transaction_result: &TransactionResult,
+    tx_hash: &Option<String>,
+    operation_id: u64,
+    response: &mut Response<CoreumMsg>,
+) -> Result<(), ContractError> {
+    match &operation.operation_type {
+        // We check that if the operation was a ticket allocation, the result is also for a ticket allocation
+        OperationType::AllocateTickets { .. } => match operation_result {
+            Some(OperationResult::TicketsAllocation { tickets }) => {
+                handle_ticket_allocation_confirmation(
+                    storage,
+                    tickets.clone(),
+                    transaction_result,
+                )?;
+            }
+            None => return Err(ContractError::InvalidOperationResult {}),
+        },
+        OperationType::TrustSet {
+            issuer, currency, ..
+        } => {
+            handle_trust_set_confirmation(storage, issuer, currency, transaction_result)?;
+        }
+        OperationType::RotateKeys {
+            new_relayers,
+            new_evidence_threshold,
+        } => {
+            handle_rotate_keys_confirmation(
+                storage,
+                new_relayers.to_owned(),
+                new_evidence_threshold.to_owned(),
+                transaction_result,
+            )?;
+        }
+        OperationType::CoreumToXRPLTransfer { .. } => {
+            handle_coreum_to_xrpl_transfer_confirmation(
+                storage,
+                transaction_result,
+                tx_hash.clone(),
+                operation_id,
+                response,
+            )?;
+        }
+    }
+    // Operation is removed because it was confirmed
+    PENDING_OPERATIONS.remove(storage, operation_id);
 
     Ok(())
 }

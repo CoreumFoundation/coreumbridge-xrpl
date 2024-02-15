@@ -9876,7 +9876,7 @@ mod tests {
 
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::CancelOperation {
+            &ExecuteMsg::CancelPendingOperation {
                 operation_id: query_pending_operations.operations[0]
                     .account_sequence
                     .unwrap(),
@@ -10007,7 +10007,7 @@ mod tests {
         let cancel_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::CancelOperation {
+                &ExecuteMsg::CancelPendingOperation {
                     operation_id: query_pending_operations.operations[0]
                         .ticket_sequence
                         .unwrap(),
@@ -10021,11 +10021,11 @@ mod tests {
             .to_string()
             .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
 
-        // If owner tries to cancel an operation that does not exist it should fail
+        // If owner tries to cancel a pending operation that does not exist it should fail
         let cancel_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::CancelOperation { operation_id: 50 },
+                &ExecuteMsg::CancelPendingOperation { operation_id: 50 },
                 &vec![],
                 &signer,
             )
@@ -10037,10 +10037,10 @@ mod tests {
                 .as_str()
         ));
 
-        // Cancel the first operation (trust set) and check that ticket is returned and token is put in Inactive state
+        // Cancel the first pending operation (trust set) and check that ticket is returned and token is put in Inactive state
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::CancelOperation {
+            &ExecuteMsg::CancelPendingOperation {
                 operation_id: query_pending_operations.operations[0]
                     .ticket_sequence
                     .unwrap(),
@@ -10091,10 +10091,10 @@ mod tests {
 
         assert_eq!(query_pending_operations.operations.len(), 2);
 
-        // Cancel the second operation (CoreumToXRPLTransfer), which should create a pending refund for the sender
+        // Cancel the second pending operation (CoreumToXRPLTransfer), which should create a pending refund for the sender
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::CancelOperation {
+            &ExecuteMsg::CancelPendingOperation {
                 operation_id: query_pending_operations.operations[0]
                     .ticket_sequence
                     .unwrap(),
@@ -10147,7 +10147,7 @@ mod tests {
         // Cancel the RotateKeys operation, it should keep the bridge halted and not rotate the relayers
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::CancelOperation {
+            &ExecuteMsg::CancelPendingOperation {
                 operation_id: query_pending_operations.operations[0]
                     .ticket_sequence
                     .unwrap(),
