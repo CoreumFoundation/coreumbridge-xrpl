@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	"github.com/CoreumFoundation/coreum/v4/pkg/config"
+	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
@@ -197,7 +197,7 @@ type BridgeClient interface {
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
-type BridgeClientProvider func(cmd *cobra.Command) (BridgeClient, error)
+type BridgeClientProvider func(components runner.Components) (BridgeClient, error)
 
 // Runner is a runner interface.
 type Runner interface {
@@ -234,7 +234,7 @@ func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 		return nil, errors.Wrap(err, "failed to configure xrpl keyring")
 	}
 
-	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true)
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +245,34 @@ func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 	}
 
 	return rnr, nil
+}
+
+// NewComponents creates components based on CLI input.
+func NewComponents(cmd *cobra.Command, log logger.Logger) (runner.Components, error) {
+	cfg, err := GetHomeRunnerConfig(cmd)
+	if err != nil {
+		return runner.Components{}, err
+	}
+
+	clientCtx, err := client.GetClientQueryContext(cmd)
+	if err != nil {
+		return runner.Components{}, errors.Wrap(err, "failed to get client context")
+	}
+	xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+	if err != nil {
+		return runner.Components{}, errors.Wrap(err, "failed to configure xrpl keyring")
+	}
+	coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+	if err != nil {
+		return runner.Components{}, errors.Wrap(err, "failed to configure coreum keyring")
+	}
+
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log)
+	if err != nil {
+		return runner.Components{}, err
+	}
+
+	return components, nil
 }
 
 // InitCmd returns the init cmd.
@@ -418,20 +446,28 @@ func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
 	cmd := keys.Commands(DefaultHomeDir)
 	for _, childCmd := range cmd.Commands() {
 		childCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.WithStack(err)
-			}
-
-			clientCtx, err = WithKeyring(clientCtx, cmd.Flags(), suffix)
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
 
-			if err := client.SetCmdClientContext(cmd, clientCtx); err != nil {
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
+			var clientCtx coreumchainclient.Context
+			switch suffix {
+			case xrpl.KeyringSuffix:
+				clientCtx = components.XRPLClientCtx
+			case coreum.KeyringSuffix:
+				clientCtx = components.CoreumClientCtx
+			}
+
+			if err := client.SetCmdClientContext(cmd, clientCtx.SDKContext()); err != nil {
 				return errors.WithStack(err)
 			}
-			return setCoreumConfigFromHomeFlag(cmd)
+			return nil
 		}
 	}
 	cmd.Use += "-" + suffix
@@ -445,56 +481,37 @@ func RelayerKeyInfoCmd() *cobra.Command {
 		Use:   "relayer-keys-info",
 		Short: "Prints the coreum and XRPL relayer keys info.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := setCoreumConfigFromHomeFlag(cmd); err != nil {
-				return err
-			}
-
-			ctx := cmd.Context()
 			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
 
-			// XRPL
-			cfg, err := GetHomeRunnerConfig(cmd)
+			components, err := NewComponents(cmd, log)
 			if err != nil {
 				return err
 			}
 
-			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			ctx := cmd.Context()
+
+			xrplAddress, err := components.XRPLKeyringTxSigner.Account(components.RunnerConfig.XRPL.MultiSignerKeyName)
 			if err != nil {
 				return err
 			}
 
-			xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(xrplClientCtx.Keyring)
-
-			xrplAddress, err := xrplKeyringTxSigner.Account(cfg.XRPL.MultiSignerKeyName)
-			if err != nil {
-				return err
-			}
-
-			xrplPubKey, err := xrplKeyringTxSigner.PubKey(cfg.XRPL.MultiSignerKeyName)
+			xrplPubKey, err := components.XRPLKeyringTxSigner.PubKey(components.RunnerConfig.XRPL.MultiSignerKeyName)
 			if err != nil {
 				return err
 			}
 
 			// Coreum
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			coreumKeyRecord, err := components.CoreumClientCtx.Keyring().Key(components.RunnerConfig.Coreum.RelayerKeyName)
 			if err != nil {
-				return err
-			}
-
-			coreumKeyRecord, err := coreumClientCtx.Keyring.Key(cfg.Coreum.RelayerKeyName)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get coreum key, keyName:%s", cfg.Coreum.RelayerKeyName)
+				return errors.Wrapf(err, "failed to get coreum key, keyName:%s", components.RunnerConfig.Coreum.RelayerKeyName)
 			}
 			coreumAddress, err := coreumKeyRecord.GetAddress()
 			if err != nil {
-				return errors.Wrapf(err, "failed to get coreum address from key, keyName:%s", cfg.Coreum.RelayerKeyName)
+				return errors.Wrapf(err, "failed to get coreum address from key, keyName:%s",
+					components.RunnerConfig.Coreum.RelayerKeyName)
 			}
 
 			log.Info(
@@ -527,43 +544,39 @@ Example:
 $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 `, FlagKeyName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
 			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
+			ctx := cmd.Context()
+			bridgeClient, err := bcp(components)
+			if err != nil {
+				return err
+			}
+
 			xrplKeyName, err := cmd.Flags().GetString(FlagXRPLKeyName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get %s", FlagXRPLKeyName)
 			}
-			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
-			if err != nil {
-				return err
-			}
-			xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(xrplClientCtx.Keyring)
+			xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(components.XRPLClientCtx.Keyring())
 			xrplBridgeAddress, err := xrplKeyringTxSigner.Account(xrplKeyName)
 			if err != nil {
 				return err
 			}
-			log.Info(ctx, "XRPL bridge address", zap.String("address", xrplBridgeAddress.String()))
+
+			components.Log.Info(ctx, "XRPL bridge address", zap.String("address", xrplBridgeAddress.String()))
+
 			coreumKeyName, err := cmd.Flags().GetString(FlagCoreumKeyName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get %s", FlagCoreumKeyName)
 			}
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
-			if err != nil {
-				return err
-			}
-			coreumKRRecord, err := coreumClientCtx.Keyring.Key(coreumKeyName)
+			coreumKRRecord, err := components.CoreumClientCtx.Keyring().Key(coreumKeyName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get key by name:%s", coreumKeyName)
 			}
@@ -571,7 +584,8 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 			if err != nil {
 				return errors.Wrapf(err, "failed to address for key name:%s", coreumKeyName)
 			}
-			log.Info(ctx, "Coreum deployer address", zap.String("address", coreumAddress.String()))
+
+			components.Log.Info(ctx, "Coreum deployer address", zap.String("address", coreumAddress.String()))
 
 			filePath := args[0]
 			initOnly, err := cmd.Flags().GetBool(FlagInitOnly)
@@ -625,9 +639,18 @@ func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 		Use:   "contract-config",
 		Short: "Prints contract config.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
@@ -636,11 +659,7 @@ func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 				return err
 			}
 
-			log, err := GetCLILogger()
-			if err != nil {
-				return err
-			}
-			log.Info(ctx, "Got contract config", zap.Any("config", cfg))
+			components.Log.Info(ctx, "Got contract config", zap.Any("config", cfg))
 
 			return nil
 		},
@@ -661,15 +680,20 @@ Example:
 $ recover-tickets --%s 250 --%s owner
 `, FlagTicketsToAllocate, FlagKeyName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
+
+			components, err := NewComponents(cmd, log)
 			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
+				return err
+			}
+
+			ctx := cmd.Context()
+			bridgeClient, err := bcp(components)
+			if err != nil {
+				return err
 			}
 
 			ticketsToAllocated, err := getFlagUint32IfPresent(cmd, FlagTicketsToAllocate)
@@ -677,11 +701,7 @@ $ recover-tickets --%s 250 --%s owner
 				return errors.Wrapf(err, "failed to get %s", FlagTicketsToAllocate)
 			}
 
-			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
-			if err != nil {
-				return err
-			}
-			owner, err := readAddressFromKeyNameFlag(cmd, xrplClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -712,23 +732,23 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
 `, FlagKeyName)),
 		Args: cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -786,23 +806,23 @@ $ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s own
 `, FlagTokenState, FlagSendingPrecision, FlagMaxHoldingAmount, FlagBridgingFee, FlagKeyName)),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -852,23 +872,23 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 `, FlagKeyName)),
 		Args: cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -930,23 +950,23 @@ $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 `, FlagKeyName)),
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -985,23 +1005,23 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 `, FlagTokenState, FlagSendingPrecision, FlagMaxHoldingAmount, FlagBridgingFee, FlagKeyName)),
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1051,22 +1071,18 @@ Example:
 $ rotate-keys new-keys.yaml --%s owner
 `, FlagKeyName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
 
-			log, err := GetCLILogger()
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
+			ctx := cmd.Context()
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
@@ -1086,7 +1102,7 @@ $ rotate-keys new-keys.yaml --%s owner
 				return bridgeclient.InitKeysRotationConfig(filePath)
 			}
 
-			record, err := coreumClientCtx.Keyring.Key(keyName)
+			record, err := components.CoreumClientCtx.Keyring().Key(keyName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get key by name:%s", keyName)
 			}
@@ -1099,8 +1115,10 @@ $ rotate-keys new-keys.yaml --%s owner
 			if err != nil {
 				return err
 			}
-			log.Info(ctx, "Start keys rotation", zap.Any("config", cfg))
-			log.Info(ctx, "Press any key to continue.")
+
+			components.Log.Info(ctx, "Start keys rotation", zap.Any("config", cfg))
+			components.Log.Info(ctx, "Press any key to continue.")
+
 			input := bufio.NewScanner(os.Stdin)
 			input.Scan()
 
@@ -1129,23 +1147,23 @@ $ update-xrpl-base-fee 20 --%s owner
 `, FlagKeyName)),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1175,9 +1193,18 @@ func RegisteredTokensCmd(bcp BridgeClientProvider) *cobra.Command {
 		Use:   "registered-tokens",
 		Short: "Prints all registered tokens.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
@@ -1185,15 +1212,15 @@ func RegisteredTokensCmd(bcp BridgeClientProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log, err := GetCLILogger()
-			if err != nil {
-				return err
-			}
-			log.Info(ctx, "Coreum tokens", zap.Int("total", len(coreumTokens)))
+
+			components.Log.Info(ctx, "Coreum tokens", zap.Int("total", len(coreumTokens)))
+
 			for _, token := range coreumTokens {
 				log.Info(ctx, token.Denom, zap.Any("token", token))
 			}
-			log.Info(ctx, "XRPL tokens", zap.Int("total", len(xrplTokens)))
+
+			components.Log.Info(ctx, "XRPL tokens", zap.Int("total", len(xrplTokens)))
+
 			for _, token := range xrplTokens {
 				log.Info(ctx, fmt.Sprintf("%s/%s", token.Currency, token.Issuer), zap.Any("token", token))
 			}
@@ -1218,27 +1245,28 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender 
 `, FlagKeyName, FlagDeliverAmount)),
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			log, err := GetCLILogger()
 			if err != nil {
 				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
 			}
 
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			components, err := NewComponents(cmd, log)
 			if err != nil {
 				return err
 			}
+
+			ctx := cmd.Context()
+			bridgeClient, err := bcp(components)
+			if err != nil {
+				return err
+			}
+
 			deliverAmount, err := getFlagSDKIntIfPresent(cmd, FlagDeliverAmount)
 			if err != nil {
 				return err
 			}
 
-			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1283,9 +1311,18 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s --%s sender
 		),
 		Args: cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
@@ -1346,9 +1383,18 @@ func CoreumBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 		Short: "Prints coreum balances of the provided address.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
@@ -1361,11 +1407,9 @@ func CoreumBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log, err := GetCLILogger()
-			if err != nil {
-				return err
-			}
-			log.Info(ctx, "Got balances", zap.Any("balances", coins))
+
+			components.Log.Info(ctx, "Got balances", zap.Any("balances", coins))
+
 			return nil
 		},
 	}
@@ -1381,9 +1425,18 @@ func XRPLBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 		Short: "Prints XRPL balances of the provided address.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
@@ -1405,11 +1458,7 @@ func XRPLBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 				)
 			})
 
-			log, err := GetCLILogger()
-			if err != nil {
-				return err
-			}
-			log.Info(ctx, "Got balances: [issuer/currency amount]", zap.Any("balances", balancesFormatted))
+			components.Log.Info(ctx, "Got balances: [issuer/currency amount]", zap.Any("balances", balancesFormatted))
 			return nil
 		},
 	}
@@ -1431,9 +1480,18 @@ $ set-xrpl-trust-set 1e80 %s %s --%s sender
 		),
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
@@ -1515,9 +1573,18 @@ $ pending-refunds %s
 		)),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
@@ -1531,12 +1598,7 @@ $ pending-refunds %s
 				return err
 			}
 
-			logger, err := GetCLILogger()
-			if err != nil {
-				return err
-			}
-
-			logger.Info(ctx, "pending refunds", zap.Any("refunds", refunds))
+			components.Log.Info(ctx, "pending refunds", zap.Any("refunds", refunds))
 			return nil
 		},
 	}
@@ -1558,23 +1620,23 @@ $ claim-refund --%s claimer --%s 1705664693-2
 		)),
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
 
-			address, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			address, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1624,9 +1686,18 @@ $ relayer-fees %s
 		)),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
@@ -1641,12 +1712,7 @@ $ relayer-fees %s
 				return err
 			}
 
-			logger, err := GetCLILogger()
-			if err != nil {
-				return err
-			}
-
-			logger.Info(ctx, "relayer fees", zap.String("fees", relayerFees.String()))
+			components.Log.Info(ctx, "relayer fees", zap.String("fees", relayerFees.String()))
 			return nil
 		},
 	}
@@ -1670,23 +1736,23 @@ $ claim-relayer-fees --key-name address --%s %s
 		)),
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
 
-			address, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			address, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1722,8 +1788,6 @@ $ claim-relayer-fees --key-name address --%s %s
 }
 
 // HaltBridgeCmd halts the bridge and stops its operation.
-//
-//nolint:dupl // abstracting this code will make it less readable.
 func HaltBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "halt-bridge",
@@ -1735,21 +1799,22 @@ $ halt-bridge --%s owner
 `, FlagKeyName)),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
-			if err != nil {
-				return err
-			}
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1770,8 +1835,6 @@ $ halt-bridge --%s owner
 }
 
 // ResumeBridgeCmd resumes the bridge and restarts its operation.
-//
-//nolint:dupl // abstracting this code will make it less readable.
 func ResumeBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "resume-bridge",
@@ -1783,21 +1846,22 @@ $ resume-bridge --%s owner
 `, FlagKeyName)),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+
+			components, err := NewComponents(cmd, log)
+			if err != nil {
+				return err
+			}
+
 			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
+			bridgeClient, err := bcp(components)
 			if err != nil {
 				return err
 			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
-			if err != nil {
-				return err
-			}
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1829,12 +1893,12 @@ func GetCLILogger() (*logger.ZapLogger, error) {
 	return zapLogger, nil
 }
 
-func readAddressFromKeyNameFlag(cmd *cobra.Command, clientCtx client.Context) (sdk.AccAddress, error) {
+func readAddressFromKeyNameFlag(cmd *cobra.Command, clientCtx coreumchainclient.Context) (sdk.AccAddress, error) {
 	keyName, err := cmd.Flags().GetString(FlagKeyName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get flag %s", FlagKeyName)
 	}
-	keyRecord, err := clientCtx.Keyring.Key(keyName)
+	keyRecord, err := clientCtx.Keyring().Key(keyName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key by name:%s", keyName)
 	}
@@ -1846,31 +1910,33 @@ func readAddressFromKeyNameFlag(cmd *cobra.Command, clientCtx client.Context) (s
 	return addr, nil
 }
 
-func setCoreumConfigFromHomeFlag(cmd *cobra.Command) error {
-	cfg, err := GetHomeRunnerConfig(cmd)
-	if err != nil {
-		return err
-	}
-	network, err := config.NetworkConfigByChainID(constant.ChainID(cfg.Coreum.Network.ChainID))
-	if err != nil {
-		return err
-	}
-	network.SetSDKConfig()
-
-	return nil
-}
-
 // GetHomeRunnerConfig reads runner config from home directory.
 func GetHomeRunnerConfig(cmd *cobra.Command) (runner.Config, error) {
 	home, err := getRelayerHome(cmd)
 	if err != nil {
 		return runner.Config{}, err
 	}
-	return runner.ReadConfig(home)
+	cfg, err := runner.ReadConfig(home)
+	if err != nil {
+		return runner.Config{}, err
+	}
+
+	cfg.Coreum.GenerateOnly = isGenerateOnly(cmd)
+	return cfg, nil
 }
 
 func getRelayerHome(cmd *cobra.Command) (string, error) {
 	return cmd.Flags().GetString(FlagHome)
+}
+
+func isGenerateOnly(cmd *cobra.Command) bool {
+	flagSet := cmd.Flags()
+	if flagSet.Changed(flags.FlagGenerateOnly) {
+		genOnly, _ := flagSet.GetBool(flags.FlagGenerateOnly)
+		return genOnly
+	}
+
+	return false
 }
 
 func addHomeFlag(cmd *cobra.Command) {

@@ -1205,7 +1205,7 @@ func flagWithPrefix(f string) string {
 }
 
 func mockBridgeClientProvider(bridgeClientMock *MockBridgeClient) cli.BridgeClientProvider {
-	return func(cmd *cobra.Command) (cli.BridgeClient, error) {
+	return func(_ runner.Components) (cli.BridgeClient, error) {
 		return bridgeClientMock, nil
 	}
 }

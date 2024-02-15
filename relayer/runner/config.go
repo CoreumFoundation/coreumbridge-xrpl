@@ -89,6 +89,7 @@ type CoreumConfig struct {
 	GRPC           CoreumGRPCConfig     `yaml:"grpc"`
 	Network        CoreumNetworkConfig  `yaml:"network"`
 	Contract       CoreumContractConfig `yaml:"contract"`
+	GenerateOnly   bool                 `yaml:"-"`
 }
 
 // CoreumToXRPLProcessConfig is CoreumToXRPLProcess config.

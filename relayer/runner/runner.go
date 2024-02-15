@@ -170,8 +170,10 @@ func (r *Runner) withRestartOnError(task parallel.Task) parallel.Task {
 
 // Components groups components required by runner.
 type Components struct {
+	RunnerConfig         Config
 	CoreumClientCtx      coreumchainclient.Context
 	CoreumContractClient *coreum.ContractClient
+	XRPLClientCtx        coreumchainclient.Context
 	XRPLRPCClient        *xrpl.RPCClient
 	XRPLKeyringTxSigner  *xrpl.KeyringTxSigner
 	Metrics              *metrics.Registry
@@ -184,7 +186,6 @@ func NewComponents(
 	xrplKeyring keyring.Keyring,
 	coreumKeyring keyring.Keyring,
 	log logger.Logger,
-	setCoreumSDKConfig bool,
 ) (Components, error) {
 	metricSet := metrics.NewRegistry()
 	log, err := logger.WithMetrics(log, metricSet.ErrorCounter)
@@ -192,8 +193,9 @@ func NewComponents(
 		return Components{}, err
 	}
 	components := Components{
-		Metrics: metricSet,
-		Log:     log,
+		RunnerConfig: cfg,
+		Metrics:      metricSet,
+		Log:          log,
 	}
 
 	retryableXRPLRPCHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.XRPL.HTTPClient))
@@ -216,9 +218,17 @@ func NewComponents(
 			)
 		}
 		clientCtx = clientCtx.WithChainID(cfg.Coreum.Network.ChainID)
-		if setCoreumSDKConfig {
-			coreumChainNetworkConfig.SetSDKConfig()
-		}
+		config := sdk.GetConfig()
+
+		addressPrefix := coreumChainNetworkConfig.Provider.GetAddressPrefix()
+
+		// Set address & public key prefixes
+		config.SetBech32PrefixForAccount(addressPrefix, addressPrefix+"pub")
+		config.SetBech32PrefixForValidator(addressPrefix+"valoper", addressPrefix+"valoperpub")
+		config.SetBech32PrefixForConsensusNode(addressPrefix+"valcons", addressPrefix+"valconspub")
+
+		// Set BIP44 coin type corresponding to CORE
+		config.SetCoinType(coreumchainconstant.CoinType)
 	}
 
 	var contractAddress sdk.AccAddress
@@ -250,7 +260,7 @@ func NewComponents(
 		clientCtx = clientCtx.WithGRPCClient(grpcClient)
 	}
 
-	coreumClientCtx := clientCtx.WithKeyring(coreumKeyring)
+	coreumClientCtx := clientCtx.WithKeyring(coreumKeyring).WithGenerateOnly(cfg.Coreum.GenerateOnly)
 	contractClient := coreum.NewContractClient(contractClientCfg, log, coreumClientCtx)
 	components.CoreumContractClient = contractClient
 
@@ -265,6 +275,7 @@ func NewComponents(
 	}
 
 	components.CoreumClientCtx = coreumClientCtx
+	components.XRPLClientCtx = clientCtx.WithKeyring(xrplKeyring)
 	return components, nil
 }
 
