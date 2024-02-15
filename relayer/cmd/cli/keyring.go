@@ -178,9 +178,6 @@ func (ck *cacheKeyring) SaveMultisig(uid string, pubkey types.PubKey) (*keyring.
 
 // Sign signs byte message with a user key.
 func (ck *cacheKeyring) Sign(uid string, msg []byte) ([]byte, types.PubKey, error) {
-	ck.mu.Lock()
-	defer ck.mu.Unlock()
-
 	if _, err := ck.Key(uid); err != nil {
 		return nil, nil, err
 	}
@@ -190,9 +187,6 @@ func (ck *cacheKeyring) Sign(uid string, msg []byte) ([]byte, types.PubKey, erro
 
 // SignByAddress signs byte message with a user key providing the address.
 func (ck *cacheKeyring) SignByAddress(address sdk.Address, msg []byte) ([]byte, types.PubKey, error) {
-	ck.mu.Lock()
-	defer ck.mu.Unlock()
-
 	if _, err := ck.KeyByAddress(address); err != nil {
 		return nil, nil, err
 	}
