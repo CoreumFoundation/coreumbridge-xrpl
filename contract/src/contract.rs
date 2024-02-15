@@ -24,7 +24,7 @@ use crate::{
         PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, PROCESSED_TXS,
         PROHIBITED_XRPL_RECIPIENTS, TX_EVIDENCES, USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
-    tickets::{allocate_ticket, register_used_ticket, return_ticket},
+    tickets::{allocate_ticket, register_used_ticket},
     token::{
         build_xrpl_token_key, is_token_xrp, set_token_bridging_fee, set_token_max_holding_amount,
         set_token_sending_precision, set_token_state,
@@ -697,6 +697,7 @@ fn save_evidence(
                     &transaction_result,
                     &tx_hash,
                     operation_id,
+                    ticket_sequence,
                     &mut response,
                 )?;
 
@@ -713,11 +714,6 @@ fn save_evidence(
                             false.to_string(),
                         );
                     }
-                }
-
-                // If an operation was invalid, the ticket was never consumed, so we must return it to the ticket array.
-                if transaction_result.eq(&TransactionResult::Invalid) && ticket_sequence.is_some() {
-                    return_ticket(deps.storage, ticket_sequence.unwrap())?;
                 }
             }
 
@@ -1374,13 +1370,9 @@ fn cancel_pending_operation(
         transaction_result,
         &None,
         operation_id,
+        operation.ticket_sequence,
         &mut response,
     )?;
-
-    // If the operation cancelled had a ticket assigned, we return it to the ticket array
-    if operation.ticket_sequence.is_some() {
-        return_ticket(deps.storage, operation.ticket_sequence.unwrap())?;
-    }
 
     Ok(response
         .add_attribute("action", ContractActions::CancelPendingOperation.as_str())

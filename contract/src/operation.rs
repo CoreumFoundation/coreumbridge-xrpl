@@ -12,7 +12,7 @@ use crate::{
         BridgeState, Config, PendingRefund, TokenState, CONFIG, COREUM_TOKENS, PENDING_OPERATIONS,
         PENDING_REFUNDS, PENDING_ROTATE_KEYS, XRPL_TOKENS,
     },
-    tickets::handle_ticket_allocation_confirmation,
+    tickets::{handle_ticket_allocation_confirmation, return_ticket},
     token::build_xrpl_token_key,
 };
 
@@ -120,6 +120,7 @@ pub fn handle_operation(
     transaction_result: &TransactionResult,
     tx_hash: &Option<String>,
     operation_id: u64,
+    ticket_sequence: Option<u64>,
     response: &mut Response<CoreumMsg>,
 ) -> Result<(), ContractError> {
     match &operation.operation_type {
@@ -162,6 +163,11 @@ pub fn handle_operation(
     }
     // Operation is removed because it was confirmed
     PENDING_OPERATIONS.remove(storage, operation_id);
+
+    // If an operation was invalid, the ticket was never consumed, so we must return it to the ticket array.
+    if transaction_result.eq(&TransactionResult::Invalid) && ticket_sequence.is_some() {
+        return_ticket(storage, ticket_sequence.unwrap())?;
+    }
 
     Ok(())
 }
