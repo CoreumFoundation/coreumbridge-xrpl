@@ -3,7 +3,8 @@ use std::collections::VecDeque;
 use crate::{
     address::validate_xrpl_address,
     error::ContractError,
-    evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
+    evidence::OperationResult::TicketsAllocation,
+    evidence::{handle_evidence, hash_bytes, Evidence, TransactionResult},
     fees::{amount_after_bridge_fees, handle_fee_collection, substract_relayer_fees},
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
@@ -12,11 +13,10 @@ use crate::{
         TransactionEvidence, TransactionEvidencesResponse, XRPLTokensResponse,
     },
     operation::{
-        check_operation_exists, create_pending_operation,
-        handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation,
-        remove_pending_refund, Operation, OperationType,
+        check_operation_exists, create_pending_operation, handle_operation, remove_pending_refund,
+        Operation, OperationType,
     },
-    relayer::{handle_rotate_keys_confirmation, is_relayer, validate_relayers, Relayer},
+    relayer::{is_relayer, validate_relayers, Relayer},
     signatures::add_signature,
     state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, UserType, XRPLToken,
@@ -24,9 +24,7 @@ use crate::{
         PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, PROCESSED_TXS,
         PROHIBITED_XRPL_RECIPIENTS, TX_EVIDENCES, USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
-    tickets::{
-        allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
-    },
+    tickets::{allocate_ticket, register_used_ticket},
     token::{
         build_xrpl_token_key, is_token_xrp, set_token_bridging_fee, set_token_max_holding_amount,
         set_token_sending_precision, set_token_state,
@@ -329,6 +327,9 @@ pub fn execute(
             info.sender,
             prohibited_xrpl_recipients,
         ),
+        ExecuteMsg::CancelPendingOperation { operation_id } => {
+            cancel_pending_operation(deps.into_empty(), info.sender, operation_id)
+        }
     }
 }
 
@@ -688,51 +689,17 @@ fn save_evidence(
 
             // If enough evidences are provided (threshold reached), we run the specific handler for each operation
             if threshold_reached {
-                match &operation.operation_type {
-                    // We check that if the operation was a ticket allocation, the result is also for a ticket allocation
-                    OperationType::AllocateTickets { .. } => match operation_result {
-                        Some(OperationResult::TicketsAllocation { tickets }) => {
-                            handle_ticket_allocation_confirmation(
-                                deps.storage,
-                                tickets,
-                                &transaction_result,
-                            )?;
-                        }
-                        None => return Err(ContractError::InvalidOperationResult {}),
-                    },
-                    OperationType::TrustSet {
-                        issuer, currency, ..
-                    } => {
-                        handle_trust_set_confirmation(
-                            deps.storage,
-                            issuer,
-                            currency,
-                            &transaction_result,
-                        )?;
-                    }
-                    OperationType::RotateKeys {
-                        new_relayers,
-                        new_evidence_threshold,
-                    } => {
-                        handle_rotate_keys_confirmation(
-                            deps.storage,
-                            new_relayers.to_owned(),
-                            new_evidence_threshold.to_owned(),
-                            &transaction_result,
-                        )?;
-                    }
-                    OperationType::CoreumToXRPLTransfer { .. } => {
-                        handle_coreum_to_xrpl_transfer_confirmation(
-                            deps.storage,
-                            &transaction_result,
-                            tx_hash.clone(),
-                            operation_id,
-                            &mut response,
-                        )?;
-                    }
-                }
-                // Operation is removed because it was confirmed
-                PENDING_OPERATIONS.remove(deps.storage, operation_id);
+                // We run the handler for the operation, routing to the correct handler for each operation type
+                handle_operation(
+                    deps.storage,
+                    &operation,
+                    &operation_result,
+                    &transaction_result,
+                    &tx_hash,
+                    operation_id,
+                    ticket_sequence,
+                    &mut response,
+                )?;
 
                 // If the operation was not Invalid, we must register a used ticket
                 if transaction_result.ne(&TransactionResult::Invalid) && ticket_sequence.is_some() {
@@ -747,11 +714,6 @@ fn save_evidence(
                             false.to_string(),
                         );
                     }
-                }
-
-                // If an operation was invalid, the ticket was never consumed, so we must return it to the ticket array.
-                if transaction_result.eq(&TransactionResult::Invalid) && ticket_sequence.is_some() {
-                    return_ticket(deps.storage, ticket_sequence.unwrap())?;
                 }
             }
 
@@ -1377,6 +1339,43 @@ fn update_prohibited_xrpl_recipients(
             "action",
             ContractActions::UpdateProhibitedXRPLRecipients.as_str(),
         )
+        .add_attribute("sender", sender))
+}
+
+fn cancel_pending_operation(
+    deps: DepsMut,
+    sender: Addr,
+    operation_id: u64,
+) -> CoreumResult<ContractError> {
+    check_authorization(
+        deps.as_ref().storage,
+        &sender,
+        &ContractActions::CancelPendingOperation,
+    )?;
+
+    let operation = check_operation_exists(deps.storage, operation_id)?;
+    // We'll provide a TransactionResult::Invalid evidence to the handlers so that they perform the right action
+    let transaction_result = &TransactionResult::Invalid;
+    let operation_result = match operation.operation_type {
+        OperationType::AllocateTickets { .. } => Some(TicketsAllocation { tickets: None }),
+        _ => None,
+    };
+    let mut response = Response::new();
+
+    // We handle the operation with an invalid result
+    handle_operation(
+        deps.storage,
+        &operation,
+        &operation_result,
+        transaction_result,
+        &None,
+        operation_id,
+        operation.ticket_sequence,
+        &mut response,
+    )?;
+
+    Ok(response
+        .add_attribute("action", ContractActions::CancelPendingOperation.as_str())
         .add_attribute("sender", sender))
 }
 
