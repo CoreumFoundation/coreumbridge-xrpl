@@ -436,7 +436,7 @@ func RelayerKeyInfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "relayer-keys-info",
 		Short: "Prints the coreum and XRPL relayer keys info.",
-		RunE: cmdHelper(nil,
+		RunE: runBridgeCmd(nil,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -490,7 +490,7 @@ func BootstrapBridgeCmd(bcp BridgeClientProvider) *cobra.Command {
 Example:
 $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 `, FlagKeyName)),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -572,7 +572,7 @@ func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "contract-config",
 		Short: "Prints contract config.",
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -601,7 +601,7 @@ func RecoverTicketsCmd(bcp BridgeClientProvider) *cobra.Command {
 Example:
 $ recover-tickets --%s 250 --%s owner
 `, FlagTicketsToAllocate, FlagKeyName)),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -640,7 +640,7 @@ Example:
 $ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
 `, FlagKeyName)),
 		Args: cobra.ExactArgs(5),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -701,7 +701,7 @@ Example:
 $ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s owner
 `, FlagTokenState, FlagSendingPrecision, FlagMaxHoldingAmount, FlagBridgingFee, FlagKeyName)),
 		Args: cobra.ExactArgs(1),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -754,7 +754,7 @@ Example:
 $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 2 500000000000000 4000 --%s owner
 `, FlagKeyName)),
 		Args: cobra.ExactArgs(5),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -819,7 +819,7 @@ Example:
 $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 `, FlagKeyName)),
 		Args: cobra.ExactArgs(2),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -861,7 +861,7 @@ Example:
 $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F524500000000000000000000000000000000 --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s owner
 `, FlagTokenState, FlagSendingPrecision, FlagMaxHoldingAmount, FlagBridgingFee, FlagKeyName)),
 		Args: cobra.ExactArgs(2),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -914,7 +914,7 @@ func RotateKeysCmd(bcp BridgeClientProvider) *cobra.Command {
 Example:
 $ rotate-keys new-keys.yaml --%s owner
 `, FlagKeyName)),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -977,7 +977,7 @@ Example:
 $ update-xrpl-base-fee 20 --%s owner
 `, FlagKeyName)),
 		Args: cobra.ExactArgs(1),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1010,7 +1010,7 @@ func RegisteredTokensCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "registered-tokens",
 		Short: "Prints all registered tokens.",
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1050,7 +1050,7 @@ Example:
 $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender --%s 100000
 `, FlagKeyName, FlagDeliverAmount)),
 		Args: cobra.ExactArgs(2),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1103,7 +1103,7 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s --%s sender
 			),
 		),
 		Args: cobra.ExactArgs(4),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1163,7 +1163,7 @@ func CoreumBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 		Use:   "coreum-balances [address]",
 		Short: "Prints coreum balances of the provided address.",
 		Args:  cobra.ExactArgs(1),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1193,7 +1193,7 @@ func XRPLBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 		Use:   "xrpl-balances [address]",
 		Short: "Prints XRPL balances of the provided address.",
 		Args:  cobra.ExactArgs(1),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1236,7 +1236,7 @@ $ set-xrpl-trust-set 1e80 %s %s --%s sender
 `, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), FlagKeyName),
 		),
 		Args: cobra.ExactArgs(3),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1317,7 +1317,7 @@ $ pending-refunds %s
 `, constant.AddressSampleTest,
 		)),
 		Args: cobra.ExactArgs(1),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1352,7 +1352,7 @@ $ claim-refund --%s claimer --%s 1705664693-2
 `, FlagKeyName, FlagRefundID,
 		)),
 		Args: cobra.ExactArgs(0),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1405,7 +1405,7 @@ $ relayer-fees %s
 `, constant.AddressSampleTest,
 		)),
 		Args: cobra.ExactArgs(1),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1442,7 +1442,7 @@ $ claim-relayer-fees --key-name address --%s %s
 `, FlagAmount, sampleAmount,
 		)),
 		Args: cobra.ExactArgs(0),
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1492,7 +1492,7 @@ Example:
 $ halt-bridge --%s owner
 `, FlagKeyName)),
 		Args: cobra.NoArgs,
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1527,7 +1527,7 @@ Example:
 $ resume-bridge --%s owner
 `, FlagKeyName)),
 		Args: cobra.NoArgs,
-		RunE: cmdHelper(bcp,
+		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
@@ -1746,7 +1746,7 @@ func getFlagUint32IfPresent(cmd *cobra.Command, flagName string) (*uint32, error
 	return &val, nil
 }
 
-func cmdHelper(
+func runBridgeCmd(
 	bcp BridgeClientProvider,
 	f func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error,
 ) func(cmd *cobra.Command, args []string) error {
