@@ -104,7 +104,7 @@ func (p *CoreumToXRPLProcess) Start(ctx context.Context) error {
 				p.log.Info(ctx, "Process repeating is disabled, process is finished")
 				return nil
 			}
-			p.log.Info(ctx, "Waiting before the next execution", zap.String("delay", p.cfg.RepeatDelay.String()))
+			p.log.Debug(ctx, "Waiting before the next execution", zap.String("delay", p.cfg.RepeatDelay.String()))
 			select {
 			case <-ctx.Done():
 				return errors.WithStack(ctx.Err())
@@ -123,7 +123,7 @@ func (p *CoreumToXRPLProcess) processPendingOperations(ctx context.Context) erro
 		p.log.Debug(ctx, "No pending operations to process")
 		return nil
 	}
-	p.log.Info(ctx, "Processing pending operations", zap.Int("count", len(operations)))
+	p.log.Debug(ctx, "Processing pending operations", zap.Int("count", len(operations)))
 
 	bridgeSigners, err := p.getBridgeSigners(ctx)
 	if err != nil {
@@ -245,7 +245,7 @@ func (p *CoreumToXRPLProcess) signOrSubmitOperation(
 	}
 	// These codes indicate that the transaction failed, but it was applied to a ledger to apply the transaction cost.
 	if strings.HasPrefix(txRes.EngineResult.String(), xrpl.TecTxResultPrefix) {
-		p.log.Info(
+		p.log.Debug(
 			ctx,
 			fmt.Sprintf(
 				"The transaction has been sent, but will be reverted, code:%s, description:%s",

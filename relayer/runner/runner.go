@@ -29,6 +29,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/tracing"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -127,15 +128,25 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 
 // Start starts runner.
 func (r *Runner) Start(ctx context.Context) error {
+	relayerProcesses := map[string]func(context.Context) error{
+		"XRPL-to-Coreum": r.withRestartOnError(r.xrplToCoreumProcess.Start),
+		"Coreum-to-XRPL": r.withRestartOnError(r.coreumToXRPLProcess.Start),
+	}
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-		spawn("xrplToCoreumProcess", parallel.Continue, r.withRestartOnError(r.xrplToCoreumProcess.Start))
-		spawn("coreumToXRPLProcess", parallel.Continue, r.withRestartOnError(r.coreumToXRPLProcess.Start))
+		for name, start := range relayerProcesses {
+			nameCopy := name
+			startCopy := start
+			spawn(nameCopy, parallel.Continue, func(ctx context.Context) error {
+				ctx = tracing.WithTracingProcess(ctx, nameCopy)
+				return startCopy(ctx)
+			})
+		}
 		if r.cfg.Metrics.Server.Enable {
-			spawn("metrics", parallel.Fail, r.withRestartOnError(func(ctx context.Context) error {
+			spawn("metrics-server", parallel.Fail, r.withRestartOnError(func(ctx context.Context) error {
+				ctx = tracing.WithTracingProcess(ctx, "metrics-server")
 				return metrics.Start(ctx, r.cfg.Metrics.Server.ListenAddress, r.metrics)
 			}))
 		}
-
 		return nil
 	})
 }

@@ -21,15 +21,17 @@ const (
 
 // ZapLoggerConfig is ZapLogger config.
 type ZapLoggerConfig struct {
-	Level  string
-	Format string
+	Level      string
+	Format     string
+	CallerSkip int
 }
 
 // DefaultZapLoggerConfig returns default ZapLoggerConfig.
 func DefaultZapLoggerConfig() ZapLoggerConfig {
 	return ZapLoggerConfig{
-		Level:  "info",
-		Format: "console",
+		Level:      "info",
+		Format:     "console",
+		CallerSkip: 2,
 	}
 }
 
@@ -64,7 +66,11 @@ func NewZapLogger(cfg ZapLoggerConfig) (*ZapLogger, error) {
 		ErrorOutputPaths: []string{"stderr"},
 	}
 
-	zapLogger, err := zapCfg.Build(zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zapcore.ErrorLevel))
+	zapLogger, err := zapCfg.Build(
+		zap.AddCaller(),
+		zap.AddCallerSkip(cfg.CallerSkip),
+		zap.AddStacktrace(zapcore.ErrorLevel),
+	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build zap logger from the config, config:%+v", zapCfg)
 	}

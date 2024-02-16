@@ -73,7 +73,7 @@ func NewAccountScanner(cfg AccountScannerConfig, log logger.Logger, rpcTxProvide
 
 // ScanTxs subscribes on rpc account transactions and continuously scans the recent and historical transactions.
 func (s *AccountScanner) ScanTxs(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) error {
-	s.log.Info(ctx, "Subscribing xrpl scanner", zap.Any("config", s.cfg))
+	s.log.Info(ctx, "Subscribing on XRPL tx scanner", zap.Any("config", s.cfg))
 
 	if !s.cfg.RecentScanEnabled && !s.cfg.FullScanEnabled {
 		return errors.Errorf("both recent and full scans are disabled")
@@ -115,20 +115,25 @@ func (s *AccountScanner) scanRecentHistory(
 	}
 
 	s.doWithRepeat(ctx, s.cfg.RepeatRecentScan, func() {
-		s.log.Info(ctx, "Scanning recent history", zap.Int64("minLedger", minLedger))
+		s.log.Debug(
+			ctx,
+			"Scanning recent XRPL account history",
+			zap.Int64("minLedger", minLedger),
+			zap.String("account", s.cfg.Account.String()),
+		)
 		lastLedger := s.scanTransactions(ctx, minLedger, ch)
 		if lastLedger != 0 {
 			minLedger = lastLedger + 1
 		}
-		s.log.Info(ctx, "Scanning of the recent history is done", zap.Int64("lastLedger", lastLedger))
+		s.log.Debug(ctx, "Scanning of the recent history is done", zap.Int64("lastLedger", lastLedger))
 	})
 }
 
 func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) {
 	s.doWithRepeat(ctx, s.cfg.RepeatFullScan, func() {
-		s.log.Info(ctx, "Scanning full history")
+		s.log.Debug(ctx, "Scanning XRPL account full history", zap.String("account", s.cfg.Account.String()))
 		lastLedger := s.scanTransactions(ctx, -1, ch)
-		s.log.Info(ctx, "Scanning of full history is done", zap.Int64("lastLedger", lastLedger))
+		s.log.Debug(ctx, "Scanning of full history is done", zap.Int64("lastLedger", lastLedger))
 	})
 }
 
@@ -211,7 +216,7 @@ func (s *AccountScanner) doWithRepeat(ctx context.Context, shouldRepeat bool, f 
 				s.log.Info(ctx, "Execution is fully stopped.")
 				return
 			}
-			s.log.Info(ctx, "Waiting before the next execution.", zap.String("delay", s.cfg.RetryDelay.String()))
+			s.log.Debug(ctx, "Waiting before the next execution.", zap.String("delay", s.cfg.RetryDelay.String()))
 			select {
 			case <-ctx.Done():
 				return

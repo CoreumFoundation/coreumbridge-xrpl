@@ -29,6 +29,7 @@ import (
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -627,7 +628,10 @@ func createDevRunner(
 	// exit on errors
 	relayerRunnerCfg.Processes.ExitOnError = true
 
-	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false, false)
+	// re-init log to use correct `CallerSkip`
+	log, err := logger.NewZapLogger(logger.DefaultZapLoggerConfig())
+	require.NoError(t, err)
+	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, log, false, false)
 	require.NoError(t, err)
 
 	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg)
