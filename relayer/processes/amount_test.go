@@ -2,6 +2,8 @@ package processes_test
 
 import (
 	"fmt"
+	"math/big"
+	"strconv"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
@@ -10,6 +12,10 @@ import (
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
+)
+
+const (
+	maxXRPLAllowedSignificantDigits = uint64(9_999_999_999_999_999)
 )
 
 func TestConvertXRPLAmountToCoreumAmount(t *testing.T) {
@@ -190,6 +196,68 @@ func TestConvertCoreumAmountToXRPLAmount(t *testing.T) {
 			require.Equal(t, tt.want.String(), got.String())
 		})
 	}
+}
+
+func FuzzAmountConversionCoreumToXRPLAndBack(f *testing.F) {
+	issuerString := xrpl.GenPrivKeyTxSigner().Account().String()
+	f.Add(uint64(1000000000000000001), int8(3))
+	f.Fuzz(func(t *testing.T, number uint64, power int8) {
+		significantPart := number % (maxXRPLAllowedSignificantDigits + 1)
+		// 39 (max int128 digits) - 16
+		randomPowerExponent := big.NewInt(int64(power % 23))
+		randomPower := sdkmath.NewIntFromBigInt(big.NewInt(0).Exp(big.NewInt(10), randomPowerExponent, nil))
+		initial := sdkmath.NewIntFromUint64(significantPart).Mul(randomPower)
+
+		// convert to and back from xrpl
+		rippleAmount, err := processes.ConvertCoreumAmountToXRPLAmount(
+			initial,
+			issuerString,
+			"AAA",
+		)
+		require.NoError(t, err)
+		coreumAmount, err := processes.ConvertXRPLAmountToCoreumAmount(rippleAmount)
+		require.NoError(t, err)
+
+		require.EqualValues(t, initial.String(), coreumAmount.String())
+	})
+}
+
+func significantDigitsCount(input uint64) int {
+	inputStr := strconv.FormatUint(input, 10)
+	trailingZeros := 0
+	for i := len(inputStr) - 1; i >= 0; i-- {
+		if string(inputStr[i]) != "0" {
+			break
+		}
+		trailingZeros++
+	}
+
+	return len(inputStr) - trailingZeros
+}
+
+func FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber(f *testing.F) {
+	issuerString := xrpl.GenPrivKeyTxSigner().Account().String()
+	f.Add(uint64(1000000000000000001), int8(13))
+	f.Add(maxXRPLAllowedSignificantDigits, int8(4))
+	f.Fuzz(func(t *testing.T, inputAmount uint64, powerInput int8) {
+		// 39 (max int128 digits) - 16
+		powerExponent := big.NewInt(int64(powerInput % 23))
+		randomPower := sdkmath.NewIntFromBigInt(big.NewInt(0).Exp(big.NewInt(10), powerExponent, nil))
+		initial := sdkmath.NewIntFromUint64(inputAmount).Mul(randomPower)
+
+		// convert to and back from xrpl
+		_, err := processes.ConvertCoreumAmountToXRPLAmount(
+			initial,
+			issuerString,
+			"AAA",
+		)
+
+		if significantDigitsCount(inputAmount) > 16 {
+			require.Error(t, err)
+		} else {
+			require.NoError(t, err)
+		}
+	})
 }
 
 func amountStringToXRPLAmount(t *testing.T, amountString string) rippledata.Amount {
