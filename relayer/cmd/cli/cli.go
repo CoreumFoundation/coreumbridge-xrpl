@@ -56,6 +56,10 @@ const (
 	FlagHome = "home"
 	// FlagKeyName is key name flag.
 	FlagKeyName = "key-name"
+	// FlagCoreumKeyName is coreum key name flag.
+	FlagCoreumKeyName = "coreum-key-name"
+	// FlagXRPLKeyName is XRPL key name flag.
+	FlagXRPLKeyName = "xrpl-key-name"
 	// FlagCoreumChainID is chain-id flag.
 	FlagCoreumChainID = "coreum-chain-id"
 	// FlagCoreumGRPCURL is Coreum GRPC URL flag.
@@ -226,7 +230,7 @@ func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 		return nil, err
 	}
 
-	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true)
+	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, zapLogger, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -487,32 +491,50 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 `, FlagKeyName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
 			}
-
 			log, err := GetCLILogger()
 			if err != nil {
 				return err
 			}
-
-			keyName, err := cmd.Flags().GetString(FlagKeyName)
+			xrplKeyName, err := cmd.Flags().GetString(FlagXRPLKeyName)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get %s", FlagKeyName)
+				return errors.Wrapf(err, "failed to get %s", FlagXRPLKeyName)
 			}
-
 			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
 			if err != nil {
 				return err
 			}
-
 			xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(xrplClientCtx.Keyring)
-			xrplBridgeAddress, err := xrplKeyringTxSigner.Account(keyName)
+			xrplBridgeAddress, err := xrplKeyringTxSigner.Account(xrplKeyName)
 			if err != nil {
 				return err
 			}
 			log.Info(ctx, "XRPL bridge address", zap.String("address", xrplBridgeAddress.String()))
+			coreumKeyName, err := cmd.Flags().GetString(FlagCoreumKeyName)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get %s", FlagCoreumKeyName)
+			}
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			coreumKRRecord, err := coreumClientCtx.Keyring.Key(coreumKeyName)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get key by name:%s", coreumKeyName)
+			}
+			coreumAddress, err := coreumKRRecord.GetAddress()
+			if err != nil {
+				return errors.Wrapf(err, "failed to address for key name:%s", coreumKeyName)
+			}
+			log.Info(ctx, "Coreum deployer address", zap.String("address", coreumAddress.String()))
 
 			filePath := args[0]
 			initOnly, err := cmd.Flags().GetBool(FlagInitOnly)
@@ -536,14 +558,6 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 				return nil
 			}
 
-			record, err := xrplClientCtx.Keyring.Key(keyName)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get key by name:%s", keyName)
-			}
-			addr, err := record.GetAddress()
-			if err != nil {
-				return errors.Wrapf(err, "failed to address for key name:%s", keyName)
-			}
 			cfg, err := bridgeclient.ReadBootstrappingConfig(filePath)
 			if err != nil {
 				return err
@@ -553,21 +567,17 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 			input := bufio.NewScanner(os.Stdin)
 			input.Scan()
 
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-
-			_, err = bridgeClient.Bootstrap(ctx, addr, keyName, cfg)
+			_, err = bridgeClient.Bootstrap(ctx, coreumAddress, xrplKeyName, cfg)
 			return err
 		},
 	}
 	addKeyringFlags(cmd)
-	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 
 	cmd.PersistentFlags().Bool(FlagInitOnly, false, "Init default config")
 	cmd.PersistentFlags().Int(FlagRelayersCount, 0, "Relayers count")
+	cmd.PersistentFlags().String(FlagCoreumKeyName, "", "Key name from the Coreum keyring")
+	cmd.PersistentFlags().String(FlagXRPLKeyName, "", "Key name from the XRPL keyring")
 
 	return cmd
 }
@@ -579,11 +589,11 @@ func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 		Short: "Prints contract config.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
 			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
-
 			cfg, err := bridgeClient.GetContractConfig(ctx)
 			if err != nil {
 				return err
@@ -606,15 +616,20 @@ func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 // RecoverTicketsCmd recovers 250 tickets in the bridge contract.
 func RecoverTicketsCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "recovery-tickets",
+		Use:   "recover-tickets",
 		Short: "Recovers tickets in the bridge contract.",
 		Long: strings.TrimSpace(fmt.Sprintf(
-			`Recovers 250 tickets in the bridge contract.
+			`Recovers tickets in the bridge contract.
 Example:
-$ recovery-tickets --%s 250 --%s owner
+$ recover-tickets --%s 250 --%s owner
 `, FlagTicketsToAllocate, FlagKeyName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -625,15 +640,11 @@ $ recovery-tickets --%s 250 --%s owner
 				return errors.Wrapf(err, "failed to get %s", FlagTicketsToAllocate)
 			}
 
-			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), xrpl.KeyringSuffix)
+			xrplClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
 			if err != nil {
 				return err
 			}
 			owner, err := readAddressFromKeyNameFlag(cmd, xrplClientCtx)
-			if err != nil {
-				return err
-			}
-			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
@@ -665,6 +676,11 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
 		Args: cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -701,11 +717,6 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
 				return errors.Wrapf(err, "invalid bridgingFee: %s", args[4])
 			}
 
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-
 			_, err = bridgeClient.RegisterCoreumToken(
 				ctx,
 				owner,
@@ -739,6 +750,11 @@ $ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s own
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -765,10 +781,6 @@ $ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s own
 				return err
 			}
 
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
 			return bridgeClient.UpdateCoreumToken(
 				ctx,
 				owner,
@@ -804,6 +816,11 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 		Args: cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -844,10 +861,6 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				return errors.Wrapf(err, "invalid bridgeFee: %s", args[4])
 			}
 
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
 			_, err = bridgeClient.RegisterXRPLToken(
 				ctx,
 				owner,
@@ -881,6 +894,11 @@ $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -906,11 +924,6 @@ $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 				return errors.Wrapf(err, "failed to convert currency string to rippledata.Currency: %s", args[1])
 			}
 
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-
 			return bridgeClient.RecoverXRPLTokenRegistration(ctx, owner, issuer.String(), currency.String())
 		},
 	}
@@ -925,7 +938,7 @@ $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 // UpdateXRPLTokenCmd updates the XRPL originated token in the bridge contract.
 func UpdateXRPLTokenCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update-xrpl-token [denom]",
+		Use:   "update-xrpl-token [issuer] [currency]",
 		Short: "Updates XRPL token in the bridge contract.",
 		//nolint:lll // long example
 		Long: strings.TrimSpace(
@@ -936,6 +949,11 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -963,10 +981,6 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 				return err
 			}
 
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
 			return bridgeClient.UpdateXRPLToken(
 				ctx,
 				owner,
@@ -1001,6 +1015,11 @@ $ rotate-keys new-keys.yaml --%s owner
 `, FlagKeyName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -1048,11 +1067,6 @@ $ rotate-keys new-keys.yaml --%s owner
 			input := bufio.NewScanner(os.Stdin)
 			input.Scan()
 
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-
 			return bridgeClient.RotateKeys(ctx, addr, cfg)
 		},
 	}
@@ -1079,6 +1093,11 @@ $ update-xrpl-base-fee 20 --%s owner
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -1097,11 +1116,6 @@ $ update-xrpl-base-fee 20 --%s owner
 			xrplBaseFee, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
 				return errors.Wrapf(err, "invalid XRPL base fee: %s", args[0])
-			}
-
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
 			}
 
 			return bridgeClient.UpdateXRPLBaseFee(
@@ -1125,6 +1139,7 @@ func RegisteredTokensCmd(bcp BridgeClientProvider) *cobra.Command {
 		Short: "Prints all registered tokens.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
 			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
@@ -1167,6 +1182,11 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender 
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -1193,10 +1213,6 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender 
 			recipient, err := rippledata.NewAccountFromAddress(args[1])
 			if err != nil {
 				return errors.Wrapf(err, "failed to convert recipient string to rippledata.Account: %s", args[1])
-			}
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
 			}
 
 			return bridgeClient.SendFromCoreumToXRPL(ctx, sender, *recipient, amount, deliverAmount)
@@ -1231,7 +1247,11 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s --%s sender
 		Args: cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			issuer, err := rippledata.NewAccountFromAddress(args[1])
 			if err != nil {
 				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[2])
@@ -1263,11 +1283,6 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s --%s sender
 				return errors.Wrapf(err, "failed to get flag %s", FlagKeyName)
 			}
 
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-
 			return bridgeClient.SendFromXRPLToCoreum(
 				ctx,
 				keyName,
@@ -1295,15 +1310,16 @@ func CoreumBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			address, err := sdk.AccAddressFromBech32(args[0])
 			if err != nil {
 				return errors.Wrapf(err, "failed to convert address string to sdk.AccAddress: %s", args[0])
 			}
 
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
 			coins, err := bridgeClient.GetCoreumBalances(ctx, address)
 			if err != nil {
 				return err
@@ -1329,16 +1345,15 @@ func XRPLBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			acc, err := rippledata.NewAccountFromAddress(args[0])
-			if err != nil {
-				return errors.Wrapf(err, "failed to convert address to rippledata.Address, address:%s", args[0])
-			}
-
+			// get bridgeClient first to set cosmos SDK config
 			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
-
+			acc, err := rippledata.NewAccountFromAddress(args[0])
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert address to rippledata.Address, address:%s", args[0])
+			}
 			balances, err := bridgeClient.GetXRPLBalances(ctx, *acc)
 			if err != nil {
 				return err
@@ -1380,7 +1395,11 @@ $ set-xrpl-trust-set 1e80 %s %s --%s sender
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			issuer, err := rippledata.NewAccountFromAddress(args[1])
 			if err != nil {
 				return errors.Wrapf(err, "failed to convert issuer string to rippledata.Account: %s", args[2])
@@ -1405,11 +1424,6 @@ $ set-xrpl-trust-set 1e80 %s %s --%s sender
 			keyName, err := cmd.Flags().GetString(FlagKeyName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get flag %s", FlagKeyName)
-			}
-
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
 			}
 
 			return bridgeClient.SetXRPLTrustSet(
@@ -1465,12 +1479,11 @@ $ pending-refunds %s
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-
+			// get bridgeClient first to set cosmos SDK config
 			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
-
 			address, err := sdk.AccAddressFromBech32(args[0])
 			if err != nil {
 				return err
@@ -1509,6 +1522,11 @@ $ claim-refund --%s claimer --%s 1705664693-2
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -1525,11 +1543,6 @@ $ claim-refund --%s claimer --%s 1705664693-2
 			}
 
 			refundID, err := cmd.Flags().GetString(FlagRefundID)
-			if err != nil {
-				return err
-			}
-
-			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
@@ -1575,7 +1588,7 @@ $ relayer-fees %s
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-
+			// get bridgeClient first to set cosmos SDK config
 			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
@@ -1621,6 +1634,11 @@ $ claim-relayer-fees --key-name address --%s %s
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -1637,11 +1655,6 @@ $ claim-relayer-fees --key-name address --%s %s
 			}
 
 			amountStr, err := cmd.Flags().GetString(FlagAmount)
-			if err != nil {
-				return err
-			}
-
-			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
@@ -1686,6 +1699,11 @@ $ halt-bridge --%s owner
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -1699,10 +1717,6 @@ $ halt-bridge --%s owner
 				return err
 			}
 
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
 			return bridgeClient.HaltBridge(
 				ctx,
 				owner,
@@ -1733,6 +1747,11 @@ $ resume-bridge --%s owner
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.Wrap(err, "failed to get client context")
@@ -1742,11 +1761,6 @@ $ resume-bridge --%s owner
 				return err
 			}
 			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
-			if err != nil {
-				return err
-			}
-
-			bridgeClient, err := bcp(cmd)
 			if err != nil {
 				return err
 			}
