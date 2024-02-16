@@ -108,6 +108,12 @@ func convertCoreumAmountToXRPLAmountWithDecimals(
 			"failed to convert coreum XRPL currency amount to int64, out of bound, value:%s", intValue.String(),
 		)
 	}
+
+	if len(coreumAmountString)-int(offset) > 16 {
+		return rippledata.Amount{}, errors.Errorf(
+			"maximum significant digits should not exceed 16, input number: %s", coreumAmountString,
+		)
+	}
 	// include decimals to offset
 	offset -= int64(decimals)
 	xrplValue, err := rippledata.NewNonNativeValue(intValue.Int64(), offset)
