@@ -14,6 +14,7 @@ jobs:
         ci_step: [
           "lint",
           "test",
+          "fuzz-test",
           "integration tests contract",
           "integration tests processes",
           "integration tests xrpl",
@@ -26,6 +27,11 @@ jobs:
             build-contract: false
           - ci_step: "test"
             command: "make test-relayer"
+            linter-cache: false
+            docker-cache: false
+            build-contract: false
+          - ci_step: "fuzz-test"
+            command: "make test-fuzz"
             linter-cache: false
             docker-cache: false
             build-contract: false
