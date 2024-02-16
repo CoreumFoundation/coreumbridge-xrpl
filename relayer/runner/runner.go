@@ -42,10 +42,10 @@ const (
 
 // Runner is relayer runner which aggregates all relayer components.
 type Runner struct {
-	cfg Config
-	log logger.Logger
-	// exportable to make it accessible in tests
-	Components Components
+	cfg           Config
+	log           logger.Logger
+	components    Components
+	metricsServer *metrics.Server
 
 	xrplToCoreumProcess *processes.XRPLToCoreumProcess
 	coreumToXRPLProcess *processes.CoreumToXRPLProcess
@@ -118,11 +118,16 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 		return nil, err
 	}
 
-	return &Runner{
-		cfg: cfg,
-		log: components.Log,
+	metricsServerCfg := metrics.ServerConfig{
+		ListenAddress: cfg.Metrics.Server.ListenAddress,
+	}
+	metricsServer := metrics.NewServer(metricsServerCfg, components.MetricsRegistry)
 
-		Components: components,
+	return &Runner{
+		cfg:           cfg,
+		log:           components.Log,
+		components:    components,
+		metricsServer: metricsServer,
 
 		xrplToCoreumProcess: xrplToCoreumProcess,
 		coreumToXRPLProcess: coreumToXRPLProcess,
@@ -136,10 +141,10 @@ func (r *Runner) Start(ctx context.Context) error {
 		spawn("coreumToXRPLProcess", parallel.Continue, r.withRestartOnError(r.coreumToXRPLProcess.Start))
 		if r.cfg.Metrics.Enabled {
 			spawn("metricsServer", parallel.Fail, r.withRestartOnError(func(ctx context.Context) error {
-				return r.Components.MetricsServer.Start(ctx)
+				return r.metricsServer.Start(ctx)
 			}))
 			spawn("metricsPeriodicCollector", parallel.Fail, r.withRestartOnError(func(ctx context.Context) error {
-				return r.Components.MetricsPeriodicCollector.Start(ctx)
+				return r.components.MetricsPeriodicCollector.Start(ctx)
 			}))
 		}
 
@@ -181,7 +186,6 @@ func (r *Runner) withRestartOnError(task parallel.Task) parallel.Task {
 type Components struct {
 	Log                      logger.Logger
 	MetricsRegistry          *metrics.Registry
-	MetricsServer            *metrics.Server
 	MetricsPeriodicCollector *metrics.PeriodicCollector
 	XRPLRPCClient            *xrpl.RPCClient
 	XRPLKeyringTxSigner      *xrpl.KeyringTxSigner
@@ -223,11 +227,6 @@ func NewComponents(
 
 	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
 	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, log, retryableXRPLRPCHTTPClient)
-
-	metricsServerCfg := metrics.ServerConfig{
-		ListenAddress: cfg.Metrics.Server.ListenAddress,
-	}
-	metricsServer := metrics.NewServer(metricsServerCfg, metricsRegistry)
 
 	coreumClientContextCfg := coreumchainclient.DefaultContextConfig()
 	coreumClientContextCfg.TimeoutConfig.RequestTimeout = cfg.Coreum.Contract.RequestTimeout
@@ -303,7 +302,6 @@ func NewComponents(
 	return Components{
 		Log:                      log,
 		MetricsRegistry:          metricsRegistry,
-		MetricsServer:            metricsServer,
 		MetricsPeriodicCollector: metricsPeriodicCollector,
 		XRPLRPCClient:            xrplRPCClient,
 		XRPLKeyringTxSigner:      xrplKeyringTxSigner,

@@ -47,7 +47,7 @@ func TestXRPLChainBaseFeeMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.Runners[0].Components.MetricsRegistry.XRPLChainBaseFee,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLChainBaseFee,
 		10,
 	)
 }
@@ -67,7 +67,7 @@ func TestContractConfigXRPLBaseFeeMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.Runners[0].Components.MetricsRegistry.ContractConfigXRPLBaseFee,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.ContractConfigXRPLBaseFee,
 		float64(envCfg.XRPLBaseFee),
 	)
 
@@ -77,7 +77,7 @@ func TestContractConfigXRPLBaseFeeMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.Runners[0].Components.MetricsRegistry.ContractConfigXRPLBaseFee,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.ContractConfigXRPLBaseFee,
 		float64(newXRPLBaseFee),
 	)
 }
@@ -150,7 +150,7 @@ func TestXRPLBridgeAccountBalancesMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.Runners[0].Components.MetricsRegistry.XRPLBridgeAccountBalances,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLBridgeAccountBalances,
 		map[string]string{
 			metrics.XRPLCurrencyIssuerLabel: xrpKey,
 		},
@@ -166,7 +166,7 @@ func TestXRPLBridgeAccountBalancesMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.Runners[0].Components.MetricsRegistry.XRPLBridgeAccountBalances,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLBridgeAccountBalances,
 		map[string]string{
 			metrics.XRPLCurrencyIssuerLabel: registeredTokenKey,
 		},
@@ -229,7 +229,7 @@ func TestContractBalancesMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.Runners[0].Components.MetricsRegistry.ContractBalances,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.ContractBalances,
 		map[string]string{
 			metrics.XRPLCurrencyIssuerLabel: registeredTokenKey,
 			metrics.CoreumDenomLabel:        registeredCoreumOriginatedToken.Denom,
@@ -275,7 +275,7 @@ func TestPendingOperationsMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.Runners[0].Components.MetricsRegistry.PendingOperations,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.PendingOperations,
 		map[string]string{
 			metrics.OperationIDLabel: strconv.Itoa(int(pendingOperation.GetOperationID())),
 		},
@@ -290,7 +290,7 @@ func TestPendingOperationsMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.Runners[0].Components.MetricsRegistry.PendingOperations,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.PendingOperations,
 		map[string]string{
 			metrics.OperationIDLabel: strconv.Itoa(int(pendingOperation.GetOperationID())),
 		},
