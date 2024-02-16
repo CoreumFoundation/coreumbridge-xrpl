@@ -19,7 +19,7 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=grafana
     volumes:
-      - ./grafana:/etc/grafana/provisioning/datasources
+      - ./grafana:/etc/grafana/provisioning
     networks:
       - znet
   relayer:
