@@ -110,6 +110,11 @@ test-relayer:
 test-contract:
 	cd $(CONTRACT_DIR) && cargo test --verbose
 
+.PHONY: test-fuzz
+test-fuzz:
+	cd $(RELAYER_DIR)/processes && go test -v -mod=readonly -run ^FuzzAmountConversionCoreumToXRPLAndBack$$  -fuzz ^FuzzAmountConversionCoreumToXRPLAndBack$$ -fuzztime 20s
+	cd $(RELAYER_DIR)/processes && go test -v -mod=readonly -run ^FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber$$  -fuzz  ^FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber$$ -fuzztime 20s
+
 .PHONY: restart-dev-env
 restart-dev-env:
 	crust znet remove && crust znet start --profiles=1cored,xrpl --timeout-commit 0.3s
