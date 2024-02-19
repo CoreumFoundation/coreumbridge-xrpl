@@ -1073,11 +1073,14 @@ fn update_xrpl_token(
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
     set_token_state(&mut token.state, state)?;
-    set_token_sending_precision(
-        &mut token.sending_precision,
-        sending_precision,
-        XRPL_TOKENS_DECIMALS,
-    )?;
+
+    let decimals = if is_token_xrp(&issuer, &currency) {
+        XRP_DECIMALS
+    } else {
+        XRPL_TOKENS_DECIMALS
+    };
+    set_token_sending_precision(&mut token.sending_precision, sending_precision, decimals)?;
+
     set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
 
     // Get the current bridged amount for this token to verify that we are not setting a max_holding_amount that is less than the current amount

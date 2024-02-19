@@ -7510,6 +7510,44 @@ mod tests {
             .coreum_denom
             .clone();
 
+        // Updating XRP token to an invalid sending precision (more than decimals, 6) should fail
+        let update_precision_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateXRPLToken {
+                    issuer: XRP_ISSUER.to_string(),
+                    currency: XRP_CURRENCY.to_string(),
+                    state: None,
+                    sending_precision: Some(7),
+                    bridging_fee: None,
+                    max_holding_amount: None,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(update_precision_error.to_string().contains(
+            ContractError::InvalidSendingPrecision {}
+                .to_string()
+                .as_str()
+        ));    
+
+        // Updating XRP token to a valid sending precision (less than decimals, 6) should succeed
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateXRPLToken {
+                issuer: XRP_ISSUER.to_string(),
+                currency: XRP_CURRENCY.to_string(),
+                state: None,
+                sending_precision: Some(5),
+                bridging_fee: None,
+                max_holding_amount: None,
+            },
+            &vec![],
+            &signer,
+        ).unwrap();
+
         // If we try to update the status of a token that is in processing state, it should fail
         let update_status_error = wasm
             .execute::<ExecuteMsg>(
