@@ -554,7 +554,7 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 					return errors.Wrapf(err, "failed to get %s", FlagRelayersCount)
 				}
 				if relayersCount > 0 {
-					minXrplBridgeBalance := bridgeclient.ComputeXRPLBrideAccountBalance(relayersCount)
+					minXrplBridgeBalance := bridgeclient.ComputeXRPLBrideAccountBalance()
 					log.Info(ctx, "Computed minimum XRPL bridge balance", zap.Float64("balance", minXrplBridgeBalance))
 				}
 
