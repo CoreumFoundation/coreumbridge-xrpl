@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 
 	"github.com/CoreumFoundation/coreum/v4/app"
@@ -12,6 +11,7 @@ import (
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	"github.com/CoreumFoundation/coreum/v4/testutil/integration"
 	feemodeltypes "github.com/CoreumFoundation/coreum/v4/x/feemodel/types"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 )
 
 // CoreumChainConfig represents coreum chain config.
@@ -52,16 +52,7 @@ func NewCoreumChain(cfg CoreumChainConfig) (CoreumChain, error) {
 	coreumSettings.GasPrice = coreumFeemodelParamsRes.Params.Model.InitialGasPrice
 	coreumSettings.CoinType = constant.CoinType
 
-	config := sdk.GetConfig()
-
-	// Set address & public key prefixes
-	config.SetBech32PrefixForAccount(coreumSettings.AddressPrefix, coreumSettings.AddressPrefix+"pub")
-	config.SetBech32PrefixForValidator(coreumSettings.AddressPrefix+"valoper", coreumSettings.AddressPrefix+"valoperpub")
-	config.SetBech32PrefixForConsensusNode(coreumSettings.AddressPrefix+"valcons",
-		coreumSettings.AddressPrefix+"valconspub")
-
-	// Set BIP44 coin type corresponding to CORE
-	config.SetCoinType(constant.CoinType)
+	coreum.SetSDKConfig(coreumSettings.AddressPrefix)
 
 	return CoreumChain{
 		cfg: coreumCfg,

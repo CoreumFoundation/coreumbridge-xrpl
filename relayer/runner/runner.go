@@ -219,17 +219,8 @@ func NewComponents(
 			)
 		}
 		clientCtx = clientCtx.WithChainID(cfg.Coreum.Network.ChainID)
-		config := sdk.GetConfig()
 
-		addressPrefix := coreumChainNetworkConfig.Provider.GetAddressPrefix()
-
-		// Set address & public key prefixes
-		config.SetBech32PrefixForAccount(addressPrefix, addressPrefix+"pub")
-		config.SetBech32PrefixForValidator(addressPrefix+"valoper", addressPrefix+"valoperpub")
-		config.SetBech32PrefixForConsensusNode(addressPrefix+"valcons", addressPrefix+"valconspub")
-
-		// Set BIP44 coin type corresponding to CORE
-		config.SetCoinType(coreumchainconstant.CoinType)
+		coreum.SetSDKConfig(coreumChainNetworkConfig.Provider.GetAddressPrefix())
 	}
 
 	var contractAddress sdk.AccAddress
