@@ -204,7 +204,7 @@ docker run -it --detach-keys="ctrl-c" --name coreumbridge-xrpl-relayer \
     start
 ```
 
-Once you are attached, press any key and enter passwords for two keyrings after this preses Ctrl+C to detach from the container.
+Once you are attached, press any key and enter passwords for two keyrings after this preses CTRL-c to detach from the container.
 It is expected that at that time the relayer is initialized and its keys are generated and accounts are funded.
 
 ##### Restart running instance
