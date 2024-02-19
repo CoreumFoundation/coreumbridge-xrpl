@@ -9798,6 +9798,398 @@ mod tests {
     }
 
     #[test]
+    fn cancel_pending_operation() {
+        let app = CoreumTestApp::new();
+        let signer = app
+            .init_account(&coins(100_000_000_000, FEE_DENOM))
+            .unwrap();
+        let not_owner = app
+            .init_account(&coins(100_000_000_000, FEE_DENOM))
+            .unwrap();
+
+        let wasm = Wasm::new(&app);
+        let asset_ft = AssetFT::new(&app);
+        let relayer = Relayer {
+            coreum_address: Addr::unchecked(signer.address()),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
+        };
+
+        let new_relayer = Relayer {
+            coreum_address: Addr::unchecked(not_owner.address()),
+            xrpl_address: generate_xrpl_address(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
+        };
+
+        let contract_addr = store_and_instantiate(
+            &wasm,
+            &signer,
+            Addr::unchecked(signer.address()),
+            vec![relayer.clone()],
+            1,
+            3,
+            Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+            query_issue_fee(&asset_ft),
+            generate_xrpl_address(),
+            10,
+        );
+
+        // Register COREUM Token
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterCoreumToken {
+                denom: FEE_DENOM.to_string(),
+                decimals: 6,
+                sending_precision: 6,
+                max_holding_amount: Uint128::new(1000000000000),
+                bridging_fee: Uint128::zero(),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Set up enough tickets
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(10),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Check that the ticket operation is there and cancel it
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::CancelPendingOperation {
+                operation_id: query_pending_operations.operations[0]
+                    .account_sequence
+                    .unwrap(),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Should be gone and no tickets allocated
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert!(query_pending_operations.operations.is_empty());
+
+        let query_available_tickets = wasm
+            .query::<QueryMsg, AvailableTicketsResponse>(
+                &contract_addr,
+                &QueryMsg::AvailableTickets {},
+            )
+            .unwrap();
+
+        assert!(query_available_tickets.tickets.is_empty());
+
+        // This time we set them up correctly without cancelling
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RecoverTickets {
+                account_sequence: 1,
+                number_of_tickets: Some(10),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SaveEvidence {
+                evidence: Evidence::XRPLTransactionResult {
+                    tx_hash: Some(generate_hash()),
+                    account_sequence: Some(1),
+                    ticket_sequence: None,
+                    transaction_result: TransactionResult::Accepted,
+                    operation_result: Some(OperationResult::TicketsAllocation {
+                        tickets: Some((1..11).collect()),
+                    }),
+                },
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Create 1 pending operation of each type
+        // TrustSet pending operation
+        let issuer = generate_xrpl_address();
+        let currency = "USD".to_string();
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RegisterXRPLToken {
+                issuer: issuer.clone(),
+                currency: currency.clone(),
+                sending_precision: 4,
+                max_holding_amount: Uint128::new(50000),
+                bridging_fee: Uint128::zero(),
+            },
+            &query_issue_fee(&asset_ft),
+            &signer,
+        )
+        .unwrap();
+
+        // CoreumToXRPLTransfer pending operation
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::SendToXRPL {
+                recipient: generate_xrpl_address(),
+                deliver_amount: None,
+            },
+            &coins(1, FEE_DENOM.to_string()),
+            &signer,
+        )
+        .unwrap();
+
+        // RotateKeys operation
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::RotateKeys {
+                new_relayers: vec![new_relayer.clone()],
+                new_evidence_threshold: 1,
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        // Check that 3 tickets are currently being used
+        let query_available_tickets = wasm
+            .query::<QueryMsg, AvailableTicketsResponse>(
+                &contract_addr,
+                &QueryMsg::AvailableTickets {},
+            )
+            .unwrap();
+
+        assert_eq!(query_available_tickets.tickets.len(), 7); // 10 - 3
+
+        // Check that we have one of each pending operation types
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 3);
+
+        // If someone that is not the owner tries to cancel it should fail
+        let cancel_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::CancelPendingOperation {
+                    operation_id: query_pending_operations.operations[0]
+                        .ticket_sequence
+                        .unwrap(),
+                },
+                &vec![],
+                &not_owner,
+            )
+            .unwrap_err();
+
+        assert!(cancel_error
+            .to_string()
+            .contains(ContractError::UnauthorizedSender {}.to_string().as_str()));
+
+        // If owner tries to cancel a pending operation that does not exist it should fail
+        let cancel_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::CancelPendingOperation { operation_id: 50 },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(cancel_error.to_string().contains(
+            ContractError::PendingOperationNotFound {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Cancel the first pending operation (trust set) and check that ticket is returned and token is put in Inactive state
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::CancelPendingOperation {
+                operation_id: query_pending_operations.operations[0]
+                    .ticket_sequence
+                    .unwrap(),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let query_xrpl_tokens = wasm
+            .query::<QueryMsg, XRPLTokensResponse>(
+                &contract_addr,
+                &QueryMsg::XRPLTokens {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let token = query_xrpl_tokens
+            .tokens
+            .iter()
+            .find(|t| t.currency == currency && t.issuer == issuer)
+            .unwrap();
+
+        assert_eq!(token.state, TokenState::Inactive);
+
+        // Check that 2 tickets are currently being used (1 has been returned)
+        let query_available_tickets = wasm
+            .query::<QueryMsg, AvailableTicketsResponse>(
+                &contract_addr,
+                &QueryMsg::AvailableTickets {},
+            )
+            .unwrap();
+
+        assert_eq!(query_available_tickets.tickets.len(), 8);
+
+        // Check that we the cancelled operation was removed
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 2);
+
+        // Cancel the second pending operation (CoreumToXRPLTransfer), which should create a pending refund for the sender
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::CancelPendingOperation {
+                operation_id: query_pending_operations.operations[0]
+                    .ticket_sequence
+                    .unwrap(),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let query_pending_refunds = wasm
+            .query::<QueryMsg, PendingRefundsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingRefunds {
+                    address: Addr::unchecked(signer.address()),
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_refunds.pending_refunds.len(), 1);
+        assert_eq!(
+            query_pending_refunds.pending_refunds[0].coin,
+            coin(1, FEE_DENOM)
+        );
+
+        // Check that 1 tickets is currently being used (2 have been returned)
+        let query_available_tickets = wasm
+            .query::<QueryMsg, AvailableTicketsResponse>(
+                &contract_addr,
+                &QueryMsg::AvailableTickets {},
+            )
+            .unwrap();
+
+        assert_eq!(query_available_tickets.tickets.len(), 9);
+
+        // Check that we the cancelled operation was removed
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(query_pending_operations.operations.len(), 1);
+
+        // Cancel the RotateKeys operation, it should keep the bridge halted and not rotate the relayers
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::CancelPendingOperation {
+                operation_id: query_pending_operations.operations[0]
+                    .ticket_sequence
+                    .unwrap(),
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
+
+        let query_config = wasm
+            .query::<QueryMsg, Config>(&contract_addr, &QueryMsg::Config {})
+            .unwrap();
+
+        assert_eq!(query_config.bridge_state, BridgeState::Halted);
+        assert_eq!(query_config.relayers, vec![relayer]);
+
+        // This should have returned all tickets and removed all pending operations from the queue
+        // Check that all tickets are available (the 10 that we initially allocated)
+        let query_available_tickets = wasm
+            .query::<QueryMsg, AvailableTicketsResponse>(
+                &contract_addr,
+                &QueryMsg::AvailableTickets {},
+            )
+            .unwrap();
+
+        assert_eq!(query_available_tickets.tickets.len(), 10);
+
+        // Check that we the cancelled operation was removed
+        let query_pending_operations = wasm
+            .query::<QueryMsg, PendingOperationsResponse>(
+                &contract_addr,
+                &QueryMsg::PendingOperations {
+                    start_after_key: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert!(query_pending_operations.operations.is_empty());
+    }
+
+    #[test]
     fn invalid_transaction_evidences() {
         let app = CoreumTestApp::new();
         let signer = app
