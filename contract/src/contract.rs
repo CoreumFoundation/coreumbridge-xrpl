@@ -182,7 +182,7 @@ pub fn instantiate(
         .add_attribute("action", ContractActions::Instantiation.as_str())
         .add_attribute("contract_name", CONTRACT_NAME)
         .add_attribute("contract_version", CONTRACT_VERSION)
-        .add_attribute("owner", info.sender)
+        .add_attribute("owner", msg.owner)
         .add_message(xrp_issue_msg))
 }
 
