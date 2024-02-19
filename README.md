@@ -198,21 +198,19 @@ export RELEASE_VERSION={Relayer release version}
 ##### Run
 
 ```bash
-docker run -dit --name coreumbridge-xrpl-relayer \
+docker run -it --detach-keys="ctrl-c" --name coreumbridge-xrpl-relayer \
     -v $HOME/.coreumbridge-xrpl-relayer:/root/.coreumbridge-xrpl-relayer \
     coreumfoundation/coreumbridge-xrpl-relayer:$RELEASE_VERSION \
     start
-  
-docker attach coreumbridge-xrpl-relayer
 ```
 
-Once you are attached, press any key and enter the keyring password.
+Once you are attached, press any key and enter passwords for two keyrings after this preses Ctrl+C to detach from the container.
 It is expected that at that time the relayer is initialized and its keys are generated and accounts are funded.
 
 ##### Restart running instance
 
 ```bash
-docker restart coreumbridge-xrpl-relayer && docker attach coreumbridge-xrpl-relayer
+docker stop coreumbridge-xrpl-relayer && docker rm coreumbridge-xrpl-relayer
 ```
 
-Once you are attached, press any key and enter the keyring password.
+Once the container is stopped and removed, proceed with the instructions in [run section](#run)
