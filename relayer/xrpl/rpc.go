@@ -330,7 +330,7 @@ func (c *RPCClient) AutoFillTx(
 	ctx context.Context,
 	tx rippledata.Transaction,
 	sender rippledata.Account,
-	multiSigningSignatureCount uint32,
+	txSignatureCount uint32,
 ) error {
 	accInfo, err := c.AccountInfo(ctx, sender)
 	if err != nil {
@@ -338,7 +338,10 @@ func (c *RPCClient) AutoFillTx(
 	}
 	// update base settings
 	base := tx.GetBase()
-	fee, err := rippledata.NewNativeValue(int64(DefaultXRPLBaseFee * (1 + multiSigningSignatureCount)))
+	if err != nil {
+		return err
+	}
+	fee, err := c.CalculateFee(txSignatureCount, DefaultXRPLBaseFee)
 	if err != nil {
 		return err
 	}
@@ -380,4 +383,18 @@ func (c *RPCClient) SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Tra
 		}
 		return nil
 	})
+}
+
+// CalculateFee calculates fee for the transaction. It supports single and multiple signatures.
+// Check https://xrpl.org/transaction-cost.html#special-transaction-costs for more details.
+func (c *RPCClient) CalculateFee(txSignatureCount, baseFee uint32) (*rippledata.Value, error) {
+	if txSignatureCount == 0 {
+		return nil, errors.New("tx signature count must be greater than 0")
+	} else if txSignatureCount == 1 {
+		// Single sig: base_fee
+		return rippledata.NewNativeValue(int64(baseFee))
+	}
+
+	// Multisig: base_fee × (1 + Number of Signatures Provided)
+	return rippledata.NewNativeValue(int64(baseFee * (1 + txSignatureCount)))
 }

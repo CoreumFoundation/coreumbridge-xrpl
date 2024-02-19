@@ -252,7 +252,7 @@ func (b *BridgeClient) Bootstrap(
 		zap.String("xrplAddress", xrplBridgeAccount.String()),
 	)
 	if !cfg.SkipXRPLBalanceValidation {
-		if err = b.validateXRPLBridgeAccountBalance(ctx, len(cfg.Relayers), xrplBridgeAccount); err != nil {
+		if err = b.validateXRPLBridgeAccountBalance(ctx, xrplBridgeAccount); err != nil {
 			return nil, err
 		}
 	}
@@ -1004,10 +1004,9 @@ func (b *BridgeClient) HaltBridge(
 
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(
 	ctx context.Context,
-	relayersCount int,
 	xrplBridgeAccount rippledata.Account,
 ) error {
-	requiredXRPLBalance := ComputeXRPLBrideAccountBalance(relayersCount)
+	requiredXRPLBalance := ComputeXRPLBrideAccountBalance()
 	b.log.Info(
 		ctx,
 		"Compute required XRPL bridge account balance to init the account",
@@ -1079,11 +1078,11 @@ func (b *BridgeClient) setUpXRPLBridgeAccount(
 }
 
 // ComputeXRPLBrideAccountBalance computes the min balance required by the XRPL bridge account.
-func ComputeXRPLBrideAccountBalance(signersCount int) float64 {
+func ComputeXRPLBrideAccountBalance() float64 {
 	return minBalanceToCoverFeeAndTrustLines +
 		xrpl.ReserveToActivateAccount +
-		float64(xrpl.MaxTicketsToAllocate)*xrpl.ReservePerItem +
-		float64(signersCount)*xrpl.ReservePerItem
+		// one additional item reserve is needed for a signer list object for multisig.
+		float64(xrpl.MaxTicketsToAllocate+1)*xrpl.ReservePerItem
 }
 
 // InitBootstrappingConfig creates default bootstrapping config yaml file.
