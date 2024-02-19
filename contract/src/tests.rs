@@ -1231,6 +1231,26 @@ mod tests {
             .to_string()
             .contains(ContractError::InvalidXRPLCurrency {}.to_string().as_str()));
 
+        // Registering a token with an invalid symbol should fail
+        let currency_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[1].issuer.clone(),
+                    currency: "US~".to_string(),
+                    sending_precision: test_tokens[1].sending_precision.clone(),
+                    max_holding_amount: test_tokens[1].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[1].bridging_fee,
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(currency_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLCurrency {}.to_string().as_str()));
+
         // Registering a token with an invalid hexadecimal currency (not uppercase) should fail
         let currency_error = wasm
             .execute::<ExecuteMsg>(
@@ -1238,6 +1258,26 @@ mod tests {
                 &ExecuteMsg::RegisterXRPLToken {
                     issuer: test_tokens[1].issuer.clone(),
                     currency: "015841551A748AD2C1f76FF6ECB0CCCD00000000".to_string(),
+                    sending_precision: test_tokens[1].sending_precision.clone(),
+                    max_holding_amount: test_tokens[1].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[1].bridging_fee,
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(currency_error
+            .to_string()
+            .contains(ContractError::InvalidXRPLCurrency {}.to_string().as_str()));
+
+        // Registering a token with an invalid hexadecimal currency (starting with 0x00) should fail
+        let currency_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: test_tokens[1].issuer.clone(),
+                    currency: "005841551A748AD2C1F76FF6ECB0CCCD00000000".to_string(),
                     sending_precision: test_tokens[1].sending_precision.clone(),
                     max_holding_amount: test_tokens[1].max_holding_amount.clone(),
                     bridging_fee: test_tokens[1].bridging_fee,
@@ -7509,6 +7549,45 @@ mod tests {
             .unwrap()
             .coreum_denom
             .clone();
+
+        // Updating XRP token to an invalid sending precision (more than decimals, 6) should fail
+        let update_precision_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::UpdateXRPLToken {
+                    issuer: XRP_ISSUER.to_string(),
+                    currency: XRP_CURRENCY.to_string(),
+                    state: None,
+                    sending_precision: Some(7),
+                    bridging_fee: None,
+                    max_holding_amount: None,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(update_precision_error.to_string().contains(
+            ContractError::InvalidSendingPrecision {}
+                .to_string()
+                .as_str()
+        ));
+
+        // Updating XRP token to a valid sending precision (less than decimals, 6) should succeed
+        wasm.execute::<ExecuteMsg>(
+            &contract_addr,
+            &ExecuteMsg::UpdateXRPLToken {
+                issuer: XRP_ISSUER.to_string(),
+                currency: XRP_CURRENCY.to_string(),
+                state: None,
+                sending_precision: Some(5),
+                bridging_fee: None,
+                max_holding_amount: None,
+            },
+            &vec![],
+            &signer,
+        )
+        .unwrap();
 
         // If we try to update the status of a token that is in processing state, it should fail
         let update_status_error = wasm
