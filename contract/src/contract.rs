@@ -381,6 +381,9 @@ fn register_coreum_token(
     let xrpl_currency =
         convert_currency_to_xrpl_hexadecimal(format!("{COREUM_CURRENCY_PREFIX}{hex_string}"));
 
+    // Validate XRPL currency just in case we got an invalid XRPL currency (starting with 0x00)
+    validate_xrpl_currency(&xrpl_currency)?;
+
     // We check that the this currency is not used already (we got the same hash)
     if COREUM_TOKENS
         .idx
