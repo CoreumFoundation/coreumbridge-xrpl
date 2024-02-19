@@ -65,7 +65,7 @@ jobs:
         with:
           repository: CoreumFoundation/crust
           path: crust
-          ref: 527be2f938308cb4b1a7b868a2ebf550e2d3ba03
+          ref: 10752622f34c65d216f755ff30ee0d532e20a5be
       - name: Checkout coreum
         uses: actions/checkout@v4
         with:

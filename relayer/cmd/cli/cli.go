@@ -12,7 +12,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/client/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
@@ -25,6 +24,8 @@ import (
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/keys"
+	overridekeyring "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/override/crypto/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
@@ -380,7 +381,11 @@ func WithKeyring(clientCtx client.Context, flagSet *pflag.FlagSet, suffix string
 
 // KeyringCmd returns cosmos keyring cmd inti with the correct keys home.
 // Based on provided suffix and coinType it uses keyring dedicated to xrpl or coreum.
-func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
+func KeyringCmd(
+	suffix string,
+	coinType uint32,
+	addressFormatter overridekeyring.AddressFormatter,
+) (*cobra.Command, error) {
 	// We need to set CoinType before initializing keys commands because keys.Commands() sets default
 	// flag value from sdk config. See github.com/cosmos/cosmos-sdk@v0.47.5/client/keys/add.go:78
 	sdk.GetConfig().SetCoinType(coinType)
@@ -389,6 +394,8 @@ func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
 	cmd := keys.Commands(DefaultHomeDir)
 	for _, childCmd := range cmd.Commands() {
 		childCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+			overridekeyring.SelectedAddressFormatter = addressFormatter
+
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.WithStack(err)
