@@ -7531,7 +7531,7 @@ mod tests {
             ContractError::InvalidSendingPrecision {}
                 .to_string()
                 .as_str()
-        ));    
+        ));
 
         // Updating XRP token to a valid sending precision (less than decimals, 6) should succeed
         wasm.execute::<ExecuteMsg>(
@@ -7546,7 +7546,8 @@ mod tests {
             },
             &vec![],
             &signer,
-        ).unwrap();
+        )
+        .unwrap();
 
         // If we try to update the status of a token that is in processing state, it should fail
         let update_status_error = wasm
