@@ -521,24 +521,24 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 
 				components.Log.Info(ctx, "Coreum deployer address", zap.String("address", coreumAddress.String()))
 
-			filePath := args[0]
-			initOnly, err := cmd.Flags().GetBool(FlagInitOnly)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get %s", FlagInitOnly)
-			}
-			if initOnly {
-				components.Log.Info(ctx, "Initializing default bootstrapping config", zap.String("path", filePath))
-				if err := bridgeclient.InitBootstrappingConfig(filePath); err != nil {
-					return err
-				}
-				relayersCount, err := cmd.Flags().GetInt(FlagRelayersCount)
+				filePath := args[0]
+				initOnly, err := cmd.Flags().GetBool(FlagInitOnly)
 				if err != nil {
-					return errors.Wrapf(err, "failed to get %s", FlagRelayersCount)
+					return errors.Wrapf(err, "failed to get %s", FlagInitOnly)
 				}
-				if relayersCount > 0 {
-					minXrplBridgeBalance := bridgeclient.ComputeXRPLBrideAccountBalance()
-					components.Log.Info(ctx, "Computed minimum XRPL bridge balance", zap.Float64("balance", minXrplBridgeBalance))
-				}
+				if initOnly {
+					components.Log.Info(ctx, "Initializing default bootstrapping config", zap.String("path", filePath))
+					if err := bridgeclient.InitBootstrappingConfig(filePath); err != nil {
+						return err
+					}
+					relayersCount, err := cmd.Flags().GetInt(FlagRelayersCount)
+					if err != nil {
+						return errors.Wrapf(err, "failed to get %s", FlagRelayersCount)
+					}
+					if relayersCount > 0 {
+						minXrplBridgeBalance := bridgeclient.ComputeXRPLBrideAccountBalance()
+						components.Log.Info(ctx, "Computed minimum XRPL bridge balance", zap.Float64("balance", minXrplBridgeBalance))
+					}
 
 					return nil
 				}
