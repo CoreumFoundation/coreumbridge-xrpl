@@ -72,6 +72,10 @@ const XRP_DEFAULT_FEE: Uint128 = Uint128::zero();
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
 
+const ALLOWED_CURRENCY_SYMBOLS: [char; 18] = [
+    '?', '!', '@', '#', '$', '%', '^', '&', '*', '<', '>', '(', ')', '{', '}', '[', ']', '|',
+];
+
 // All XRPL originated tokens (except XRP) have 15 decimals
 pub const XRPL_TOKENS_DECIMALS: u32 = 15;
 // A valid XRPL amount is one that doesn't have more than 16 digits after trimming trailing zeroes
@@ -1653,15 +1657,24 @@ pub fn validate_xrpl_currency(currency: &str) -> Result<(), ContractError> {
     // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency, any other scenario is invalid
     match currency.len() {
         3 => {
-            if !currency.is_ascii() {
+            // XRP (uppercase) is not allowed
+            if currency == "XRP" {
                 return Err(ContractError::InvalidXRPLCurrency {});
             }
-
-            if currency == "XRP" {
+            // We check that all characters are uppercase/lowercase letters, numbers, or one of the allowed symbols: ?, !, @, #, $, %, ^, &, *, <, >, (, ), {, }, [, ], and |.
+            if !currency
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || ALLOWED_CURRENCY_SYMBOLS.contains(&c))
+            {
                 return Err(ContractError::InvalidXRPLCurrency {});
             }
         }
         40 => {
+            // The first 8 bits MUST not be 0x00
+            if currency.starts_with("00") {
+                return Err(ContractError::InvalidXRPLCurrency {});
+            }
+            // Must be uppercase hexadecimal
             if !currency
                 .chars()
                 .all(|c| c.is_ascii_hexdigit() && (c.is_numeric() || c.is_uppercase()))
