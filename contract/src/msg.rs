@@ -146,6 +146,12 @@ pub enum ExecuteMsg {
     UpdateProhibitedXRPLRecipients {
         prohibited_xrpl_recipients: Vec<String>,
     },
+    // Cancels a pending operation, considering it as invalid
+    // This will almost NEVER be used, unless there is some expected operation that causes an error on relayers
+    // Only owner can do this
+    CancelPendingOperation {
+        operation_id: u64,
+    },
 }
 
 #[cw_ownable_query]

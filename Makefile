@@ -104,11 +104,16 @@ test-single-integration:
 
 .PHONY: test-relayer
 test-relayer:
-	cd $(RELAYER_DIR) && go clean -testcache && go test -v -mod=readonly -parallel=20 -timeout 2s ./...
+	cd $(RELAYER_DIR) && go clean -testcache && go test -v -mod=readonly -parallel=20 -timeout 5s ./...
 
 .PHONY: test-contract
 test-contract:
 	cd $(CONTRACT_DIR) && cargo test --verbose
+
+.PHONY: test-fuzz
+test-fuzz:
+	cd $(RELAYER_DIR)/processes && go test -v -mod=readonly -run ^FuzzAmountConversionCoreumToXRPLAndBack$$  -fuzz ^FuzzAmountConversionCoreumToXRPLAndBack$$ -fuzztime 20s
+	cd $(RELAYER_DIR)/processes && go test -v -mod=readonly -run ^FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber$$  -fuzz  ^FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber$$ -fuzztime 20s
 
 .PHONY: restart-dev-env
 restart-dev-env:
