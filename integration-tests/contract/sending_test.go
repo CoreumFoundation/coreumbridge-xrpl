@@ -1231,18 +1231,6 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	)
 	require.True(t, coreum.IsInvalidXRPLAddressError(err), err)
 
-	contractCfg, err := contractClient.GetContractConfig(ctx)
-	require.NoError(t, err)
-	// try to send to XRPL bridge account address
-	_, err = contractClient.SendToXRPL(
-		ctx,
-		coreumSenderAddress,
-		contractCfg.BridgeXRPLAddress,
-		sdk.NewCoin(registeredXRPLOriginatedToken.CoreumDenom, amountToSend),
-		nil,
-	)
-	require.True(t, coreum.IsProhibitedRecipientError(err), err)
-
 	// try to send with not registered token
 	_, err = contractClient.SendToXRPL(
 		ctx,
@@ -2203,6 +2191,19 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 		)
 		require.True(t, coreum.IsProhibitedRecipientError(err), err)
 	}
+
+	contractCfg, err := contractClient.GetContractConfig(ctx)
+	require.NoError(t, err)
+
+	// try to send to XRPL bridge account address
+	_, err = contractClient.SendToXRPL(
+		ctx,
+		coreumSenderAddress,
+		contractCfg.BridgeXRPLAddress,
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(1)),
+		nil,
+	)
+	require.True(t, coreum.IsProhibitedRecipientError(err), err)
 
 	_, err = contractClient.SendToXRPL(
 		ctx,
