@@ -65,6 +65,8 @@ const (
 	FlagCoreumChainID = "coreum-chain-id"
 	// FlagCoreumGRPCURL is Coreum GRPC URL flag.
 	FlagCoreumGRPCURL = "coreum-grpc-url"
+	// FlagCoreumContractAddress is the address of the bridge smart contract.
+	FlagCoreumContractAddress = "coreum-contract-address"
 	// FlagXRPLRPCURL is XRPL RPC URL flag.
 	FlagXRPLRPCURL = "xrpl-rpc-url"
 	// FlagInitOnly is init only flag.
@@ -87,8 +89,8 @@ const (
 	FlagTicketsToAllocate = "tickets-to-allocate"
 	// FlagMetricsEnabled enables metrics server.
 	FlagMetricsEnabled = "metrics-enabled"
-	// FlagsMetricsListenAddr sets listen address for metrics server.
-	FlagsMetricsListenAddr = "metrics-listen-addr"
+	// FlagMetricsListenAddr sets listen address for metrics server.
+	FlagMetricsListenAddr = "metrics-listen-addr"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -275,6 +277,10 @@ func InitCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "failed to read %s", FlagCoreumGRPCURL)
 			}
+			coreumContractAddress, err := cmd.Flags().GetString(FlagCoreumContractAddress)
+			if err != nil {
+				return errors.Wrapf(err, "failed to read %s", FlagCoreumContractAddress)
+			}
 
 			xrplRPCURL, err := cmd.Flags().GetString(FlagXRPLRPCURL)
 			if err != nil {
@@ -286,14 +292,15 @@ func InitCmd() *cobra.Command {
 				return errors.Wrapf(err, "failed to read %s", FlagMetricsEnabled)
 			}
 
-			metricsListenAddr, err := cmd.Flags().GetString(FlagsMetricsListenAddr)
+			metricsListenAddr, err := cmd.Flags().GetString(FlagMetricsListenAddr)
 			if err != nil {
-				return errors.Wrapf(err, "failed to read %s", FlagsMetricsListenAddr)
+				return errors.Wrapf(err, "failed to read %s", FlagMetricsListenAddr)
 			}
 
 			cfg := runner.DefaultConfig()
 			cfg.Coreum.Network.ChainID = chainID
 			cfg.Coreum.GRPC.URL = coreumGRPCURL
+			cfg.Coreum.Contract.ContractAddress = coreumContractAddress
 
 			cfg.XRPL.RPC.URL = xrplRPCURL
 
@@ -311,8 +318,9 @@ func InitCmd() *cobra.Command {
 	addCoreumChainIDFlag(cmd)
 	cmd.PersistentFlags().String(FlagXRPLRPCURL, "", "XRPL RPC address.")
 	cmd.PersistentFlags().String(FlagCoreumGRPCURL, "", "Coreum GRPC address.")
+	cmd.PersistentFlags().String(FlagCoreumContractAddress, "", "Address of the bridge smart contract.")
 	cmd.PersistentFlags().Bool(FlagMetricsEnabled, false, "Start metric server in relayer.")
-	cmd.PersistentFlags().String(FlagsMetricsListenAddr, "localhost:9090", "Address metrics server listens on.")
+	cmd.PersistentFlags().String(FlagMetricsListenAddr, "localhost:9090", "Address metrics server listens on.")
 
 	addHomeFlag(cmd)
 

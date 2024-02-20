@@ -214,7 +214,7 @@ func DefaultConfig() Config {
 func InitConfig(homePath string, cfg Config) error {
 	path := buildFilePath(homePath)
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		return errors.Errorf("failed to initi config, file already exists, path:%s", path)
+		return errors.Errorf("failed to init config, file already exists, path:%s", path)
 	}
 
 	err := os.MkdirAll(homePath, 0o700)
