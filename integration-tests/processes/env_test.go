@@ -263,7 +263,7 @@ func (r *RunnerEnv) AwaitNoPendingOperations(ctx context.Context, t *testing.T) 
 	t.Helper()
 
 	r.AwaitState(ctx, t, func(t *testing.T) error {
-		operations, err := r.ContractClient.GetPendingOperations(ctx)
+		operations, err := r.BridgeClient.GetPendingOperations(ctx)
 		require.NoError(t, err)
 		if len(operations) != 0 {
 			return errors.Errorf("there are still pending operatrions: %+v", operations)

@@ -127,6 +127,12 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		xrplBaseFee uint32,
 	) (*sdk.TxResponse, error)
+	CancelPendingOperation(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		operationID uint32,
+	) (*sdk.TxResponse, error)
+	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -451,10 +457,15 @@ func (b *BridgeClient) RegisterXRPLToken(
 		return coreum.XRPLToken{}, err
 	}
 
+	if txRes == nil {
+		return coreum.XRPLToken{}, nil
+	}
+
 	token, err := b.contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer.String(), stringCurrency)
 	if err != nil {
 		return coreum.XRPLToken{}, err
 	}
+
 	b.log.Info(
 		ctx,
 		"Successfully registered XRPL token",
@@ -817,6 +828,10 @@ func (b *BridgeClient) UpdateXRPLBaseFee(
 		return err
 	}
 
+	if txRes == nil {
+		return nil
+	}
+
 	b.log.Info(
 		ctx,
 		"Successfully sent tx to update XRPL base fee",
@@ -881,7 +896,7 @@ func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Accou
 
 // GetPendingRefunds queries for the pending refunds of an address.
 func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]coreum.PendingRefund, error) {
-	b.log.Info(ctx, "getting pending refunds", zap.String("address", address.String()))
+	b.log.Info(ctx, "Getting pending refunds", zap.String("address", address.String()))
 	return b.contractClient.GetPendingRefunds(ctx, address)
 }
 
@@ -968,8 +983,39 @@ func (b *BridgeClient) HaltBridge(
 	if err != nil {
 		return err
 	}
+
+	if txRes == nil {
+		return nil
+	}
+
 	b.log.Info(ctx, "finished execution of halt-bridge", zap.String("txHash", txRes.TxHash))
 	return nil
+}
+
+// CancelPendingOperation executes `cancel_pending_operation` method.
+func (b *BridgeClient) CancelPendingOperation(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	operationID uint32,
+) error {
+	b.log.Info(ctx, "Cancelling pending operation", zap.Uint32("operationID", operationID))
+	txRes, err := b.contractClient.CancelPendingOperation(ctx, sender, operationID)
+	if err != nil {
+		return err
+	}
+
+	if txRes == nil {
+		return nil
+	}
+
+	b.log.Info(ctx, "finished execution of the cancelling pending operation", zap.String("txHash", txRes.TxHash))
+	return nil
+}
+
+// GetPendingOperations returns a list of all pending operations.
+func (b *BridgeClient) GetPendingOperations(ctx context.Context) ([]coreum.Operation, error) {
+	b.log.Info(ctx, "Getting pending operations")
+	return b.contractClient.GetPendingOperations(ctx)
 }
 
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(

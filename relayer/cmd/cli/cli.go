@@ -193,6 +193,12 @@ type BridgeClient interface {
 		ctx context.Context,
 		sender sdk.AccAddress,
 	) error
+	CancelPendingOperation(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		operationID uint32,
+	) error
+	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
@@ -651,12 +657,12 @@ $ recover-tickets --%s 250 --%s owner
 			if err != nil {
 				return err
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, xrplClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, xrplClientCtx)
 			if err != nil {
 				return err
 			}
 
-			return bridgeClient.RecoverTickets(ctx, owner, ticketsToAllocated)
+			return bridgeClient.RecoverTickets(ctx, sender, ticketsToAllocated)
 		},
 	}
 	addKeyringFlags(cmd)
@@ -698,7 +704,7 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -726,7 +732,7 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
 
 			_, err = bridgeClient.RegisterCoreumToken(
 				ctx,
-				owner,
+				sender,
 				denom,
 				uint32(decimals),
 				int32(sendingPrecision),
@@ -772,7 +778,7 @@ $ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s own
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -790,7 +796,7 @@ $ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s own
 
 			return bridgeClient.UpdateCoreumToken(
 				ctx,
-				owner,
+				sender,
 				denom,
 				tokenState,
 				sendingPrecision,
@@ -838,7 +844,7 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -870,7 +876,7 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 
 			_, err = bridgeClient.RegisterXRPLToken(
 				ctx,
-				owner,
+				sender,
 				*issuer,
 				currency,
 				int32(sendingPrecision),
@@ -916,7 +922,7 @@ $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -931,7 +937,7 @@ $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 				return errors.Wrapf(err, "failed to convert currency string to rippledata.Currency: %s", args[1])
 			}
 
-			return bridgeClient.RecoverXRPLTokenRegistration(ctx, owner, issuer.String(), currency.String())
+			return bridgeClient.RecoverXRPLTokenRegistration(ctx, sender, issuer.String(), currency.String())
 		},
 	}
 	addKeyringFlags(cmd)
@@ -971,7 +977,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -990,7 +996,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 
 			return bridgeClient.UpdateXRPLToken(
 				ctx,
-				owner,
+				sender,
 				issuer, currency,
 				tokenState,
 				sendingPrecision,
@@ -1088,6 +1094,8 @@ $ rotate-keys new-keys.yaml --%s owner
 }
 
 // UpdateXRPLBaseFeeCmd updates the XRPL base fee in the bridge contract.
+//
+//nolint:dupl // abstracting this code will make it less readable.
 func UpdateXRPLBaseFeeCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-xrpl-base-fee [fee]",
@@ -1115,7 +1123,7 @@ $ update-xrpl-base-fee 20 --%s owner
 				return err
 			}
 
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
@@ -1127,7 +1135,7 @@ $ update-xrpl-base-fee 20 --%s owner
 
 			return bridgeClient.UpdateXRPLBaseFee(
 				ctx,
-				owner,
+				sender,
 				uint32(xrplBaseFee),
 			)
 		},
@@ -1472,8 +1480,8 @@ func VersionCmd() *cobra.Command {
 	}
 }
 
-// GetPendingRefundsCmd gets the pending refunds of and address.
-func GetPendingRefundsCmd(bcp BridgeClientProvider) *cobra.Command {
+// PendingRefundsCmd gets the pending refunds of and address.
+func PendingRefundsCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pending-refunds [address]",
 		Short: "Get pending refunds of an address",
@@ -1526,7 +1534,7 @@ Example:
 $ claim-refund --%s claimer --%s 1705664693-2
 `, FlagKeyName, FlagRefundID,
 		)),
-		Args: cobra.ExactArgs(0),
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			// get bridgeClient first to set cosmos SDK config
@@ -1638,7 +1646,7 @@ Example:
 $ claim-relayer-fees --key-name address --%s %s
 `, FlagAmount, sampleAmount,
 		)),
-		Args: cobra.ExactArgs(0),
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			// get bridgeClient first to set cosmos SDK config
@@ -1719,14 +1727,14 @@ $ halt-bridge --%s owner
 			if err != nil {
 				return err
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
 
 			return bridgeClient.HaltBridge(
 				ctx,
-				owner,
+				sender,
 			)
 		},
 	}
@@ -1767,13 +1775,13 @@ $ resume-bridge --%s owner
 			if err != nil {
 				return err
 			}
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
 			if err != nil {
 				return err
 			}
 			return bridgeClient.ResumeBridge(
 				ctx,
-				owner,
+				sender,
 			)
 		},
 	}
@@ -1782,6 +1790,91 @@ $ resume-bridge --%s owner
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 	addGenerateOnlyFlag(cmd)
+
+	return cmd
+}
+
+// CancelPendingOperationCmd cancels pending operation.
+//
+//nolint:dupl // abstracting this code will make it less readable.
+func CancelPendingOperationCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cancel-pending-operation [operation-id]",
+		Short: "Cancel pending operation.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Cancel pending operation.
+Example:
+$ cancel-pending-operation 123 --%s owner
+`, FlagKeyName)),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			if err != nil {
+				return err
+			}
+
+			operationID, err := strconv.ParseUint(args[0], 10, 32)
+			if err != nil {
+				return errors.Wrapf(err, "invalid operation ID: %s", args[0])
+			}
+
+			return bridgeClient.CancelPendingOperation(
+				ctx,
+				sender,
+				uint32(operationID),
+			)
+		},
+	}
+
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
+
+	return cmd
+}
+
+// PendingOperationsCmd prints pending operations.
+func PendingOperationsCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pending-operations",
+		Short: "Prints pending operations.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			pendingOperations, err := bridgeClient.GetPendingOperations(ctx)
+			if err != nil {
+				return err
+			}
+
+			log, err := GetCLILogger()
+			if err != nil {
+				return err
+			}
+			log.Info(ctx, "Got pending operations", zap.Any("pendingOperations", pendingOperations))
+
+			return nil
+		},
+	}
+	addHomeFlag(cmd)
 
 	return cmd
 }
