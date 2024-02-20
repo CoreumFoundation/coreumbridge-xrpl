@@ -21,7 +21,7 @@ replace (
 
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20231219065050-077b204f5543
-	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240215083027-6b45d334d03b
+	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240220134751-03b0f19e9a28
 	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
 	github.com/samber/lo v1.38.1
