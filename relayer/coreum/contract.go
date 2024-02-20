@@ -50,6 +50,7 @@ const (
 	ExecHaltBridge                    ExecMethod = "halt_bridge"
 	ExecResumeBridge                  ExecMethod = "resume_bridge"
 	ExecUpdateXRPLBaseFee             ExecMethod = "update_xrpl_base_fee"
+	ExecCancelPendingOperation        ExecMethod = "cancel_pending_operation"
 )
 
 // TransactionResult is transaction result.
@@ -361,6 +362,10 @@ type claimRefundRequest struct {
 
 type updateXRPLBaseFeeRequest struct {
 	XRPLBaseFee uint32 `json:"xrpl_base_fee"`
+}
+
+type cancelPendingOperationRequest struct {
+	OperationID uint32 `json:"operation_id"`
 }
 
 type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
@@ -1104,6 +1109,26 @@ func (c *ContractClient) UpdateXRPLBaseFee(
 	return txRes, nil
 }
 
+// CancelPendingOperation executes `cancel_pending_operation` method.
+func (c *ContractClient) CancelPendingOperation(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	operationID uint32,
+) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]cancelPendingOperationRequest{
+			ExecCancelPendingOperation: {
+				OperationID: operationID,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
 // ******************** Query ********************
 
 // GetContractConfig returns contract config.
@@ -1399,7 +1424,7 @@ func (c *ContractClient) execute(
 		}
 		if cosmoserrors.ErrOutOfGas.Is(err) {
 			outOfGasRetryAttempt++
-			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution")
+			c.log.Info(ctx, "Out of gas, retrying Coreum tx execution")
 			return retry.Retryable(errors.Wrapf(err, "retry tx execution, out of gas"))
 		}
 

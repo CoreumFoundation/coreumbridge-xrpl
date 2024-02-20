@@ -172,16 +172,18 @@ the relayers config.
 #### Remove the bridge-account key
 
 ```bash
-./coreumbridge-xrpl-relayer xrpl-keys delete bridge-account 
+coreumbridge-xrpl-relayer xrpl-keys delete bridge-account 
 ```
 
 #### Run all relayers
 
 Run all relayers see [Run relayer](#run-relayer) section.
 
-#### Recover tickets
+#### Recover tickets (initial tickets set)
 
-Use [Recover tickets](#recover-tickets) instruction and recover tickets.
+```bash
+coreumbridge-xrpl-relayer recover-tickets --tickets-to-allocate 250 --key-name owner
+```
 
 ### Run relayer
 

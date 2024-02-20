@@ -116,7 +116,7 @@ func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 	coreumRecipient := xrpl.DecodeCoreumRecipientFromMemo(paymentTx.Memos)
 	if coreumRecipient == nil {
-		p.log.Info(ctx, "Bridge memo does not include expected structure", zap.Any("memos", paymentTx.Memos))
+		p.log.Debug(ctx, "Bridge memo does not include expected structure", zap.Any("memos", paymentTx.Memos))
 		return nil
 	}
 
@@ -136,7 +136,7 @@ func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 
 	if coreumAmount.IsZero() {
-		p.log.Info(ctx, "Nothing to send, amount is zero")
+		p.log.Debug(ctx, "Nothing to send, amount is zero")
 		return nil
 	}
 
@@ -155,7 +155,7 @@ func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 
 	if coreum.IsTokenNotRegisteredError(err) {
-		p.log.Info(ctx, "Token not registered")
+		p.log.Debug(ctx, "Token not registered")
 		return nil
 	}
 
@@ -165,7 +165,7 @@ func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 
 	if coreum.IsAssetFTStateError(err) {
-		p.log.Info(
+		p.log.Debug(
 			ctx,
 			"The evidence saving is failed because of the asset FT rules, the evidence is skipped",
 			zap.Any("evidence", evidence),
@@ -174,7 +174,7 @@ func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 
 	if coreum.IsRecipientBlockedError(err) {
-		p.log.Info(
+		p.log.Debug(
 			ctx,
 			"The evidence saving is failed because of the recipient address is blocked, the evidence is skipped",
 			zap.Any("evidence", evidence),
