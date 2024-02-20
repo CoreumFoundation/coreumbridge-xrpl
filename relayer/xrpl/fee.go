@@ -21,3 +21,9 @@ func GetMultiSigningTxFee(xrplBaseFee uint32) (rippledata.Value, error) {
 	}
 	return *fee, nil
 }
+
+// ComputeXRPLBaseFee computes the required XRPL base with load factor.
+// Check https://xrpl.org/transaction-cost.html#server_state for more detail.
+func ComputeXRPLBaseFee(baseFee, loadFactor, loadBase uint32) uint32 {
+	return (baseFee * loadFactor) / loadBase
+}

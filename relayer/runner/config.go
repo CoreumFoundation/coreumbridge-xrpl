@@ -16,6 +16,7 @@ import (
 	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -105,13 +106,19 @@ type ProcessesConfig struct {
 
 // MetricsServerConfig is metric server config.
 type MetricsServerConfig struct {
-	Enable        bool   `yaml:"enable"`
 	ListenAddress string `yaml:"listen_address"`
+}
+
+// MetricsPeriodicCollectorConfig is metric periodic collector config.
+type MetricsPeriodicCollectorConfig struct {
+	RepeatDelay time.Duration `yaml:"repeat_delay"`
 }
 
 // MetricsConfig is metric config.
 type MetricsConfig struct {
-	Server MetricsServerConfig `yaml:"server"`
+	Enabled           bool                           `yaml:"enabled"`
+	Server            MetricsServerConfig            `yaml:"server"`
+	PeriodicCollector MetricsPeriodicCollectorConfig `yaml:"periodic_collector"`
 }
 
 // Config is runner config.
@@ -121,7 +128,7 @@ type Config struct {
 	XRPL          XRPLConfig      `yaml:"xrpl"`
 	Coreum        CoreumConfig    `yaml:"coreum"`
 	Processes     ProcessesConfig `yaml:"processes"`
-	Metrics       MetricsConfig   `yaml:"metrics"`
+	Metrics       MetricsConfig   `yaml:"metrics_registry"`
 }
 
 // DefaultConfig returns default runner config.
@@ -136,6 +143,10 @@ func DefaultConfig() Config {
 		rippledata.Account{},
 		sdk.AccAddress(nil),
 	)
+
+	defaultMetricsServerConfig := metrics.DefaultServerConfig()
+	defaultMetricsPeriodicCollectorConfig := metrics.DefaultPeriodicCollectorConfig()
+
 	return Config{
 		Version:       configVersion,
 		LoggingConfig: LoggingConfig(logger.DefaultZapLoggerConfig()),
@@ -189,8 +200,12 @@ func DefaultConfig() Config {
 		},
 
 		Metrics: MetricsConfig{
+			Enabled: false,
 			Server: MetricsServerConfig{
-				ListenAddress: "localhost:9090",
+				ListenAddress: defaultMetricsServerConfig.ListenAddress,
+			},
+			PeriodicCollector: MetricsPeriodicCollectorConfig{
+				RepeatDelay: defaultMetricsPeriodicCollectorConfig.RepeatDelay,
 			},
 		},
 	}

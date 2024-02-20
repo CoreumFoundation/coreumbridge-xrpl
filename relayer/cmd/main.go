@@ -86,12 +86,14 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.XRPLBalancesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.SetXRPLTrustSetCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.VersionCmd())
-	cmd.AddCommand(cli.GetPendingRefundsCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.PendingRefundsCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.ClaimRefundCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.ClaimRelayerFeesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.GetRelayerFeesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.HaltBridgeCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.ResumeBridgeCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.CancelPendingOperationCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.PendingOperationsCmd(bridgeClientProvider))
 
 	return cmd, nil
 }
