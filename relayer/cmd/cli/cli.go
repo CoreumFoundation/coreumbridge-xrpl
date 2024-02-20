@@ -234,7 +234,10 @@ func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 		return nil, err
 	}
 
-	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig(cfg.LoggingConfig))
+	logCfg := logger.DefaultZapLoggerConfig()
+	logCfg.Level = cfg.LoggingConfig.Level
+	logCfg.Format = cfg.LoggingConfig.Format
+	zapLogger, err := logger.NewZapLogger(logCfg)
 	if err != nil {
 		return nil, err
 	}
