@@ -628,8 +628,8 @@ $ recover-tickets --%s 250 --%s owner
 					return err
 				}
 
-			return bridgeClient.RecoverTickets(ctx, sender, ticketsToAllocated)
-		},
+				return bridgeClient.RecoverTickets(ctx, sender, ticketsToAllocated)
+			}),
 	}
 	addKeyringFlags(cmd)
 	addKeyNameFlag(cmd)
@@ -980,8 +980,6 @@ $ rotate-keys new-keys.yaml --%s owner
 }
 
 // UpdateXRPLBaseFeeCmd updates the XRPL base fee in the bridge contract.
-//
-//nolint:dupl // abstracting this code will make it less readable.
 func UpdateXRPLBaseFeeCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-xrpl-base-fee [fee]",
@@ -1566,8 +1564,6 @@ $ resume-bridge --%s owner
 }
 
 // CancelPendingOperationCmd cancels pending operation.
-//
-//nolint:dupl // abstracting this code will make it less readable.
 func CancelPendingOperationCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cancel-pending-operation [operation-id]",
@@ -1578,37 +1574,26 @@ Example:
 $ cancel-pending-operation 123 --%s owner
 `, FlagKeyName)),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
-			if err != nil {
-				return err
-			}
-			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
-			if err != nil {
-				return err
-			}
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
 
-			operationID, err := strconv.ParseUint(args[0], 10, 32)
-			if err != nil {
-				return errors.Wrapf(err, "invalid operation ID: %s", args[0])
-			}
+				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				if err != nil {
+					return err
+				}
 
-			return bridgeClient.CancelPendingOperation(
-				ctx,
-				sender,
-				uint32(operationID),
-			)
-		},
+				operationID, err := strconv.ParseUint(args[0], 10, 32)
+				if err != nil {
+					return errors.Wrapf(err, "invalid operation ID: %s", args[0])
+				}
+
+				return bridgeClient.CancelPendingOperation(
+					ctx,
+					sender,
+					uint32(operationID),
+				)
+			}),
 	}
 
 	addKeyringFlags(cmd)
@@ -1624,26 +1609,23 @@ func PendingOperationsCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pending-operations",
 		Short: "Prints pending operations.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			pendingOperations, err := bridgeClient.GetPendingOperations(ctx)
-			if err != nil {
-				return err
-			}
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
 
-			log, err := GetCLILogger()
-			if err != nil {
-				return err
-			}
-			log.Info(ctx, "Got pending operations", zap.Any("pendingOperations", pendingOperations))
+				pendingOperations, err := bridgeClient.GetPendingOperations(ctx)
+				if err != nil {
+					return err
+				}
 
-			return nil
-		},
+				log, err := GetCLILogger()
+				if err != nil {
+					return err
+				}
+				log.Info(ctx, "Got pending operations", zap.Any("pendingOperations", pendingOperations))
+
+				return nil
+			}),
 	}
 	addHomeFlag(cmd)
 

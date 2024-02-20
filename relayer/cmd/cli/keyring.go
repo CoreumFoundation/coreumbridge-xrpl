@@ -121,7 +121,7 @@ func (ck *cacheKeyring) DeleteByAddress(address sdk.Address) error {
 }
 
 // Rename renames an existing key in the keyring.
-func (ck *cacheKeyring) Rename(from string, to string) error {
+func (ck *cacheKeyring) Rename(from, to string) error {
 	ck.mu.Lock()
 	defer ck.mu.Unlock()
 
@@ -205,7 +205,7 @@ func (ck *cacheKeyring) ImportPrivKeyHex(uid, privKey, algoStr string) error {
 }
 
 // ImportPubKey imports ASCII armored public keys.
-func (ck *cacheKeyring) ImportPubKey(uid string, armor string) error {
+func (ck *cacheKeyring) ImportPubKey(uid, armor string) error {
 	return ck.parentKeyring.ImportPubKey(uid, armor)
 }
 

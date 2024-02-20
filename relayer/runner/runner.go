@@ -122,10 +122,10 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 	metricsServer := metrics.NewServer(metricsServerCfg, components.MetricsRegistry)
 
 	return &Runner{
-		cfg:                 cfg,
-		log:                 components.Log,
-		components:    	     components,
-		metricsServer:       metricsServer,
+		cfg:           cfg,
+		log:           components.Log,
+		components:    components,
+		metricsServer: metricsServer,
 
 		xrplToCoreumProcess: xrplToCoreumProcess,
 		coreumToXRPLProcess: coreumToXRPLProcess,
@@ -182,20 +182,18 @@ func (r *Runner) withRestartOnError(task parallel.Task) parallel.Task {
 
 // Components groups components required by runner.
 type Components struct {
-	Log                  logger.Logger
+	Log                      logger.Logger
 	MetricsRegistry          *metrics.Registry
 	MetricsPeriodicCollector *metrics.PeriodicCollector
-	RunnerConfig         Config
-	XRPLClientCtx        coreumchainclient.Context
-	XRPLRPCClient        *xrpl.RPCClient
-	XRPLKeyringTxSigner  *xrpl.KeyringTxSigner
-	CoreumClientCtx      coreumchainclient.Context
-	CoreumContractClient *coreum.ContractClient
+	RunnerConfig             Config
+	XRPLClientCtx            coreumchainclient.Context
+	XRPLRPCClient            *xrpl.RPCClient
+	XRPLKeyringTxSigner      *xrpl.KeyringTxSigner
+	CoreumClientCtx          coreumchainclient.Context
+	CoreumContractClient     *coreum.ContractClient
 }
 
 // NewComponents creates components required by runner and other CLI commands.
-//
-//nolint:funlen // separation of the function will lead to lose of readability
 func NewComponents(
 	cfg Config,
 	xrplKeyring keyring.Keyring,
@@ -285,10 +283,10 @@ func NewComponents(
 
 	return Components{
 		Log:                      log,
-		RunnerConfig: cfg,
+		RunnerConfig:             cfg,
 		MetricsRegistry:          metricsRegistry,
 		MetricsPeriodicCollector: metricsPeriodicCollector,
-		XRPLClientCtx: clientCtx.WithKeyring(xrplKeyring),
+		XRPLClientCtx:            clientCtx.WithKeyring(xrplKeyring),
 		XRPLRPCClient:            xrplRPCClient,
 		XRPLKeyringTxSigner:      xrplKeyringTxSigner,
 		CoreumClientCtx:          coreumClientCtx,

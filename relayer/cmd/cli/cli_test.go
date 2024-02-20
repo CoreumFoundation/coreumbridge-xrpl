@@ -1095,14 +1095,13 @@ func TestCancelPendingOperationCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	owner := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+	owner := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	operationID := uint32(1)
-	args := []string{
+	args := append([]string{
 		strconv.Itoa(int(operationID)),
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	}, initConfig(t)...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock.EXPECT().CancelPendingOperation(gomock.Any(), owner, operationID).Return(nil)
 	executeCmd(t, cli.CancelPendingOperationCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
@@ -1114,7 +1113,7 @@ func TestGetPendingOperationsCmd(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{}, nil)
-	executeCmd(t, cli.PendingOperationsCmd(mockBridgeClientProvider(bridgeClientMock)))
+	executeCmd(t, cli.PendingOperationsCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
 func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {
