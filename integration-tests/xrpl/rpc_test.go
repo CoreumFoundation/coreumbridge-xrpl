@@ -687,6 +687,18 @@ func TestLedgerCurrent(t *testing.T) {
 	require.Greater(t, currentLedger.LedgerCurrentIndex, int64(0))
 }
 
+func TestServerState(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+	serverState, err := chains.XRPL.RPCClient().ServerState(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "success", serverState.Status)
+	require.Equal(t, uint32(256), serverState.State.LoadFactor)
+	require.Equal(t, uint32(256), serverState.State.LoadBase)
+	require.Equal(t, uint32(10), serverState.State.ValidatedLedger.BaseFee)
+}
+
 func TestAccountTx(t *testing.T) {
 	t.Parallel()
 
