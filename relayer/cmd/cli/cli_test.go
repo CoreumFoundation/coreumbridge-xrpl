@@ -30,6 +30,7 @@ import (
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
+	overridecryptokeyring "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/override/crypto/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -62,7 +63,7 @@ func TestStartCmd(t *testing.T) {
 func TestKeyringCmds(t *testing.T) {
 	unsealConfig()
 
-	cmd, err := cli.KeyringCmd(coreum.KeyringSuffix, constant.CoinType)
+	cmd, err := cli.KeyringCmd(coreum.KeyringSuffix, constant.CoinType, overridecryptokeyring.CoreumAddressFormatter)
 	require.NoError(t, err)
 
 	configPath := t.TempDir()
@@ -1011,7 +1012,7 @@ func TestGetPendingRefundsCmd(t *testing.T) {
 
 	account := coreum.GenAccount()
 	bridgeClientMock.EXPECT().GetPendingRefunds(gomock.Any(), account).Return([]coreum.PendingRefund{}, nil)
-	executeCmd(t, cli.GetPendingRefundsCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
+	executeCmd(t, cli.PendingRefundsCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
 }
 
 func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
@@ -1109,6 +1110,36 @@ func TestResumeBridgeCmd(t *testing.T) {
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock.EXPECT().ResumeBridge(gomock.Any(), owner).Return(nil)
 	executeCmd(t, cli.ResumeBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestCancelPendingOperationCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+	owner := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+
+	operationID := uint32(1)
+	args := []string{
+		strconv.Itoa(int(operationID)),
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	bridgeClientMock.EXPECT().CancelPendingOperation(gomock.Any(), owner, operationID).Return(nil)
+	executeCmd(t, cli.CancelPendingOperationCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestGetPendingOperationsCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	bridgeClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{}, nil)
+	executeCmd(t, cli.PendingOperationsCmd(mockBridgeClientProvider(bridgeClientMock)))
 }
 
 func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {

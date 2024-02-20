@@ -258,37 +258,12 @@ func (c XRPLChain) GetAccountBalances(
 ) map[string]rippledata.Amount {
 	t.Helper()
 
-	amounts := make(map[string]rippledata.Amount, 0)
-
-	accInfo, err := c.rpcClient.AccountInfo(ctx, acc)
+	balances, err := c.rpcClient.GetXRPLBalances(ctx, acc)
 	require.NoError(t, err)
-	amounts[fmt.Sprintf(
-		"%s/%s",
-		xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency), xrpl.XRPTokenIssuer.String())] = rippledata.Amount{
-		Value: accInfo.AccountData.Balance,
-	}
-	// none xrp amounts
-	marker := ""
-	for {
-		accLines, err := c.rpcClient.AccountLines(ctx, acc, "closed", marker)
-		require.NoError(t, err)
-		for _, line := range accLines.Lines {
-			lineCopy := line
-			amounts[fmt.Sprintf(
-				"%s/%s",
-				xrpl.ConvertCurrencyToString(lineCopy.Currency), lineCopy.Account.String())] = rippledata.Amount{
-				Value:    &lineCopy.Balance.Value,
-				Currency: lineCopy.Currency,
-				Issuer:   lineCopy.Account,
-			}
-		}
-		if accLines.Marker == "" {
-			break
-		}
-		marker = accLines.Marker
-	}
 
-	return amounts
+	return lo.SliceToMap(balances, func(amt rippledata.Amount) (string, rippledata.Amount) {
+		return fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(amt.Currency), amt.Issuer.String()), amt
+	})
 }
 
 // AwaitLedger awaits for ledger index.

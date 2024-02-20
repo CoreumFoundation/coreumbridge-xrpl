@@ -136,6 +136,35 @@ type AccountTxResult struct {
 	Validated    bool                        `json:"validated"`
 }
 
+// ServerStateValidatedLedger is the latest validated ledger from the server state.
+type ServerStateValidatedLedger struct {
+	BaseFee   uint32 `json:"base_fee"`
+	CloseTime uint32 `json:"close_time"`
+	Hash      string `json:"hash"`
+	Seq       int64  `json:"seq"`
+}
+
+// ServerState is server state.
+type ServerState struct {
+	BuildVersion            string                     `json:"build_version"`
+	CompleteLedgers         string                     `json:"complete_ledgers"`
+	InitialSyncDurationUs   string                     `json:"initial_sync_duration_us"`
+	LoadBase                uint32                     `json:"load_base"`
+	LoadFactor              uint32                     `json:"load_factor"`
+	LoadFactorFeeEscalation uint32                     `json:"load_factor_fee_escalation"`
+	LoadFactorFeeQueue      uint32                     `json:"load_factor_fee_queue"`
+	LoadFactorFeeReference  uint32                     `json:"load_factor_fee_reference"`
+	LoadFactorServer        uint32                     `json:"load_factor_server"`
+	NetworkID               uint32                     `json:"network_id"`
+	ValidatedLedger         ServerStateValidatedLedger `json:"validated_ledger"`
+}
+
+// ServerStateResult is `server_state` method result.
+type ServerStateResult struct {
+	State  ServerState `json:"state"`
+	Status string      `json:"status"`
+}
+
 // ******************** RPC transport objects ********************
 
 type rpcRequest struct {
@@ -182,6 +211,43 @@ func NewRPCClient(cfg RPCClientConfig, log logger.Logger, httpClient HTTPClient)
 		log:        log,
 		httpClient: httpClient,
 	}
+}
+
+// GetXRPLBalances returns all account's XRPL balances including XRP token.
+func (c *RPCClient) GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error) {
+	balances := make([]rippledata.Amount, 0)
+	accInfo, err := c.AccountInfo(ctx, acc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get XRPL account info, address:%s", acc.String())
+	}
+	balances = append(balances, rippledata.Amount{
+		Value: accInfo.AccountData.Balance,
+		// XRP issuer and currency
+		Currency: rippledata.Currency{},
+		Issuer:   rippledata.Account{},
+	})
+
+	marker := ""
+	for {
+		accLines, err := c.AccountLines(ctx, acc, "closed", marker)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get XRPL account lines, address:%s", acc.String())
+		}
+		for _, line := range accLines.Lines {
+			lineCopy := line
+			balances = append(balances, rippledata.Amount{
+				Value:    &lineCopy.Balance.Value,
+				Currency: lineCopy.Currency,
+				Issuer:   lineCopy.Account,
+			})
+		}
+		if accLines.Marker == "" {
+			break
+		}
+		marker = accLines.Marker
+	}
+
+	return balances, nil
 }
 
 // AccountInfo returns the account information for the given account.
@@ -280,6 +346,16 @@ func (c *RPCClient) AccountTx(
 	var result AccountTxResult
 	if err := c.callRPC(ctx, "account_tx", params, &result); err != nil {
 		return AccountTxResult{}, err
+	}
+
+	return result, nil
+}
+
+// ServerState returns the server state information.
+func (c *RPCClient) ServerState(ctx context.Context) (ServerStateResult, error) {
+	var result ServerStateResult
+	if err := c.callRPC(ctx, "server_state", struct{}{}, &result); err != nil {
+		return ServerStateResult{}, err
 	}
 
 	return result, nil

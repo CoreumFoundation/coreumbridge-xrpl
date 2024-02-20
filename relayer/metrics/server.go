@@ -12,14 +12,40 @@ import (
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 )
 
+// ServerConfig is metric server config.
+type ServerConfig struct {
+	ListenAddress string
+}
+
+// DefaultServerConfig return default ServerConfig.
+func DefaultServerConfig() ServerConfig {
+	return ServerConfig{
+		ListenAddress: "localhost:9090",
+	}
+}
+
+// Server is metric server.
+type Server struct {
+	cfg      ServerConfig
+	registry *Registry
+}
+
+// NewServer returns new instance of the Server.
+func NewServer(cfg ServerConfig, registry *Registry) *Server {
+	return &Server{
+		cfg:      cfg,
+		registry: registry,
+	}
+}
+
 // Start starts metric server.
-func Start(ctx context.Context, addr string, metrics *Registry) error {
+func (s *Server) Start(ctx context.Context) error {
 	registry := prometheus.NewRegistry()
-	if err := metrics.Register(registry); err != nil {
+	if err := s.registry.Register(registry); err != nil {
 		return err
 	}
 
-	l, err := net.Listen("tcp", addr)
+	l, err := net.Listen("tcp", s.cfg.ListenAddress)
 	if err != nil {
 		return errors.Wrap(err, "metric server listener failed")
 	}
