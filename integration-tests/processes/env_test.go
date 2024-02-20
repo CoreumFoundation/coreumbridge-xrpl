@@ -82,6 +82,7 @@ type RunnerEnv struct {
 	BridgeClient         *bridgeclient.BridgeClient
 	RunnersParallelGroup *parallel.Group
 	Runners              []*runner.Runner
+	RunnerComponents     []runner.Components
 }
 
 // NewRunnerEnv returns new instance of the RunnerEnv.
@@ -166,35 +167,34 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	require.NoError(t, contractClient.SetContractAddress(contractAddress))
 
 	runners := make([]*runner.Runner, 0, cfg.RelayersCount)
+	runnerComponents := make([]runner.Components, 0, cfg.RelayersCount)
 	// add correct relayers
 	for i := 0; i < int(cfg.RelayersCount-cfg.MaliciousRelayerNumber); i++ {
-		runners = append(
-			runners,
-			createDevRunner(
-				ctx,
-				t,
-				chains,
-				relayerXRPLAddresses[i],
-				contractClient.GetContractAddress(),
-				relayerCoreumAddresses[i],
-			),
+		rnrComponents, rnr := createDevRunner(
+			ctx,
+			t,
+			chains,
+			relayerXRPLAddresses[i],
+			contractClient.GetContractAddress(),
+			relayerCoreumAddresses[i],
 		)
+		runners = append(runners, rnr)
+		runnerComponents = append(runnerComponents, rnrComponents)
 	}
 	// add malicious relayers
 	// we keep the relayer indexes to make all config valid apart from the XRPL signing
 	for i := cfg.RelayersCount - cfg.MaliciousRelayerNumber; i < cfg.RelayersCount; i++ {
 		maliciousXRPLAddress := chains.XRPL.GenAccount(ctx, t, 0)
-		runners = append(
-			runners,
-			createDevRunner(
-				ctx,
-				t,
-				chains,
-				maliciousXRPLAddress,
-				contractClient.GetContractAddress(),
-				relayerCoreumAddresses[i],
-			),
+		rnrComponents, rnr := createDevRunner(
+			ctx,
+			t,
+			chains,
+			maliciousXRPLAddress,
+			contractClient.GetContractAddress(),
+			relayerCoreumAddresses[i],
 		)
+		runners = append(runners, rnr)
+		runnerComponents = append(runnerComponents, rnrComponents)
 	}
 
 	runnerEnv := &RunnerEnv{
@@ -207,6 +207,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		BridgeClient:         bridgeClient,
 		RunnersParallelGroup: parallel.NewGroup(ctx),
 		Runners:              runners,
+		RunnerComponents:     runnerComponents,
 	}
 	t.Cleanup(func() {
 		// we can cancel the context now and wait for the runner to stop gracefully
@@ -235,6 +236,18 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	})
 
 	return runnerEnv
+}
+
+// StartAllRunnerPeriodicMetricCollectors starts all relayer periodic metrics collector.
+func (r *RunnerEnv) StartAllRunnerPeriodicMetricCollectors() {
+	for i := range r.RunnerComponents {
+		components := r.RunnerComponents[i]
+		r.RunnersParallelGroup.Spawn(
+			fmt.Sprintf("runner-periodic-metric-collector-%d", i),
+			parallel.Exit,
+			components.MetricsPeriodicCollector.Start,
+		)
+	}
 }
 
 // StartAllRunnerProcesses starts all relayer processes.
@@ -587,7 +600,7 @@ func createDevRunner(
 	xrplRelayerAcc rippledata.Account,
 	contractAddress sdk.AccAddress,
 	relayerCoreumAddress sdk.AccAddress,
-) *runner.Runner {
+) (runner.Components, *runner.Runner) {
 	t.Helper()
 
 	encodingConfig := coreumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
@@ -627,10 +640,12 @@ func createDevRunner(
 	// exit on errors
 	relayerRunnerCfg.Processes.ExitOnError = true
 
+	// make the collector faster
+	relayerRunnerCfg.Metrics.PeriodicCollector.RepeatDelay = 500 * time.Millisecond
+
 	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false, false)
 	require.NoError(t, err)
-
 	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg)
 	require.NoError(t, err)
-	return relayerRunner
+	return components, relayerRunner
 }

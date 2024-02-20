@@ -85,8 +85,8 @@ const (
 	FlagDeliverAmount = "deliver-amount"
 	// FlagTicketsToAllocate is tickets to allocate flag.
 	FlagTicketsToAllocate = "tickets-to-allocate"
-	// FlagMetricsEnable enables metrics server.
-	FlagMetricsEnable = "metrics-enable"
+	// FlagMetricsEnabled enables metrics server.
+	FlagMetricsEnabled = "metrics-enabled"
 	// FlagsMetricsListenAddr sets listen address for metrics server.
 	FlagsMetricsListenAddr = "metrics-listen-addr"
 )
@@ -275,9 +275,9 @@ func InitCmd() *cobra.Command {
 				return errors.Wrapf(err, "failed to read %s", FlagXRPLRPCURL)
 			}
 
-			metricsEnable, err := cmd.Flags().GetBool(FlagMetricsEnable)
+			metricsEnabled, err := cmd.Flags().GetBool(FlagMetricsEnabled)
 			if err != nil {
-				return errors.Wrapf(err, "failed to read %s", FlagMetricsEnable)
+				return errors.Wrapf(err, "failed to read %s", FlagMetricsEnabled)
 			}
 
 			metricsListenAddr, err := cmd.Flags().GetString(FlagsMetricsListenAddr)
@@ -291,7 +291,7 @@ func InitCmd() *cobra.Command {
 
 			cfg.XRPL.RPC.URL = xrplRPCURL
 
-			cfg.Metrics.Server.Enable = metricsEnable
+			cfg.Metrics.Enabled = metricsEnabled
 			cfg.Metrics.Server.ListenAddress = metricsListenAddr
 
 			if err = runner.InitConfig(home, cfg); err != nil {
@@ -305,7 +305,7 @@ func InitCmd() *cobra.Command {
 	addCoreumChainIDFlag(cmd)
 	cmd.PersistentFlags().String(FlagXRPLRPCURL, "", "XRPL RPC address.")
 	cmd.PersistentFlags().String(FlagCoreumGRPCURL, "", "Coreum GRPC address.")
-	cmd.PersistentFlags().Bool(FlagMetricsEnable, false, "Start metric server in relayer.")
+	cmd.PersistentFlags().Bool(FlagMetricsEnabled, false, "Start metric server in relayer.")
 	cmd.PersistentFlags().String(FlagsMetricsListenAddr, "localhost:9090", "Address metrics server listens on.")
 
 	addHomeFlag(cmd)
