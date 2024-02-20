@@ -168,6 +168,50 @@ func TestMultisigPayment(t *testing.T) {
 	)
 }
 
+func TestXRPReserves(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	singleSigTxFee, err := chains.XRPL.RPCClient().CalculateFee(1, xrpl.DefaultXRPLBaseFee)
+	require.NoError(t, err)
+
+	multisigAcc := chains.XRPL.GenEmptyAccount(t)
+
+	signerListSetTx1 := buildSignerListSetTx(t, chains.XRPL, 3, 2)
+
+	// Fund with account activation reserve.
+	chains.XRPL.FundAccount(ctx, t, multisigAcc, xrpl.ReserveToActivateAccount)
+	require.NoError(t, chains.XRPL.RPCClient().AutoFillTx(ctx, &signerListSetTx1, multisigAcc, 1))
+	err = chains.XRPL.SignAndSubmitTx(ctx, t, &signerListSetTx1, multisigAcc)
+	require.ErrorContains(t, err, "tecINSUFFICIENT_RESERVE")
+
+	// Fund with new ledger object reserve.
+	chains.XRPL.FundAccount(ctx, t, multisigAcc, xrpl.ReservePerItem)
+	require.NoError(t, chains.XRPL.RPCClient().AutoFillTx(ctx, &signerListSetTx1, multisigAcc, 1))
+	err = chains.XRPL.SignAndSubmitTx(ctx, t, &signerListSetTx1, multisigAcc)
+	require.ErrorContains(t, err, "tecINSUFFICIENT_RESERVE")
+
+	// Fund with fee. Note that we should also consider fees for previous 2 failed txs plus current one.
+	chains.XRPL.FundAccount(ctx, t, multisigAcc, 3*singleSigTxFee.Float())
+	require.NoError(t, chains.XRPL.RPCClient().AutoFillTx(ctx, &signerListSetTx1, multisigAcc, 1))
+	err = chains.XRPL.SignAndSubmitTx(ctx, t, &signerListSetTx1, multisigAcc)
+	require.NoError(t, err)
+
+	// Set multising to max allowed signer to verify that multisig reserve doesn't depend on signer entries.
+	// Note that reserve is used to pay fees here. It is possible when don't create a new ledger object.
+	signerListSetTx2 := buildSignerListSetTx(
+		t,
+		chains.XRPL,
+		int(xrpl.MaxAllowedXRPLSigners),
+		int(xrpl.MaxAllowedXRPLSigners),
+	)
+	chains.XRPL.FundAccount(ctx, t, multisigAcc, 3*singleSigTxFee.Float())
+	require.NoError(t, chains.XRPL.RPCClient().AutoFillTx(ctx, &signerListSetTx2, multisigAcc, 1))
+	err = chains.XRPL.SignAndSubmitTx(ctx, t, &signerListSetTx2, multisigAcc)
+	require.NoError(t, err)
+}
+
 func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	t.Parallel()
 
@@ -433,7 +477,7 @@ func TestMultisigSignerSetWithMaxSigners(t *testing.T) {
 	multiSigAcc := chains.XRPL.GenAccount(ctx, t, 10)
 	t.Logf("Multisig account: %s", multiSigAcc)
 	signerCount := xrpl.MaxAllowedXRPLSigners
-	chains.XRPL.FundAccountForSignerListSet(ctx, t, multiSigAcc, signerCount)
+	chains.XRPL.FundAccountForSignerListSet(ctx, t, multiSigAcc)
 	signerSignerEntries := make([]rippledata.SignerEntry, 0)
 	for i := 0; i < int(signerCount); i++ {
 		signer := chains.XRPL.GenAccount(ctx, t, 0)
@@ -1011,4 +1055,29 @@ func buildUpdateSignerListSetTxForMultiSigning(
 	}
 
 	return tx
+}
+
+func buildSignerListSetTx(
+	t *testing.T,
+	xrplChain integrationtests.XRPLChain,
+	signerCount, quorum int,
+) rippledata.SignerListSet {
+	t.Helper()
+
+	signerEntries := lo.Times(signerCount, func(_ int) rippledata.SignerEntry {
+		return rippledata.SignerEntry{
+			SignerEntry: rippledata.SignerEntryItem{
+				Account:      lo.ToPtr(xrplChain.GenEmptyAccount(t)),
+				SignerWeight: lo.ToPtr(uint16(1)),
+			},
+		}
+	})
+
+	return rippledata.SignerListSet{
+		SignerQuorum:  uint32(quorum),
+		SignerEntries: signerEntries,
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.SIGNER_LIST_SET,
+		},
+	}
 }

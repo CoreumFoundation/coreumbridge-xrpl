@@ -161,10 +161,11 @@ func (c XRPLChain) FundAccountForTicketAllocation(
 }
 
 // FundAccountForSignerListSet funds the provided account with the amount required for the multi-signing set.
+// Multi-signing set is a single ledger object so one reserve is needed.
 func (c XRPLChain) FundAccountForSignerListSet(
-	ctx context.Context, t *testing.T, acc rippledata.Account, singersCount uint32,
+	ctx context.Context, t *testing.T, acc rippledata.Account,
 ) {
-	c.FundAccount(ctx, t, acc, xrpl.ReservePerItem*float64(singersCount))
+	c.FundAccount(ctx, t, acc, xrpl.ReservePerItem)
 }
 
 // FundAccount funds the provided account with the provided amount.
