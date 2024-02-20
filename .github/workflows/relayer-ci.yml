@@ -14,6 +14,7 @@ jobs:
         ci_step: [
           "lint",
           "test",
+          "fuzz-test",
           "integration tests contract",
           "integration tests processes",
           "integration tests xrpl",
@@ -26,6 +27,11 @@ jobs:
             build-contract: false
           - ci_step: "test"
             command: "make test-relayer"
+            linter-cache: false
+            docker-cache: false
+            build-contract: false
+          - ci_step: "fuzz-test"
+            command: "make test-fuzz"
             linter-cache: false
             docker-cache: false
             build-contract: false
@@ -59,7 +65,7 @@ jobs:
         with:
           repository: CoreumFoundation/crust
           path: crust
-          ref: 527be2f938308cb4b1a7b868a2ebf550e2d3ba03
+          ref: 10752622f34c65d216f755ff30ee0d532e20a5be
       - name: Checkout coreum
         uses: actions/checkout@v4
         with:

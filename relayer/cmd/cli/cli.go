@@ -12,7 +12,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/client/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
@@ -25,6 +24,8 @@ import (
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/keys"
+	overridekeyring "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/override/crypto/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
@@ -84,8 +85,8 @@ const (
 	FlagDeliverAmount = "deliver-amount"
 	// FlagTicketsToAllocate is tickets to allocate flag.
 	FlagTicketsToAllocate = "tickets-to-allocate"
-	// FlagMetricsEnable enables metrics server.
-	FlagMetricsEnable = "metrics-enable"
+	// FlagMetricsEnabled enables metrics server.
+	FlagMetricsEnabled = "metrics-enabled"
 	// FlagsMetricsListenAddr sets listen address for metrics server.
 	FlagsMetricsListenAddr = "metrics-listen-addr"
 )
@@ -280,9 +281,9 @@ func InitCmd() *cobra.Command {
 				return errors.Wrapf(err, "failed to read %s", FlagXRPLRPCURL)
 			}
 
-			metricsEnable, err := cmd.Flags().GetBool(FlagMetricsEnable)
+			metricsEnabled, err := cmd.Flags().GetBool(FlagMetricsEnabled)
 			if err != nil {
-				return errors.Wrapf(err, "failed to read %s", FlagMetricsEnable)
+				return errors.Wrapf(err, "failed to read %s", FlagMetricsEnabled)
 			}
 
 			metricsListenAddr, err := cmd.Flags().GetString(FlagsMetricsListenAddr)
@@ -296,7 +297,7 @@ func InitCmd() *cobra.Command {
 
 			cfg.XRPL.RPC.URL = xrplRPCURL
 
-			cfg.Metrics.Server.Enable = metricsEnable
+			cfg.Metrics.Enabled = metricsEnabled
 			cfg.Metrics.Server.ListenAddress = metricsListenAddr
 
 			if err = runner.InitConfig(home, cfg); err != nil {
@@ -310,7 +311,7 @@ func InitCmd() *cobra.Command {
 	addCoreumChainIDFlag(cmd)
 	cmd.PersistentFlags().String(FlagXRPLRPCURL, "", "XRPL RPC address.")
 	cmd.PersistentFlags().String(FlagCoreumGRPCURL, "", "Coreum GRPC address.")
-	cmd.PersistentFlags().Bool(FlagMetricsEnable, false, "Start metric server in relayer.")
+	cmd.PersistentFlags().Bool(FlagMetricsEnabled, false, "Start metric server in relayer.")
 	cmd.PersistentFlags().String(FlagsMetricsListenAddr, "localhost:9090", "Address metrics server listens on.")
 
 	addHomeFlag(cmd)
@@ -378,7 +379,11 @@ func WithKeyring(clientCtx client.Context, flagSet *pflag.FlagSet, suffix string
 
 // KeyringCmd returns cosmos keyring cmd inti with the correct keys home.
 // Based on provided suffix and coinType it uses keyring dedicated to xrpl or coreum.
-func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
+func KeyringCmd(
+	suffix string,
+	coinType uint32,
+	addressFormatter overridekeyring.AddressFormatter,
+) (*cobra.Command, error) {
 	// We need to set CoinType before initializing keys commands because keys.Commands() sets default
 	// flag value from sdk config. See github.com/cosmos/cosmos-sdk@v0.47.5/client/keys/add.go:78
 	sdk.GetConfig().SetCoinType(coinType)
@@ -387,6 +392,8 @@ func KeyringCmd(suffix string, coinType uint32) (*cobra.Command, error) {
 	cmd := keys.Commands(DefaultHomeDir)
 	for _, childCmd := range cmd.Commands() {
 		childCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+			overridekeyring.SelectedAddressFormatter = addressFormatter
+
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return errors.WithStack(err)
@@ -557,7 +564,7 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 					return errors.Wrapf(err, "failed to get %s", FlagRelayersCount)
 				}
 				if relayersCount > 0 {
-					minXrplBridgeBalance := bridgeclient.ComputeXRPLBrideAccountBalance(relayersCount)
+					minXrplBridgeBalance := bridgeclient.ComputeXRPLBrideAccountBalance()
 					log.Info(ctx, "Computed minimum XRPL bridge balance", zap.Float64("balance", minXrplBridgeBalance))
 				}
 

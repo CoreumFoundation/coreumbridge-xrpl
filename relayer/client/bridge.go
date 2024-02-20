@@ -152,6 +152,7 @@ type XRPLRPCClient interface {
 		ledgerIndex any,
 		marker string,
 	) (xrpl.AccountLinesResult, error)
+	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
 }
 
 // XRPLTxSigner is XRPL transaction signer.
@@ -239,8 +240,8 @@ func NewBridgeClient(
 	}
 }
 
-// Bootstrap creates initial XRPL bridge multi-signing account the disabled master key,
-// enabled rippling on it deploys the bridge contract with the provided settings.
+// Bootstrap creates initial XRPL bridge multi-signing account with the disabled master key,
+// enabled rippling on it, and deploys the bridge contract with the provided settings.
 func (b *BridgeClient) Bootstrap(
 	ctx context.Context,
 	senderAddress sdk.AccAddress,
@@ -258,7 +259,7 @@ func (b *BridgeClient) Bootstrap(
 		zap.String("xrplAddress", xrplBridgeAccount.String()),
 	)
 	if !cfg.SkipXRPLBalanceValidation {
-		if err = b.validateXRPLBridgeAccountBalance(ctx, len(cfg.Relayers), xrplBridgeAccount); err != nil {
+		if err = b.validateXRPLBridgeAccountBalance(ctx, xrplBridgeAccount); err != nil {
 			return nil, err
 		}
 	}
@@ -890,38 +891,7 @@ func (b *BridgeClient) GetCoreumBalances(ctx context.Context, address sdk.AccAdd
 
 // GetXRPLBalances returns all XRPL account balances.
 func (b *BridgeClient) GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error) {
-	balances := make([]rippledata.Amount, 0)
-	accInfo, err := b.xrplRPCClient.AccountInfo(ctx, acc)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get XRPL account info, address:%s", acc.String())
-	}
-	balances = append(balances, rippledata.Amount{
-		Value:    accInfo.AccountData.Balance,
-		Currency: xrpl.XRPTokenCurrency,
-		Issuer:   xrpl.XRPTokenIssuer,
-	})
-
-	marker := ""
-	for {
-		accLines, err := b.xrplRPCClient.AccountLines(ctx, acc, "closed", marker)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get XRPL account lines, address:%s", acc.String())
-		}
-		for _, line := range accLines.Lines {
-			lineCopy := line
-			balances = append(balances, rippledata.Amount{
-				Value:    &lineCopy.Balance.Value,
-				Currency: lineCopy.Currency,
-				Issuer:   lineCopy.Account,
-			})
-		}
-		if accLines.Marker == "" {
-			break
-		}
-		marker = accLines.Marker
-	}
-
-	return balances, nil
+	return b.xrplRPCClient.GetXRPLBalances(ctx, acc)
 }
 
 // GetPendingRefunds queries for the pending refunds of an address.
@@ -1050,10 +1020,9 @@ func (b *BridgeClient) GetPendingOperations(ctx context.Context) ([]coreum.Opera
 
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(
 	ctx context.Context,
-	relayersCount int,
 	xrplBridgeAccount rippledata.Account,
 ) error {
-	requiredXRPLBalance := ComputeXRPLBrideAccountBalance(relayersCount)
+	requiredXRPLBalance := ComputeXRPLBrideAccountBalance()
 	b.log.Info(
 		ctx,
 		"Compute required XRPL bridge account balance to init the account",
@@ -1125,11 +1094,11 @@ func (b *BridgeClient) setUpXRPLBridgeAccount(
 }
 
 // ComputeXRPLBrideAccountBalance computes the min balance required by the XRPL bridge account.
-func ComputeXRPLBrideAccountBalance(signersCount int) float64 {
+func ComputeXRPLBrideAccountBalance() float64 {
 	return minBalanceToCoverFeeAndTrustLines +
 		xrpl.ReserveToActivateAccount +
-		float64(xrpl.MaxTicketsToAllocate)*xrpl.ReservePerItem +
-		float64(signersCount)*xrpl.ReservePerItem
+		// one additional item reserve is needed for a signer list object for multisig.
+		float64(xrpl.MaxTicketsToAllocate+1)*xrpl.ReservePerItem
 }
 
 // InitBootstrappingConfig creates default bootstrapping config yaml file.
