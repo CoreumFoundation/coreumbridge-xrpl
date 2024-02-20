@@ -133,6 +133,16 @@ type ContractClient interface {
 		operationID uint32,
 	) (*sdk.TxResponse, error)
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
+	DeployContract(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		byteCode []byte,
+	) (*sdk.TxResponse, uint64, error)
+	MigrateContract(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		codeID uint64,
+	) (*sdk.TxResponse, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -313,6 +323,71 @@ func (b *BridgeClient) Bootstrap(
 
 	b.log.Info(ctx, "The XRPL bridge account is ready", zap.String("address", xrplBridgeAccount.String()))
 	return contractAddress, nil
+}
+
+// DeployContract deploys smart contract.
+func (b *BridgeClient) DeployContract(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	contractByteCodePath string,
+) (*sdk.TxResponse, uint64, error) {
+	b.log.Info(
+		ctx,
+		"Deploying contract",
+		zap.String("path", contractByteCodePath),
+	)
+
+	contactByteCode, err := os.ReadFile(contractByteCodePath)
+	if err != nil {
+		return nil, 0, errors.Wrapf(err, "failed to get contract bytecode by path:%s", contractByteCodePath)
+	}
+
+	txRes, codeID, err := b.contractClient.DeployContract(ctx, sender, contactByteCode)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if txRes == nil {
+		return nil, 0, nil
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully deployed contract",
+		zap.Uint64("codeID", codeID),
+	)
+
+	return txRes, codeID, nil
+}
+
+// MigrateContract calls the contract migration.
+func (b *BridgeClient) MigrateContract(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	codeID uint64,
+) error {
+	b.log.Info(
+		ctx,
+		"Migrating contract",
+		zap.Uint64("codeID", codeID),
+	)
+
+	txRes, err := b.contractClient.MigrateContract(ctx, sender, codeID)
+	if err != nil {
+		return err
+	}
+
+	if txRes == nil {
+		return nil
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully migrated contract",
+		zap.String("txHash", txRes.TxHash),
+	)
+
+	return nil
 }
 
 // GetContractConfig returns contract config.

@@ -97,6 +97,22 @@ func (mr *MockBridgeClientMockRecorder) ClaimRelayerFees(arg0, arg1, arg2 interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimRelayerFees", reflect.TypeOf((*MockBridgeClient)(nil).ClaimRelayerFees), arg0, arg1, arg2)
 }
 
+// DeployContract mocks base method.
+func (m *MockBridgeClient) DeployContract(arg0 context.Context, arg1 types.AccAddress, arg2 string) (*types.TxResponse, uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeployContract", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*types.TxResponse)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// DeployContract indicates an expected call of DeployContract.
+func (mr *MockBridgeClientMockRecorder) DeployContract(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeployContract", reflect.TypeOf((*MockBridgeClient)(nil).DeployContract), arg0, arg1, arg2)
+}
+
 // GetAllTokens mocks base method.
 func (m *MockBridgeClient) GetAllTokens(arg0 context.Context) ([]coreum.CoreumToken, []coreum.XRPLToken, error) {
 	m.ctrl.T.Helper()
@@ -215,6 +231,20 @@ func (m *MockBridgeClient) HaltBridge(arg0 context.Context, arg1 types.AccAddres
 func (mr *MockBridgeClientMockRecorder) HaltBridge(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HaltBridge", reflect.TypeOf((*MockBridgeClient)(nil).HaltBridge), arg0, arg1)
+}
+
+// MigrateContract mocks base method.
+func (m *MockBridgeClient) MigrateContract(arg0 context.Context, arg1 types.AccAddress, arg2 uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MigrateContract", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MigrateContract indicates an expected call of MigrateContract.
+func (mr *MockBridgeClientMockRecorder) MigrateContract(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateContract", reflect.TypeOf((*MockBridgeClient)(nil).MigrateContract), arg0, arg1, arg2)
 }
 
 // RecoverTickets mocks base method.

@@ -199,6 +199,16 @@ type BridgeClient interface {
 		operationID uint32,
 	) error
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
+	DeployContract(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		contractByteCodePath string,
+	) (*sdk.TxResponse, uint64, error)
+	MigrateContract(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		codeID uint64,
+	) error
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
@@ -1782,6 +1792,106 @@ $ resume-bridge --%s owner
 			return bridgeClient.ResumeBridge(
 				ctx,
 				sender,
+			)
+		},
+	}
+
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
+
+	return cmd
+}
+
+// DeployContractCmd deploys contract bytecode.
+func DeployContractCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "deploy-contract [path]",
+		Short: "Deploy contract bytecode.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Deploy contract bytecode.
+Example:
+$ deploy-contract /home/coreumbridge_xrpl.wasm --%s deployer
+`, FlagKeyName)),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			if err != nil {
+				return err
+			}
+
+			_, _, err = bridgeClient.DeployContract(
+				ctx,
+				sender,
+				args[0],
+			)
+			return err
+		},
+	}
+
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
+
+	return cmd
+}
+
+// MigrateContractCmd migrates contract to a new version.
+func MigrateContractCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "migrate-contract [code-id]",
+		Short: "Migrate contract to a new version.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Migrate contract to a new version.
+Example:
+$ migrate-contract 123 --%s owner
+`, FlagKeyName)),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			// get bridgeClient first to set cosmos SDK config
+			bridgeClient, err := bcp(cmd)
+			if err != nil {
+				return err
+			}
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get client context")
+			}
+			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
+			if err != nil {
+				return err
+			}
+			sender, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
+			if err != nil {
+				return err
+			}
+
+			codeID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return errors.Wrapf(err, "invalid codeID: %s", args[1])
+			}
+
+			return bridgeClient.MigrateContract(
+				ctx,
+				sender,
+				codeID,
 			)
 		},
 	}

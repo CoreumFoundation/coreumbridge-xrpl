@@ -493,21 +493,10 @@ func (c *ContractClient) DeployAndInstantiate(
 	byteCode []byte,
 	config InstantiationConfig,
 ) (sdk.AccAddress, error) {
-	msgStoreCode := &wasmtypes.MsgStoreCode{
-		Sender:       sender.String(),
-		WASMByteCode: byteCode,
-	}
-	c.log.Info(ctx, "Deploying contract bytecode.")
-
-	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgStoreCode)
+	_, codeID, err := c.deployContract(ctx, sender, byteCode)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy wasm bytecode")
+		return nil, err
 	}
-	codeID, err := event.FindUint64EventAttribute(res.Events, wasmtypes.EventTypeStoreCode, wasmtypes.AttributeKeyCodeID)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to find code ID in the tx result")
-	}
-	c.log.Info(ctx, "The contract bytecode is deployed.", zap.Uint64("codeID", codeID))
 
 	reqPayload, err := json.Marshal(instantiateRequest{
 		Owner:                       config.Owner,
@@ -538,7 +527,7 @@ func (c *ContractClient) DeployAndInstantiate(
 	}
 
 	c.log.Info(ctx, "Instantiating contract.", zap.Any("msg", msg))
-	res, err = client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msg)
+	res, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msg)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deploy bytecode")
 	}
@@ -557,6 +546,42 @@ func (c *ContractClient) DeployAndInstantiate(
 	c.log.Info(ctx, "The contract is instantiated.", zap.String("address", sdkContractAddr.String()))
 
 	return sdkContractAddr, nil
+}
+
+// DeployContract deploys the contract bytecode.
+func (c *ContractClient) DeployContract(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	byteCode []byte,
+) (*sdk.TxResponse, uint64, error) {
+	txRes, codeID, err := c.deployContract(ctx, sender, byteCode)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return txRes, codeID, nil
+}
+
+// MigrateContract calls the executes the contract migration.
+func (c *ContractClient) MigrateContract(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	codeID uint64,
+) (*sdk.TxResponse, error) {
+	msgMigrate := &wasmtypes.MsgMigrateContract{
+		Sender:   sender.String(),
+		Contract: c.GetContractAddress().String(),
+		CodeID:   codeID,
+		Msg:      []byte("{}"),
+	}
+
+	txRes, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgMigrate)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to migrate contract, codeID:%d", codeID)
+	}
+	c.log.Info(ctx, "Contract migrated successfully")
+
+	return txRes, nil
 }
 
 // SetContractAddress sets the client contract address if it was not set before.
@@ -1300,6 +1325,34 @@ func (c *ContractClient) GetPendingRefunds(ctx context.Context, address sdk.AccA
 // SetGenerateOnly sets the client.Context.GenerateOnly.
 func (c *ContractClient) SetGenerateOnly(generateOnly bool) {
 	c.clientCtx = c.clientCtx.WithGenerateOnly(generateOnly)
+}
+
+func (c *ContractClient) deployContract(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	byteCode []byte,
+) (*sdk.TxResponse, uint64, error) {
+	msgStoreCode := &wasmtypes.MsgStoreCode{
+		Sender:       sender.String(),
+		WASMByteCode: byteCode,
+	}
+	c.log.Info(ctx, "Deploying contract bytecode.")
+
+	txRes, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgStoreCode)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "failed to deploy wasm bytecode")
+	}
+	// handle the genereate only case
+	if txRes == nil {
+		return nil, 0, nil
+	}
+	codeID, err := event.FindUint64EventAttribute(txRes.Events, wasmtypes.EventTypeStoreCode, wasmtypes.AttributeKeyCodeID)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "failed to find code ID in the tx result")
+	}
+	c.log.Info(ctx, "The contract bytecode is deployed.", zap.Uint64("codeID", codeID))
+
+	return txRes, codeID, nil
 }
 
 func (c *ContractClient) getPaginatedXRPLTokens(

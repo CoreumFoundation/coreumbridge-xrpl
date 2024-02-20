@@ -1,9 +1,9 @@
 name: contract-ci
 on:
   push:
-    branches: [ "master" ]
+    branches: [ master, migration ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ master, migration ]
   workflow_dispatch:
 env:
   CARGO_TERM_COLOR: always

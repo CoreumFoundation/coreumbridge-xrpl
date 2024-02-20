@@ -1,9 +1,9 @@
 name: relayer-ci
 on:
   push:
-    branches: [ master ]
+    branches: [ master, migration ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, migration ]
   workflow_dispatch:
 
 jobs:
@@ -121,6 +121,9 @@ jobs:
         if: ${{ matrix.build-contract }}
       - name: Build dev environment
         run: make build-dev-env
+        working-directory: ./coreumbridge-xrpl
+      - name: Download released wasm contract
+        run: make download-released-contract
         working-directory: ./coreumbridge-xrpl
       - name: Run ${{ matrix.ci_step }}
         working-directory: ./coreumbridge-xrpl

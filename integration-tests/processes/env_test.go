@@ -149,22 +149,24 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		EvidenceThreshold:           cfg.SigningThreshold,
 		UsedTicketSequenceThreshold: cfg.UsedTicketSequenceThreshold,
 		TrustSetLimitAmount:         cfg.TrustSetLimitAmount.String(),
-		ContractByteCodePath:        integrationtests.CompiledContractFilePath,
+		ContractByteCodePath:        integrationtests.MainnetContractFilePath,
 		XRPLBaseFee:                 cfg.XRPLBaseFee,
 		SkipXRPLBalanceValidation:   true,
 	}
 
-	var contractAddress sdk.AccAddress
 	if cfg.CustomContractAddress == nil {
-		var err error
-		contractAddress, err = bridgeClient.Bootstrap(
+		contractAddress, err := bridgeClient.Bootstrap(
 			ctx, contractOwner, bridgeXRPLAddress.String(), bootstrappingCfg,
 		)
 		require.NoError(t, err)
+		require.NoError(t, contractClient.SetContractAddress(contractAddress))
+		_, codeID, err := bridgeClient.DeployContract(ctx, contractOwner, integrationtests.CompiledContractFilePath)
+		require.NoError(t, err)
+
+		require.NoError(t, bridgeClient.MigrateContract(ctx, contractOwner, codeID))
 	} else {
-		contractAddress = *cfg.CustomContractAddress
+		require.NoError(t, contractClient.SetContractAddress(*cfg.CustomContractAddress))
 	}
-	require.NoError(t, contractClient.SetContractAddress(contractAddress))
 
 	runners := make([]*runner.Runner, 0, cfg.RelayersCount)
 	runnerComponents := make([]runner.Components, 0, cfg.RelayersCount)

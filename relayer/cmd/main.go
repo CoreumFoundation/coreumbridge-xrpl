@@ -95,6 +95,8 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.ResumeBridgeCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.CancelPendingOperationCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.PendingOperationsCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.DeployContractCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.MigrateContractCmd(bridgeClientProvider))
 
 	return cmd, nil
 }

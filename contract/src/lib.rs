@@ -12,3 +12,4 @@ pub mod state;
 mod tests;
 pub mod tickets;
 pub mod token;
+pub mod migration;

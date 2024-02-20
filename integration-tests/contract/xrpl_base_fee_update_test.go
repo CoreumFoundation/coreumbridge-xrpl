@@ -34,7 +34,7 @@ func TestUpdateXRPLBaseFee(t *testing.T) {
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
 	xrplBaseFee := uint32(10)
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -156,7 +156,7 @@ func TestUpdateXRPLBaseFeeForMaxOperationCount(t *testing.T) {
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
 	xrplBaseFee := uint32(10)
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,

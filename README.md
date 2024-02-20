@@ -71,6 +71,7 @@ The `coreum-relayer` and `xrpl-relayer` are key names set by default in the `rel
 to update them, then updated them in the `relayer.yaml` as well.
 
 Or import the existing mnemonics:
+
 ```bash
 coreumbridge-xrpl-relayer keys-coreum add coreum-relayer --recover
 
@@ -218,3 +219,33 @@ docker restart coreumbridge-xrpl-relayer && docker attach coreumbridge-xrpl-rela
 ```
 
 Once you are attached, press any key and enter the keyring password.
+
+### Migrate contract
+
+#### Download new version of the contract
+
+Download new version form the [Releases page](https://github.com/CoreumFoundation/coreumbridge-xrpl/releases) and store
+locally.
+
+#### Deploy new version of the contract
+
+Execute the deployment command
+
+```bash
+coreumbridge-xrpl-relayer deploy-contract /path/to/wasm/contrac --key-name deployer
+```
+
+The `deployer` can be any account.
+
+The command will provide and output with the new code ID. Use that code ID for the next command
+
+#### Execute the migration
+
+Execute the migration command
+
+```bash
+export NEW_CODE_ID={Code ID from previous command}
+coreumbridge-xrpl-relayer migrate-contract $NEW_CODE_ID --key-name owner
+```
+
+Only owner(admin) is authorized to call that command.
