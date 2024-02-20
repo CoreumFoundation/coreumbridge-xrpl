@@ -1419,7 +1419,7 @@ func (c *ContractClient) execute(
 		}
 		if cosmoserrors.ErrOutOfGas.Is(err) {
 			outOfGasRetryAttempt++
-			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution")
+			c.log.Info(ctx, "Out of gas, retrying Coreum tx execution")
 			return retry.Retryable(errors.Wrapf(err, "retry tx execution, out of gas"))
 		}
 

@@ -143,13 +143,17 @@ func DefaultConfig() Config {
 		rippledata.Account{},
 		sdk.AccAddress(nil),
 	)
+	defaultLoggerConfig := logger.DefaultZapLoggerConfig()
 
 	defaultMetricsServerConfig := metrics.DefaultServerConfig()
 	defaultMetricsPeriodicCollectorConfig := metrics.DefaultPeriodicCollectorConfig()
 
 	return Config{
-		Version:       configVersion,
-		LoggingConfig: LoggingConfig(logger.DefaultZapLoggerConfig()),
+		Version: configVersion,
+		LoggingConfig: LoggingConfig{
+			Level:  defaultLoggerConfig.Level,
+			Format: defaultLoggerConfig.Format,
+		},
 		XRPL: XRPLConfig{
 			// empty be default
 			MultiSignerKeyName: "xrpl-relayer",

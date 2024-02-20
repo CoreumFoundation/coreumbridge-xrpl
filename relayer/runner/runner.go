@@ -27,6 +27,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/processes"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/tracing"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -134,18 +135,23 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 
 // Start starts runner.
 func (r *Runner) Start(ctx context.Context) error {
+	runnerProcesses := map[string]func(context.Context) error{
+		"XRPL-to-Coreum": r.withRestartOnError(r.xrplToCoreumProcess.Start),
+		"Coreum-to-XRPL": r.withRestartOnError(r.coreumToXRPLProcess.Start),
+	}
+	if r.cfg.Metrics.Enabled {
+		runnerProcesses["metrics-server"] = r.metricsServer.Start
+		runnerProcesses["metrics-periodic-collector"] = r.components.MetricsPeriodicCollector.Start
+	}
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-		spawn("xrplToCoreumProcess", parallel.Continue, r.withRestartOnError(r.xrplToCoreumProcess.Start))
-		spawn("coreumToXRPLProcess", parallel.Continue, r.withRestartOnError(r.coreumToXRPLProcess.Start))
-		if r.cfg.Metrics.Enabled {
-			spawn("metricsServer", parallel.Fail, r.withRestartOnError(func(ctx context.Context) error {
-				return r.metricsServer.Start(ctx)
-			}))
-			spawn("metricsPeriodicCollector", parallel.Fail, r.withRestartOnError(func(ctx context.Context) error {
-				return r.components.MetricsPeriodicCollector.Start(ctx)
-			}))
+		for name, start := range runnerProcesses {
+			name := name
+			start := start
+			spawn(name, parallel.Continue, func(ctx context.Context) error {
+				ctx = tracing.WithTracingProcess(ctx, name)
+				return start(ctx)
+			})
 		}
-
 		return nil
 	})
 }
