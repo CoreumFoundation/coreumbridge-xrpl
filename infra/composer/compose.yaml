@@ -1,0 +1,45 @@
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: coreumbridge-xrpl-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    restart: unless-stopped
+    volumes:
+      - ./prometheus:/etc/prometheus
+    networks:
+      - znet
+  grafana:
+    image: grafana/grafana
+    container_name: coreumbridge-xrpl-grafana
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=grafana
+    volumes:
+      - ./grafana:/etc/grafana/provisioning
+    networks:
+      - znet
+  relayer:
+    image: coreumbridge-xrpl-relayer:local
+    container_name: coreumbridge-xrpl-relayer
+    restart: "no"
+    volumes:
+      - ./relayer:/app
+    entrypoint: /app/run.sh
+    environment:
+      # TODO: once the other PR is merged, explain where the mnemonic is taken from
+      - MNEMONIC_COREUM=dice quick social basic morning defense birth silly embrace fatal tornado couple truck age obtain drama wheel mountain wreck umbrella spider present perfect large
+      # TODO: once the other PR is merged, explain where the mnemonic is taken from
+      - MNEMONIC_XRPL=goat fish barrel afford voice coil injury run trade retire solution unique lawn oil cattle lazy audit joke long grace income neglect mail sell
+      - CONTRACT_ADDR=devcore14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sd4f0ak
+      - COREUM_GRPC_URL=http://znet-cored-00-val:9090
+      - XRPL_RPC_URL=http://znet-xrpl-xrpl:5005
+    networks:
+      - znet
+networks:
+  znet:
+    external:
+      name: znet
