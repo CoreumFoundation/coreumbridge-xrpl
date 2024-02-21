@@ -7,8 +7,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// WithMetrics returns logger reporting metrics.
-func WithMetrics(l Logger, errorCounter prometheus.Counter) (Logger, error) {
+// WithErrorCounterMetric returns logger reporting metrics.
+func WithErrorCounterMetric(l Logger, errorCounter prometheus.Counter) (Logger, error) {
 	return metricLogger{
 		parentLogger: l,
 		errorCounter: errorCounter,
@@ -25,7 +25,6 @@ func (l metricLogger) Debug(ctx context.Context, msg string, fields ...zap.Field
 }
 
 func (l metricLogger) Info(ctx context.Context, msg string, fields ...zap.Field) {
-	l.errorCounter.Inc()
 	l.parentLogger.Info(ctx, msg, fields...)
 }
 

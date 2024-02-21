@@ -55,6 +55,20 @@ func (mr *MockBridgeClientMockRecorder) Bootstrap(arg0, arg1, arg2, arg3 interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockBridgeClient)(nil).Bootstrap), arg0, arg1, arg2, arg3)
 }
 
+// CancelPendingOperation mocks base method.
+func (m *MockBridgeClient) CancelPendingOperation(arg0 context.Context, arg1 types.AccAddress, arg2 uint32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CancelPendingOperation", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CancelPendingOperation indicates an expected call of CancelPendingOperation.
+func (mr *MockBridgeClientMockRecorder) CancelPendingOperation(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelPendingOperation", reflect.TypeOf((*MockBridgeClient)(nil).CancelPendingOperation), arg0, arg1, arg2)
+}
+
 // ClaimRefund mocks base method.
 func (m *MockBridgeClient) ClaimRefund(arg0 context.Context, arg1 types.AccAddress, arg2 string) error {
 	m.ctrl.T.Helper()
@@ -142,6 +156,21 @@ func (m *MockBridgeClient) GetFeesCollected(arg0 context.Context, arg1 types.Add
 func (mr *MockBridgeClientMockRecorder) GetFeesCollected(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFeesCollected", reflect.TypeOf((*MockBridgeClient)(nil).GetFeesCollected), arg0, arg1)
+}
+
+// GetPendingOperations mocks base method.
+func (m *MockBridgeClient) GetPendingOperations(arg0 context.Context) ([]coreum.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPendingOperations", arg0)
+	ret0, _ := ret[0].([]coreum.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPendingOperations indicates an expected call of GetPendingOperations.
+func (mr *MockBridgeClientMockRecorder) GetPendingOperations(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingOperations", reflect.TypeOf((*MockBridgeClient)(nil).GetPendingOperations), arg0)
 }
 
 // GetPendingRefunds mocks base method.

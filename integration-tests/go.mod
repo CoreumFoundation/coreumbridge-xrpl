@@ -23,13 +23,12 @@ require (
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20231219065050-077b204f5543
 	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240204220401-5cbf342c8b5e
 	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
+	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
 	github.com/samber/lo v1.38.1
 	github.com/stretchr/testify v1.8.4
-	go.uber.org/zap v1.23.0
+	go.uber.org/zap v1.23.0 // indirect
 )
-
-require github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 
 require (
 	cloud.google.com/go v0.110.10 // indirect
@@ -155,8 +154,8 @@ require (
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.18.0 // indirect
-	github.com/prometheus/client_model v0.5.0 // indirect
+	github.com/prometheus/client_golang v1.18.0
+	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/rakyll/statik v0.1.7 // indirect

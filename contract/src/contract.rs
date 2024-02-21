@@ -3,7 +3,8 @@ use std::collections::VecDeque;
 use crate::{
     address::validate_xrpl_address,
     error::ContractError,
-    evidence::{handle_evidence, hash_bytes, Evidence, OperationResult, TransactionResult},
+    evidence::OperationResult::TicketsAllocation,
+    evidence::{handle_evidence, hash_bytes, Evidence, TransactionResult},
     fees::{amount_after_bridge_fees, handle_fee_collection, substract_relayer_fees},
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
@@ -12,11 +13,10 @@ use crate::{
         TransactionEvidence, TransactionEvidencesResponse, XRPLTokensResponse,
     },
     operation::{
-        check_operation_exists, create_pending_operation,
-        handle_coreum_to_xrpl_transfer_confirmation, handle_trust_set_confirmation,
-        remove_pending_refund, Operation, OperationType,
+        check_operation_exists, create_pending_operation, handle_operation, remove_pending_refund,
+        Operation, OperationType,
     },
-    relayer::{handle_rotate_keys_confirmation, is_relayer, validate_relayers, Relayer},
+    relayer::{is_relayer, validate_relayers, Relayer},
     signatures::add_signature,
     state::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, UserType, XRPLToken,
@@ -24,9 +24,7 @@ use crate::{
         PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, PROCESSED_TXS,
         PROHIBITED_XRPL_RECIPIENTS, TX_EVIDENCES, USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
-    tickets::{
-        allocate_ticket, handle_ticket_allocation_confirmation, register_used_ticket, return_ticket,
-    },
+    tickets::{allocate_ticket, register_used_ticket},
     token::{
         build_xrpl_token_key, is_token_xrp, set_token_bridging_fee, set_token_max_holding_amount,
         set_token_sending_precision, set_token_state,
@@ -73,6 +71,10 @@ const XRP_DEFAULT_FEE: Uint128 = Uint128::zero();
 
 const COREUM_CURRENCY_PREFIX: &str = "coreum";
 const XRPL_DENOM_PREFIX: &str = "xrpl";
+
+const ALLOWED_CURRENCY_SYMBOLS: [char; 18] = [
+    '?', '!', '@', '#', '$', '%', '^', '&', '*', '<', '>', '(', ')', '{', '}', '[', ']', '|',
+];
 
 // All XRPL originated tokens (except XRP) have 15 decimals
 pub const XRPL_TOKENS_DECIMALS: u32 = 15;
@@ -184,7 +186,7 @@ pub fn instantiate(
         .add_attribute("action", ContractActions::Instantiation.as_str())
         .add_attribute("contract_name", CONTRACT_NAME)
         .add_attribute("contract_version", CONTRACT_VERSION)
-        .add_attribute("owner", info.sender)
+        .add_attribute("owner", msg.owner)
         .add_message(xrp_issue_msg))
 }
 
@@ -329,6 +331,9 @@ pub fn execute(
             info.sender,
             prohibited_xrpl_recipients,
         ),
+        ExecuteMsg::CancelPendingOperation { operation_id } => {
+            cancel_pending_operation(deps.into_empty(), info.sender, operation_id)
+        }
     }
 }
 
@@ -375,6 +380,9 @@ fn register_coreum_token(
     // Format will be the hex representation in XRPL of the string coreum<hash> in uppercase
     let xrpl_currency =
         convert_currency_to_xrpl_hexadecimal(format!("{COREUM_CURRENCY_PREFIX}{hex_string}"));
+
+    // Validate XRPL currency just in case we got an invalid XRPL currency (starting with 0x00)
+    validate_xrpl_currency(&xrpl_currency)?;
 
     // We check that the this currency is not used already (we got the same hash)
     if COREUM_TOKENS
@@ -688,51 +696,17 @@ fn save_evidence(
 
             // If enough evidences are provided (threshold reached), we run the specific handler for each operation
             if threshold_reached {
-                match &operation.operation_type {
-                    // We check that if the operation was a ticket allocation, the result is also for a ticket allocation
-                    OperationType::AllocateTickets { .. } => match operation_result {
-                        Some(OperationResult::TicketsAllocation { tickets }) => {
-                            handle_ticket_allocation_confirmation(
-                                deps.storage,
-                                tickets,
-                                &transaction_result,
-                            )?;
-                        }
-                        None => return Err(ContractError::InvalidOperationResult {}),
-                    },
-                    OperationType::TrustSet {
-                        issuer, currency, ..
-                    } => {
-                        handle_trust_set_confirmation(
-                            deps.storage,
-                            issuer,
-                            currency,
-                            &transaction_result,
-                        )?;
-                    }
-                    OperationType::RotateKeys {
-                        new_relayers,
-                        new_evidence_threshold,
-                    } => {
-                        handle_rotate_keys_confirmation(
-                            deps.storage,
-                            new_relayers.to_owned(),
-                            new_evidence_threshold.to_owned(),
-                            &transaction_result,
-                        )?;
-                    }
-                    OperationType::CoreumToXRPLTransfer { .. } => {
-                        handle_coreum_to_xrpl_transfer_confirmation(
-                            deps.storage,
-                            &transaction_result,
-                            tx_hash.clone(),
-                            operation_id,
-                            &mut response,
-                        )?;
-                    }
-                }
-                // Operation is removed because it was confirmed
-                PENDING_OPERATIONS.remove(deps.storage, operation_id);
+                // We run the handler for the operation, routing to the correct handler for each operation type
+                handle_operation(
+                    deps.storage,
+                    &operation,
+                    &operation_result,
+                    &transaction_result,
+                    &tx_hash,
+                    operation_id,
+                    ticket_sequence,
+                    &mut response,
+                )?;
 
                 // If the operation was not Invalid, we must register a used ticket
                 if transaction_result.ne(&TransactionResult::Invalid) && ticket_sequence.is_some() {
@@ -747,11 +721,6 @@ fn save_evidence(
                             false.to_string(),
                         );
                     }
-                }
-
-                // If an operation was invalid, the ticket was never consumed, so we must return it to the ticket array.
-                if transaction_result.eq(&TransactionResult::Invalid) && ticket_sequence.is_some() {
-                    return_ticket(deps.storage, ticket_sequence.unwrap())?;
                 }
             }
 
@@ -1111,11 +1080,14 @@ fn update_xrpl_token(
         .map_err(|_| ContractError::TokenNotRegistered {})?;
 
     set_token_state(&mut token.state, state)?;
-    set_token_sending_precision(
-        &mut token.sending_precision,
-        sending_precision,
-        XRPL_TOKENS_DECIMALS,
-    )?;
+
+    let decimals = if is_token_xrp(&issuer, &currency) {
+        XRP_DECIMALS
+    } else {
+        XRPL_TOKENS_DECIMALS
+    };
+    set_token_sending_precision(&mut token.sending_precision, sending_precision, decimals)?;
+
     set_token_bridging_fee(&mut token.bridging_fee, bridging_fee)?;
 
     // Get the current bridged amount for this token to verify that we are not setting a max_holding_amount that is less than the current amount
@@ -1377,6 +1349,43 @@ fn update_prohibited_xrpl_recipients(
             "action",
             ContractActions::UpdateProhibitedXRPLRecipients.as_str(),
         )
+        .add_attribute("sender", sender))
+}
+
+fn cancel_pending_operation(
+    deps: DepsMut,
+    sender: Addr,
+    operation_id: u64,
+) -> CoreumResult<ContractError> {
+    check_authorization(
+        deps.as_ref().storage,
+        &sender,
+        &ContractActions::CancelPendingOperation,
+    )?;
+
+    let operation = check_operation_exists(deps.storage, operation_id)?;
+    // We'll provide a TransactionResult::Invalid evidence to the handlers so that they perform the right action
+    let transaction_result = &TransactionResult::Invalid;
+    let operation_result = match operation.operation_type {
+        OperationType::AllocateTickets { .. } => Some(TicketsAllocation { tickets: None }),
+        _ => None,
+    };
+    let mut response = Response::new();
+
+    // We handle the operation with an invalid result
+    handle_operation(
+        deps.storage,
+        &operation,
+        &operation_result,
+        transaction_result,
+        &None,
+        operation_id,
+        operation.ticket_sequence,
+        &mut response,
+    )?;
+
+    Ok(response
+        .add_attribute("action", ContractActions::CancelPendingOperation.as_str())
         .add_attribute("sender", sender))
 }
 
@@ -1654,15 +1663,24 @@ pub fn validate_xrpl_currency(currency: &str) -> Result<(), ContractError> {
     // We check that currency is either a standard 3 character currency or it's a 40 character hex string currency, any other scenario is invalid
     match currency.len() {
         3 => {
-            if !currency.is_ascii() {
+            // XRP (uppercase) is not allowed
+            if currency == "XRP" {
                 return Err(ContractError::InvalidXRPLCurrency {});
             }
-
-            if currency == "XRP" {
+            // We check that all characters are uppercase/lowercase letters, numbers, or one of the allowed symbols: ?, !, @, #, $, %, ^, &, *, <, >, (, ), {, }, [, ], and |.
+            if !currency
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || ALLOWED_CURRENCY_SYMBOLS.contains(&c))
+            {
                 return Err(ContractError::InvalidXRPLCurrency {});
             }
         }
         40 => {
+            // The first 8 bits MUST not be 0x00
+            if currency.starts_with("00") {
+                return Err(ContractError::InvalidXRPLCurrency {});
+            }
+            // Must be uppercase hexadecimal
             if !currency
                 .chars()
                 .all(|c| c.is_ascii_hexdigit() && (c.is_numeric() || c.is_uppercase()))
