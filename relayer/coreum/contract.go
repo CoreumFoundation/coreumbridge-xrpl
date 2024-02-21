@@ -51,7 +51,7 @@ const (
 	ExecResumeBridge                   ExecMethod = "resume_bridge"
 	ExecUpdateXRPLBaseFee              ExecMethod = "update_xrpl_base_fee"
 	ExecUpdateProhibitedXRPLRecipients ExecMethod = "update_prohibited_xrpl_recipients"
-	ExecCancelPendingOperation        ExecMethod = "cancel_pending_operation"
+	ExecCancelPendingOperation         ExecMethod = "cancel_pending_operation"
 )
 
 // TransactionResult is transaction result.
