@@ -7,15 +7,12 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"reflect"
 	"strconv"
 	"testing"
-	"unsafe"
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client"
 	krflags "github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -37,15 +34,7 @@ import (
 )
 
 func TestInitCmd(t *testing.T) {
-	configPath := path.Join(t.TempDir(), "config-path")
-	configFilePath := path.Join(configPath, runner.ConfigFileName)
-	require.NoFileExists(t, configFilePath)
-
-	args := []string{
-		flagWithPrefix(cli.FlagHome), configPath,
-	}
-	executeCmd(t, cli.InitCmd(), args...)
-	require.FileExists(t, configFilePath)
+	initConfig(t)
 }
 
 func TestStartCmd(t *testing.T) {
@@ -57,28 +46,16 @@ func TestStartCmd(t *testing.T) {
 	cmd := cli.StartCmd(func(cmd *cobra.Command) (cli.Runner, error) {
 		return processorMock, nil
 	})
-	executeCmd(t, cmd) // to disable telemetry server
+	executeCmd(t, cmd, initConfig(t)...) // to disable telemetry server
 }
 
 func TestKeyringCmds(t *testing.T) {
-	unsealConfig()
-
 	cmd, err := cli.KeyringCmd(coreum.KeyringSuffix, constant.CoinType, overridecryptokeyring.CoreumAddressFormatter)
 	require.NoError(t, err)
 
-	configPath := t.TempDir()
-	configFilePath := path.Join(configPath, runner.ConfigFileName)
-	require.NoFileExists(t, configFilePath)
-	args := []string{
-		flagWithPrefix(cli.FlagHome), configPath,
-	}
-	executeCmd(t, cli.InitCmd(), args...)
+	args := append(initConfig(t), "list")
+	args = append(args, testKeyringFlags(t.TempDir())...)
 
-	args = []string{
-		"list",
-		flagWithPrefix(cli.FlagHome), configPath,
-	}
-	args = append(args, testKeyringFlags(configPath)...)
 	out := executeCmd(t, cmd, args...)
 	keysOut := make([]string, 0)
 	require.NoError(t, json.Unmarshal([]byte(out), &keysOut))
@@ -86,25 +63,15 @@ func TestKeyringCmds(t *testing.T) {
 }
 
 func TestRelayerKeyInfoCmd(t *testing.T) {
-	unsealConfig()
-
-	// init default config
-	configPath := path.Join(t.TempDir(), "config-path")
-	configFilePath := path.Join(configPath, runner.ConfigFileName)
-	require.NoFileExists(t, configFilePath)
-
-	args := []string{
-		flagWithPrefix(cli.FlagHome), configPath,
-	}
-	executeCmd(t, cli.InitCmd(), args...)
-	// add required keys
 	keyringDir := t.TempDir()
+	args := append(initConfig(t), testKeyringFlags(keyringDir)...)
 	runnerDefaultCfg := runner.DefaultConfig()
+
+	// add required keys
 	addKeyToTestKeyring(t, keyringDir, runnerDefaultCfg.XRPL.MultiSignerKeyName, xrpl.KeyringSuffix, xrpl.XRPLHDPath)
 	addKeyToTestKeyring(t, keyringDir, runnerDefaultCfg.Coreum.RelayerKeyName, coreum.KeyringSuffix,
 		sdk.GetConfig().GetFullBIP44Path())
 
-	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.RelayerKeyInfoCmd(), args...)
 }
 
@@ -112,7 +79,7 @@ func TestBootstrapCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	configPath := path.Join(t.TempDir(), "bootstrapping.yaml")
+	bootstrapConfigPath := path.Join(t.TempDir(), "bootstrapping.yaml")
 
 	keyringDir := t.TempDir()
 	xrplKeyName := "xrpl-bridge"
@@ -120,25 +87,27 @@ func TestBootstrapCmd(t *testing.T) {
 	contractDeployer := "contract-deployer"
 	addKeyToTestKeyring(t, keyringDir, contractDeployer, coreum.KeyringSuffix, xrpl.XRPLHDPath)
 
+	homeArgs := initConfig(t)
 	// call bootstrap with init only
-	args := []string{
-		configPath,
+
+	args := append([]string{
+		bootstrapConfigPath,
 		flagWithPrefix(cli.FlagInitOnly),
 		flagWithPrefix(cli.FlagRelayersCount), "3",
 		flagWithPrefix(cli.FlagXRPLKeyName), xrplKeyName,
 		flagWithPrefix(cli.FlagCoreumKeyName), contractDeployer,
-	}
+	}, homeArgs...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.BootstrapBridgeCmd(mockBridgeClientProvider(nil)), args...)
 
 	// use generated file
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().Bootstrap(gomock.Any(), gomock.Any(), xrplKeyName, bridgeclient.DefaultBootstrappingConfig())
-	args = []string{
-		configPath,
+	args = append([]string{
+		bootstrapConfigPath,
 		flagWithPrefix(cli.FlagXRPLKeyName), xrplKeyName,
 		flagWithPrefix(cli.FlagCoreumKeyName), contractDeployer,
-	}
+	}, homeArgs...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.BootstrapBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
@@ -149,7 +118,7 @@ func TestContractConfigCmd(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{}, nil)
-	executeCmd(t, cli.ContractConfigCmd(mockBridgeClientProvider(bridgeClientMock)))
+	executeCmd(t, cli.ContractConfigCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
 func TestRecoverTicketsCmd(t *testing.T) {
@@ -160,19 +129,21 @@ func TestRecoverTicketsCmd(t *testing.T) {
 	keyName := "owner" //nolint:goconst // testing only variable
 	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, xrpl.XRPLHDPath)
 
-	args := []string{
+	homeArgs := initConfig(t)
+
+	args := append([]string{
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	}, homeArgs...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().RecoverTickets(gomock.Any(), gomock.Any(), nil)
 	executeCmd(t, cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 
 	// with tickets
-	args = []string{
+	args = append([]string{
 		flagWithPrefix(cli.FlagTicketsToAllocate), "123",
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	}, homeArgs...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock = NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().RecoverTickets(
@@ -197,14 +168,14 @@ func TestRegisterCoreumTokenCmd(t *testing.T) {
 	decimals := 10
 	sendingPrecision := 12
 	maxHoldingAmount := 10000
-	args := []string{
+	args := append(initConfig(t),
 		denom,
 		strconv.Itoa(decimals),
 		strconv.Itoa(sendingPrecision),
 		strconv.Itoa(maxHoldingAmount),
 		"1",
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	)
 	args = append(args, testKeyringFlags(keyringDir)...)
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
@@ -458,7 +429,8 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
 			bridgeClientMock := NewMockBridgeClient(ctrl)
 			tt.mock(bridgeClientMock)
-			executeCmd(t, cli.UpdateCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)), tt.args...)
+			executeCmd(t, cli.UpdateCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)),
+				append(initConfig(t), tt.args...)...)
 		})
 	}
 }
@@ -476,14 +448,14 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 	require.NoError(t, err)
 	sendingPrecision := 12
 	maxHoldingAmount := 10000
-	args := []string{
+	args := append(initConfig(t),
 		issuer.String(),
 		currency.String(),
 		strconv.Itoa(sendingPrecision),
 		strconv.Itoa(maxHoldingAmount),
 		"1",
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	)
 	args = append(args, testKeyringFlags(keyringDir)...)
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
@@ -505,17 +477,16 @@ func TestRecoverXRPLTokenRegistrationCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	owner := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+	owner := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	issuer := xrpl.GenPrivKeyTxSigner().Account()
 	currency, err := rippledata.NewCurrency("CRN")
 	require.NoError(t, err)
-	args := []string{
+	args := append(initConfig(t),
 		issuer.String(),
 		currency.String(),
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	)
 	args = append(args, testKeyringFlags(keyringDir)...)
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
@@ -787,7 +758,8 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
 			bridgeClientMock := NewMockBridgeClient(ctrl)
 			tt.mock(bridgeClientMock)
-			executeCmd(t, cli.UpdateXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)), tt.args...)
+			executeCmd(t, cli.UpdateXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)),
+				append(initConfig(t), tt.args...)...)
 		})
 	}
 }
@@ -802,22 +774,24 @@ func TestRotateKeysCmd(t *testing.T) {
 	keyName := "owner"
 	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
+	homeArgs := initConfig(t)
+
 	// call rotate-keys with init only
-	args := []string{
+	args := append([]string{
 		configPath,
 		flagWithPrefix(cli.FlagInitOnly),
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	}, homeArgs...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.RotateKeysCmd(mockBridgeClientProvider(nil)), args...)
 
 	// use generated file
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().RotateKeys(gomock.Any(), gomock.Any(), bridgeclient.DefaultKeysRotationConfig())
-	args = []string{
+	args = append([]string{
 		configPath,
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	}, homeArgs...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.RotateKeysCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
@@ -831,10 +805,10 @@ func TestUpdateXRPLBaseFeeCmd(t *testing.T) {
 	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	// call rotate-keys with init only
-	args := []string{
+	args := append(initConfig(t),
 		"17",
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().UpdateXRPLBaseFee(gomock.Any(), gomock.Any(), uint32(17))
@@ -847,7 +821,7 @@ func TestRegisteredTokensCmd(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().GetAllTokens(gomock.Any()).Return([]coreum.CoreumToken{}, []coreum.XRPLToken{}, nil)
-	executeCmd(t, cli.RegisteredTokensCmd(mockBridgeClientProvider(bridgeClientMock)))
+	executeCmd(t, cli.RegisteredTokensCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
 func TestSendFromCoreumToXRPLCmd(t *testing.T) {
@@ -858,15 +832,17 @@ func TestSendFromCoreumToXRPLCmd(t *testing.T) {
 	keyName := "sender"
 	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
+	homeArgs := initConfig(t)
+
 	recipient := xrpl.GenPrivKeyTxSigner().Account()
 	amount := sdk.NewInt64Coin("denom", 1000)
 	deliverAmount := sdkmath.NewInt(900)
-	args := []string{
+	args := append([]string{
 		amount.String(),
 		recipient.String(),
 		flagWithPrefix(cli.FlagKeyName), keyName,
 		flagWithPrefix(cli.FlagDeliverAmount), deliverAmount.String(),
-	}
+	}, homeArgs...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
@@ -882,11 +858,11 @@ func TestSendFromCoreumToXRPLCmd(t *testing.T) {
 	executeCmd(t, cli.SendFromCoreumToXRPLCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 
 	// without the deliver amount
-	args = []string{
+	args = append([]string{
 		amount.String(),
 		recipient.String(),
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	}, homeArgs...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 
 	bridgeClientMock = NewMockBridgeClient(ctrl)
@@ -908,7 +884,8 @@ func TestCoreumBalancesCmd(t *testing.T) {
 
 	account := coreum.GenAccount()
 	bridgeClientMock.EXPECT().GetCoreumBalances(gomock.Any(), account).Return(sdk.NewCoins(), nil)
-	executeCmd(t, cli.CoreumBalancesCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
+	executeCmd(t, cli.CoreumBalancesCmd(mockBridgeClientProvider(bridgeClientMock)),
+		append(initConfig(t), account.String())...)
 }
 
 func TestXRPBalancesCmd(t *testing.T) {
@@ -919,7 +896,8 @@ func TestXRPBalancesCmd(t *testing.T) {
 
 	account := xrpl.GenPrivKeyTxSigner().Account()
 	bridgeClientMock.EXPECT().GetXRPLBalances(gomock.Any(), account).Return([]rippledata.Amount{}, nil)
-	executeCmd(t, cli.XRPLBalancesCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
+	executeCmd(t, cli.XRPLBalancesCmd(mockBridgeClientProvider(bridgeClientMock)),
+		append(initConfig(t), account.String())...)
 }
 
 func TestSetXRPLTrustSetCmd(t *testing.T) {
@@ -940,12 +918,12 @@ func TestSetXRPLTrustSetCmd(t *testing.T) {
 		Currency: currency,
 		Issuer:   issuer,
 	}
-	args := []string{
+	args := append(initConfig(t),
 		amount.Value.String(),
 		amount.Issuer.String(),
 		amount.Currency.String(),
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	)
 	args = append(args, testKeyringFlags(keyringDir)...)
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
@@ -963,8 +941,7 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "claimer"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+	address := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	refundID := "sample-1"
@@ -973,8 +950,9 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 		address,
 		refundID,
 	).Return(nil)
-	args := []string{flagWithPrefix(cli.FlagKeyName), keyName, flagWithPrefix(cli.FlagRefundID), refundID}
+	args := append(initConfig(t), flagWithPrefix(cli.FlagKeyName), keyName, flagWithPrefix(cli.FlagRefundID), refundID)
 	args = append(args, testKeyringFlags(keyringDir)...)
+	fmt.Println(args)
 	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
@@ -984,8 +962,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "claimer"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+	address := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	refundID := "sample-1"
@@ -999,7 +976,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 		address,
 		refundID,
 	).Return(nil)
-	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
+	args := append(initConfig(t), flagWithPrefix(cli.FlagKeyName), keyName)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
@@ -1012,7 +989,8 @@ func TestGetPendingRefundsCmd(t *testing.T) {
 
 	account := coreum.GenAccount()
 	bridgeClientMock.EXPECT().GetPendingRefunds(gomock.Any(), account).Return([]coreum.PendingRefund{}, nil)
-	executeCmd(t, cli.PendingRefundsCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
+	executeCmd(t, cli.PendingRefundsCmd(mockBridgeClientProvider(bridgeClientMock)),
+		append(initConfig(t), account.String())...)
 }
 
 func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
@@ -1021,8 +999,7 @@ func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "relayer"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+	address := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	amount := sdk.NewCoins(sdk.NewCoin("ucore", sdk.NewInt(100)))
@@ -1031,10 +1008,10 @@ func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
 		address,
 		amount,
 	).Return(nil)
-	args := []string{
+	args := append(initConfig(t),
 		flagWithPrefix(cli.FlagKeyName), keyName,
 		flagWithPrefix(cli.FlagAmount), amount.String(),
-	}
+	)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
@@ -1045,8 +1022,7 @@ func TestClaimRelayerFees(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "relayer"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	address := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+	address := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	fees, err := sdk.ParseCoinsNormalized("100mycoin,100ucore")
@@ -1060,7 +1036,7 @@ func TestClaimRelayerFees(t *testing.T) {
 		address,
 		fees,
 	).Return(nil)
-	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
+	args := append(initConfig(t), flagWithPrefix(cli.FlagKeyName), keyName)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	executeCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
@@ -1075,7 +1051,8 @@ func TestGetRelayerFees(t *testing.T) {
 	fees, err := sdk.ParseCoinsNormalized("100ucore,100mycoin")
 	require.NoError(t, err)
 	bridgeClientMock.EXPECT().GetFeesCollected(gomock.Any(), account).Return(fees, nil)
-	executeCmd(t, cli.GetRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), account.String())
+	executeCmd(t, cli.GetRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)),
+		append(initConfig(t), account.String())...)
 }
 
 func TestHaltBridgeCmd(t *testing.T) {
@@ -1086,10 +1063,9 @@ func TestHaltBridgeCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	owner := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+	owner := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
-	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
+	args := append(initConfig(t), flagWithPrefix(cli.FlagKeyName), keyName)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock.EXPECT().HaltBridge(gomock.Any(), owner).Return(nil)
 	executeCmd(t, cli.HaltBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
@@ -1103,10 +1079,9 @@ func TestResumeBridgeCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	owner := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+	owner := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
-	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
+	args := append(initConfig(t), flagWithPrefix(cli.FlagKeyName), keyName)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock.EXPECT().ResumeBridge(gomock.Any(), owner).Return(nil)
 	executeCmd(t, cli.ResumeBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
@@ -1120,14 +1095,13 @@ func TestCancelPendingOperationCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	owner := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+	owner := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	operationID := uint32(1)
-	args := []string{
+	args := append([]string{
 		strconv.Itoa(int(operationID)),
 		flagWithPrefix(cli.FlagKeyName), keyName,
-	}
+	}, initConfig(t)...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock.EXPECT().CancelPendingOperation(gomock.Any(), owner, operationID).Return(nil)
 	executeCmd(t, cli.CancelPendingOperationCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
@@ -1139,15 +1113,11 @@ func TestGetPendingOperationsCmd(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().GetPendingOperations(gomock.Any()).Return([]coreum.Operation{}, nil)
-	executeCmd(t, cli.PendingOperationsCmd(mockBridgeClientProvider(bridgeClientMock)))
+	executeCmd(t, cli.PendingOperationsCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
 func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {
 	return executeCmdWithOutputOption(t, cmd, "text", args...)
-}
-
-func executeCmdWithJSONOutput(t *testing.T, cmd *cobra.Command, args ...string) string {
-	return executeCmdWithOutputOption(t, cmd, "json", args...)
 }
 
 func executeCmdWithOutputOption(t *testing.T, cmd *cobra.Command, outOpt string, args ...string) string {
@@ -1179,7 +1149,7 @@ func executeCmdWithOutputOption(t *testing.T, cmd *cobra.Command, outOpt string,
 	return buf.String()
 }
 
-func addKeyToTestKeyring(t *testing.T, keyringDir, keyName, suffix, hdPath string) {
+func addKeyToTestKeyring(t *testing.T, keyringDir, keyName, suffix, hdPath string) sdk.AccAddress {
 	keyringDir += "-" + suffix
 	encodingConfig := config.NewEncodingConfig(coreumapp.ModuleBasics)
 	clientCtx := client.Context{}.
@@ -1194,7 +1164,7 @@ func addKeyToTestKeyring(t *testing.T, keyringDir, keyName, suffix, hdPath strin
 	kr, err := client.NewKeyringFromBackend(clientCtx, keyring.BackendTest)
 	require.NoError(t, err)
 
-	_, _, err = kr.NewMnemonic(
+	keyInfo, _, err := kr.NewMnemonic(
 		keyName,
 		keyring.English,
 		hdPath,
@@ -1202,26 +1172,11 @@ func addKeyToTestKeyring(t *testing.T, keyringDir, keyName, suffix, hdPath strin
 		hd.Secp256k1,
 	)
 	require.NoError(t, err)
-}
 
-//nolint:unparam // using global suffix will make tests less readable.
-func readKeyFromTestKeyring(t *testing.T, keyringDir, keyName, suffix string) sdk.AccAddress {
-	keyringDir += "-" + suffix
-	cmd := keys.ShowKeysCmd()
-	krflags.AddKeyringFlags(cmd.PersistentFlags())
-	args := []string{
-		keyName,
-	}
-	args = append(args, testKeyringFlags(keyringDir)...)
-	output := executeCmdWithJSONOutput(t, cmd, args...)
-	var addressStruct struct {
-		Address string `json:"address"`
-	}
-	err := json.Unmarshal([]byte(output), &addressStruct)
+	addr, err := keyInfo.GetAddress()
 	require.NoError(t, err)
-	address, err := sdk.AccAddressFromBech32(addressStruct.Address)
-	require.NoError(t, err)
-	return address
+
+	return addr
 }
 
 func testKeyringFlags(keyringDir string) []string {
@@ -1236,22 +1191,21 @@ func flagWithPrefix(f string) string {
 }
 
 func mockBridgeClientProvider(bridgeClientMock *MockBridgeClient) cli.BridgeClientProvider {
-	return func(cmd *cobra.Command) (cli.BridgeClient, error) {
+	return func(_ runner.Components) (cli.BridgeClient, error) {
 		return bridgeClientMock, nil
 	}
 }
 
-func unsealConfig() {
-	sdkConfig := sdk.GetConfig()
-	unsafeSetField(sdkConfig, "sealed", false)
-	unsafeSetField(sdkConfig, "sealedch", make(chan struct{}))
-}
+func initConfig(t *testing.T) []string {
+	configPath := path.Join(t.TempDir(), "config-path")
+	configFilePath := path.Join(configPath, runner.ConfigFileName)
+	require.NoFileExists(t, configFilePath)
 
-func unsafeSetField(object interface{}, fieldName string, value interface{}) {
-	rs := reflect.ValueOf(object).Elem()
-	field := rs.FieldByName(fieldName)
-	// rf can't be read or set.
-	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).
-		Elem().
-		Set(reflect.ValueOf(value))
+	args := []string{
+		flagWithPrefix(cli.FlagHome), configPath,
+	}
+	executeCmd(t, cli.InitCmd(), args...)
+	require.FileExists(t, configFilePath)
+
+	return args
 }

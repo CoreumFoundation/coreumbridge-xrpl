@@ -1297,11 +1297,6 @@ func (c *ContractClient) GetPendingRefunds(ctx context.Context, address sdk.AccA
 	return response.PendingRefunds, nil
 }
 
-// SetGenerateOnly sets the client.Context.GenerateOnly.
-func (c *ContractClient) SetGenerateOnly(generateOnly bool) {
-	c.clientCtx = c.clientCtx.WithGenerateOnly(generateOnly)
-}
-
 func (c *ContractClient) getPaginatedXRPLTokens(
 	ctx context.Context,
 	startAfterKey string,
