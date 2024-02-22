@@ -18,6 +18,7 @@ import (
 type CoreumChainConfig struct {
 	GRPCAddress     string
 	FundingMnemonic string
+	ContractPath    string
 }
 
 // CoreumChain is configured coreum chain.

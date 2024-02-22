@@ -150,7 +150,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		EvidenceThreshold:           cfg.SigningThreshold,
 		UsedTicketSequenceThreshold: cfg.UsedTicketSequenceThreshold,
 		TrustSetLimitAmount:         cfg.TrustSetLimitAmount.String(),
-		ContractByteCodePath:        integrationtests.CompiledContractFilePath,
+		ContractByteCodePath:        chains.Coreum.Config().ContractPath,
 		XRPLBaseFee:                 cfg.XRPLBaseFee,
 		SkipXRPLBalanceValidation:   true,
 	}

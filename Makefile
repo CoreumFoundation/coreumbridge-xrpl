@@ -53,7 +53,6 @@ build-contract:
       -v $(CONTRACT_DIR)/target:/usr/local/cargo/registry \
       cosmwasm/optimizer:0.15.0
 	mkdir -p $(BUILD_DIR)
-	cp $(CONTRACT_DIR)/artifacts/coreumbridge_xrpl.wasm $(BUILD_DIR)/coreumbridge_xrpl.wasm
 
 .PHONY: build-dev-contract
 build-dev-contract:
