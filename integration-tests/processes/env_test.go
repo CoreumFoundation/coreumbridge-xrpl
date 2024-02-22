@@ -647,7 +647,7 @@ func createDevRunner(
 	// re-init log to use correct `CallerSkip`
 	log, err := logger.NewZapLogger(logger.DefaultZapLoggerConfig())
 	require.NoError(t, err)
-	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, log, false, false)
+	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, log)
 	require.NoError(t, err)
 
 	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg)
