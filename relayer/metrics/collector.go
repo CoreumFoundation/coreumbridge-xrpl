@@ -14,11 +14,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/query"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum/v4/pkg/client"
+	feemodeltypes "github.com/CoreumFoundation/coreum/v4/x/feemodel/types"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -28,6 +31,7 @@ import (
 type XRPLRPCClient interface {
 	ServerState(ctx context.Context) (xrpl.ServerStateResult, error)
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
+	AccountInfo(ctx context.Context, acc rippledata.Account) (xrpl.AccountInfoResult, error)
 }
 
 // ContractClient is the interface for the contract client.
@@ -37,6 +41,8 @@ type ContractClient interface {
 	GetXRPLTokens(ctx context.Context) ([]coreum.XRPLToken, error)
 	GetContractAddress() sdk.AccAddress
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
+	GetTransactionEvidences(ctx context.Context) ([]coreum.TransactionEvidence, error)
+	GetAvailableTickets(ctx context.Context) ([]uint32, error)
 }
 
 // PeriodicCollectorConfig is PeriodicCollector config.
@@ -61,10 +67,13 @@ type PeriodicCollector struct {
 	registry         *Registry
 	xrplRPCClient    XRPLRPCClient
 	contractClient   ContractClient
+	feemodelClient   feemodeltypes.QueryClient
 	coreumBankClient banktypes.QueryClient
 
-	pendingOperationsCache   map[uint32]struct{}
-	pendingOperationsCacheMu sync.Mutex
+	pendingOperationsCachedKeys    map[string]struct{}
+	transactionEvidencesCachedKeys map[string]struct{}
+	relayersBalancesCachedKeys     map[string]struct{}
+	cacheMu                        sync.Mutex
 }
 
 // NewPeriodicCollector returns a new instance of the PeriodicCollector.
@@ -82,10 +91,13 @@ func NewPeriodicCollector(
 		registry:         registry,
 		xrplRPCClient:    xrplRPCClient,
 		contractClient:   contractClient,
+		feemodelClient:   feemodeltypes.NewQueryClient(clientContext),
 		coreumBankClient: banktypes.NewQueryClient(clientContext),
 
-		pendingOperationsCacheMu: sync.Mutex{},
-		pendingOperationsCache:   make(map[uint32]struct{}),
+		pendingOperationsCachedKeys:    make(map[string]struct{}),
+		transactionEvidencesCachedKeys: make(map[string]struct{}),
+		relayersBalancesCachedKeys:     make(map[string]struct{}),
+		cacheMu:                        sync.Mutex{},
 	}
 }
 
@@ -97,6 +109,9 @@ func (c *PeriodicCollector) Start(ctx context.Context) error {
 		xrplBridgeAccountBalancesMetricName: c.collectXRPLBridgeAccountBalances,
 		contractBalancesBalancesMetricName:  c.collectContractBalances,
 		pendingOperationsMetricName:         c.collectPendingOperations,
+		transactionEvidencesMetricName:      c.collectTransactionEvidences,
+		relayerBalancesMetricName:           c.collectRelayerBalances,
+		fmt.Sprintf("%s/%s", freeContractTicketsMetricName, freeXRPLTicketsMetricName): c.collectFreeTickets,
 	}
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		for name, collector := range periodicCollectors {
@@ -130,7 +145,7 @@ func (c *PeriodicCollector) collectXRPLChainBaseFee(ctx context.Context) error {
 		serverState.State.LoadFactor,
 		serverState.State.LoadBase,
 	)
-	c.registry.XRPLChainBaseFee.Set(float64(xrplChainBaseFee))
+	c.registry.XRPLChainBaseFeeGauge.Set(float64(xrplChainBaseFee))
 
 	return nil
 }
@@ -140,7 +155,7 @@ func (c *PeriodicCollector) collectContractConfigXRPLBaseFee(ctx context.Context
 	if err != nil {
 		return errors.Wrap(err, "failed to get contract config")
 	}
-	c.registry.ContractConfigXRPLBaseFee.Set(float64(contractCfg.XRPLBaseFee))
+	c.registry.ContractConfigXRPLBaseFeeGauge.Set(float64(contractCfg.XRPLBaseFee))
 
 	return nil
 }
@@ -166,7 +181,7 @@ func (c *PeriodicCollector) collectXRPLBridgeAccountBalances(ctx context.Context
 
 	for _, balance := range xrplBalances {
 		floatValue := c.truncateFloatByTruncationPrecision(balance.Float())
-		c.registry.XRPLBridgeAccountBalances.
+		c.registry.XRPLBridgeAccountBalancesGaugeVec.
 			WithLabelValues(fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(balance.Currency), balance.Issuer.String())).
 			Set(floatValue)
 	}
@@ -211,7 +226,7 @@ func (c *PeriodicCollector) collectContractBalances(ctx context.Context) error {
 		if !ok {
 			continue
 		}
-		c.registry.ContractBalances.
+		c.registry.ContractBalancesGaugeVec.
 			WithLabelValues(xrplCurrencyIssuerLabel, denom).
 			Set(c.truncateFloatByTruncationPrecision(truncateAmountWithDecimals(decimals, balance.Amount)))
 	}
@@ -224,26 +239,110 @@ func (c *PeriodicCollector) collectPendingOperations(ctx context.Context) error 
 	if err != nil {
 		return errors.Wrap(err, "failed to get pending operations")
 	}
-	c.pendingOperationsCacheMu.Lock()
-	defer c.pendingOperationsCacheMu.Unlock()
 
-	currentPendingOperations := make(map[uint32]struct{})
-	for _, operation := range pendingOperations {
+	currentValues := lo.SliceToMap(pendingOperations, func(operation coreum.Operation) (string, float64) {
 		operationID := operation.GetOperationID()
-		// save operation ID as label and signatures len as value
-		c.registry.PendingOperations.WithLabelValues(strconv.Itoa(int(operationID))).
-			Set(float64(len(operation.Signatures)))
-		currentPendingOperations[operationID] = struct{}{}
-		c.pendingOperationsCache[operationID] = struct{}{}
+		return strconv.Itoa(int(operationID)), float64(len(operation.Signatures))
+	})
+	c.updateGaugeVecAndCachedValues(currentValues, c.pendingOperationsCachedKeys, c.registry.PendingOperationsGaugeVec)
+
+	return nil
+}
+
+func (c *PeriodicCollector) collectTransactionEvidences(ctx context.Context) error {
+	transactionEvidences, err := c.contractClient.GetTransactionEvidences(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get transaction evidences")
 	}
-	// delete finished operations
-	for operationID := range c.pendingOperationsCache {
-		if _, ok := currentPendingOperations[operationID]; !ok {
-			// the operation was removed
-			delete(c.pendingOperationsCache, operationID)
-			c.registry.PendingOperations.DeleteLabelValues(strconv.Itoa(int(operationID)))
+	currentValues := lo.SliceToMap(transactionEvidences, func(evidences coreum.TransactionEvidence) (string, float64) {
+		return evidences.Hash, float64(len(evidences.RelayerAddresses))
+	})
+	c.updateGaugeVecAndCachedValues(
+		currentValues, c.transactionEvidencesCachedKeys, c.registry.TransactionEvidencesGaugeVec,
+	)
+
+	return nil
+}
+
+func (c *PeriodicCollector) collectRelayerBalances(ctx context.Context) error {
+	contractCfg, err := c.contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get contract config")
+	}
+
+	// take the denom from gas price
+	gasPrice, err := c.feemodelClient.MinGasPrice(ctx, &feemodeltypes.QueryMinGasPriceRequest{})
+	if err != nil {
+		return errors.Wrap(err, "failed to get gas price")
+	}
+
+	currentValues := make(map[string]float64, 0)
+	mu := sync.Mutex{}
+	if err := parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+		for _, relayer := range contractCfg.Relayers {
+			relayerAddress := relayer.CoreumAddress.String()
+			spawn(
+				fmt.Sprintf("get-relayer-balance-%s", relayerAddress),
+				parallel.Continue, func(ctx context.Context) error {
+					balancesRes, err := c.coreumBankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+						Address: relayerAddress,
+						Denom:   gasPrice.MinGasPrice.Denom,
+					})
+					if err != nil {
+						return errors.Wrapf(err, "failed to get relayer %s balance", relayerAddress)
+					}
+					mu.Lock()
+					defer mu.Unlock()
+					if balancesRes.Balance == nil {
+						currentValues[relayerAddress] = 0
+						return nil
+					}
+					currentValues[relayerAddress] = c.truncateFloatByTruncationPrecision(
+						truncateAmountWithDecimals(coreum.TokenDecimals, balancesRes.Balance.Amount),
+					)
+					return nil
+				})
 		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "failed to get relayer currentValues")
 	}
+	c.updateGaugeVecAndCachedValues(currentValues, c.relayersBalancesCachedKeys, c.registry.RelayerBalancesGaugeVec)
+
+	return nil
+}
+
+func (c *PeriodicCollector) collectFreeTickets(ctx context.Context) error {
+	availableContractTickets, err := c.contractClient.GetAvailableTickets(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get available contract tickets")
+	}
+
+	contractCfg, err := c.contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get contract config")
+	}
+
+	xrplBridgeAccount, err := rippledata.NewAccountFromAddress(contractCfg.BridgeXRPLAddress)
+	if err != nil {
+		return errors.Wrapf(
+			err,
+			"failed to convert bridge XRPL address to rippledata.Account, address:%s",
+			contractCfg.BridgeXRPLAddress,
+		)
+	}
+
+	accountInfo, err := c.xrplRPCClient.AccountInfo(ctx, *xrplBridgeAccount)
+	if err != nil {
+		return errors.Wrap(err, "failed to get XRPL bridge account info")
+	}
+
+	c.registry.FreeContractTicketsGauge.Set(float64(len(availableContractTickets)))
+	var xrplTicketCount float64
+	if accountInfo.AccountData.TicketCount != nil {
+		xrplTicketCount = float64(*accountInfo.AccountData.TicketCount)
+	}
+	c.registry.FreeXRPLTicketsGauge.Set(xrplTicketCount)
 
 	return nil
 }
@@ -259,6 +358,26 @@ func truncateAmountWithDecimals(decimals uint32, amount sdkmath.Int) float64 {
 func (c *PeriodicCollector) truncateFloatByTruncationPrecision(val float64) float64 {
 	ratio := math.Pow(10, float64(c.cfg.FloatTruncationPrecision))
 	return math.Trunc(val*ratio) / ratio
+}
+
+func (c *PeriodicCollector) updateGaugeVecAndCachedValues(
+	currentValues map[string]float64,
+	cachedKeys map[string]struct{},
+	gaugeVec *prometheus.GaugeVec,
+) {
+	c.cacheMu.Lock()
+	defer c.cacheMu.Unlock()
+	// delete removed keys
+	for k := range cachedKeys {
+		if _, ok := currentValues[k]; !ok {
+			delete(cachedKeys, k)
+			gaugeVec.DeleteLabelValues(k)
+		}
+	}
+	for k, v := range currentValues {
+		gaugeVec.WithLabelValues(k).Set(v)
+		cachedKeys[k] = struct{}{}
+	}
 }
 
 func (c *PeriodicCollector) collectWithRepeat(ctx context.Context, name string, collector func()) error {

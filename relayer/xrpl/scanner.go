@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"go.uber.org/zap"
 
@@ -57,17 +58,27 @@ func DefaultAccountScannerConfig(account rippledata.Account) AccountScannerConfi
 
 // AccountScanner is XRPL transactions scanner.
 type AccountScanner struct {
-	cfg           AccountScannerConfig
-	log           logger.Logger
-	rpcTxProvider RPCTxProvider
+	cfg                      AccountScannerConfig
+	log                      logger.Logger
+	rpcTxProvider            RPCTxProvider
+	recentScanXRPLedgerGauge prometheus.Gauge
+	historicalScanXRPLedger  prometheus.Gauge
 }
 
 // NewAccountScanner returns a nw instance of the AccountScanner.
-func NewAccountScanner(cfg AccountScannerConfig, log logger.Logger, rpcTxProvider RPCTxProvider) *AccountScanner {
+func NewAccountScanner(
+	cfg AccountScannerConfig,
+	log logger.Logger,
+	rpcTxProvider RPCTxProvider,
+	recentScanXRPLedgerGauge prometheus.Gauge,
+	historicalScanXRPLedger prometheus.Gauge,
+) *AccountScanner {
 	return &AccountScanner{
-		cfg:           cfg,
-		log:           log,
-		rpcTxProvider: rpcTxProvider,
+		cfg:                      cfg,
+		log:                      log,
+		rpcTxProvider:            rpcTxProvider,
+		recentScanXRPLedgerGauge: recentScanXRPLedgerGauge,
+		historicalScanXRPLedger:  historicalScanXRPLedger,
 	}
 }
 
@@ -123,6 +134,7 @@ func (s *AccountScanner) scanRecentHistory(
 		)
 		lastLedger := s.scanTransactions(ctx, minLedger, ch)
 		if lastLedger != 0 {
+			s.historicalScanXRPLedger.Set(float64(lastLedger))
 			minLedger = lastLedger + 1
 		}
 		s.log.Debug(ctx, "Scanning of the recent history is done", zap.Int64("lastLedger", lastLedger))
@@ -197,6 +209,7 @@ func (s *AccountScanner) scanTransactions(
 		}
 		if len(accountTxResult.Marker) == 0 {
 			lastLedger = prevProcessedLedger
+			s.recentScanXRPLedgerGauge.Set(float64(lastLedger))
 			break
 		}
 		marker = accountTxResult.Marker

@@ -13,14 +13,17 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheusdto "github.com/prometheus/client_model/go"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -47,7 +50,7 @@ func TestXRPLChainBaseFeeMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLChainBaseFee,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLChainBaseFeeGauge,
 		10,
 	)
 }
@@ -67,7 +70,7 @@ func TestContractConfigXRPLBaseFeeMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.ContractConfigXRPLBaseFee,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.ContractConfigXRPLBaseFeeGauge,
 		float64(envCfg.XRPLBaseFee),
 	)
 
@@ -77,7 +80,7 @@ func TestContractConfigXRPLBaseFeeMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.ContractConfigXRPLBaseFee,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.ContractConfigXRPLBaseFeeGauge,
 		float64(newXRPLBaseFee),
 	)
 }
@@ -150,7 +153,7 @@ func TestXRPLBridgeAccountBalancesMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLBridgeAccountBalances,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLBridgeAccountBalancesGaugeVec,
 		map[string]string{
 			metrics.XRPLCurrencyIssuerLabel: xrpKey,
 		},
@@ -166,7 +169,7 @@ func TestXRPLBridgeAccountBalancesMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLBridgeAccountBalances,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLBridgeAccountBalancesGaugeVec,
 		map[string]string{
 			metrics.XRPLCurrencyIssuerLabel: registeredTokenKey,
 		},
@@ -229,7 +232,7 @@ func TestContractBalancesMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.ContractBalances,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.ContractBalancesGaugeVec,
 		map[string]string{
 			metrics.XRPLCurrencyIssuerLabel: registeredTokenKey,
 			metrics.CoreumDenomLabel:        registeredCoreumOriginatedToken.Denom,
@@ -275,7 +278,7 @@ func TestPendingOperationsMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.PendingOperations,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.PendingOperationsGaugeVec,
 		map[string]string{
 			metrics.OperationIDLabel: strconv.Itoa(int(pendingOperation.GetOperationID())),
 		},
@@ -290,11 +293,230 @@ func TestPendingOperationsMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.PendingOperations,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.PendingOperationsGaugeVec,
 		map[string]string{
 			metrics.OperationIDLabel: strconv.Itoa(int(pendingOperation.GetOperationID())),
 		},
 		0,
+	)
+}
+
+func TestTransactionEvidencesMetric(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.RelayersCount = 2
+	envCfg.SigningThreshold = 2
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+
+	runnerEnv.StartAllRunnerPeriodicMetricCollectors()
+
+	xrplToCoreumTransferEvidence1 := coreum.XRPLToCoreumTransferEvidence{
+		TxHash:    integrationtests.GenXRPLTxHash(t),
+		Issuer:    xrpl.XRPTokenIssuer.String(),
+		Currency:  xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
+		Amount:    sdkmath.NewInt(10),
+		Recipient: coreum.GenAccount(),
+	}
+
+	xrplToCoreumTransferEvidence2 := coreum.XRPLToCoreumTransferEvidence{
+		TxHash:    integrationtests.GenXRPLTxHash(t),
+		Issuer:    xrpl.XRPTokenIssuer.String(),
+		Currency:  xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
+		Amount:    sdkmath.NewInt(10),
+		Recipient: coreum.GenAccount(),
+	}
+
+	relayer1Address, err := sdk.AccAddressFromBech32(runnerEnv.BootstrappingConfig.Relayers[0].CoreumAddress)
+	require.NoError(t, err)
+	relayer1ContractClient := runnerEnv.RunnerComponents[0].CoreumContractClient
+
+	relayer2Address, err := sdk.AccAddressFromBech32(runnerEnv.BootstrappingConfig.Relayers[1].CoreumAddress)
+	require.NoError(t, err)
+	relayer2ContractClient := runnerEnv.RunnerComponents[1].CoreumContractClient
+
+	// save evidences manually from relayer 1
+	_, err = relayer1ContractClient.SendXRPLToCoreumTransferEvidence(
+		ctx,
+		relayer1Address,
+		xrplToCoreumTransferEvidence1,
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, err)
+	_, err = relayer1ContractClient.SendXRPLToCoreumTransferEvidence(
+		ctx,
+		relayer1Address,
+		xrplToCoreumTransferEvidence2,
+	)
+	require.NoError(t, err)
+
+	transactionEvidencesBefore, err := relayer1ContractClient.GetTransactionEvidences(ctx)
+	require.NoError(t, err)
+	require.Len(t, transactionEvidencesBefore, 2)
+
+	for _, evidence := range transactionEvidencesBefore {
+		awaitGaugeVecMetricState(
+			ctx,
+			t,
+			runnerEnv,
+			runnerEnv.RunnerComponents[0].MetricsRegistry.TransactionEvidencesGaugeVec,
+			map[string]string{
+				metrics.EvidenceHashLabel: evidence.Hash,
+			},
+			float64(len(evidence.RelayerAddresses)),
+		)
+	}
+
+	// save one evidences manually from relayer 2
+	_, err = relayer2ContractClient.SendXRPLToCoreumTransferEvidence(
+		ctx,
+		relayer2Address,
+		xrplToCoreumTransferEvidence1,
+	)
+	require.NoError(t, err)
+
+	transactionEvidencesAfter, err := relayer1ContractClient.GetTransactionEvidences(ctx)
+	require.NoError(t, err)
+	require.Len(t, transactionEvidencesAfter, 1)
+
+	// check that one evidence metric remains the same
+	awaitGaugeVecMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.TransactionEvidencesGaugeVec,
+		map[string]string{
+			metrics.EvidenceHashLabel: transactionEvidencesAfter[0].Hash,
+		},
+		float64(len(transactionEvidencesAfter[0].RelayerAddresses)),
+	)
+
+	confirmedEvidences := findConfirmedEvidences(transactionEvidencesBefore, transactionEvidencesAfter)
+	require.Len(t, confirmedEvidences, 1)
+
+	// check that the evidence metric is removed
+	awaitGaugeVecMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.TransactionEvidencesGaugeVec,
+		map[string]string{
+			metrics.EvidenceHashLabel: confirmedEvidences[0].Hash,
+		},
+		0,
+	)
+}
+
+func TestRelayerBalancesMetric(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.RelayersCount = 2
+	envCfg.SigningThreshold = 2
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerPeriodicMetricCollectors()
+
+	relayer1Address := runnerEnv.BootstrappingConfig.Relayers[0].CoreumAddress
+	relayer2Address := runnerEnv.BootstrappingConfig.Relayers[1].CoreumAddress
+
+	relayer1BalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: relayer1Address,
+		Denom:   chains.Coreum.ChainSettings.Denom,
+	})
+	require.NoError(t, err)
+
+	relayer2BalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: relayer2Address,
+		Denom:   chains.Coreum.ChainSettings.Denom,
+	})
+	require.NoError(t, err)
+
+	awaitGaugeVecMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.RelayerBalancesGaugeVec,
+		map[string]string{
+			metrics.AddressLabel: relayer1Address,
+		},
+		truncateFloatByMetricCollectorTruncationPrecision(
+			float64(relayer1BalanceRes.Balance.Amount.Uint64())/float64(coreum.TokenDecimals),
+		),
+	)
+
+	awaitGaugeVecMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.RelayerBalancesGaugeVec,
+		map[string]string{
+			metrics.AddressLabel: relayer2Address,
+		},
+		truncateFloatByMetricCollectorTruncationPrecision(
+			float64(relayer2BalanceRes.Balance.Amount.Uint64())/float64(coreum.TokenDecimals),
+		),
+	)
+}
+
+func TestXRPLLedgersMetric(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.RelayersCount = 1
+	envCfg.SigningThreshold = 1
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerProcesses()
+	runnerEnv.AllocateTickets(ctx, t, uint32(200))
+
+	currentHistoricalScanXRPLedger := getGaugeValue(
+		t, runnerEnv.RunnerComponents[0].MetricsRegistry.CurrentHistoricalScanXRPLedgerGauge,
+	)
+	require.NotZero(t, currentHistoricalScanXRPLedger)
+
+	currentRecentScanXRPLedger := getGaugeValue(
+		t, runnerEnv.RunnerComponents[0].MetricsRegistry.CurrentRecentScanXRPLedgerGauge,
+	)
+	require.NotZero(t, currentRecentScanXRPLedger)
+}
+
+func TestFreeTicketsMetric(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.RelayersCount = 1
+	envCfg.SigningThreshold = 1
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerPeriodicMetricCollectors()
+	runnerEnv.StartAllRunnerProcesses()
+
+	ticketsToAllocate := 200
+	runnerEnv.AllocateTickets(ctx, t, uint32(200))
+
+	awaitGaugeMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.FreeContractTicketsGauge,
+		float64(ticketsToAllocate),
+	)
+
+	awaitGaugeMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.FreeXRPLTicketsGauge,
+		float64(ticketsToAllocate),
 	)
 }
 
@@ -326,11 +548,7 @@ func awaitGaugeVecMetricState(
 }
 
 func assertGaugeMetric(t *testing.T, m prometheus.Metric, expectedValue float64) error {
-	metricDTO := prometheusdto.Metric{}
-	require.NoError(t, m.Write(&metricDTO))
-	require.NotNil(t, metricDTO.GetGauge())
-	got := metricDTO.GetGauge().GetValue()
-	if expectedValue != got {
+	if got := getGaugeValue(t, m); expectedValue != got {
 		return errors.Errorf(
 			"expected metric value is different from the current, expected:%f, got:%f", expectedValue, got,
 		)
@@ -338,7 +556,25 @@ func assertGaugeMetric(t *testing.T, m prometheus.Metric, expectedValue float64)
 	return nil
 }
 
+func getGaugeValue(t *testing.T, m prometheus.Metric) float64 {
+	metricDTO := prometheusdto.Metric{}
+	require.NoError(t, m.Write(&metricDTO))
+	require.NotNil(t, metricDTO.GetGauge())
+	got := metricDTO.GetGauge().GetValue()
+	return got
+}
+
 func truncateFloatByMetricCollectorTruncationPrecision(val float64) float64 {
 	ratio := math.Pow(10, float64(metrics.DefaultPeriodicCollectorConfig().FloatTruncationPrecision))
 	return math.Trunc(val*ratio) / ratio
+}
+
+func findConfirmedEvidences(before, after []coreum.TransactionEvidence) []coreum.TransactionEvidence {
+	afterMap := lo.SliceToMap(after, func(evidence coreum.TransactionEvidence) (string, coreum.TransactionEvidence) {
+		return evidence.Hash, evidence
+	})
+	return lo.Filter(before, func(evidence coreum.TransactionEvidence, index int) bool {
+		_, found := afterMap[evidence.Hash]
+		return !found
+	})
 }

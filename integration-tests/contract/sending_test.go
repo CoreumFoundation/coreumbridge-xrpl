@@ -101,7 +101,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 
 	// create an evidence of transfer tokens from XRPL to Coreum
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    issuerAcc.String(),
 		Currency:  currency,
 		Amount:    sdkmath.NewInt(10),
@@ -137,6 +137,13 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		xrplToCoreumTransferEvidence,
 	)
 	require.NoError(t, err)
+
+	transactionEvidences, err := contractClient.GetTransactionEvidences(ctx)
+	require.NoError(t, err)
+	require.Len(t, transactionEvidences, 1)
+	require.Len(t, transactionEvidences[0].RelayerAddresses, 1)
+	require.Equal(t, transactionEvidences[0].RelayerAddresses[0].String(), relayers[0].CoreumAddress.String())
+
 	recipientBalanceRes, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 		Address: coreumRecipient.String(),
 		Denom:   registeredToken.CoreumDenom,
@@ -174,6 +181,10 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, strconv.FormatBool(true), thresholdReached)
+
+	transactionEvidences, err = contractClient.GetTransactionEvidences(ctx)
+	require.NoError(t, err)
+	require.Empty(t, transactionEvidences)
 
 	require.NoError(t, err)
 	// expect new token on the recipient balance
@@ -253,7 +264,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithMaxAmount(t *testing.T) {
 	activateXRPLToken(ctx, t, contractClient, relayers, issuer, currency)
 
 	xrplToCoreumTransferEvidenceWithHightAmount := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    issuerAcc.String(),
 		Currency:  currency,
 		Amount:    coreum.MaxContractAmount.AddRaw(1),
@@ -330,7 +341,7 @@ func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
 
 	// create an evidence of transfer tokens from XRPL to Coreum
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    issuerAcc.String(),
 		Currency:  currency,
 		Amount:    sdkmath.NewInt(10),
@@ -491,7 +502,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 
 			// create an evidence
 			xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-				TxHash:    genXRPLTxHash(t),
+				TxHash:    integrationtests.GenXRPLTxHash(t),
 				Issuer:    issuerAcc.String(),
 				Currency:  currency,
 				Amount:    tt.sendingAmount,
@@ -567,7 +578,7 @@ func TestSendFromXRPLToCoreumXRPToken(t *testing.T) {
 
 	// create an evidence of transfer tokens from XRPL to Coreum
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    rippledata.Account{}.String(),
 		Currency:  rippledata.Currency{}.String(),
 		Amount:    sdkmath.NewInt(10),
@@ -699,7 +710,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 	// create an evidence of transfer tokens from XRPL to Coreum
 	// account has 100_000_000_000 in XRPL after conversion
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:   genXRPLTxHash(t),
+		TxHash:   integrationtests.GenXRPLTxHash(t),
 		Issuer:   bridgeXRPLAddress,
 		Currency: registeredCoreumOriginatedToken.XRPLCurrency,
 		// Equivalent of sending 4 tokens back
@@ -910,7 +921,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 
 			// create an evidence of transfer tokens from XRPL to Coreum
 			xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-				TxHash:    genXRPLTxHash(t),
+				TxHash:    integrationtests.GenXRPLTxHash(t),
 				Issuer:    bridgeXRPLAddress,
 				Currency:  registeredCoreumToken.XRPLCurrency,
 				Amount:    amountToSendBack,
@@ -1120,7 +1131,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 
 			// create an evidence
 			xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-				TxHash:    genXRPLTxHash(t),
+				TxHash:    integrationtests.GenXRPLTxHash(t),
 				Issuer:    bridgeXRPLAddress,
 				Currency:  registeredCoreumOriginatedToken.XRPLCurrency,
 				Amount:    tt.xrplSendingAmount,
@@ -1292,7 +1303,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &operation.TicketSequence,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -1604,7 +1615,7 @@ func TestSendFromCoreumToXRPLXRPToken(t *testing.T) {
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &operation.TicketSequence,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -1738,7 +1749,7 @@ func TestSendFromCoreumXRPLOriginatedTokenWithDeliverAmount(t *testing.T) {
 	// reject the operation
 	rejectedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &operation.TicketSequence,
 			TransactionResult: coreum.TransactionResultRejected,
 		},
@@ -1806,7 +1817,7 @@ func TestSendFromCoreumXRPLOriginatedTokenWithDeliverAmount(t *testing.T) {
 	// accep the operation
 	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &operation.TicketSequence,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -2027,7 +2038,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &operation.TicketSequence,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -2088,7 +2099,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 
 	acceptedTxEvidence = coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &operation.TicketSequence,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -2431,7 +2442,7 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &operation.TicketSequence,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -2455,7 +2466,7 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	amountToSendBack := amountToSend.Mul(sdkmath.NewIntWithDecimal(1, 10))
 
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    bridgeXRPLAddress,
 		Currency:  registeredToken.XRPLCurrency,
 		Amount:    amountToSendBack,
@@ -2730,7 +2741,7 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 		// create an evidence
 		coreumRecipient := chains.Coreum.GenAccount()
 		xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-			TxHash:    genXRPLTxHash(t),
+			TxHash:    integrationtests.GenXRPLTxHash(t),
 			Issuer:    issuerAcc.String(),
 			Currency:  xrplCurrency,
 			Amount:    sendingAmount,
@@ -2873,7 +2884,7 @@ func TestFeeCalculations_FeeRemainder(t *testing.T) {
 	remainder := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "0.06", tokenDecimals)
 	coreumRecipient := chains.Coreum.GenAccount()
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    issuerAcc.String(),
 		Currency:  xrplCurrency,
 		Amount:    sendingAmount,
@@ -2906,7 +2917,7 @@ func TestFeeCalculations_FeeRemainder(t *testing.T) {
 	)
 
 	// send the amount again
-	xrplToCoreumTransferEvidence.TxHash = genXRPLTxHash(t)
+	xrplToCoreumTransferEvidence.TxHash = integrationtests.GenXRPLTxHash(t)
 	xrplToCoreumTransferEvidence.Recipient = coreum.GenAccount()
 
 	// call from all relayers
@@ -3095,7 +3106,7 @@ func TestBridgingFeeForXRPLOrginatedTokens(t *testing.T) {
 			// create an evidence
 			coreumRecipient := chains.Coreum.GenAccount()
 			xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-				TxHash:    genXRPLTxHash(t),
+				TxHash:    integrationtests.GenXRPLTxHash(t),
 				Issuer:    issuerAcc.String(),
 				Currency:  xrplCurrency,
 				Amount:    stringToSDKInt(tt.sendingAmountFromXRPL),

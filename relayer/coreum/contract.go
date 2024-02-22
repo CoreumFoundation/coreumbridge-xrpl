@@ -88,14 +88,15 @@ type QueryMethod string
 
 // QueryMethods.
 const (
-	QueryMethodConfig            QueryMethod = "config"
-	QueryMethodOwnership         QueryMethod = "ownership"
-	QueryMethodXRPLTokens        QueryMethod = "xrpl_tokens"
-	QueryMethodFeesCollected     QueryMethod = "fees_collected"
-	QueryMethodCoreumTokens      QueryMethod = "coreum_tokens"
-	QueryMethodPendingOperations QueryMethod = "pending_operations"
-	QueryMethodAvailableTickets  QueryMethod = "available_tickets"
-	QueryMethodPendingRefunds    QueryMethod = "pending_refunds"
+	QueryMethodConfig               QueryMethod = "config"
+	QueryMethodOwnership            QueryMethod = "ownership"
+	QueryMethodXRPLTokens           QueryMethod = "xrpl_tokens"
+	QueryMethodFeesCollected        QueryMethod = "fees_collected"
+	QueryMethodCoreumTokens         QueryMethod = "coreum_tokens"
+	QueryMethodPendingOperations    QueryMethod = "pending_operations"
+	QueryMethodAvailableTickets     QueryMethod = "available_tickets"
+	QueryMethodPendingRefunds       QueryMethod = "pending_refunds"
+	QueryMethodTransactionEvidences QueryMethod = "transaction_evidences"
 )
 
 // Relayer is the relayer information in the contract config.
@@ -271,6 +272,19 @@ type SaveSignatureRequest struct {
 	Signature        string
 }
 
+// PendingRefund holds the pending refund information.
+type PendingRefund struct {
+	ID         string   `json:"id"`
+	Coin       sdk.Coin `json:"coin"`
+	XRPLTxHash string   `json:"xrpl_tx_hash"`
+}
+
+// TransactionEvidence is the transaction evidence.
+type TransactionEvidence struct {
+	Hash             string           `json:"hash"`
+	RelayerAddresses []sdk.AccAddress `json:"relayer_addresses"`
+}
+
 // ******************** Internal transport object  ********************
 
 type instantiateRequest struct {
@@ -409,25 +423,30 @@ type feesCollectedResponse struct {
 	FeesCollected []sdk.Coin `json:"fees_collected"`
 }
 
+type pendingRefundsRequest struct {
+	StartAfterKey []string       `json:"start_after_key,omitempty"`
+	Limit         *uint32        `json:"limit,omitempty"`
+	Address       sdk.AccAddress `json:"address"`
+}
+
 type pendingRefundsResponse struct {
+	LastKey        []string        `json:"last_key"`
 	PendingRefunds []PendingRefund `json:"pending_refunds"`
 }
 
-// PendingRefund holds the pending refund information.
-type PendingRefund struct {
-	ID         string   `json:"id"`
-	Coin       sdk.Coin `json:"coin"`
-	XRPLTxHash string   `json:"xrpl_tx_hash"`
+type transactionEvidencesResponse struct {
+	LastKey              string                `json:"last_key"`
+	TransactionEvidences []TransactionEvidence `json:"transaction_evidences"`
 }
 
 type pagingStringKeyRequest struct {
 	StartAfterKey string  `json:"start_after_key,omitempty"`
-	Limit         *uint32 `json:"limit"`
+	Limit         *uint32 `json:"limit,omitempty"`
 }
 
 type pagingUint32KeyRequest struct {
 	StartAfterKey *uint32 `json:"start_after_key,omitempty"`
-	Limit         *uint32 `json:"limit"`
+	Limit         *uint32 `json:"limit,omitempty"`
 }
 
 type execRequest struct {
@@ -1217,15 +1236,15 @@ func (c *ContractClient) GetCoreumTokens(ctx context.Context) ([]CoreumToken, er
 	tokens := make([]CoreumToken, 0)
 	lastKey := ""
 	for {
-		response, err := c.getPaginatedCoreumTokens(ctx, lastKey, &c.cfg.PageLimit)
+		res, err := c.getPaginatedCoreumTokens(ctx, lastKey, &c.cfg.PageLimit)
 		if err != nil {
 			return nil, err
 		}
-		if len(response.Tokens) == 0 {
+		if len(res.Tokens) == 0 {
 			break
 		}
-		tokens = append(tokens, response.Tokens...)
-		lastKey = response.LastKey
+		tokens = append(tokens, res.Tokens...)
+		lastKey = res.LastKey
 	}
 
 	return tokens, nil
@@ -1236,15 +1255,15 @@ func (c *ContractClient) GetPendingOperations(ctx context.Context) ([]Operation,
 	operations := make([]Operation, 0)
 	var startAfterKey *uint32
 	for {
-		response, err := c.getPaginatedPendingOperations(ctx, startAfterKey, &c.cfg.PageLimit)
+		res, err := c.getPaginatedPendingOperations(ctx, startAfterKey, &c.cfg.PageLimit)
 		if err != nil {
 			return nil, err
 		}
-		if len(response.Operations) == 0 {
+		if len(res.Operations) == 0 {
 			break
 		}
-		operations = append(operations, response.Operations...)
-		startAfterKey = &response.LastKey
+		operations = append(operations, res.Operations...)
+		startAfterKey = &res.LastKey
 	}
 
 	return operations, nil
@@ -1252,49 +1271,70 @@ func (c *ContractClient) GetPendingOperations(ctx context.Context) ([]Operation,
 
 // GetAvailableTickets returns a list of registered not used tickets.
 func (c *ContractClient) GetAvailableTickets(ctx context.Context) ([]uint32, error) {
-	var response availableTicketsResponse
+	var res availableTicketsResponse
 	err := c.query(ctx, map[QueryMethod]struct{}{
 		QueryMethodAvailableTickets: {},
-	}, &response)
+	}, &res)
 	if err != nil {
 		return nil, err
 	}
 
-	return response.Tickets, nil
+	return res.Tickets, nil
 }
 
 // GetFeesCollected returns collected fees for an account.
 func (c *ContractClient) GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error) {
-	var response feesCollectedResponse
+	var res feesCollectedResponse
 	err := c.query(ctx, map[QueryMethod]interface{}{
 		QueryMethodFeesCollected: struct {
 			RelayerAddress string `json:"relayer_address"`
 		}{
 			RelayerAddress: address.String(),
 		},
-	}, &response)
+	}, &res)
 	if err != nil {
 		return nil, err
 	}
 
-	return sdk.NewCoins(response.FeesCollected...), nil
+	return sdk.NewCoins(res.FeesCollected...), nil
 }
 
 // GetPendingRefunds returns the list of pending refunds for and address.
 func (c *ContractClient) GetPendingRefunds(ctx context.Context, address sdk.AccAddress) ([]PendingRefund, error) {
-	var response pendingRefundsResponse
-	err := c.query(ctx, map[QueryMethod]interface{}{
-		QueryMethodPendingRefunds: struct {
-			Address string `json:"address"`
-		}{
-			Address: address.String(),
-		},
-	}, &response)
-	if err != nil {
-		return nil, err
+	pendingRefunds := make([]PendingRefund, 0)
+	var startAfterKey []string
+	for {
+		res, err := c.getPaginatedPendingRefunds(ctx, startAfterKey, &c.cfg.PageLimit, address)
+		if err != nil {
+			return nil, err
+		}
+		if len(res.PendingRefunds) == 0 {
+			break
+		}
+		pendingRefunds = append(pendingRefunds, res.PendingRefunds...)
+		startAfterKey = res.LastKey
 	}
 
-	return response.PendingRefunds, nil
+	return pendingRefunds, nil
+}
+
+// GetTransactionEvidences returns a list of transaction evidences.
+func (c *ContractClient) GetTransactionEvidences(ctx context.Context) ([]TransactionEvidence, error) {
+	transactionEvidences := make([]TransactionEvidence, 0)
+	lastKey := ""
+	for {
+		res, err := c.getPaginatedTransactionEvidences(ctx, lastKey, &c.cfg.PageLimit)
+		if err != nil {
+			return nil, err
+		}
+		if len(res.TransactionEvidences) == 0 {
+			break
+		}
+		transactionEvidences = append(transactionEvidences, res.TransactionEvidences...)
+		lastKey = res.LastKey
+	}
+
+	return transactionEvidences, nil
 }
 
 func (c *ContractClient) getPaginatedXRPLTokens(
@@ -1352,6 +1392,44 @@ func (c *ContractClient) getPaginatedPendingOperations(
 	}
 
 	return response, nil
+}
+
+func (c *ContractClient) getPaginatedPendingRefunds(
+	ctx context.Context,
+	startAfterKey []string,
+	limit *uint32,
+	address sdk.AccAddress,
+) (pendingRefundsResponse, error) {
+	var res pendingRefundsResponse
+	err := c.query(ctx, map[QueryMethod]pendingRefundsRequest{
+		QueryMethodPendingRefunds: {
+			StartAfterKey: startAfterKey,
+			Limit:         limit,
+			Address:       address,
+		},
+	}, &res)
+	if err != nil {
+		return pendingRefundsResponse{}, err
+	}
+	return res, nil
+}
+
+func (c *ContractClient) getPaginatedTransactionEvidences(
+	ctx context.Context,
+	startAfterKey string,
+	limit *uint32,
+) (transactionEvidencesResponse, error) {
+	var res transactionEvidencesResponse
+	err := c.query(ctx, map[QueryMethod]pagingStringKeyRequest{
+		QueryMethodTransactionEvidences: {
+			StartAfterKey: startAfterKey,
+			Limit:         limit,
+		},
+	}, &res)
+	if err != nil {
+		return transactionEvidencesResponse{}, err
+	}
+	return res, nil
 }
 
 func (c *ContractClient) queryAssetFTIssueFee(ctx context.Context) (sdk.Coin, error) {

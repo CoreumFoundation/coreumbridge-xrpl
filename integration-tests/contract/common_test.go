@@ -5,9 +5,7 @@ package contract_test
 
 import (
 	"context"
-	"crypto/rand"
 	"strconv"
-	"strings"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
@@ -46,7 +44,7 @@ func recoverTickets(
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			AccountSequence:   &bridgeXRPLAccountFirstSeqNumber,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -99,7 +97,7 @@ func activateXRPLToken(
 
 	acceptedTxEvidenceTrustSet := coreum.XRPLTransactionResultTrustSetEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &trustSetOperation.TicketSequence,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -138,7 +136,7 @@ func sendFromXRPLToCoreum(
 	t.Helper()
 
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    issuer,
 		Currency:  currency,
 		Amount:    amount,
@@ -182,7 +180,7 @@ func sendFromCoreumToXRPL(
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &operation.TicketSequence,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
@@ -222,16 +220,6 @@ func genRelayers(
 		})
 	}
 	return relayers
-}
-
-func genXRPLTxHash(t *testing.T) string {
-	t.Helper()
-
-	hash := rippledata.Hash256{}
-	_, err := rand.Read(hash[:])
-	require.NoError(t, err)
-
-	return strings.ToUpper(hash.String())
 }
 
 func issueAndRegisterCoreumOriginatedToken(
