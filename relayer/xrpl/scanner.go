@@ -71,14 +71,14 @@ func NewAccountScanner(
 	log logger.Logger,
 	rpcTxProvider RPCTxProvider,
 	recentScanXRPLedgerGauge prometheus.Gauge,
-	historicalScanXRPLedger prometheus.Gauge,
+	fullScanXRPLedgerGauge prometheus.Gauge,
 ) *AccountScanner {
 	return &AccountScanner{
 		cfg:                      cfg,
 		log:                      log,
 		rpcTxProvider:            rpcTxProvider,
 		recentScanXRPLedgerGauge: recentScanXRPLedgerGauge,
-		historicalScanXRPLedger:  historicalScanXRPLedger,
+		historicalScanXRPLedger:  fullScanXRPLedgerGauge,
 	}
 }
 
@@ -132,9 +132,8 @@ func (s *AccountScanner) scanRecentHistory(
 			zap.Int64("minLedger", minLedger),
 			zap.String("account", s.cfg.Account.String()),
 		)
-		lastLedger := s.scanTransactions(ctx, minLedger, ch)
+		lastLedger := s.scanTransactions(ctx, minLedger, s.recentScanXRPLedgerGauge, ch)
 		if lastLedger != 0 {
-			s.historicalScanXRPLedger.Set(float64(lastLedger))
 			minLedger = lastLedger + 1
 		}
 		s.log.Debug(ctx, "Scanning of the recent history is done", zap.Int64("lastLedger", lastLedger))
@@ -144,7 +143,7 @@ func (s *AccountScanner) scanRecentHistory(
 func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) {
 	s.doWithRepeat(ctx, s.cfg.RepeatFullScan, func() {
 		s.log.Debug(ctx, "Scanning XRPL account full history", zap.String("account", s.cfg.Account.String()))
-		lastLedger := s.scanTransactions(ctx, -1, ch)
+		lastLedger := s.scanTransactions(ctx, -1, s.historicalScanXRPLedger, ch)
 		s.log.Debug(ctx, "Scanning of full history is done", zap.Int64("lastLedger", lastLedger))
 	})
 }
@@ -152,6 +151,7 @@ func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippleda
 func (s *AccountScanner) scanTransactions(
 	ctx context.Context,
 	minLedger int64,
+	ledgerGauge prometheus.Gauge,
 	ch chan<- rippledata.TransactionWithMetaData,
 ) int64 {
 	if minLedger <= 0 {
@@ -207,9 +207,11 @@ func (s *AccountScanner) scanTransactions(
 				}
 			}
 		}
+		if prevProcessedLedger != 0 {
+			ledgerGauge.Set(float64(prevProcessedLedger))
+		}
 		if len(accountTxResult.Marker) == 0 {
 			lastLedger = prevProcessedLedger
-			s.recentScanXRPLedgerGauge.Set(float64(lastLedger))
 			break
 		}
 		marker = accountTxResult.Marker

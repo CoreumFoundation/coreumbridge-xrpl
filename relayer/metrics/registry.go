@@ -6,18 +6,18 @@ import (
 )
 
 const (
-	relayerErrorsTotalMetricName             = "relayer_errors_total"
-	xrplChainBaseFeeMetricName               = "xrpl_chain_base_fee"
-	contractConfigXRPLBaseFeeMetricName      = "contract_config_xrpl_base_fee"
-	xrplBridgeAccountBalancesMetricName      = "xrpl_bridge_account_balances"
-	contractBalancesBalancesMetricName       = "contract_balances"
-	pendingOperationsMetricName              = "pending_operations"
-	transactionEvidencesMetricName           = "transaction_evidences"
-	relayerBalancesMetricName                = "relayer_balances"
-	currentRecentScanXRPLedgerMetricName     = "current_recent_scan_xrpl_ledger"
-	currentHistoricalScanXRPLedgerMetricName = "current_historical_scan_xrpl_ledger"
-	freeContractTicketsMetricName            = "free_contract_tickets"
-	freeXRPLTicketsMetricName                = "free_xrpl_tickets"
+	relayerErrorsTotalMetricName                      = "relayer_errors_total"
+	xrplChainBaseFeeMetricName                        = "xrpl_chain_base_fee"
+	contractConfigXRPLBaseFeeMetricName               = "contract_config_xrpl_base_fee"
+	xrplBridgeAccountBalancesMetricName               = "xrpl_bridge_account_balances"
+	contractBalancesBalancesMetricName                = "contract_balances"
+	pendingOperationsMetricName                       = "pending_operations"
+	transactionEvidencesMetricName                    = "transaction_evidences"
+	relayerBalancesMetricName                         = "relayer_balances"
+	xrplAccountRecentHistoryScanLedgerIndexMetricName = "xrpl_account_recent_history_scan_ledger_index"
+	xrplAccountFullHistoryScanLedgerIndexMetricName   = "xrpl_account_full_history_scan_ledger_index"
+	freeContractTicketsMetricName                     = "free_contract_tickets"
+	freeXRPLTicketsMetricName                         = "free_xrpl_tickets"
 
 	// XRPLCurrencyIssuerLabel is XRPL currency issuer label.
 	XRPLCurrencyIssuerLabel = "xrpl_currency_issuer"
@@ -33,18 +33,18 @@ const (
 
 // Registry contains metrics.
 type Registry struct {
-	ErrorCounter                        prometheus.Counter
-	XRPLChainBaseFeeGauge               prometheus.Gauge
-	ContractConfigXRPLBaseFeeGauge      prometheus.Gauge
-	XRPLBridgeAccountBalancesGaugeVec   *prometheus.GaugeVec
-	ContractBalancesGaugeVec            *prometheus.GaugeVec
-	PendingOperationsGaugeVec           *prometheus.GaugeVec
-	TransactionEvidencesGaugeVec        *prometheus.GaugeVec
-	RelayerBalancesGaugeVec             *prometheus.GaugeVec
-	CurrentRecentScanXRPLedgerGauge     prometheus.Gauge
-	CurrentHistoricalScanXRPLedgerGauge prometheus.Gauge
-	FreeContractTicketsGauge            prometheus.Gauge
-	FreeXRPLTicketsGauge                prometheus.Gauge
+	ErrorCounter                                 prometheus.Counter
+	XRPLChainBaseFeeGauge                        prometheus.Gauge
+	ContractConfigXRPLBaseFeeGauge               prometheus.Gauge
+	XRPLBridgeAccountBalancesGaugeVec            *prometheus.GaugeVec
+	ContractBalancesGaugeVec                     *prometheus.GaugeVec
+	PendingOperationsGaugeVec                    *prometheus.GaugeVec
+	TransactionEvidencesGaugeVec                 *prometheus.GaugeVec
+	RelayerBalancesGaugeVec                      *prometheus.GaugeVec
+	XRPLAccountRecentHistoryScanLedgerIndexGauge prometheus.Gauge
+	XRPLAccountFullHistoryScanLedgerIndexGauge   prometheus.Gauge
+	FreeContractTicketsGauge                     prometheus.Gauge
+	FreeXRPLTicketsGauge                         prometheus.Gauge
 }
 
 // NewRegistry returns new metric registry.
@@ -101,13 +101,13 @@ func NewRegistry() *Registry {
 				AddressLabel,
 			},
 		),
-		CurrentRecentScanXRPLedgerGauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: currentRecentScanXRPLedgerMetricName,
-			Help: "Current recent scan XRPL ledger",
+		XRPLAccountRecentHistoryScanLedgerIndexGauge: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: xrplAccountRecentHistoryScanLedgerIndexMetricName,
+			Help: "XRPL account recent history scan ledger index",
 		}),
-		CurrentHistoricalScanXRPLedgerGauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: currentHistoricalScanXRPLedgerMetricName,
-			Help: "Current historical scan XRPL ledger",
+		XRPLAccountFullHistoryScanLedgerIndexGauge: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: xrplAccountFullHistoryScanLedgerIndexMetricName,
+			Help: "XRPL account full history scan ledger index",
 		}),
 		FreeContractTicketsGauge: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: freeContractTicketsMetricName,
@@ -131,8 +131,8 @@ func (m *Registry) Register(registry prometheus.Registerer) error {
 		m.PendingOperationsGaugeVec,
 		m.TransactionEvidencesGaugeVec,
 		m.RelayerBalancesGaugeVec,
-		m.CurrentRecentScanXRPLedgerGauge,
-		m.CurrentHistoricalScanXRPLedgerGauge,
+		m.XRPLAccountRecentHistoryScanLedgerIndexGauge,
+		m.XRPLAccountFullHistoryScanLedgerIndexGauge,
 		m.FreeContractTicketsGauge,
 		m.FreeXRPLTicketsGauge,
 	}

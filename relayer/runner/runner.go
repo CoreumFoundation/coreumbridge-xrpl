@@ -88,8 +88,8 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 	},
 		components.Log,
 		components.XRPLRPCClient,
-		components.MetricsRegistry.CurrentRecentScanXRPLedgerGauge,
-		components.MetricsRegistry.CurrentHistoricalScanXRPLedgerGauge,
+		components.MetricsRegistry.XRPLAccountRecentHistoryScanLedgerIndexGauge,
+		components.MetricsRegistry.XRPLAccountFullHistoryScanLedgerIndexGauge,
 	)
 
 	xrplToCoreumProcess, err := processes.NewXRPLToCoreumProcess(

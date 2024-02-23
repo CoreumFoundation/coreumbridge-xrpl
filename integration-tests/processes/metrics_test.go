@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/big"
 	"strconv"
 	"testing"
 	"time"
@@ -447,7 +448,7 @@ func TestRelayerBalancesMetric(t *testing.T) {
 			metrics.AddressLabel: relayer1Address,
 		},
 		truncateFloatByMetricCollectorTruncationPrecision(
-			float64(relayer1BalanceRes.Balance.Amount.Uint64())/float64(coreum.TokenDecimals),
+			truncateAmountWithDecimals(coreum.TokenDecimals, relayer1BalanceRes.Balance.Amount),
 		),
 	)
 
@@ -460,12 +461,12 @@ func TestRelayerBalancesMetric(t *testing.T) {
 			metrics.AddressLabel: relayer2Address,
 		},
 		truncateFloatByMetricCollectorTruncationPrecision(
-			float64(relayer2BalanceRes.Balance.Amount.Uint64())/float64(coreum.TokenDecimals),
+			truncateAmountWithDecimals(coreum.TokenDecimals, relayer2BalanceRes.Balance.Amount),
 		),
 	)
 }
 
-func TestXRPLLedgersMetric(t *testing.T) {
+func TestXRPLAccountLedgersMetrics(t *testing.T) {
 	t.Parallel()
 
 	ctx, chains := integrationtests.NewTestingContext(t)
@@ -478,12 +479,12 @@ func TestXRPLLedgersMetric(t *testing.T) {
 	runnerEnv.AllocateTickets(ctx, t, uint32(200))
 
 	currentHistoricalScanXRPLedger := getGaugeValue(
-		t, runnerEnv.RunnerComponents[0].MetricsRegistry.CurrentHistoricalScanXRPLedgerGauge,
+		t, runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLAccountFullHistoryScanLedgerIndexGauge,
 	)
 	require.NotZero(t, currentHistoricalScanXRPLedger)
 
 	currentRecentScanXRPLedger := getGaugeValue(
-		t, runnerEnv.RunnerComponents[0].MetricsRegistry.CurrentRecentScanXRPLedgerGauge,
+		t, runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLAccountRecentHistoryScanLedgerIndexGauge,
 	)
 	require.NotZero(t, currentRecentScanXRPLedger)
 }
@@ -562,6 +563,14 @@ func getGaugeValue(t *testing.T, m prometheus.Metric) float64 {
 	require.NotNil(t, metricDTO.GetGauge())
 	got := metricDTO.GetGauge().GetValue()
 	return got
+}
+
+func truncateAmountWithDecimals(decimals uint32, amount sdkmath.Int) float64 {
+	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
+	balanceRat := big.NewRat(0, 1).SetFrac(amount.BigInt(), tenPowerDec)
+	// float64 should cover the range with enough precision
+	floatValue, _ := balanceRat.Float64()
+	return floatValue
 }
 
 func truncateFloatByMetricCollectorTruncationPrecision(val float64) float64 {
