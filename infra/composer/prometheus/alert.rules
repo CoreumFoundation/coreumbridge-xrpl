@@ -45,7 +45,7 @@ groups:
     - alert: Exceeded expected not confirmed evidence lifetime
       expr: transaction_evidences > 0
       # A relayer might find a tx is history first but other relayers might do re-scan later which takes a lot of time
-      for: 24h
+      for: 1h
       annotations:
         title: "Exceeded expected not confirmed evidence lifetime, evidence hash: {{ $labels.evidence_hash }}"
       labels:
