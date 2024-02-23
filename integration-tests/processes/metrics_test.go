@@ -197,7 +197,7 @@ func TestContractBalancesMetric(t *testing.T) {
 		Amount: issueFee.Amount.Add(sdkmath.NewIntWithDecimal(1, 6)),
 	})
 
-	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
+	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 10)
 
 	// issue asset ft and register it
 	sendingPrecision := int32(5)
@@ -239,6 +239,42 @@ func TestContractBalancesMetric(t *testing.T) {
 			metrics.CoreumDenomLabel:        registeredCoreumOriginatedToken.Denom,
 		},
 		truncateFloatByMetricCollectorTruncationPrecision(expectedMetricValue),
+	)
+
+	// send XRP token form XRPL to Coreum
+	valueToSendFromXRPLToCoreum, err := rippledata.NewValue("1.0", true)
+	require.NoError(t, err)
+	amountToSendFromXRPLtoCoreum := rippledata.Amount{
+		Value:    valueToSendFromXRPLToCoreum,
+		Currency: xrpl.XRPTokenCurrency,
+		Issuer:   xrpl.XRPTokenIssuer,
+	}
+	runnerEnv.SendFromXRPLToCoreum(
+		ctx,
+		t,
+		xrplRecipientAddress.String(),
+		amountToSendFromXRPLtoCoreum,
+		coreumSenderAddress,
+	)
+
+	registeredXRPToken, err := runnerEnv.ContractClient.GetXRPLTokenByIssuerAndCurrency(
+		ctx, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
+	)
+	require.NoError(t, err)
+	xrpTokenKey := fmt.Sprintf(
+		"%s/%s", registeredXRPToken.Currency, registeredXRPToken.Issuer,
+	)
+
+	awaitGaugeVecMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.ContractBalancesGaugeVec,
+		map[string]string{
+			metrics.XRPLCurrencyIssuerLabel: xrpTokenKey,
+			metrics.CoreumDenomLabel:        registeredXRPToken.CoreumDenom,
+		},
+		truncateFloatByMetricCollectorTruncationPrecision(valueToSendFromXRPLToCoreum.Float()),
 	)
 }
 

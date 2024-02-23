@@ -195,17 +195,32 @@ func (c *PeriodicCollector) collectContractBalances(ctx context.Context) error {
 		return errors.Wrap(err, "failed to get contract config")
 	}
 
+	denomToXRPLCurrencyIssuer := make(map[string]string)
+	denomToDecimals := make(map[string]uint32)
+
 	coreumTokens, err := c.contractClient.GetCoreumTokens(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get registered Coreum tokens")
 	}
 
-	denomToXRPLCurrencyIssuer := make(map[string]string)
-	denomToDecimals := make(map[string]uint32)
-
 	for _, token := range coreumTokens {
 		denomToXRPLCurrencyIssuer[token.Denom] = fmt.Sprintf("%s/%s", token.XRPLCurrency, contractCfg.BridgeXRPLAddress)
 		denomToDecimals[token.Denom] = token.Decimals
+	}
+
+	xrplTokens, err := c.contractClient.GetXRPLTokens(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get registered XRPL tokens")
+	}
+
+	for _, token := range xrplTokens {
+		denomToXRPLCurrencyIssuer[token.CoreumDenom] = fmt.Sprintf("%s/%s", token.Currency, token.Issuer)
+		if token.Currency == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
+			token.Issuer == xrpl.XRPTokenIssuer.String() {
+			denomToDecimals[token.CoreumDenom] = xrpl.XRPCurrencyDecimals
+			continue
+		}
+		denomToDecimals[token.CoreumDenom] = xrpl.XRPLIssuedTokenDecimals
 	}
 
 	contractBalancesRes, err := c.coreumBankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
