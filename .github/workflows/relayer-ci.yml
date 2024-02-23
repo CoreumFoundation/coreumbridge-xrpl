@@ -81,7 +81,9 @@ jobs:
         with:
           repository: CoreumFoundation/crust
           path: crust
-          ref: 860a2548b62821c05bf6291ee2673bbe3df1f6bd
+          # FIXME (wojciech): change to master once https://reviewable.io/reviews/CoreumFoundation/crust/365
+          # is merged
+          ref: e8b4330cd4fd6fe9841b6324d66910dbcec45451
       - name: Checkout coreum
         uses: actions/checkout@v4
         with:

@@ -101,6 +101,8 @@ func (s *MigrateTestSuite) Test_runMigrateCmdRecord() {
 	}
 
 	cmd := MigrateCommand()
+	// https://github.com/spf13/cobra/blob/a0a6ae020bb3899ff0276067863e50523f897370/command.go#L1080
+	cmd.SetArgs([]string{})
 	mockIn := strings.NewReader("")
 	kb, err := keyring.New(s.appName, keyring.BackendTest, s.dir, mockIn, s.cdc)
 	s.Require().NoError(err)
@@ -133,6 +135,8 @@ func (s *MigrateTestSuite) Test_runMigrateCmdLegacyMultiInfo() {
 	}
 
 	cmd := MigrateCommand()
+	// https://github.com/spf13/cobra/blob/a0a6ae020bb3899ff0276067863e50523f897370/command.go#L1080
+	cmd.SetArgs([]string{})
 	mockIn := testutil.ApplyMockIODiscardOutErr(cmd)
 
 	kb, err := keyring.New(s.appName, keyring.BackendTest, s.dir, mockIn, s.cdc)
