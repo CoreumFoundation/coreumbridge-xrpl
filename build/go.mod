@@ -12,9 +12,8 @@ require (
 	golang.org/x/mod v0.14.0
 )
 
-require github.com/BurntSushi/toml v1.3.2 // indirect
-
 require (
+	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/samber/lo v1.39.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
