@@ -128,7 +128,7 @@ type Config struct {
 	XRPL          XRPLConfig      `yaml:"xrpl"`
 	Coreum        CoreumConfig    `yaml:"coreum"`
 	Processes     ProcessesConfig `yaml:"processes"`
-	Metrics       MetricsConfig   `yaml:"metrics_registry"`
+	Metrics       MetricsConfig   `yaml:"metrics"`
 }
 
 // DefaultConfig returns default runner config.

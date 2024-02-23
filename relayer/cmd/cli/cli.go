@@ -228,6 +228,7 @@ func NewRunnerFromHome(cmd *cobra.Command) (*runner.Runner, error) {
 	logCfg := logger.DefaultZapLoggerConfig()
 	logCfg.Level = cfg.LoggingConfig.Level
 	logCfg.Format = cfg.LoggingConfig.Format
+	logCfg.CallerSkip = 1
 	zapLogger, err := logger.NewZapLogger(logCfg)
 	if err != nil {
 		return nil, err
@@ -266,7 +267,7 @@ func NewComponents(cmd *cobra.Command, log logger.Logger) (runner.Components, er
 		return runner.Components{}, errors.Wrap(err, "failed to configure coreum keyring")
 	}
 
-	components, err := runner.NewComponents(cfg, xrplClientCtx.Keyring, coreumClientCtx.Keyring, log)
+	components, err := runner.NewComponents(cfg, xrplClientCtx, coreumClientCtx, log)
 	if err != nil {
 		return runner.Components{}, err
 	}
@@ -440,15 +441,15 @@ func KeyringCmd(
 				return err
 			}
 
-			var clientCtx coreumchainclient.Context
+			var clientSDKCtx client.Context
 			switch suffix {
 			case xrpl.KeyringSuffix:
-				clientCtx = components.XRPLClientCtx
+				clientSDKCtx = components.XRPLSDKClietCtx
 			case coreum.KeyringSuffix:
-				clientCtx = components.CoreumClientCtx
+				clientSDKCtx = components.CoreumSDKClientCtx
 			}
 
-			if err := client.SetCmdClientContext(cmd, clientCtx.SDKContext()); err != nil {
+			if err := client.SetCmdClientContext(cmd, clientSDKCtx); err != nil {
 				return errors.WithStack(err)
 			}
 			return nil
@@ -526,7 +527,7 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 				if err != nil {
 					return errors.Wrapf(err, "failed to get %s", FlagXRPLKeyName)
 				}
-				xrplKeyringTxSigner := xrpl.NewKeyringTxSigner(components.XRPLClientCtx.Keyring())
+				xrplKeyringTxSigner := components.XRPLKeyringTxSigner
 				xrplBridgeAddress, err := xrplKeyringTxSigner.Account(xrplKeyName)
 				if err != nil {
 					return err
