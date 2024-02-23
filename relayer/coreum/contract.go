@@ -1297,11 +1297,6 @@ func (c *ContractClient) GetPendingRefunds(ctx context.Context, address sdk.AccA
 	return response.PendingRefunds, nil
 }
 
-// SetGenerateOnly sets the client.Context.GenerateOnly.
-func (c *ContractClient) SetGenerateOnly(generateOnly bool) {
-	c.clientCtx = c.clientCtx.WithGenerateOnly(generateOnly)
-}
-
 func (c *ContractClient) getPaginatedXRPLTokens(
 	ctx context.Context,
 	startAfterKey string,
@@ -1424,7 +1419,7 @@ func (c *ContractClient) execute(
 		}
 		if cosmoserrors.ErrOutOfGas.Is(err) {
 			outOfGasRetryAttempt++
-			c.log.Warn(ctx, "Out of gas, retying Coreum tx execution")
+			c.log.Info(ctx, "Out of gas, retrying Coreum tx execution")
 			return retry.Retryable(errors.Wrapf(err, "retry tx execution, out of gas"))
 		}
 

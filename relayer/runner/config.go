@@ -90,6 +90,7 @@ type CoreumConfig struct {
 	GRPC           CoreumGRPCConfig     `yaml:"grpc"`
 	Network        CoreumNetworkConfig  `yaml:"network"`
 	Contract       CoreumContractConfig `yaml:"contract"`
+	GenerateOnly   bool                 `yaml:"-"`
 }
 
 // CoreumToXRPLProcessConfig is CoreumToXRPLProcess config.
@@ -142,13 +143,17 @@ func DefaultConfig() Config {
 		rippledata.Account{},
 		sdk.AccAddress(nil),
 	)
+	defaultLoggerConfig := logger.DefaultZapLoggerConfig()
 
 	defaultMetricsServerConfig := metrics.DefaultServerConfig()
 	defaultMetricsPeriodicCollectorConfig := metrics.DefaultPeriodicCollectorConfig()
 
 	return Config{
-		Version:       configVersion,
-		LoggingConfig: LoggingConfig(logger.DefaultZapLoggerConfig()),
+		Version: configVersion,
+		LoggingConfig: LoggingConfig{
+			Level:  defaultLoggerConfig.Level,
+			Format: defaultLoggerConfig.Format,
+		},
 		XRPL: XRPLConfig{
 			// empty be default
 			MultiSignerKeyName: "xrpl-relayer",
@@ -214,7 +219,7 @@ func DefaultConfig() Config {
 func InitConfig(homePath string, cfg Config) error {
 	path := buildFilePath(homePath)
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		return errors.Errorf("failed to initi config, file already exists, path:%s", path)
+		return errors.Errorf("failed to init config, file already exists, path:%s", path)
 	}
 
 	err := os.MkdirAll(homePath, 0o700)

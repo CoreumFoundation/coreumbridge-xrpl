@@ -12,7 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
@@ -47,13 +46,13 @@ func init() {
 	// parse additional flags
 	flag.Parse()
 
-	zapDevConfig := zap.NewDevelopmentConfig()
-	zapDevConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
-	zapDevLogger, err := zapDevConfig.Build()
+	logCfg := logger.DefaultZapLoggerConfig()
+	// set correct skip caller since we don't use the err counter wrapper here
+	logCfg.CallerSkip = 1
+	log, err := logger.NewZapLogger(logCfg)
 	if err != nil {
 		panic(errors.WithStack(err))
 	}
-	log := logger.NewZapLoggerFromLogger(zapDevLogger)
 	chains.Log = log
 
 	coreumChain, err := NewCoreumChain(coreumCfg)
@@ -62,7 +61,7 @@ func init() {
 	}
 	chains.Coreum = coreumChain
 
-	xrplChain, err := NewXRPLChain(xrplCfg, log)
+	xrplChain, err := NewXRPLChain(xrplCfg, chains.Log)
 	if err != nil {
 		panic(errors.Wrapf(err, "failed to init coreum chain"))
 	}
