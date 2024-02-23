@@ -39,6 +39,7 @@ func init() {
 	flag.StringVar(&coreumCfg.FundingMnemonic, "coreum-funding-mnemonic", "sad hobby filter tray ordinary gap half web cat hard call mystery describe member round trend friend beyond such clap frozen segment fan mistake", "Funding coreum account mnemonic required by tests")
 	flag.StringVar(&xrplCfg.RPCAddress, "xrpl-rpc-address", "http://localhost:5005", "RPC address of xrpl node")
 	flag.StringVar(&xrplCfg.FundingSeed, "xrpl-funding-seed", "snoPBrXtMeMyMHUVTgbuqAfg1SUTb", "Funding XRPL account seed required by tests")
+	// this is the default address used in znet
 	flag.StringVar(&contractAddressString, "contract-address", "devcore14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sd4f0ak", "Smart contract address of the bridge")
 
 	// accept testing flags
@@ -79,6 +80,7 @@ func NewTestingContext(t *testing.T) (context.Context, Chains) {
 	return testCtx, chains
 }
 
+// GetContractAddress returns the contract address for the bridge.
 func GetContractAddress(t *testing.T) sdk.AccAddress {
 	address, err := sdk.AccAddressFromBech32(contractAddressString)
 	require.NoError(t, err)

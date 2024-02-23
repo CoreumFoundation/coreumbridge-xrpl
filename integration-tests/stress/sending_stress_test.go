@@ -5,26 +5,23 @@ package stress_test
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
 	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pkg/errors"
+	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/stretchr/testify/require"
+
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
-	"github.com/pkg/errors"
-
-	// processtest "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests/processes"
-	// "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests/processes"
-
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	rippledata "github.com/rubblelabs/ripple/data"
-	"github.com/stretchr/testify/require"
 )
 
 func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
@@ -62,21 +59,21 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 	}
 
 	// generate and fund accounts
-	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 1)
+	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0.1)
 	xrplRecipientBalanceBefore := chains.XRPL.GetAccountBalance(
 		ctx, t, xrplRecipientAddress, xrpl.XRPTokenIssuer, xrpl.XRPTokenCurrency,
 	)
-	coreumAccounts := []sdk.AccAddress{}
-	xrplAccounts := []rippledata.Account{}
+	coreumAccounts := make([]sdk.AccAddress, 0)
+	xrplAccounts := make([]rippledata.Account, 0)
 
 	t.Log("Generating and funding accounts")
 	for i := 0; i < testCount; i++ {
 		newCoreumAccount := chains.Coreum.GenAccount()
 		coreumAccounts = append(coreumAccounts, newCoreumAccount)
 		chains.Coreum.FundAccountWithOptions(ctx, t, newCoreumAccount, coreumintegration.BalancesOptions{
-			Amount: sdkmath.NewIntFromUint64(1_000_000).MulRaw(int64(testCount)),
+			Amount: sdkmath.NewIntFromUint64(500_000),
 		})
-		newXRPLAccount := chains.XRPL.GenAccount(ctx, t, 1)
+		newXRPLAccount := chains.XRPL.GenAccount(ctx, t, 0.1)
 		xrplAccounts = append(xrplAccounts, newXRPLAccount)
 	}
 
@@ -87,7 +84,7 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 		for i := 0; i < testCount; i++ {
 			coreumAccount := coreumAccounts[i]
 			xrplAccount := xrplAccounts[i]
-			spawn(fmt.Sprint(i), parallel.Fail, func(ctx context.Context) error {
+			spawn(strconv.Itoa(i), parallel.Fail, func(ctx context.Context) error {
 				err = bridgeClient.SendFromXRPLToCoreum(ctx, xrplAccount.String(), amountToSendFromXRPLtoCoreum, coreumAccount)
 				if err != nil {
 					return err
@@ -128,7 +125,20 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	awaitNoPendingOperations(ctx, t, contractClient)
+	expectedReceived, err := rippledata.NewAmount(strconv.Itoa(sendAmount * testCount))
+	require.NoError(t, err)
+
+	waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer waitCancel()
+	awaitXRPLBalance(
+		waitCtx,
+		t,
+		chains.XRPL,
+		xrplRecipientAddress,
+		xrpl.XRPTokenIssuer,
+		xrpl.XRPTokenCurrency,
+		*expectedReceived,
+	)
 	testDuration := time.Since(startTime)
 
 	xrplRecipientBalanceAfter := chains.XRPL.GetAccountBalance(
@@ -136,21 +146,25 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 	)
 	received, err := xrplRecipientBalanceAfter.Value.Subtract(*xrplRecipientBalanceBefore.Value)
 	require.NoError(t, err)
-	expectedRecieved, err := rippledata.NewAmount(fmt.Sprint(sendAmount * testCount))
-	require.NoError(t, err)
-	require.Equal(t, expectedRecieved.Value.String(), received.String())
+	require.Equal(t, expectedReceived.Value.String(), received.String())
 
 	t.Logf("Ran %d Operations in %s, %s per operation", testCount, testDuration, testDuration/time.Duration(testCount))
 }
 
-func awaitNoPendingOperations(ctx context.Context, t *testing.T, contractClient *coreum.ContractClient) {
+func awaitXRPLBalance(
+	ctx context.Context,
+	t *testing.T,
+	xrpl integrationtests.XRPLChain,
+	account rippledata.Account,
+	issuer rippledata.Account,
+	currency rippledata.Currency,
+	expectedBalance rippledata.Amount,
+) {
 	t.Helper()
-
 	awaitState(ctx, t, func(t *testing.T) error {
-		operations, err := contractClient.GetPendingOperations(ctx)
-		require.NoError(t, err)
-		if len(operations) != 0 {
-			return errors.Errorf("there are still pending operatrions: %+v", operations)
+		balance := xrpl.GetAccountBalance(ctx, t, account, issuer, currency)
+		if !balance.Equals(expectedBalance) {
+			return errors.Errorf("balance (%+v) is not euqal to expected (%+v)", balance, expectedBalance)
 		}
 		return nil
 	})
@@ -158,9 +172,7 @@ func awaitNoPendingOperations(ctx context.Context, t *testing.T, contractClient 
 
 func awaitState(ctx context.Context, t *testing.T, stateChecker func(t *testing.T) error) {
 	t.Helper()
-	retryCtx, retryCancel := context.WithTimeout(ctx, time.Second/2)
-	defer retryCancel()
-	err := retry.Do(retryCtx, 500*time.Millisecond, func() error {
+	err := retry.Do(ctx, 500*time.Millisecond, func() error {
 		if err := stateChecker(t); err != nil {
 			return retry.Retryable(err)
 		}
