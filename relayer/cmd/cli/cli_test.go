@@ -993,7 +993,7 @@ func TestGetPendingRefundsCmd(t *testing.T) {
 		append(initConfig(t), account.String())...)
 }
 
-func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
+func TestClaimRelayerFeesCmd_WithSpecificAmount(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1016,7 +1016,7 @@ func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
 	executeCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
-func TestClaimRelayerFees(t *testing.T) {
+func TestClaimRelayerFeesCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1041,7 +1041,7 @@ func TestClaimRelayerFees(t *testing.T) {
 	executeCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
-func TestGetRelayerFees(t *testing.T) {
+func TestGetRelayerFeesCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1085,6 +1085,42 @@ func TestResumeBridgeCmd(t *testing.T) {
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock.EXPECT().ResumeBridge(gomock.Any(), owner).Return(nil)
 	executeCmd(t, cli.ResumeBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
+func TestGetProhibitedXRPLRecipientsCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	bridgeClientMock.EXPECT().GetProhibitedXRPLRecipients(gomock.Any()).Return([]string{}, nil)
+	executeCmd(t, cli.GetProhibitedXRPLRecipientsCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
+}
+
+func TestUpdateProhibitedXRPLRecipientsCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
+	owner := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+
+	prohibitedXRPLRecipient1 := xrpl.GenPrivKeyTxSigner().Account().String()
+	prohibitedXRPLRecipient2 := xrpl.GenPrivKeyTxSigner().Account().String()
+	args := []string{
+		flagWithPrefix(cli.FlagProhibitedXRPLRecipient), prohibitedXRPLRecipient1,
+		flagWithPrefix(cli.FlagProhibitedXRPLRecipient), prohibitedXRPLRecipient2,
+		flagWithPrefix(cli.FlagKeyName), keyName,
+	}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	args = append(args, initConfig(t)...)
+	bridgeClientMock.EXPECT().UpdateProhibitedXRPLRecipients(gomock.Any(), owner, []string{
+		prohibitedXRPLRecipient1,
+		prohibitedXRPLRecipient2,
+	}).Return(nil)
+	executeCmd(t, cli.UpdateProhibitedXRPLRecipientsCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 
 func TestCancelPendingOperationCmd(t *testing.T) {

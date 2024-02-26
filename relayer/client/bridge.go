@@ -127,6 +127,12 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		xrplBaseFee uint32,
 	) (*sdk.TxResponse, error)
+	GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error)
+	UpdateProhibitedXRPLRecipients(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		prohibitedXRPLRecipients []string,
+	) (*sdk.TxResponse, error)
 	CancelPendingOperation(
 		ctx context.Context,
 		sender sdk.AccAddress,
@@ -902,7 +908,7 @@ func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAdd
 
 // ClaimRefund claims pending refund.
 func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, refundID string) error {
-	b.log.Info(ctx, "claiming pending refund",
+	b.log.Info(ctx, "Claiming pending refund",
 		zap.String("address", address.String()),
 		zap.String("refundID", refundID))
 	txRes, err := b.contractClient.ClaimRefund(ctx, address, refundID)
@@ -914,9 +920,38 @@ func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, 
 		return nil
 	}
 
-	b.log.Info(ctx, "finished execution of claiming pending refund",
+	b.log.Info(ctx, "Finished execution of claiming pending refund",
 		zap.String("address", address.String()),
 		zap.String("refundID", refundID),
+		zap.String("txHash", txRes.TxHash),
+	)
+	return nil
+}
+
+// GetProhibitedXRPLRecipients queries for the list of the prohibited XRPL recipients.
+func (b *BridgeClient) GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error) {
+	return b.contractClient.GetProhibitedXRPLRecipients(ctx)
+}
+
+// UpdateProhibitedXRPLRecipients updates the list of the prohibited XRPL recipients.
+func (b *BridgeClient) UpdateProhibitedXRPLRecipients(
+	ctx context.Context, address sdk.AccAddress, prohibitedXRPLRecipients []string,
+) error {
+	b.log.Info(ctx, "Updating prohibited XRPL recipients",
+		zap.Any("prohibitedXRPLRecipients", prohibitedXRPLRecipients))
+
+	txRes, err := b.contractClient.UpdateProhibitedXRPLRecipients(ctx, address, prohibitedXRPLRecipients)
+	if err != nil {
+		return err
+	}
+
+	if txRes == nil {
+		return nil
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully updated prohibited XRPL recipients",
 		zap.String("txHash", txRes.TxHash),
 	)
 	return nil
@@ -1142,8 +1177,9 @@ func ReadKeysRotationConfig(filePath string) (KeysRotationConfig, error) {
 }
 
 func saveConfigToFile(filePath string, srt any) error {
-	if err := os.MkdirAll(filepath.Dir(filePath), 0o700); err != nil {
-		return errors.Errorf("failed to create dirs by path:%s", filePath)
+	dirPath := filepath.Dir(filePath)
+	if err := os.MkdirAll(dirPath, 0o700); err != nil {
+		return errors.Errorf("failed to create dirs by path:%s", dirPath)
 	}
 
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)

@@ -68,7 +68,14 @@ func (p *XRPLToCoreumProcess) Start(ctx context.Context) error {
 					if errors.Is(err, context.Canceled) {
 						p.log.Warn(ctx, "Context canceled during the XRPL tx processing", zap.String("error", err.Error()))
 					} else {
-						return errors.Wrapf(err, "failed to process XRPL tx, txHash:%s", strings.ToUpper(tx.GetHash().String()))
+						p.log.Error(
+							ctx,
+							"Failed to process XRPL tx",
+							zap.Error(err),
+							zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
+							zap.Any("tx", tx),
+						)
+						continue
 					}
 				}
 			}
@@ -365,8 +372,8 @@ func txIsFinal(tx rippledata.TransactionWithMetaData) bool {
 	return tx.MetaData.TransactionResult.Success() ||
 		strings.HasPrefix(txResult.String(), xrpl.TecTxResultPrefix) ||
 		strings.HasPrefix(txResult.String(), xrpl.TemTxResultPrefix) ||
-		txResult.String() == xrpl.TefPastSeqTxResult ||
-		txResult.String() == xrpl.TefMaxLedgerTxResult
+		txResult == rippledata.TefPAST_SEQ ||
+		txResult == rippledata.TefMAX_LEDGER
 }
 
 func getTransactionResult(tx rippledata.TransactionWithMetaData) coreum.TransactionResult {

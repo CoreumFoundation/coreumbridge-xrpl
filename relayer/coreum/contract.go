@@ -34,23 +34,24 @@ type ExecMethod string
 
 // ExecMethods.
 const (
-	ExecMethodUpdateOwnership         ExecMethod = "update_ownership"
-	ExecMethodRegisterCoreumToken     ExecMethod = "register_coreum_token"
-	ExecMethodRegisterXRPLToken       ExecMethod = "register_xrpl_token"
-	ExecMethodSaveEvidence            ExecMethod = "save_evidence"
-	ExecMethodRecoverTickets          ExecMethod = "recover_tickets"
-	ExecMethodSaveSignature           ExecMethod = "save_signature"
-	ExecSendToXRPL                    ExecMethod = "send_to_xrpl"
-	ExecRecoveryXRPLTokenRegistration ExecMethod = "recover_xrpl_token_registration"
-	ExecClaimRelayersFees             ExecMethod = "claim_relayer_fees"
-	ExecUpdateXRPLToken               ExecMethod = "update_xrpl_token"
-	ExecUpdateCoreumToken             ExecMethod = "update_coreum_token"
-	ExecClaimRefund                   ExecMethod = "claim_refund"
-	ExecRotateKeys                    ExecMethod = "rotate_keys"
-	ExecHaltBridge                    ExecMethod = "halt_bridge"
-	ExecResumeBridge                  ExecMethod = "resume_bridge"
-	ExecUpdateXRPLBaseFee             ExecMethod = "update_xrpl_base_fee"
-	ExecCancelPendingOperation        ExecMethod = "cancel_pending_operation"
+	ExecMethodUpdateOwnership          ExecMethod = "update_ownership"
+	ExecMethodRegisterCoreumToken      ExecMethod = "register_coreum_token"
+	ExecMethodRegisterXRPLToken        ExecMethod = "register_xrpl_token"
+	ExecMethodSaveEvidence             ExecMethod = "save_evidence"
+	ExecMethodRecoverTickets           ExecMethod = "recover_tickets"
+	ExecMethodSaveSignature            ExecMethod = "save_signature"
+	ExecSendToXRPL                     ExecMethod = "send_to_xrpl"
+	ExecRecoveryXRPLTokenRegistration  ExecMethod = "recover_xrpl_token_registration"
+	ExecClaimRelayersFees              ExecMethod = "claim_relayer_fees"
+	ExecUpdateXRPLToken                ExecMethod = "update_xrpl_token"
+	ExecUpdateCoreumToken              ExecMethod = "update_coreum_token"
+	ExecClaimRefund                    ExecMethod = "claim_refund"
+	ExecRotateKeys                     ExecMethod = "rotate_keys"
+	ExecHaltBridge                     ExecMethod = "halt_bridge"
+	ExecResumeBridge                   ExecMethod = "resume_bridge"
+	ExecUpdateXRPLBaseFee              ExecMethod = "update_xrpl_base_fee"
+	ExecUpdateProhibitedXRPLRecipients ExecMethod = "update_prohibited_xrpl_recipients"
+	ExecCancelPendingOperation         ExecMethod = "cancel_pending_operation"
 )
 
 // TransactionResult is transaction result.
@@ -88,15 +89,16 @@ type QueryMethod string
 
 // QueryMethods.
 const (
-	QueryMethodConfig               QueryMethod = "config"
-	QueryMethodOwnership            QueryMethod = "ownership"
-	QueryMethodXRPLTokens           QueryMethod = "xrpl_tokens"
-	QueryMethodFeesCollected        QueryMethod = "fees_collected"
-	QueryMethodCoreumTokens         QueryMethod = "coreum_tokens"
-	QueryMethodPendingOperations    QueryMethod = "pending_operations"
-	QueryMethodAvailableTickets     QueryMethod = "available_tickets"
-	QueryMethodPendingRefunds       QueryMethod = "pending_refunds"
-	QueryMethodTransactionEvidences QueryMethod = "transaction_evidences"
+	QueryMethodConfig                   QueryMethod = "config"
+	QueryMethodOwnership                QueryMethod = "ownership"
+	QueryMethodXRPLTokens               QueryMethod = "xrpl_tokens"
+	QueryMethodFeesCollected            QueryMethod = "fees_collected"
+	QueryMethodCoreumTokens             QueryMethod = "coreum_tokens"
+	QueryMethodPendingOperations        QueryMethod = "pending_operations"
+	QueryMethodAvailableTickets         QueryMethod = "available_tickets"
+	QueryMethodPendingRefunds           QueryMethod = "pending_refunds"
+	QueryMethodTransactionEvidences     QueryMethod = "transaction_evidences"
+	QueryMethodProhibitedXRPLRecipients QueryMethod = "prohibited_xrpl_recipients"
 )
 
 // Relayer is the relayer information in the contract config.
@@ -378,6 +380,10 @@ type updateXRPLBaseFeeRequest struct {
 	XRPLBaseFee uint32 `json:"xrpl_base_fee"`
 }
 
+type updateProhibitedXRPLRecipientsRequest struct {
+	ProhibitedXRPLRecipients []string `json:"prohibited_xrpl_recipients"`
+}
+
 type cancelPendingOperationRequest struct {
 	OperationID uint32 `json:"operation_id"`
 }
@@ -437,6 +443,10 @@ type pendingRefundsResponse struct {
 type transactionEvidencesResponse struct {
 	LastKey              string                `json:"last_key"`
 	TransactionEvidences []TransactionEvidence `json:"transaction_evidences"`
+}
+
+type prohibitedXRPLRecipientsResponse struct {
+	ProhibitedXRPLRecipients []string `json:"prohibited_xrpl_recipients"`
 }
 
 type pagingStringKeyRequest struct {
@@ -1148,6 +1158,26 @@ func (c *ContractClient) CancelPendingOperation(
 	return txRes, nil
 }
 
+// UpdateProhibitedXRPLRecipients executes `update_prohibited_xrpl_recipients` method.
+func (c *ContractClient) UpdateProhibitedXRPLRecipients(
+	ctx context.Context,
+	sender sdk.AccAddress,
+	prohibitedXRPLRecipients []string,
+) (*sdk.TxResponse, error) {
+	txRes, err := c.execute(ctx, sender, execRequest{
+		Body: map[ExecMethod]updateProhibitedXRPLRecipientsRequest{
+			ExecUpdateProhibitedXRPLRecipients: {
+				ProhibitedXRPLRecipients: prohibitedXRPLRecipients,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return txRes, nil
+}
+
 // ******************** Query ********************
 
 // GetContractConfig returns contract config.
@@ -1335,6 +1365,19 @@ func (c *ContractClient) GetTransactionEvidences(ctx context.Context) ([]Transac
 	}
 
 	return transactionEvidences, nil
+}
+
+// GetProhibitedXRPLRecipients returns the list prohibited XRPL recipient.
+func (c *ContractClient) GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error) {
+	var response prohibitedXRPLRecipientsResponse
+	err := c.query(ctx, map[QueryMethod]interface{}{
+		QueryMethodProhibitedXRPLRecipients: struct{}{},
+	}, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.ProhibitedXRPLRecipients, nil
 }
 
 func (c *ContractClient) getPaginatedXRPLTokens(
@@ -1692,6 +1735,11 @@ func IsOperationVersionMismatchError(err error) bool {
 // IsProhibitedRecipientError returns true if error is `ProhibitedRecipient`.
 func IsProhibitedRecipientError(err error) bool {
 	return isError(err, "ProhibitedRecipient")
+}
+
+// IsCannotCoverBridgingFeesError returns true if error is `CannotCoverBridgingFees`.
+func IsCannotCoverBridgingFeesError(err error) bool {
+	return isError(err, "CannotCoverBridgingFees")
 }
 
 // ******************** Asset FT errors ********************

@@ -132,7 +132,13 @@ func (p *CoreumToXRPLProcess) processPendingOperations(ctx context.Context) erro
 
 	for _, operation := range operations {
 		if err := p.signOrSubmitOperation(ctx, operation, bridgeSigners); err != nil {
-			return err
+			p.log.Error(
+				ctx,
+				"Failed to process pending operation, skipping processing",
+				zap.Error(err),
+				zap.Any("operation", operation),
+			)
+			continue
 		}
 	}
 
@@ -255,14 +261,14 @@ func (p *CoreumToXRPLProcess) signOrSubmitOperation(
 		return nil
 	}
 
-	switch txRes.EngineResult.String() {
-	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult:
+	switch txRes.EngineResult {
+	case rippledata.TefNO_TICKET, rippledata.TefPAST_SEQ:
 		p.log.Debug(
 			ctx,
 			"Transaction has been already submitted",
 		)
 		return nil
-	case xrpl.TelInsufFeeP:
+	case rippledata.TelINSUF_FEE_P:
 		p.log.Warn(
 			ctx,
 			"The Fee from the transaction is not high enough to meet the server's current transaction cost requirement.",
