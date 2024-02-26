@@ -55,6 +55,9 @@ const MAX_PAGE_LIMIT: u32 = 250;
 const MIN_SENDING_PRECISION: i32 = -15;
 const MAX_SENDING_PRECISION: i32 = 15;
 
+// Maximum amount of decimals a Coreum token can be registered with
+pub const MAX_COREUM_TOKEN_DECIMALS: u32 = 100;
+
 pub const MAX_TICKETS: u32 = 250;
 pub const MAX_RELAYERS: usize = 32;
 
@@ -361,6 +364,7 @@ fn register_coreum_token(
     check_authorization(deps.storage, &sender, &ContractActions::RegisterCoreumToken)?;
     assert_bridge_active(deps.as_ref())?;
 
+    validate_coreum_token_decimals(decimals)?;
     validate_sending_precision(sending_precision, decimals)?;
 
     if COREUM_TOKENS.has(deps.storage, denom.clone()) {
@@ -1689,6 +1693,14 @@ pub fn validate_xrpl_currency(currency: &str) -> Result<(), ContractError> {
             }
         }
         _ => return Err(ContractError::InvalidXRPLCurrency {}),
+    }
+
+    Ok(())
+}
+
+pub fn validate_coreum_token_decimals(decimals: u32) -> Result<(), ContractError> {
+    if decimals > MAX_COREUM_TOKEN_DECIMALS {
+        return Err(ContractError::InvalidDecimals {});
     }
 
     Ok(())
