@@ -333,7 +333,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenTooLowAmounts(t *testing.T) {
 	activateXRPLToken(ctx, t, contractClient, relayers, issuer, currency)
 
 	xrplToCoreumTransferEvidenceWithAmountZeroAfterTruncation := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    issuerAcc.String(),
 		Currency:  currency,
 		Amount:    sdkmath.NewInt(100),
@@ -347,7 +347,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenTooLowAmounts(t *testing.T) {
 	require.True(t, coreum.IsAmountSentIsZeroAfterTruncationError(err), err)
 
 	xrplToCoreumTransferEvidenceWithAmountNotEnoughToCoverBridgingFee := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    issuerAcc.String(),
 		Currency:  currency,
 		Amount:    sdkmath.NewInt(5),
