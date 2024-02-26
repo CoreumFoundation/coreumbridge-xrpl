@@ -1177,8 +1177,9 @@ func ReadKeysRotationConfig(filePath string) (KeysRotationConfig, error) {
 }
 
 func saveConfigToFile(filePath string, srt any) error {
-	if err := os.MkdirAll(filepath.Dir(filePath), 0o700); err != nil {
-		return errors.Errorf("failed to create dirs by path:%s", filePath)
+	dirPath := filepath.Dir(filePath)
+	if err := os.MkdirAll(dirPath, 0o700); err != nil {
+		return errors.Errorf("failed to create dirs by path:%s", dirPath)
 	}
 
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)

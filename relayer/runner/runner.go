@@ -5,12 +5,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/url"
+	"os"
 	"runtime/debug"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"go.uber.org/zap"
@@ -24,7 +24,6 @@ import (
 	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
 	coreumchainconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
 	coreumchainconstant "github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
-	coreumkeyring "github.com/CoreumFoundation/coreum/v4/pkg/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
@@ -193,6 +192,8 @@ type Components struct {
 	Log                      logger.Logger
 	MetricsRegistry          *metrics.Registry
 	MetricsPeriodicCollector *metrics.PeriodicCollector
+	RunnerConfig             Config
+	XRPLClientCtx            coreumchainclient.Context
 	XRPLRPCClient            *xrpl.RPCClient
 	XRPLKeyringTxSigner      *xrpl.KeyringTxSigner
 	CoreumClientCtx          coreumchainclient.Context
@@ -200,29 +201,12 @@ type Components struct {
 }
 
 // NewComponents creates components required by runner and other CLI commands.
-//
-//nolint:funlen // separation of the function will lead to lose of readability
 func NewComponents(
 	cfg Config,
 	xrplKeyring keyring.Keyring,
 	coreumKeyring keyring.Keyring,
 	log logger.Logger,
-	setCoreumSDKConfig bool,
-	reimportRelayerKeys bool,
 ) (Components, error) {
-	// if enabled, re-import the relayer keys from the config to in-memory keyring
-	if reimportRelayerKeys {
-		var err error
-		xrplKeyring, err = reimportKeyIntoInMemoryKR(xrplKeyring, cfg.XRPL.MultiSignerKeyName)
-		if err != nil {
-			return Components{}, err
-		}
-		coreumKeyring, err = reimportKeyIntoInMemoryKR(coreumKeyring, cfg.Coreum.RelayerKeyName)
-		if err != nil {
-			return Components{}, err
-		}
-	}
-
 	metricsRegistry := metrics.NewRegistry()
 	log, err := logger.WithErrorCounterMetric(log, metricsRegistry.ErrorCounter)
 	if err != nil {
@@ -239,7 +223,7 @@ func NewComponents(
 	coreumClientContextCfg.TimeoutConfig.TxTimeout = cfg.Coreum.Contract.TxTimeout
 	coreumClientContextCfg.TimeoutConfig.TxStatusPollInterval = cfg.Coreum.Contract.TxStatusPollInterval
 
-	clientCtx := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics)
+	clientCtx := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics).WithInput(os.Stdin)
 	if cfg.Coreum.Network.ChainID != "" {
 		coreumChainNetworkConfig, err := coreumchainconfig.NetworkConfigByChainID(
 			coreumchainconstant.ChainID(cfg.Coreum.Network.ChainID),
@@ -252,9 +236,8 @@ func NewComponents(
 			)
 		}
 		clientCtx = clientCtx.WithChainID(cfg.Coreum.Network.ChainID)
-		if setCoreumSDKConfig {
-			coreumChainNetworkConfig.SetSDKConfig()
-		}
+
+		coreum.SetSDKConfig(coreumChainNetworkConfig.Provider.GetAddressPrefix())
 	}
 
 	var contractAddress sdk.AccAddress
@@ -286,7 +269,7 @@ func NewComponents(
 		clientCtx = clientCtx.WithGRPCClient(grpcClient)
 	}
 
-	coreumClientCtx := clientCtx.WithKeyring(coreumKeyring)
+	coreumClientCtx := clientCtx.WithKeyring(coreumKeyring).WithGenerateOnly(cfg.Coreum.GenerateOnly)
 	contractClient := coreum.NewContractClient(contractClientCfg, log, coreumClientCtx)
 
 	metricsPeriodicCollectorCfg := metrics.DefaultPeriodicCollectorConfig()
@@ -307,8 +290,10 @@ func NewComponents(
 
 	return Components{
 		Log:                      log,
+		RunnerConfig:             cfg,
 		MetricsRegistry:          metricsRegistry,
 		MetricsPeriodicCollector: metricsPeriodicCollector,
+		XRPLClientCtx:            clientCtx.WithKeyring(xrplKeyring),
 		XRPLRPCClient:            xrplRPCClient,
 		XRPLKeyringTxSigner:      xrplKeyringTxSigner,
 		CoreumClientCtx:          coreumClientCtx,
@@ -330,25 +315,6 @@ func getAddressFromKeyring(kr keyring.Keyring, keyName string) (sdk.AccAddress, 
 		)
 	}
 	return addr, nil
-}
-
-func reimportKeyIntoInMemoryKR(sourceKr keyring.Keyring, keyName string) (keyring.Keyring, error) {
-	keyInfo, err := sourceKr.Key(keyName)
-	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to get key from keyring, key name:%s", keyName))
-	}
-	pass := uuid.NewString()
-	armor, err := sourceKr.ExportPrivKeyArmor(keyInfo.Name, pass)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to export key")
-	}
-	encodingConfig := coreumchainconfig.NewEncodingConfig(coreumapp.ModuleBasics)
-	kr := coreumkeyring.NewConcurrentSafeKeyring(keyring.NewInMemory(encodingConfig.Codec))
-	if err := kr.ImportPrivKey(keyInfo.Name, armor, pass); err != nil {
-		return nil, errors.Wrapf(err, "failed to import key")
-	}
-
-	return kr, nil
 }
 
 func getGRPCClientConn(grpcURL string) (*grpc.ClientConn, error) {
