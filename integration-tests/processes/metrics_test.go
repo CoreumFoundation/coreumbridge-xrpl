@@ -197,7 +197,7 @@ func TestContractBalancesMetric(t *testing.T) {
 		Amount: issueFee.Amount.Add(sdkmath.NewIntWithDecimal(1, 6)),
 	})
 
-	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 10)
+	xrplSenderAddressAddress := chains.XRPL.GenAccount(ctx, t, 10)
 
 	// issue asset ft and register it
 	sendingPrecision := int32(5)
@@ -220,7 +220,7 @@ func TestContractBalancesMetric(t *testing.T) {
 		ctx,
 		t,
 		coreumSenderAddress,
-		xrplRecipientAddress,
+		xrplSenderAddressAddress,
 		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
 		nil,
 	)
@@ -252,7 +252,7 @@ func TestContractBalancesMetric(t *testing.T) {
 	runnerEnv.SendFromXRPLToCoreum(
 		ctx,
 		t,
-		xrplRecipientAddress.String(),
+		xrplSenderAddressAddress.String(),
 		amountToSendFromXRPLtoCoreum,
 		coreumSenderAddress,
 	)
@@ -261,10 +261,35 @@ func TestContractBalancesMetric(t *testing.T) {
 		ctx, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
 	)
 	require.NoError(t, err)
+
+	runnerEnv.AwaitCoreumBalance(
+		ctx,
+		t,
+		coreumSenderAddress,
+		sdk.NewCoin(
+			registeredXRPToken.CoreumDenom,
+			integrationtests.ConvertStringWithDecimalsToSDKInt(
+				t,
+				valueToSendFromXRPLToCoreum.String(),
+				xrpl.XRPCurrencyDecimals,
+			),
+		),
+	)
+
+	// send back to account which doesn't exist to lock the amount on the contract
+	runnerEnv.SendFromCoreumToXRPL(
+		ctx,
+		t,
+		coreumSenderAddress,
+		xrpl.GenPrivKeyTxSigner().Account(),
+		sdk.NewCoin(registeredXRPToken.CoreumDenom, sdkmath.NewIntWithDecimal(1, xrpl.XRPCurrencyDecimals)),
+		nil,
+	)
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+
 	xrpTokenKey := fmt.Sprintf(
 		"%s/%s", registeredXRPToken.Currency, registeredXRPToken.Issuer,
 	)
-
 	awaitGaugeVecMetricState(
 		ctx,
 		t,
