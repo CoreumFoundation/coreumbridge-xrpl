@@ -1626,32 +1626,24 @@ func GetProhibitedXRPLRecipientsCmd(bcp BridgeClientProvider) *cobra.Command {
 Example:
 $ prohibited-xrpl-recipients %s 
 `,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
 
-			prohibitedXRPLRecipients, err := bridgeClient.GetProhibitedXRPLRecipients(ctx)
-			if err != nil {
-				return err
-			}
+				prohibitedXRPLRecipients, err := bridgeClient.GetProhibitedXRPLRecipients(ctx)
+				if err != nil {
+					return err
+				}
 
-			log, err := GetCLILogger()
-			if err != nil {
-				return err
-			}
-
-			log.Info(
-				ctx,
-				"Got prohibited XRPL recipients",
-				zap.Any("prohibitedXRPLRecipients", prohibitedXRPLRecipients),
-			)
-			return nil
-		},
+				components.Log.Info(
+					ctx,
+					"Got prohibited XRPL recipients",
+					zap.Any("prohibitedXRPLRecipients", prohibitedXRPLRecipients),
+				)
+				return nil
+			}),
 	}
+
 	addHomeFlag(cmd)
 
 	return cmd
@@ -1673,37 +1665,25 @@ $ update-prohibited-xrpl-recipients --%s %s --%s %s --%s owner
 				FlagKeyName),
 		),
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			// get bridgeClient first to set cosmos SDK config
-			bridgeClient, err := bcp(cmd)
-			if err != nil {
-				return err
-			}
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return errors.Wrap(err, "failed to get client context")
-			}
-			coreumClientCtx, err := WithKeyring(clientCtx, cmd.Flags(), coreum.KeyringSuffix)
-			if err != nil {
-				return err
-			}
-			owner, err := readAddressFromKeyNameFlag(cmd, coreumClientCtx)
-			if err != nil {
-				return err
-			}
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
+				owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				if err != nil {
+					return err
+				}
 
-			prohibitedXRPLRecipients, err := cmd.Flags().GetStringArray(FlagProhibitedXRPLRecipient)
-			if err != nil {
-				return err
-			}
+				prohibitedXRPLRecipients, err := cmd.Flags().GetStringArray(FlagProhibitedXRPLRecipient)
+				if err != nil {
+					return err
+				}
 
-			return bridgeClient.UpdateProhibitedXRPLRecipients(
-				ctx,
-				owner,
-				prohibitedXRPLRecipients,
-			)
-		},
+				return bridgeClient.UpdateProhibitedXRPLRecipients(
+					ctx,
+					owner,
+					prohibitedXRPLRecipients,
+				)
+			}),
 	}
 
 	addKeyringFlags(cmd)

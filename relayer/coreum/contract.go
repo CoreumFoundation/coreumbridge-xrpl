@@ -1340,11 +1340,6 @@ func (c *ContractClient) GetProhibitedXRPLRecipients(ctx context.Context) ([]str
 	return response.ProhibitedXRPLRecipients, nil
 }
 
-// SetGenerateOnly sets the client.Context.GenerateOnly.
-func (c *ContractClient) SetGenerateOnly(generateOnly bool) {
-	c.clientCtx = c.clientCtx.WithGenerateOnly(generateOnly)
-}
-
 func (c *ContractClient) getPaginatedXRPLTokens(
 	ctx context.Context,
 	startAfterKey string,

@@ -1105,8 +1105,7 @@ func TestUpdateProhibitedXRPLRecipientsCmd(t *testing.T) {
 
 	keyringDir := t.TempDir()
 	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	owner := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
+	owner := addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	prohibitedXRPLRecipient1 := xrpl.GenPrivKeyTxSigner().Account().String()
 	prohibitedXRPLRecipient2 := xrpl.GenPrivKeyTxSigner().Account().String()
