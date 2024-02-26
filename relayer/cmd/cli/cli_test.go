@@ -1115,6 +1115,7 @@ func TestUpdateProhibitedXRPLRecipientsCmd(t *testing.T) {
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
+	args = append(args, initConfig(t)...)
 	bridgeClientMock.EXPECT().UpdateProhibitedXRPLRecipients(gomock.Any(), owner, []string{
 		prohibitedXRPLRecipient1,
 		prohibitedXRPLRecipient2,
