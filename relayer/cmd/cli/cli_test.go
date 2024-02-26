@@ -1094,7 +1094,7 @@ func TestGetProhibitedXRPLRecipientsCmd(t *testing.T) {
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 
 	bridgeClientMock.EXPECT().GetProhibitedXRPLRecipients(gomock.Any()).Return([]string{}, nil)
-	executeCmd(t, cli.GetProhibitedXRPLRecipientsCmd(mockBridgeClientProvider(bridgeClientMock)))
+	executeCmd(t, cli.GetProhibitedXRPLRecipientsCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
 func TestUpdateProhibitedXRPLRecipientsCmd(t *testing.T) {
