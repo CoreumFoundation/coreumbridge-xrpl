@@ -3,7 +3,7 @@ use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
 
-use crate::contract::{MAX_RELAYERS, MAX_TICKETS};
+use crate::contract::{MAX_COREUM_TOKEN_DECIMALS, MAX_RELAYERS, MAX_TICKETS};
 
 #[derive(Error, Debug)]
 pub enum ContractError {
@@ -128,6 +128,12 @@ pub enum ContractError {
     "InvalidSendingPrecision: The sending precision can't be more than the token decimals or less than the negative token decimals"
     )]
     InvalidSendingPrecision {},
+
+    #[error(
+        "InvalidDecimals: registered Coreum token can't have more than {} decimals",
+        MAX_COREUM_TOKEN_DECIMALS
+    )]
+    InvalidDecimals {},
 
     #[error("InvalidOperationResult: OperationResult doesn't match a Pending Operation with the right Operation Type")]
     InvalidOperationResult {},

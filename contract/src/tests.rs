@@ -20,7 +20,9 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::address::validate_xrpl_address;
-    use crate::contract::{INITIAL_PROHIBITED_XRPL_RECIPIENTS, MAX_RELAYERS};
+    use crate::contract::{
+        INITIAL_PROHIBITED_XRPL_RECIPIENTS, MAX_COREUM_TOKEN_DECIMALS, MAX_RELAYERS,
+    };
     use crate::msg::{
         BridgeStateResponse, ProcessedTxsResponse, ProhibitedXRPLRecipientsResponse,
         TransactionEvidence, TransactionEvidencesResponse,
@@ -971,6 +973,26 @@ mod tests {
                 .to_string()
                 .as_str()
         ));
+
+        // Registering a token with invalid decimals should fail
+        let register_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: test_tokens[0].denom.clone(),
+                    decimals: MAX_COREUM_TOKEN_DECIMALS + 1,
+                    sending_precision: test_tokens[0].sending_precision,
+                    max_holding_amount: Uint128::one(),
+                    bridging_fee: test_tokens[0].bridging_fee,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(register_error
+            .to_string()
+            .contains(ContractError::InvalidDecimals {}.to_string().as_str()));
 
         // Registering tokens with invalid denoms will fail
         let invalid_denom_error = wasm
