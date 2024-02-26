@@ -92,6 +92,8 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 	cmd.AddCommand(cli.GetRelayerFeesCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.HaltBridgeCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.ResumeBridgeCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.GetProhibitedXRPLRecipientsCmd(bridgeClientProvider))
+	cmd.AddCommand(cli.UpdateProhibitedXRPLRecipientsCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.CancelPendingOperationCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.PendingOperationsCmd(bridgeClientProvider))
 

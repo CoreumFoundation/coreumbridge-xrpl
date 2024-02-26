@@ -6,16 +6,6 @@ import (
 
 // Error codes.
 const (
-	// TefNOTicketTxResult defines the result which indicates the usage of the passed ticket or not created ticket.
-	TefNOTicketTxResult = "tefNO_TICKET"
-	// TefPastSeqTxResult defines that the usage of the sequence in the past.
-	TefPastSeqTxResult = "tefPAST_SEQ"
-	// TefMaxLedgerTxResult defines that ledger sequence too high.
-	TefMaxLedgerTxResult = "tefMAX_LEDGER"
-	// TelInsufFeeP defines that fee from the transaction is not high enough to meet the server's current transaction
-	//	cost requirement, which is derived from its load level and network-level requirements. If the individual server
-	//	is too busy to process your transaction right now, it may cache the transaction and automatically retry later.
-	TelInsufFeeP = "telINSUF_FEE_P"
 	// TecTxResultPrefix is `tec` prefix for tx result.
 	TecTxResultPrefix = "tec"
 	// TemTxResultPrefix is `tem` prefix for tx result.

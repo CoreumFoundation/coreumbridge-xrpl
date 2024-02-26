@@ -91,6 +91,8 @@ const (
 	FlagMetricsEnabled = "metrics-enabled"
 	// FlagMetricsListenAddr sets listen address for metrics server.
 	FlagMetricsListenAddr = "metrics-listen-addr"
+	// FlagProhibitedXRPLRecipient the prohibited XRPL recipient.
+	FlagProhibitedXRPLRecipient = "prohibited-xrpl-recipient"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -195,6 +197,8 @@ type BridgeClient interface {
 		ctx context.Context,
 		sender sdk.AccAddress,
 	) error
+	GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error)
+	UpdateProhibitedXRPLRecipients(ctx context.Context, address sdk.AccAddress, prohibitedXRPLRecipients []string) error
 	CancelPendingOperation(
 		ctx context.Context,
 		sender sdk.AccAddress,
@@ -1447,8 +1451,6 @@ $ relayer-fees %s
 				return nil
 			}),
 	}
-	addKeyringFlags(cmd)
-	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 
 	return cmd
@@ -1611,6 +1613,84 @@ $ cancel-pending-operation 123 --%s owner
 	addKeyNameFlag(cmd)
 	addHomeFlag(cmd)
 	addGenerateOnlyFlag(cmd)
+
+	return cmd
+}
+
+// GetProhibitedXRPLRecipientsCmd gets the prohibited xrpl recipients from the contract.
+func GetProhibitedXRPLRecipientsCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "prohibited-xrpl-recipients",
+		Short: "Get prohibited xrpl recipients.",
+		Long: `Get prohibited xrpl recipients.
+Example:
+$ prohibited-xrpl-recipients %s 
+`,
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
+
+				prohibitedXRPLRecipients, err := bridgeClient.GetProhibitedXRPLRecipients(ctx)
+				if err != nil {
+					return err
+				}
+
+				components.Log.Info(
+					ctx,
+					"Got prohibited XRPL recipients",
+					zap.Any("prohibitedXRPLRecipients", prohibitedXRPLRecipients),
+				)
+				return nil
+			}),
+	}
+
+	addHomeFlag(cmd)
+
+	return cmd
+}
+
+// UpdateProhibitedXRPLRecipientsCmd updates/replace the list of the prohibited XRPL recipients.
+func UpdateProhibitedXRPLRecipientsCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-prohibited-xrpl-recipients",
+		Short: "Updates prohibited XRPL recipients.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Updates prohibited XRPL recipients.
+Example (expects multiple %s):
+$ update-prohibited-xrpl-recipients --%s %s --%s %s --%s owner
+`,
+				FlagProhibitedXRPLRecipient,
+				FlagProhibitedXRPLRecipient, xrpl.XRPTokenIssuer.String(),
+				FlagProhibitedXRPLRecipient, xrpl.XRPTokenIssuer.String(),
+				FlagKeyName),
+		),
+		Args: cobra.NoArgs,
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
+				owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				if err != nil {
+					return err
+				}
+
+				prohibitedXRPLRecipients, err := cmd.Flags().GetStringArray(FlagProhibitedXRPLRecipient)
+				if err != nil {
+					return err
+				}
+
+				return bridgeClient.UpdateProhibitedXRPLRecipients(
+					ctx,
+					owner,
+					prohibitedXRPLRecipients,
+				)
+			}),
+	}
+
+	addKeyringFlags(cmd)
+	addKeyNameFlag(cmd)
+	addHomeFlag(cmd)
+	addGenerateOnlyFlag(cmd)
+	cmd.PersistentFlags().StringArray(FlagProhibitedXRPLRecipient, []string{}, "Prohibited XRPL recipients")
 
 	return cmd
 }
