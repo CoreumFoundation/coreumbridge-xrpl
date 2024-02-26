@@ -22,8 +22,6 @@ var (
 )
 
 const (
-	// KeyringSuffix is used as suffix for xrpl keyring.
-	KeyringSuffix = "xrpl"
 	// XRPLHDPath is the hd path used to derive xrpl keys.
 	XRPLHDPath = "m/44'/144'/0'/0/0"
 	// XRPLCoinType is the coin type of XRPL token.
