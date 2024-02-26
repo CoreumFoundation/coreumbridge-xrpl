@@ -132,7 +132,13 @@ func (p *CoreumToXRPLProcess) processPendingOperations(ctx context.Context) erro
 
 	for _, operation := range operations {
 		if err := p.signOrSubmitOperation(ctx, operation, bridgeSigners); err != nil {
-			return err
+			p.log.Error(
+				ctx,
+				"Failed to process pending operation, skipping processing",
+				zap.Error(err),
+				zap.Any("operation", operation),
+			)
+			continue
 		}
 	}
 
