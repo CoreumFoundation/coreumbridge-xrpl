@@ -15,7 +15,7 @@ LD_FLAGS:="-extldflags=-static \
 GOOS?=
 GOARCH?=
 BINARY_NAME?=coreumbridge-xrpl-relayer
-MAINNET_RELEASE_VERSION=v0.0.2
+RELEASE_VERSION=v0.0.2
 
 ###############################################################################
 ###                                  Build                                  ###
@@ -127,7 +127,7 @@ build-dev-env:
 .PHONY: download-released-contract
 download-released-contract:
 	mkdir -p $(BUILD_DIR)
-	curl --fail -o $(BUILD_DIR)/coreumbridge_xrpl_$(MAINNET_RELEASE_VERSION).wasm https://github.com/CoreumFoundation/coreumbridge-xrpl/releases/download/$(MAINNET_RELEASE_VERSION)/coreumbridge_xrpl.wasm
+	curl --fail -o $(BUILD_DIR)/coreumbridge_xrpl_$(RELEASE_VERSION).wasm https://github.com/CoreumFoundation/coreumbridge-xrpl/releases/download/$(RELEASE_VERSION)/coreumbridge_xrpl.wasm
 
 .PHONY: smoke
 smoke:

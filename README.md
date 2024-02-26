@@ -224,7 +224,7 @@ Once you are attached, press any key and enter the keyring password.
 
 #### Download new version of the contract
 
-Download new version form the [Releases page](https://github.com/CoreumFoundation/coreumbridge-xrpl/releases) and store
+Download new version from the [Releases page](https://github.com/CoreumFoundation/coreumbridge-xrpl/releases) and store
 locally.
 
 #### Deploy new version of the contract

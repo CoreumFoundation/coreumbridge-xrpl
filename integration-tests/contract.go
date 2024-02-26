@@ -15,7 +15,7 @@ import (
 
 // CompiledContractFilePath is bridge contract file path.
 const (
-	MainnetContractFilePath  = "../../build/coreumbridge_xrpl_v0.0.2.wasm"
+	ContractFilePathV002     = "../../build/coreumbridge_xrpl_v0.0.2.wasm"
 	CompiledContractFilePath = "../../build/coreumbridge_xrpl.wasm"
 )
 
@@ -100,7 +100,7 @@ func DeployAndInstantiateMainnetContract(
 		XRPLBaseFee:                 xrplBaseFee,
 	}
 	contractAddress, err := contractClient.DeployAndInstantiate(
-		ctx, owner, readBuiltContract(t, MainnetContractFilePath), instantiationCfg,
+		ctx, owner, readBuiltContract(t, ContractFilePathV002), instantiationCfg,
 	)
 	require.NoError(t, err)
 
