@@ -502,7 +502,7 @@ func TestRelayerBalancesMetric(t *testing.T) {
 	)
 }
 
-func TestXRPLAccountLedgersMetrics(t *testing.T) {
+func TestXRPLAccountLedgerMetrics(t *testing.T) {
 	t.Parallel()
 
 	ctx, chains := integrationtests.NewTestingContext(t)
@@ -597,8 +597,7 @@ func getGaugeValue(t *testing.T, m prometheus.Metric) float64 {
 	metricDTO := prometheusdto.Metric{}
 	require.NoError(t, m.Write(&metricDTO))
 	require.NotNil(t, metricDTO.GetGauge())
-	got := metricDTO.GetGauge().GetValue()
-	return got
+	return metricDTO.GetGauge().GetValue()
 }
 
 func truncateAmountWithDecimals(decimals uint32, amount sdkmath.Int) float64 {
