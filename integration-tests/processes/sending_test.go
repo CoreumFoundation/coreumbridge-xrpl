@@ -1663,3 +1663,83 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 		),
 	)
 }
+
+func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("XRPL recipient address: %s", xrplRecipientAddress)
+
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	coreumSenderAddress := chains.Coreum.GenAccount()
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.Add(sdkmath.NewIntWithDecimal(1, 7)),
+	})
+
+	envCfg := DefaultRunnerEnvConfig()
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+
+	// start relayers
+	runnerEnv.StartAllRunnerProcesses()
+	// recover tickets so we can register tokens
+	runnerEnv.AllocateTickets(ctx, t, 200)
+
+	sendingPrecision := int32(2)
+	tokenDecimals := uint32(4)
+	initialAmount := sdkmath.NewIntWithDecimal(1, 16)
+	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 16)
+	registeredCoreumOriginatedToken := runnerEnv.IssueAndRegisterCoreumOriginatedToken(
+		ctx,
+		t,
+		coreumSenderAddress,
+		tokenDecimals,
+		initialAmount,
+		sendingPrecision,
+		maxHoldingAmount,
+		sdkmath.ZeroInt(),
+	)
+
+	// send TrustSet to be able to receive coins
+	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)
+	require.NoError(t, err)
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency)
+
+	amountToSendToXRPL := sdkmath.NewIntWithDecimal(1, 6)
+	runnerEnv.SendFromCoreumToXRPL(
+		ctx,
+		t,
+		coreumSenderAddress,
+		xrplRecipientAddress,
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
+		nil,
+	)
+
+	runnerEnv.AwaitNoPendingOperations(ctx, t)
+
+	// check the XRPL recipient balance
+	xrplRecipientBalance := runnerEnv.Chains.XRPL.GetAccountBalance(
+		ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency,
+	)
+	require.Equal(t, "100", xrplRecipientBalance.Value.String())
+
+	// add the recipient to the list of the prohibited recipients and repeat the sending action
+	prohibitedXRPLRecipients, err := runnerEnv.BridgeClient.GetProhibitedXRPLRecipients(ctx)
+	require.NoError(t, err)
+
+	prohibitedXRPLRecipients = append(prohibitedXRPLRecipients, xrplRecipientAddress.String())
+	require.NoError(
+		t,
+		runnerEnv.BridgeClient.UpdateProhibitedXRPLRecipients(ctx, runnerEnv.ContractOwner, prohibitedXRPLRecipients),
+	)
+
+	err = runnerEnv.BridgeClient.SendFromCoreumToXRPL(
+		ctx,
+		coreumSenderAddress,
+		xrplRecipientAddress,
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
+		nil,
+	)
+	require.True(t, coreum.IsProhibitedRecipientError(err), err)
+}
