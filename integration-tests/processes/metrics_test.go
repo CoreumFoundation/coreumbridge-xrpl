@@ -639,8 +639,8 @@ func truncateFloatByMetricCollectorTruncationPrecision(val float64) float64 {
 }
 
 func findConfirmedEvidences(before, after []coreum.TransactionEvidence) []coreum.TransactionEvidence {
-	afterMap := lo.SliceToMap(after, func(evidence coreum.TransactionEvidence) (string, coreum.TransactionEvidence) {
-		return evidence.Hash, evidence
+	afterMap := lo.SliceToMap(after, func(evidence coreum.TransactionEvidence) (string, struct{}) {
+		return evidence.Hash, struct{}{}
 	})
 	return lo.Filter(before, func(evidence coreum.TransactionEvidence, index int) bool {
 		_, found := afterMap[evidence.Hash]
