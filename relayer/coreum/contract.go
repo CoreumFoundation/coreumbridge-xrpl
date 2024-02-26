@@ -1616,6 +1616,11 @@ func IsProhibitedRecipientError(err error) bool {
 	return isError(err, "ProhibitedRecipient")
 }
 
+// IsCannotCoverBridgingFeesError returns true if error is `CannotCoverBridgingFees`.
+func IsCannotCoverBridgingFeesError(err error) bool {
+	return isError(err, "CannotCoverBridgingFees")
+}
+
 // ******************** Asset FT errors ********************
 
 // IsAssetFTStateError returns true if the error is caused by enabled asset FT features.
