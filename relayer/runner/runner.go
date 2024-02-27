@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/url"
+	"os"
 	"runtime/debug"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -227,7 +228,8 @@ func NewComponents(
 	coreumClientContextCfg.TimeoutConfig.TxTimeout = cfg.Coreum.Contract.TxTimeout
 	coreumClientContextCfg.TimeoutConfig.TxStatusPollInterval = cfg.Coreum.Contract.TxStatusPollInterval
 
-	clientCtx := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics)
+	clientCtx := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics).
+		WithInput(os.Stdin)
 	if cfg.Coreum.Network.ChainID != "" {
 		coreumChainNetworkConfig, err := coreumchainconfig.NetworkConfigByChainID(
 			coreumchainconstant.ChainID(cfg.Coreum.Network.ChainID),
