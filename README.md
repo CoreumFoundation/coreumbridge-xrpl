@@ -248,4 +248,4 @@ export NEW_CODE_ID={Code ID from previous command}
 coreumbridge-xrpl-relayer migrate-contract $NEW_CODE_ID --key-name owner
 ```
 
-Only owner(admin) is authorized to call that command.
+Only admin is authorized to call that command.
