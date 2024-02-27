@@ -90,7 +90,9 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 			xrplAccount := xrplAccounts[i]
 			spawn(strconv.Itoa(i), parallel.Continue, func(ctx context.Context) error {
 				for j := 0; j < iterationPerAccount; j++ {
-					err = bridgeClient.SendFromXRPLToCoreum(ctx, xrplAccount.String(), amountToSendFromXRPLtoCoreum, coreumAccount)
+					err := bridgeClient.SendFromXRPLToCoreum(
+						ctx, xrplAccount.String(), amountToSendFromXRPLtoCoreum, coreumAccount,
+					)
 					if err != nil {
 						return err
 					}
