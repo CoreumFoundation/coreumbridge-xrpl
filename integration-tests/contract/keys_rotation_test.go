@@ -94,7 +94,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 
 	// send XRPL token transfer evidences from current relayer
 	xrplToCoreumXRPLTokenTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    xrplIssuerAcc.String(),
 		Currency:  xrplCurrency,
 		Amount:    sdkmath.NewInt(10),
@@ -109,7 +109,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	registeredCoreumToken, err := contractClient.GetCoreumTokenByDenom(ctx, coreumDenom)
 	require.NoError(t, err)
 	xrplToCoreumCoreumTokenTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    xrplBridgeAddress.String(),
 		Currency:  registeredCoreumToken.XRPLCurrency,
 		Amount:    sdkmath.NewInt(20),
@@ -164,8 +164,8 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	}, pendingOperations[0].OperationType)
 
 	// update the tx hash to pass the evidence deduplication
-	xrplToCoreumXRPLTokenTransferEvidence.TxHash = genXRPLTxHash(t)
-	xrplToCoreumCoreumTokenTransferEvidence.TxHash = genXRPLTxHash(t)
+	xrplToCoreumXRPLTokenTransferEvidence.TxHash = integrationtests.GenXRPLTxHash(t)
+	xrplToCoreumCoreumTokenTransferEvidence.TxHash = integrationtests.GenXRPLTxHash(t)
 
 	// try to provide the send evidence from the current relayers
 	_, err = contractClient.SendXRPLToCoreumTransferEvidence(
@@ -190,7 +190,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	// reject the rotation
 	rejectKeysRotationEvidence := coreum.XRPLTransactionResultKeysRotationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &pendingOperations[0].TicketSequence,
 			TransactionResult: coreum.TransactionResultRejected,
 		},
@@ -235,7 +235,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	// reject the rotation
 	acceptKeysRotationEvidence := coreum.XRPLTransactionResultKeysRotationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			TicketSequence:    &pendingOperations[0].TicketSequence,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},
