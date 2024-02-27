@@ -1147,6 +1147,7 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 	// Prepare 'FOO' orderbook by creating one sell & buy order.
 	offerCreator := chains.XRPL.GenAccount(ctx, t, 10)
 	valueFOOToSend, err := rippledata.NewValue("100", false)
+	require.NoError(t, err)
 	fooCurrencyTrustSetTx := rippledata.TrustSet{
 		LimitAmount: rippledata.Amount{
 			Value:    valueFOOToSend,
@@ -1172,7 +1173,9 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 
 	// Sell 20 FOO for 1 XRP (price 20 FOO per 1 XRP).
 	offer1ValueXRP, err := rippledata.NewValue("1.0", true)
+	require.NoError(t, err)
 	offer1ValueFOO, err := rippledata.NewValue("20", false)
+	require.NoError(t, err)
 	offer1CreateTx := rippledata.OfferCreate{
 		TakerPays: rippledata.Amount{
 			Value:    offer1ValueXRP,
@@ -1192,7 +1195,9 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 
 	// Buy 60 FOO for 2.0 XRP (price 30 FOO per 1 XRP).
 	offer2ValueXRP, err := rippledata.NewValue("2.0", true)
+	require.NoError(t, err)
 	offer2ValueFOO, err := rippledata.NewValue("60", false)
+	require.NoError(t, err)
 	offer2CreateTx := rippledata.OfferCreate{
 		TakerPays: rippledata.Amount{
 			Value:    offer2ValueFOO,
@@ -1227,7 +1232,9 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 	// Market price is 20 FOO per 1 XRP, 15 is less than 20, so payment should be successful.
 	// Note that sender account doesn't have neither FOO trustline nor balance.
 	payment1SendMax, err := rippledata.NewValue("1.0", true)
+	require.NoError(t, err)
 	payment1Amount, err := rippledata.NewValue("20", false)
+	require.NoError(t, err)
 	payment1Tx := rippledata.Payment{
 		Destination: runnerEnv.BridgeXRPLAddress,
 		SendMax: &rippledata.Amount{
@@ -1265,6 +1272,7 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 
 	// Fund sender account with 100 FOO, so we can send XRP cross-currency payment by paying with FOO.
 	valueFOOToSend, err = rippledata.NewValue("100", false)
+	require.NoError(t, err)
 	fooCurrencyTrustSetTx = rippledata.TrustSet{
 		LimitAmount: rippledata.Amount{
 			Value:    valueFOOToSend,
@@ -1289,7 +1297,9 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 	// Send 2.0 XRP (by paying up to 60 FOO) cross-currency payment to bridge.
 	// Market price is 30 FOO per 1 XRP, it exactly & fully matches market order, so payment should be successful.
 	payment2SendMax, err := rippledata.NewValue("60", false)
+	require.NoError(t, err)
 	payment2Amount, err := rippledata.NewValue("2.0", true)
+	require.NoError(t, err)
 	payment2Tx := rippledata.Payment{
 		Destination: runnerEnv.BridgeXRPLAddress,
 		SendMax: &rippledata.Amount{
