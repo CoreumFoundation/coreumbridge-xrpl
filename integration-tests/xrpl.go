@@ -2,9 +2,10 @@ package integrationtests
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
+	mathrand "math/rand"
 	"strings"
 	"sync"
 	"testing"
@@ -335,7 +336,9 @@ func ExtractTicketsFromMeta(txRes xrpl.TxResult) []*rippledata.Ticket {
 // GenerateXRPLCurrency generates random XRPL currency.
 func GenerateXRPLCurrency(t *testing.T) rippledata.Currency {
 	// from 3 to 20 symbols
-	currencyString := lo.RandomString(rand.Intn(20-4)+3, []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+	currencyString := lo.RandomString(
+		mathrand.Intn(20-4)+3, []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+	)
 	if len(currencyString) != 3 {
 		currencyString = hex.EncodeToString([]byte(currencyString))
 		currencyString += strings.Repeat("0", 40-len(currencyString))
@@ -344,4 +347,15 @@ func GenerateXRPLCurrency(t *testing.T) rippledata.Currency {
 	require.NoError(t, err)
 
 	return currency
+}
+
+// GenXRPLTxHash generates random XRPL tx hash.
+func GenXRPLTxHash(t *testing.T) string {
+	t.Helper()
+
+	hash := rippledata.Hash256{}
+	_, err := cryptorand.Read(hash[:])
+	require.NoError(t, err)
+
+	return strings.ToUpper(hash.String())
 }

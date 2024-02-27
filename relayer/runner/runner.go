@@ -86,7 +86,12 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 		FullScanEnabled:   cfg.XRPL.Scanner.FullScanEnabled,
 		RepeatFullScan:    cfg.XRPL.Scanner.RepeatFullScan,
 		RetryDelay:        cfg.XRPL.Scanner.RetryDelay,
-	}, components.Log, components.XRPLRPCClient)
+	},
+		components.Log,
+		components.XRPLRPCClient,
+		components.MetricsRegistry.XRPLAccountRecentHistoryScanLedgerIndexGauge,
+		components.MetricsRegistry.XRPLAccountFullHistoryScanLedgerIndexGauge,
+	)
 
 	xrplToCoreumProcess, err := processes.NewXRPLToCoreumProcess(
 		processes.XRPLToCoreumProcessConfig{

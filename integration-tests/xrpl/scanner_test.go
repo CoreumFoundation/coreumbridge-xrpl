@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
@@ -51,7 +52,14 @@ func TestFullHistoryScanAccountTx(t *testing.T) {
 		FullScanEnabled:   true,
 		RetryDelay:        time.Second,
 	}
-	scanner := xrpl.NewAccountScanner(scannerCfg, chains.Log, rpcClient)
+
+	scanner := xrpl.NewAccountScanner(
+		scannerCfg,
+		chains.Log,
+		rpcClient,
+		prometheus.NewGauge(prometheus.GaugeOpts{}),
+		prometheus.NewGauge(prometheus.GaugeOpts{}),
+	)
 	// add timeout to finish the tests in case of error
 
 	txsCh := make(chan rippledata.TransactionWithMetaData, txsCount)
@@ -100,7 +108,14 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 		FullScanEnabled:   false,
 		RetryDelay:        500 * time.Millisecond,
 	}
-	scanner := xrpl.NewAccountScanner(scannerCfg, chains.Log, rpcClient)
+
+	scanner := xrpl.NewAccountScanner(
+		scannerCfg,
+		chains.Log,
+		rpcClient,
+		prometheus.NewGauge(prometheus.GaugeOpts{}),
+		prometheus.NewGauge(prometheus.GaugeOpts{}),
+	)
 
 	// await for the state when the current ledger is valid to run the scanner
 	currentLedger, err := chains.XRPL.RPCClient().LedgerCurrent(ctx)

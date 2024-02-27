@@ -180,7 +180,7 @@ func TestRecoverTickets(t *testing.T) {
 
 	// ********** TransactionResultEvidence / Transaction rejected **********
 
-	rejectedTxHash := genXRPLTxHash(t)
+	rejectedTxHash := integrationtests.GenXRPLTxHash(t)
 	rejectedTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 			TxHash:            rejectedTxHash,
@@ -314,7 +314,7 @@ func TestRecoverTickets(t *testing.T) {
 	// we can omit the signing here since it is required only for the tx submission.
 	acceptedTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
-			TxHash:            genXRPLTxHash(t),
+			TxHash:            integrationtests.GenXRPLTxHash(t),
 			AccountSequence:   &bridgeXRPLAccountSecondSeqNumber,
 			TransactionResult: coreum.TransactionResultAccepted,
 		},

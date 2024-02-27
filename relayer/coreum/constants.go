@@ -6,8 +6,12 @@ import (
 	sdkmath "cosmossdk.io/math"
 )
 
-// KeyringSuffix is used as suffix for coreum keyring.
-const KeyringSuffix = "coreum"
+const (
+	// KeyringSuffix is used as suffix for coreum keyring.
+	KeyringSuffix = "coreum"
+	// TokenDecimals is decimals of the coreum token.
+	TokenDecimals = 6
+)
 
 // MaxContractAmount is max coins amount you can use for the wasm coin type.
 // The value is ((2^128)-1) = 340282366920938463463374607431768211455.
