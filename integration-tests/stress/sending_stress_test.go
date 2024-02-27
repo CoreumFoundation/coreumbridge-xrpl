@@ -26,7 +26,9 @@ import (
 
 func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 	_, chains := integrationtests.NewTestingContext(t)
-	testCount := 300
+	testAccounts := 2
+	iterationPerAccount := 30
+	testCount := testAccounts * iterationPerAccount
 	sendAmount := 1
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*time.Duration(testCount)+5*time.Minute)
 	t.Cleanup(cancel)
@@ -69,13 +71,13 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 	xrplAccounts := make([]rippledata.Account, 0)
 
 	t.Log("Generating and funding accounts")
-	for i := 0; i < testCount; i++ {
+	for i := 0; i < testAccounts; i++ {
 		newCoreumAccount := chains.Coreum.GenAccount()
 		coreumAccounts = append(coreumAccounts, newCoreumAccount)
 		chains.Coreum.FundAccountWithOptions(ctx, t, newCoreumAccount, coreumintegration.BalancesOptions{
-			Amount: sdkmath.NewIntFromUint64(500_000),
+			Amount: sdkmath.NewIntFromUint64(500_000 * uint64(iterationPerAccount)),
 		})
-		newXRPLAccount := chains.XRPL.GenAccount(ctx, t, 0.1)
+		newXRPLAccount := chains.XRPL.GenAccount(ctx, t, 0.1*float64(iterationPerAccount))
 		xrplAccounts = append(xrplAccounts, newXRPLAccount)
 	}
 
@@ -83,44 +85,50 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 
 	startTime := time.Now()
 	err = parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-		for i := 0; i < testCount; i++ {
+		for i := 0; i < testAccounts; i++ {
 			coreumAccount := coreumAccounts[i]
 			xrplAccount := xrplAccounts[i]
 			spawn(strconv.Itoa(i), parallel.Continue, func(ctx context.Context) error {
-				err = bridgeClient.SendFromXRPLToCoreum(ctx, xrplAccount.String(), amountToSendFromXRPLtoCoreum, coreumAccount)
-				if err != nil {
-					return err
-				}
-				err = chains.Coreum.AwaitForBalance(
-					ctx,
-					t,
-					coreumAccount,
-					sdk.NewCoin(
-						registeredXRPToken.CoreumDenom,
-						integrationtests.ConvertStringWithDecimalsToSDKInt(
-							t,
-							valueToSendFromXRPLtoCoreum.String(),
-							xrpl.XRPCurrencyDecimals,
-						)),
-				)
-				if err != nil {
-					return err
-				}
+				for j := 0; j < iterationPerAccount; j++ {
+					err = bridgeClient.SendFromXRPLToCoreum(ctx, xrplAccount.String(), amountToSendFromXRPLtoCoreum, coreumAccount)
+					if err != nil {
+						return err
+					}
+					err = chains.Coreum.AwaitForBalance(
+						ctx,
+						t,
+						coreumAccount,
+						sdk.NewCoin(
+							registeredXRPToken.CoreumDenom,
+							integrationtests.ConvertStringWithDecimalsToSDKInt(
+								t,
+								valueToSendFromXRPLtoCoreum.String(),
+								xrpl.XRPCurrencyDecimals,
+							)),
+					)
+					if err != nil {
+						return err
+					}
 
-				// send back to xrpl right after it is received on coreum
-				return bridgeClient.SendFromCoreumToXRPL(
-					ctx,
-					coreumAccount,
-					xrplRecipientAddress,
-					sdk.NewCoin(
-						registeredXRPToken.CoreumDenom,
-						integrationtests.ConvertStringWithDecimalsToSDKInt(
-							t,
-							valueToSendFromXRPLtoCoreum.String(),
-							xrpl.XRPCurrencyDecimals,
-						)),
-					nil,
-				)
+					// send back to xrpl right after it is received on coreum
+					err = bridgeClient.SendFromCoreumToXRPL(
+						ctx,
+						coreumAccount,
+						xrplRecipientAddress,
+						sdk.NewCoin(
+							registeredXRPToken.CoreumDenom,
+							integrationtests.ConvertStringWithDecimalsToSDKInt(
+								t,
+								valueToSendFromXRPLtoCoreum.String(),
+								xrpl.XRPCurrencyDecimals,
+							)),
+						nil,
+					)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
 			})
 		}
 		return nil
