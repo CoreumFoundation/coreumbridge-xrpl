@@ -5,9 +5,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/url"
-	"os"
 	"runtime/debug"
 
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -198,9 +198,10 @@ type Components struct {
 	MetricsRegistry          *metrics.Registry
 	MetricsPeriodicCollector *metrics.PeriodicCollector
 	RunnerConfig             Config
-	XRPLClientCtx            coreumchainclient.Context
+	XRPLSDKClietCtx          client.Context
 	XRPLRPCClient            *xrpl.RPCClient
 	XRPLKeyringTxSigner      *xrpl.KeyringTxSigner
+	CoreumSDKClientCtx       client.Context
 	CoreumClientCtx          coreumchainclient.Context
 	CoreumContractClient     *coreum.ContractClient
 }
@@ -208,8 +209,7 @@ type Components struct {
 // NewComponents creates components required by runner and other CLI commands.
 func NewComponents(
 	cfg Config,
-	xrplKeyring keyring.Keyring,
-	coreumKeyring keyring.Keyring,
+	xrplSDKClientCtx, coreumSDKClientCtx client.Context,
 	log logger.Logger,
 ) (Components, error) {
 	metricsRegistry := metrics.NewRegistry()
@@ -228,7 +228,10 @@ func NewComponents(
 	coreumClientContextCfg.TimeoutConfig.TxTimeout = cfg.Coreum.Contract.TxTimeout
 	coreumClientContextCfg.TimeoutConfig.TxStatusPollInterval = cfg.Coreum.Contract.TxStatusPollInterval
 
-	clientCtx := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics).WithInput(os.Stdin)
+	coreumClientCtx := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics).
+		WithKeyring(coreumSDKClientCtx.Keyring).
+		WithGenerateOnly(cfg.Coreum.GenerateOnly)
+
 	if cfg.Coreum.Network.ChainID != "" {
 		coreumChainNetworkConfig, err := coreumchainconfig.NetworkConfigByChainID(
 			coreumchainconstant.ChainID(cfg.Coreum.Network.ChainID),
@@ -240,7 +243,7 @@ func NewComponents(
 				cfg.Coreum.Network.ChainID,
 			)
 		}
-		clientCtx = clientCtx.WithChainID(cfg.Coreum.Network.ChainID)
+		coreumClientCtx = coreumClientCtx.WithChainID(cfg.Coreum.Network.ChainID)
 
 		coreum.SetSDKConfig(coreumChainNetworkConfig.Provider.GetAddressPrefix())
 	}
@@ -271,10 +274,9 @@ func NewComponents(
 		if err != nil {
 			return Components{}, errors.Wrapf(err, "failed to create coreum GRPC client, URL:%s", cfg.Coreum.GRPC.URL)
 		}
-		clientCtx = clientCtx.WithGRPCClient(grpcClient)
+		coreumClientCtx = coreumClientCtx.WithGRPCClient(grpcClient)
 	}
 
-	coreumClientCtx := clientCtx.WithKeyring(coreumKeyring).WithGenerateOnly(cfg.Coreum.GenerateOnly)
 	contractClient := coreum.NewContractClient(contractClientCfg, log, coreumClientCtx)
 
 	metricsPeriodicCollectorCfg := metrics.DefaultPeriodicCollectorConfig()
@@ -289,8 +291,8 @@ func NewComponents(
 	)
 
 	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
-	if xrplKeyring != nil {
-		xrplKeyringTxSigner = xrpl.NewKeyringTxSigner(xrplKeyring)
+	if xrplSDKClientCtx.Keyring != nil {
+		xrplKeyringTxSigner = xrpl.NewKeyringTxSigner(xrplSDKClientCtx.Keyring)
 	}
 
 	return Components{
@@ -298,9 +300,10 @@ func NewComponents(
 		RunnerConfig:             cfg,
 		MetricsRegistry:          metricsRegistry,
 		MetricsPeriodicCollector: metricsPeriodicCollector,
-		XRPLClientCtx:            clientCtx.WithKeyring(xrplKeyring),
+		XRPLSDKClietCtx:          xrplSDKClientCtx,
 		XRPLRPCClient:            xrplRPCClient,
 		XRPLKeyringTxSigner:      xrplKeyringTxSigner,
+		CoreumSDKClientCtx:       coreumSDKClientCtx,
 		CoreumClientCtx:          coreumClientCtx,
 		CoreumContractClient:     contractClient,
 	}, nil

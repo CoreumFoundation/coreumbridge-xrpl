@@ -77,7 +77,7 @@ coreum:
 processes:
     coreum_to_xrpl:
         repeat_delay: 10s
-metrics_registry:
+metrics:
     enabled: false
     server:
         listen_address: localhost:9090
