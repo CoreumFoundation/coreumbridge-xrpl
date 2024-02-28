@@ -11,13 +11,9 @@ import (
 	"github.com/CoreumFoundation/coreum-tools/pkg/run"
 	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config"
-	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
-	overridecryptokeyring "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/override/crypto/keyring"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 func main() {
@@ -53,47 +49,21 @@ func RootCmd(ctx context.Context) (*cobra.Command, error) {
 
 	cmd.AddCommand(cli.InitCmd())
 	cmd.AddCommand(cli.StartCmd(processorProvider))
-
-	keyringCoreumCmd, err := cli.KeyringCmd(coreum.KeyringSuffix, constant.CoinType,
-		overridecryptokeyring.CoreumAddressFormatter)
-	if err != nil {
-		return nil, err
-	}
-	cmd.AddCommand(keyringCoreumCmd)
-
-	keyringXRPLCmd, err := cli.KeyringCmd(xrpl.KeyringSuffix, xrpl.XRPLCoinType,
-		overridecryptokeyring.XRPLAddressFormatter)
-	if err != nil {
-		return nil, err
-	}
-	cmd.AddCommand(keyringXRPLCmd)
-
-	cmd.AddCommand(cli.RelayerKeyInfoCmd())
+	cmd.AddCommand(cli.RelayerKeysCmd())
 	cmd.AddCommand(cli.BootstrapBridgeCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.ContractConfigCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.RecoverTicketsCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.RegisterCoreumTokenCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.UpdateCoreumTokenCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.RegisterXRPLTokenCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.RecoverXRPLTokenRegistrationCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.UpdateXRPLTokenCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.RotateKeysCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.UpdateXRPLBaseFeeCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.RegisteredTokensCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.SendFromCoreumToXRPLCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.SendFromXRPLToCoreumCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.CoreumBalancesCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.XRPLBalancesCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.SetXRPLTrustSetCmd(bridgeClientProvider))
 	cmd.AddCommand(cli.VersionCmd())
-	cmd.AddCommand(cli.PendingRefundsCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.ClaimRefundCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.ClaimRelayerFeesCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.GetRelayerFeesCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.HaltBridgeCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.ResumeBridgeCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.CancelPendingOperationCmd(bridgeClientProvider))
-	cmd.AddCommand(cli.PendingOperationsCmd(bridgeClientProvider))
+
+	coreumCmd, err := cli.CoreumCmd(bridgeClientProvider)
+	if err != nil {
+		return nil, err
+	}
+	cmd.AddCommand(coreumCmd)
+
+	xrplCmd, err := cli.XRPLCmd(bridgeClientProvider)
+	if err != nil {
+		return nil, err
+	}
+	cmd.AddCommand(xrplCmd)
 
 	return cmd, nil
 }

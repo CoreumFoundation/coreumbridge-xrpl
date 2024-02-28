@@ -127,6 +127,12 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		xrplBaseFee uint32,
 	) (*sdk.TxResponse, error)
+	GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error)
+	UpdateProhibitedXRPLRecipients(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		prohibitedXRPLRecipients []string,
+	) (*sdk.TxResponse, error)
 	CancelPendingOperation(
 		ctx context.Context,
 		sender sdk.AccAddress,
@@ -902,7 +908,7 @@ func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAdd
 
 // ClaimRefund claims pending refund.
 func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, refundID string) error {
-	b.log.Info(ctx, "claiming pending refund",
+	b.log.Info(ctx, "Claiming pending refund",
 		zap.String("address", address.String()),
 		zap.String("refundID", refundID))
 	txRes, err := b.contractClient.ClaimRefund(ctx, address, refundID)
@@ -914,9 +920,38 @@ func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, 
 		return nil
 	}
 
-	b.log.Info(ctx, "finished execution of claiming pending refund",
+	b.log.Info(ctx, "Finished execution of claiming pending refund",
 		zap.String("address", address.String()),
 		zap.String("refundID", refundID),
+		zap.String("txHash", txRes.TxHash),
+	)
+	return nil
+}
+
+// GetProhibitedXRPLRecipients queries for the list of the prohibited XRPL recipients.
+func (b *BridgeClient) GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error) {
+	return b.contractClient.GetProhibitedXRPLRecipients(ctx)
+}
+
+// UpdateProhibitedXRPLRecipients updates the list of the prohibited XRPL recipients.
+func (b *BridgeClient) UpdateProhibitedXRPLRecipients(
+	ctx context.Context, address sdk.AccAddress, prohibitedXRPLRecipients []string,
+) error {
+	b.log.Info(ctx, "Updating prohibited XRPL recipients",
+		zap.Any("prohibitedXRPLRecipients", prohibitedXRPLRecipients))
+
+	txRes, err := b.contractClient.UpdateProhibitedXRPLRecipients(ctx, address, prohibitedXRPLRecipients)
+	if err != nil {
+		return err
+	}
+
+	if txRes == nil {
+		return nil
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully updated prohibited XRPL recipients",
 		zap.String("txHash", txRes.TxHash),
 	)
 	return nil
@@ -978,7 +1013,7 @@ func (b *BridgeClient) HaltBridge(
 	ctx context.Context,
 	sender sdk.AccAddress,
 ) error {
-	b.log.Info(ctx, "halting the bridge", zap.String("sender", sender.String()))
+	b.log.Info(ctx, "Halting the bridge", zap.String("sender", sender.String()))
 	txRes, err := b.contractClient.HaltBridge(ctx, sender)
 	if err != nil {
 		return err
@@ -988,7 +1023,7 @@ func (b *BridgeClient) HaltBridge(
 		return nil
 	}
 
-	b.log.Info(ctx, "finished execution of halt-bridge", zap.String("txHash", txRes.TxHash))
+	b.log.Info(ctx, "The bridge is halted", zap.String("txHash", txRes.TxHash))
 	return nil
 }
 
