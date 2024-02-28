@@ -1123,13 +1123,11 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.MulRaw(2),
 	})
 
-	xrplIssuerAddress := chains.XRPL.GenAccount(ctx, t, 100)
-	runnerEnv.EnableXRPLAccountRippling(ctx, t, xrplIssuerAddress)
-	t.Logf("XRPL currency issuer address: %s", xrplIssuerAddress)
+	xrplFOOIssuer := chains.XRPL.GenAccount(ctx, t, 100)
+	runnerEnv.EnableXRPLAccountRippling(ctx, t, xrplFOOIssuer)
+	t.Logf("XRPL currency issuer address: %s", xrplFOOIssuer)
 
-	rippleFOOCurrency, err := rippledata.NewCurrency("FOO")
-	require.NoError(t, err)
-
+	xrplFOOCurrency := integrationtests.GenerateXRPLCurrency(t)
 	sendingPrecision := int32(6)
 	maxHoldingAmount := sdkmath.NewIntWithDecimal(1, 30)
 
@@ -1137,39 +1135,31 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 	registeredFOOCurrency := runnerEnv.RegisterXRPLOriginatedToken(
 		ctx,
 		t,
-		xrplIssuerAddress,
-		rippleFOOCurrency,
+		xrplFOOIssuer,
+		xrplFOOCurrency,
 		sendingPrecision,
 		maxHoldingAmount,
 		sdkmath.ZeroInt(),
 	)
 
-	// Prepare 'FOO' orderbook by creating one sell & buy order.
+	// Prepare XRP/FOO orderbook by creating one sell & buy order.
 	offerCreator := chains.XRPL.GenAccount(ctx, t, 10)
 	valueFOOToSend, err := rippledata.NewValue("100", false)
 	require.NoError(t, err)
-	fooCurrencyTrustSetTx := rippledata.TrustSet{
-		LimitAmount: rippledata.Amount{
-			Value:    valueFOOToSend,
-			Currency: rippleFOOCurrency,
-			Issuer:   xrplIssuerAddress,
-		},
-		TxBase: rippledata.TxBase{
-			TransactionType: rippledata.TRUST_SET,
-		},
-	}
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooCurrencyTrustSetTx, offerCreator))
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, offerCreator, xrplFOOIssuer, xrplFOOCurrency)
 
 	runnerEnv.SendXRPLPaymentTx(
 		ctx,
 		t,
-		xrplIssuerAddress,
+		xrplFOOIssuer,
 		offerCreator,
-		fooCurrencyTrustSetTx.LimitAmount,
+		rippledata.Amount{
+			Value:    valueFOOToSend,
+			Currency: xrplFOOCurrency,
+			Issuer:   xrplFOOIssuer,
+		},
 		rippledata.Memo{},
 	)
-
-	t.Logf("offer-creator: account balances before offer create: %s", chains.XRPL.GetAccountBalances(ctx, t, offerCreator))
 
 	// Sell 20 FOO for 1 XRP (price 20 FOO per 1 XRP).
 	offer1ValueXRP, err := rippledata.NewValue("1.0", true)
@@ -1184,8 +1174,8 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 		},
 		TakerGets: rippledata.Amount{
 			Value:    offer1ValueFOO,
-			Currency: rippleFOOCurrency,
-			Issuer:   xrplIssuerAddress,
+			Currency: xrplFOOCurrency,
+			Issuer:   xrplFOOIssuer,
 		},
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.OFFER_CREATE,
@@ -1201,8 +1191,8 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 	offer2CreateTx := rippledata.OfferCreate{
 		TakerPays: rippledata.Amount{
 			Value:    offer2ValueFOO,
-			Currency: rippleFOOCurrency,
-			Issuer:   xrplIssuerAddress,
+			Currency: xrplFOOCurrency,
+			Issuer:   xrplFOOIssuer,
 		},
 		TakerGets: rippledata.Amount{
 			Value:    offer2ValueXRP,
@@ -1217,7 +1207,7 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 
 	// Assert that FOO balance didn't change by creating orders.
 	balance := runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, offerCreator, xrplIssuerAddress, rippleFOOCurrency,
+		ctx, t, offerCreator, xrplFOOIssuer, xrplFOOCurrency,
 	)
 	require.True(t, valueFOOToSend.Equals(*balance.Value))
 
@@ -1244,8 +1234,8 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 		},
 		Amount: rippledata.Amount{
 			Value:    payment1Amount,
-			Currency: rippleFOOCurrency,
-			Issuer:   xrplIssuerAddress,
+			Currency: xrplFOOCurrency,
+			Issuer:   xrplFOOIssuer,
 		},
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.PAYMENT,
@@ -1273,24 +1263,18 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 	// Fund sender account with 100 FOO, so we can send XRP cross-currency payment by paying with FOO.
 	valueFOOToSend, err = rippledata.NewValue("100", false)
 	require.NoError(t, err)
-	fooCurrencyTrustSetTx = rippledata.TrustSet{
-		LimitAmount: rippledata.Amount{
-			Value:    valueFOOToSend,
-			Currency: rippleFOOCurrency,
-			Issuer:   xrplIssuerAddress,
-		},
-		TxBase: rippledata.TxBase{
-			TransactionType: rippledata.TRUST_SET,
-		},
-	}
-	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooCurrencyTrustSetTx, xrplSender))
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplSender, xrplFOOIssuer, xrplFOOCurrency)
 
 	runnerEnv.SendXRPLPaymentTx(
 		ctx,
 		t,
-		xrplIssuerAddress,
+		xrplFOOIssuer,
 		xrplSender,
-		fooCurrencyTrustSetTx.LimitAmount,
+		rippledata.Amount{
+			Value:    valueFOOToSend,
+			Currency: xrplFOOCurrency,
+			Issuer:   xrplFOOIssuer,
+		},
 		rippledata.Memo{},
 	)
 
@@ -1304,8 +1288,8 @@ func TestSendXRPLOriginatedTokenViaCrossCurrencyPayment(t *testing.T) {
 		Destination: runnerEnv.BridgeXRPLAddress,
 		SendMax: &rippledata.Amount{
 			Value:    payment2SendMax,
-			Currency: rippleFOOCurrency,
-			Issuer:   xrplIssuerAddress,
+			Currency: xrplFOOCurrency,
+			Issuer:   xrplFOOIssuer,
 		},
 		Amount: rippledata.Amount{
 			Value:    payment2Amount,
