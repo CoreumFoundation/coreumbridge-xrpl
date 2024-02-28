@@ -582,6 +582,39 @@ func TestFreeTicketsMetric(t *testing.T) {
 	)
 }
 
+func TestBridgeStateMetric(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.RelayersCount = 1
+	envCfg.SigningThreshold = 1
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerPeriodicMetricCollectors()
+	runnerEnv.StartAllRunnerProcesses()
+
+	// await active
+	awaitGaugeMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.BridgeState,
+		float64(1),
+	)
+
+	require.NoError(t, runnerEnv.BridgeClient.HaltBridge(ctx, runnerEnv.ContractOwner))
+
+	// await halted
+	awaitGaugeMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.BridgeState,
+		float64(0),
+	)
+}
+
 func awaitGaugeMetricState(
 	ctx context.Context,
 	t *testing.T,

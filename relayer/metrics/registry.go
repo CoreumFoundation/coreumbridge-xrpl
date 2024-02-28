@@ -18,6 +18,7 @@ const (
 	xrplAccountFullHistoryScanLedgerIndexMetricName   = "xrpl_account_full_history_scan_ledger_index"
 	freeContractTicketsMetricName                     = "free_contract_tickets"
 	freeXRPLTicketsMetricName                         = "free_xrpl_tickets"
+	bridgeStateMetricName                             = "bridge_state"
 
 	// XRPLCurrencyIssuerLabel is XRPL currency issuer label.
 	XRPLCurrencyIssuerLabel = "xrpl_currency_issuer"
@@ -45,6 +46,7 @@ type Registry struct {
 	XRPLAccountFullHistoryScanLedgerIndexGauge   prometheus.Gauge
 	FreeContractTicketsGauge                     prometheus.Gauge
 	FreeXRPLTicketsGauge                         prometheus.Gauge
+	BridgeState                                  prometheus.Gauge
 }
 
 // NewRegistry returns new metric registry.
@@ -117,6 +119,10 @@ func NewRegistry() *Registry {
 			Name: freeXRPLTicketsMetricName,
 			Help: "Free XRPL tickets",
 		}),
+		BridgeState: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: bridgeStateMetricName,
+			Help: "Bridge state",
+		}),
 	}
 }
 
@@ -135,6 +141,7 @@ func (m *Registry) Register(registry prometheus.Registerer) error {
 		m.XRPLAccountFullHistoryScanLedgerIndexGauge,
 		m.FreeContractTicketsGauge,
 		m.FreeXRPLTicketsGauge,
+		m.BridgeState,
 	}
 
 	for _, c := range collectors {

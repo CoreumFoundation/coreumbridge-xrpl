@@ -1013,7 +1013,7 @@ func (b *BridgeClient) HaltBridge(
 	ctx context.Context,
 	sender sdk.AccAddress,
 ) error {
-	b.log.Info(ctx, "halting the bridge", zap.String("sender", sender.String()))
+	b.log.Info(ctx, "Halting the bridge", zap.String("sender", sender.String()))
 	txRes, err := b.contractClient.HaltBridge(ctx, sender)
 	if err != nil {
 		return err
@@ -1023,7 +1023,7 @@ func (b *BridgeClient) HaltBridge(
 		return nil
 	}
 
-	b.log.Info(ctx, "finished execution of halt-bridge", zap.String("txHash", txRes.TxHash))
+	b.log.Info(ctx, "The bridge is halted", zap.String("txHash", txRes.TxHash))
 	return nil
 }
 

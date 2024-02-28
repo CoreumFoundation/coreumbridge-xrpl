@@ -112,6 +112,7 @@ func (c *PeriodicCollector) Start(ctx context.Context) error {
 		transactionEvidencesMetricName:      c.collectTransactionEvidences,
 		relayerBalancesMetricName:           c.collectRelayerBalances,
 		fmt.Sprintf("%s/%s", freeContractTicketsMetricName, freeXRPLTicketsMetricName): c.collectFreeTickets,
+		bridgeStateMetricName: c.collectBridgeState,
 	}
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		for name, collector := range periodicCollectors {
@@ -358,6 +359,24 @@ func (c *PeriodicCollector) collectFreeTickets(ctx context.Context) error {
 		xrplTicketCount = float64(*accountInfo.AccountData.TicketCount)
 	}
 	c.registry.FreeXRPLTicketsGauge.Set(xrplTicketCount)
+
+	return nil
+}
+
+func (c *PeriodicCollector) collectBridgeState(ctx context.Context) error {
+	contractCfg, err := c.contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get contract config")
+	}
+
+	switch contractCfg.BridgeState {
+	case coreum.BridgeStateHalted:
+		c.registry.BridgeState.Set(0)
+	case coreum.BridgeStateActive:
+		c.registry.BridgeState.Set(1)
+	default:
+		return errors.Wrapf(err, "received unexpected bridge state:%s", contractCfg.BridgeState)
+	}
 
 	return nil
 }
