@@ -34,20 +34,20 @@ groups:
       labels:
         severity: "critical"
 
-    - alert: Exceeded expected pending operation lifetime
+    - alert: Exceeded expected pending Coreum to XRPL operation lifetime
       expr: pending_operations > 0
       for: 30m
       annotations:
-        title: "Exceeded expected pending operation lifetime, operation ID: {{ $labels.operation_id }}"
+        title: "Exceeded expected pending Coreum to XRPL operation lifetime, operation ID: {{ $labels.operation_id }}"
       labels:
         severity: "major"
 
-    - alert: Exceeded expected not confirmed evidence lifetime
+    - alert: Exceeded expected not confirmed XRPL to Coreum  evidence lifetime
       expr: transaction_evidences > 0
       # A relayer might find a tx is history first but other relayers might do re-scan later which takes a lot of time
       for: 1h
       annotations:
-        title: "Exceeded expected not confirmed evidence lifetime, evidence hash: {{ $labels.evidence_hash }}"
+        title: "Exceeded expected not confirmed XRPL to Coreum evidence lifetime, evidence hash: {{ $labels.evidence_hash }}"
       labels:
         severity: "warning"
 
