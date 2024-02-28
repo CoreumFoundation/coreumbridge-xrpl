@@ -18,7 +18,6 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/keys"
@@ -26,7 +25,6 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
-	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
 //go:generate mockgen -destination=cli_mocks_test.go -package=cli_test . BridgeClient,Runner
