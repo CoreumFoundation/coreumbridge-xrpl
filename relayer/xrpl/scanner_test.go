@@ -10,7 +10,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -177,12 +176,15 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 			require.NoError(t, err)
 			rpcTxProvider := tt.rpcTxProvider(ctrl)
 
+			metricRegistryMock := NewMockMetricRegistry(ctrl)
+			metricRegistryMock.EXPECT().SetXRPLAccountRecentHistoryScanLedgerIndex(gomock.Any()).AnyTimes()
+			metricRegistryMock.EXPECT().SetXRPLAccountFullHistoryScanLedgerIndex(gomock.Any()).AnyTimes()
+
 			s := xrpl.NewAccountScanner(
 				tt.cfg,
 				logger.NewZapLoggerFromLogger(zapDevLogger),
 				rpcTxProvider,
-				prometheus.NewGauge(prometheus.GaugeOpts{}),
-				prometheus.NewGauge(prometheus.GaugeOpts{}),
+				metricRegistryMock,
 			)
 			txsCh := make(chan rippledata.TransactionWithMetaData)
 

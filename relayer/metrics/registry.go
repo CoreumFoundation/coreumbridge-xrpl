@@ -19,6 +19,7 @@ const (
 	freeContractTicketsMetricName                     = "free_contract_tickets"
 	freeXRPLTicketsMetricName                         = "free_xrpl_tickets"
 	bridgeStateMetricName                             = "bridge_state"
+	maliciousBehaviourMetricName                      = "malicious_behaviour"
 
 	// XRPLCurrencyIssuerLabel is XRPL currency issuer label.
 	XRPLCurrencyIssuerLabel = "xrpl_currency_issuer"
@@ -30,11 +31,13 @@ const (
 	EvidenceHashLabel = "evidence_hash"
 	// AddressLabel is address label.
 	AddressLabel = "address"
+	// MaliciousBehaviourKeyLabel malicious behaviour key label.
+	MaliciousBehaviourKeyLabel = "malicious_behaviour_key"
 )
 
 // Registry contains metrics.
 type Registry struct {
-	ErrorCounter                                 prometheus.Counter
+	RelayerErrorCounter                          prometheus.Counter
 	XRPLChainBaseFeeGauge                        prometheus.Gauge
 	ContractConfigXRPLBaseFeeGauge               prometheus.Gauge
 	XRPLBridgeAccountBalancesGaugeVec            *prometheus.GaugeVec
@@ -46,13 +49,14 @@ type Registry struct {
 	XRPLAccountFullHistoryScanLedgerIndexGauge   prometheus.Gauge
 	FreeContractTicketsGauge                     prometheus.Gauge
 	FreeXRPLTicketsGauge                         prometheus.Gauge
-	BridgeState                                  prometheus.Gauge
+	BridgeStateGauge                             prometheus.Gauge
+	MaliciousBehaviourGaugeVec                   *prometheus.GaugeVec
 }
 
 // NewRegistry returns new metric registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		ErrorCounter: prometheus.NewCounter(prometheus.CounterOpts{
+		RelayerErrorCounter: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: relayerErrorsTotalMetricName,
 			Help: "Error counter",
 		}),
@@ -119,17 +123,25 @@ func NewRegistry() *Registry {
 			Name: freeXRPLTicketsMetricName,
 			Help: "Free XRPL tickets",
 		}),
-		BridgeState: prometheus.NewGauge(prometheus.GaugeOpts{
+		BridgeStateGauge: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: bridgeStateMetricName,
 			Help: "Bridge state",
 		}),
+		MaliciousBehaviourGaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: maliciousBehaviourMetricName,
+			Help: "Malicious behaviour",
+		},
+			[]string{
+				MaliciousBehaviourKeyLabel,
+			},
+		),
 	}
 }
 
 // Register registers all the metrics to prometheus.
 func (m *Registry) Register(registry prometheus.Registerer) error {
 	collectors := []prometheus.Collector{
-		m.ErrorCounter,
+		m.RelayerErrorCounter,
 		m.XRPLChainBaseFeeGauge,
 		m.ContractConfigXRPLBaseFeeGauge,
 		m.XRPLBridgeAccountBalancesGaugeVec,
@@ -141,7 +153,8 @@ func (m *Registry) Register(registry prometheus.Registerer) error {
 		m.XRPLAccountFullHistoryScanLedgerIndexGauge,
 		m.FreeContractTicketsGauge,
 		m.FreeXRPLTicketsGauge,
-		m.BridgeState,
+		m.BridgeStateGauge,
+		m.MaliciousBehaviourGaugeVec,
 	}
 
 	for _, c := range collectors {
@@ -151,4 +164,19 @@ func (m *Registry) Register(registry prometheus.Registerer) error {
 	}
 
 	return nil
+}
+
+// IncrementRelayerErrorCounter increments RelayerErrorCounter.
+func (m *Registry) IncrementRelayerErrorCounter() {
+	m.RelayerErrorCounter.Inc()
+}
+
+// SetXRPLAccountRecentHistoryScanLedgerIndex sets XRPLAccountRecentHistoryScanLedgerIndexGauge value.
+func (m *Registry) SetXRPLAccountRecentHistoryScanLedgerIndex(index float64) {
+	m.XRPLAccountRecentHistoryScanLedgerIndexGauge.Set(index)
+}
+
+// SetXRPLAccountFullHistoryScanLedgerIndex sets XRPLAccountFullHistoryScanLedgerIndexGauge value.
+func (m *Registry) SetXRPLAccountFullHistoryScanLedgerIndex(index float64) {
+	m.XRPLAccountFullHistoryScanLedgerIndexGauge.Set(index)
 }

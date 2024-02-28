@@ -599,7 +599,7 @@ func TestBridgeStateMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.BridgeState,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.BridgeStateGauge,
 		float64(1),
 	)
 
@@ -610,7 +610,7 @@ func TestBridgeStateMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.BridgeState,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.BridgeStateGauge,
 		float64(0),
 	)
 }

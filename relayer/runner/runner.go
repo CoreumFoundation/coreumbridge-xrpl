@@ -89,8 +89,7 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 	},
 		components.Log,
 		components.XRPLRPCClient,
-		components.MetricsRegistry.XRPLAccountRecentHistoryScanLedgerIndexGauge,
-		components.MetricsRegistry.XRPLAccountFullHistoryScanLedgerIndexGauge,
+		components.MetricsRegistry,
 	)
 
 	xrplToCoreumProcess, err := processes.NewXRPLToCoreumProcess(
@@ -213,7 +212,7 @@ func NewComponents(
 	log logger.Logger,
 ) (Components, error) {
 	metricsRegistry := metrics.NewRegistry()
-	log, err := logger.WithErrorCounterMetric(log, metricsRegistry.ErrorCounter)
+	log, err := logger.WithMetrics(log, metricsRegistry)
 	if err != nil {
 		return Components{}, err
 	}
