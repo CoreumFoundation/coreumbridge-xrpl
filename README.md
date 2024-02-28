@@ -60,9 +60,9 @@ coreumbridge-xrpl-relayer init \
 Generate new keys:
 
 ```bash
-coreumbridge-xrpl-relayer keys-coreum add coreum-relayer
+coreumbridge-xrpl-relayer coreum keys add coreum-relayer
 
-coreumbridge-xrpl-relayer keys-xrpl add xrpl-relayer
+coreumbridge-xrpl-relayer xrpl keys add xrpl-relayer
 ```
 
 !!! Save output mnemonics to a safe place to be able to recover the relayer later. !!!
@@ -72,15 +72,15 @@ to update them, then updated them in the `relayer.yaml` as well.
 
 Or import the existing mnemonics:
 ```bash
-coreumbridge-xrpl-relayer keys-coreum add coreum-relayer --recover
+coreumbridge-xrpl-relayer coreum keys add coreum-relayer --recover
 
-coreumbridge-xrpl-relayer keys-xrpl add xrpl-relayer --recover
+coreumbridge-xrpl-relayer xrpl keys add xrpl-relayer --recover
 ```
 
 #### Extract keys info for the contract deployment
 
 ```bash
-coreumbridge-xrpl-relayer relayer-keys-info
+coreumbridge-xrpl-relayer relayer-keys
 ```
 
 Output example:
@@ -104,13 +104,13 @@ deployer.
 #### Generate new key which will be used for the XRPL bridge account creation
 
 ```bash
-coreumbridge-xrpl-relayer keys-xrpl add bridge-account
+coreumbridge-xrpl-relayer xrpl keys add bridge-account
 ```
 
 #### Generate new key which will be used for the contract deployment
 
 ```bash
-coreumbridge-xrpl-relayer keys-coreum add contract-deployer
+coreumbridge-xrpl-relayer coreum keys add contract-deployer
 ```
 
 Send some core tokens to the generated address, to have enough for the contract deployment.
@@ -172,7 +172,7 @@ the relayers config.
 #### Remove the bridge-account key
 
 ```bash
-coreumbridge-xrpl-relayer xrpl-keys delete bridge-account 
+coreumbridge-xrpl-relayer xrpl keys delete bridge-account 
 ```
 
 #### Run all relayers
@@ -182,7 +182,7 @@ Run all relayers see [Run relayer](#run-relayer) section.
 #### Recover tickets (initial tickets set)
 
 ```bash
-coreumbridge-xrpl-relayer recover-tickets --tickets-to-allocate 250 --key-name owner
+coreumbridge-xrpl-relayer coreum tx recover-tickets --tickets-to-allocate 250 --key-name owner
 ```
 
 ### Run relayer

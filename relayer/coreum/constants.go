@@ -7,8 +7,6 @@ import (
 )
 
 const (
-	// KeyringSuffix is used as suffix for coreum keyring.
-	KeyringSuffix = "coreum"
 	// TokenDecimals is decimals of the coreum token.
 	TokenDecimals = 6
 )
