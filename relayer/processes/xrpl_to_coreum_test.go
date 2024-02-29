@@ -579,6 +579,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 								TxBase: rippledata.TxBase{
 									Account:         bridgeXRPLAddress,
 									TransactionType: rippledata.SIGNER_LIST_SET,
+									Signers:         []rippledata.Signer{{}},
 								},
 								TicketSequence: lo.ToPtr(uint32(11)),
 							},
@@ -645,6 +646,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 								TxBase: rippledata.TxBase{
 									Account:         bridgeXRPLAddress,
 									TransactionType: rippledata.SIGNER_LIST_SET,
+									Signers:         []rippledata.Signer{{}},
 								},
 								TicketSequence: lo.ToPtr(uint32(11)),
 							},
