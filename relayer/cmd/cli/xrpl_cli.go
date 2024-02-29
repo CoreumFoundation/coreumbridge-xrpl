@@ -42,7 +42,7 @@ func XRPLCmd(bcp BridgeClientProvider) (*cobra.Command, error) {
 	xrplQueryCmd.AddCommand(XRPLBalancesCmd(bcp))
 	AddHomeFlag(xrplQueryCmd)
 
-	keyringXRPLCmd, err := KeyringCmd(XRPLKeyringSuffix, constant.CoinType,
+	keyringXRPLCmd, err := KeyringCmd(XRPLKeyringSuffix, xrpl.CoinType,
 		overridecryptokeyring.XRPLAddressFormatter)
 	if err != nil {
 		return nil, err
