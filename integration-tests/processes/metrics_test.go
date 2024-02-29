@@ -673,7 +673,7 @@ func TestMaliciousBehaviourMetric(t *testing.T) {
 		},
 		RegularKey: regularKey,
 	}
-	txHash := multiSignAndSubmitTxFromFirstRelayer(ctx, t, runnerEnv, &unexpectedXRPLTx)
+	txHash := multiSignAndSubmitBrdigeTxFromFirstRelayer(ctx, t, runnerEnv, &unexpectedXRPLTx)
 
 	awaitGaugeVecMetricState(
 		ctx,
@@ -699,7 +699,7 @@ func TestMaliciousBehaviourMetric(t *testing.T) {
 			TransactionType: rippledata.PAYMENT,
 		},
 	}
-	txHash = multiSignAndSubmitTxFromFirstRelayer(ctx, t, runnerEnv, &xrpPaymentTxWithoutOperation)
+	txHash = multiSignAndSubmitBrdigeTxFromFirstRelayer(ctx, t, runnerEnv, &xrpPaymentTxWithoutOperation)
 
 	awaitGaugeVecMetricState(
 		ctx,
@@ -786,7 +786,7 @@ type multiSignableTransaction interface {
 	rippledata.MultiSignable
 }
 
-func multiSignAndSubmitTxFromFirstRelayer(
+func multiSignAndSubmitBrdigeTxFromFirstRelayer(
 	ctx context.Context,
 	t *testing.T,
 	runnerEnv *RunnerEnv,

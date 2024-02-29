@@ -1742,8 +1742,6 @@ func IsCannotCoverBridgingFeesError(err error) bool {
 	return isError(err, "CannotCoverBridgingFees")
 }
 
-// FIXME add contract tests for all those errors !!!
-
 // IsInvalidOperationResultError returns true if error is `InvalidOperationResult`.
 func IsInvalidOperationResultError(err error) bool {
 	return isError(err, "InvalidOperationResult")
