@@ -1,15 +1,19 @@
 package cli_test
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strconv"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -19,12 +23,101 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-func TestRecoverTicketsCmd(t *testing.T) {
+func TestCoreumTxFlags(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	keyringDir := t.TempDir()
 	keyName := "owner" //nolint:goconst // testing only variable
+	owner := addKeyToTestKeyring(t, keyringDir, keyName, cli.CoreumKeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+	expectGenerateOnlyInCtx := func(generateOnly bool) any {
+		return mock.MatchedBy(func(ctx context.Context) bool {
+			v := ctx.Value(client.ClientContextKey)
+			require.NotNil(t, v)
+			clientCtx, ok := v.(*client.Context)
+			require.True(t, ok)
+			return clientCtx.GenerateOnly == generateOnly
+		})
+	}
+	tests := []struct {
+		name string
+		args []string
+		mock func(m *MockBridgeClient)
+	}{
+		{
+			name: "key_name",
+			args: []string{
+				flagWithPrefix(cli.FlagKeyName), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().RecoverTickets(
+					expectGenerateOnlyInCtx(false),
+					owner,
+					nil,
+				)
+			},
+		},
+		{
+			name: "from_owner",
+			args: []string{
+				flagWithPrefix(cli.FlagFromOwner), keyName,
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().GetContractOwnership(
+					gomock.Any(),
+				).Return(coreum.ContractOwnership{
+					Owner: owner,
+				}, nil)
+				m.EXPECT().RecoverTickets(
+					expectGenerateOnlyInCtx(false),
+					owner,
+					nil,
+				)
+			},
+		},
+		{
+			name: "from_owner_generate_only",
+			args: []string{
+				flagWithPrefix(cli.FlagFromOwner), keyName,
+				flagWithPrefix(flags.FlagGenerateOnly),
+			},
+			mock: func(m *MockBridgeClient) {
+				m.EXPECT().GetContractOwnership(
+					gomock.Any(),
+				).Return(coreum.ContractOwnership{
+					Owner: owner,
+				}, nil)
+				m.EXPECT().RecoverTickets(
+					expectGenerateOnlyInCtx(true),
+					owner,
+					nil,
+				)
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			// no additional args
+			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
+			bridgeClientMock := NewMockBridgeClient(ctrl)
+			tt.mock(bridgeClientMock)
+			executeCoreumTxCmd(
+				t,
+				mockBridgeClientProvider(bridgeClientMock),
+				cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)),
+				tt.args...,
+			)
+		})
+	}
+}
+
+func TestRecoverTicketsCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	keyringDir := t.TempDir()
+	keyName := "owner"
 	addKeyToTestKeyring(t, keyringDir, keyName, cli.CoreumKeyringSuffix, xrpl.XRPLHDPath)
 
 	homeArgs := initConfig(t)
@@ -35,7 +128,12 @@ func TestRecoverTicketsCmd(t *testing.T) {
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().RecoverTickets(gomock.Any(), gomock.Any(), nil)
-	executeTxCmd(t, cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 
 	// with tickets
 	args = append([]string{
@@ -51,7 +149,12 @@ func TestRecoverTicketsCmd(t *testing.T) {
 			return *v == 123
 		}),
 	)
-	executeTxCmd(t, cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.RecoverTicketsCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestRegisterCoreumTokenCmd(t *testing.T) {
@@ -86,7 +189,12 @@ func TestRegisterCoreumTokenCmd(t *testing.T) {
 		sdkmath.NewInt(int64(maxHoldingAmount)),
 		sdkmath.NewInt(1),
 	)
-	executeTxCmd(t, cli.RegisterCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.RegisterCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestUpdateCoreumTokenCmd(t *testing.T) {
@@ -327,7 +435,10 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
 			bridgeClientMock := NewMockBridgeClient(ctrl)
 			tt.mock(bridgeClientMock)
-			executeTxCmd(t, cli.UpdateCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)),
+			executeCoreumTxCmd(
+				t,
+				mockBridgeClientProvider(bridgeClientMock),
+				cli.UpdateCoreumTokenCmd(mockBridgeClientProvider(bridgeClientMock)),
 				append(initConfig(t), tt.args...)...)
 		})
 	}
@@ -366,7 +477,12 @@ func TestRegisterXRPLTokenCmd(t *testing.T) {
 		sdkmath.NewInt(int64(maxHoldingAmount)),
 		sdkmath.NewInt(1),
 	)
-	executeTxCmd(t, cli.RegisterXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.RegisterXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestRecoverXRPLTokenRegistrationCmd(t *testing.T) {
@@ -394,7 +510,12 @@ func TestRecoverXRPLTokenRegistrationCmd(t *testing.T) {
 		issuer.String(),
 		currency.String(),
 	).Return(nil)
-	executeTxCmd(t, cli.RecoverXRPLTokenRegistrationCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.RecoverXRPLTokenRegistrationCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestUpdateXRPLTokenCmd(t *testing.T) {
@@ -656,8 +777,12 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
 			bridgeClientMock := NewMockBridgeClient(ctrl)
 			tt.mock(bridgeClientMock)
-			executeTxCmd(t, cli.UpdateXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)),
-				append(initConfig(t), tt.args...)...)
+			executeCoreumTxCmd(
+				t,
+				mockBridgeClientProvider(bridgeClientMock),
+				cli.UpdateXRPLTokenCmd(mockBridgeClientProvider(bridgeClientMock)),
+				append(initConfig(t), tt.args...)...,
+			)
 		})
 	}
 }
@@ -681,7 +806,12 @@ func TestRotateKeysCmd(t *testing.T) {
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}, homeArgs...)
 	args = append(args, testKeyringFlags(keyringDir)...)
-	executeTxCmd(t, cli.RotateKeysCmd(mockBridgeClientProvider(nil)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(nil),
+		cli.RotateKeysCmd(mockBridgeClientProvider(nil)),
+		args...,
+	)
 
 	// use generated file
 	bridgeClientMock := NewMockBridgeClient(ctrl)
@@ -691,7 +821,12 @@ func TestRotateKeysCmd(t *testing.T) {
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}, homeArgs...)
 	args = append(args, testKeyringFlags(keyringDir)...)
-	executeTxCmd(t, cli.RotateKeysCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.RotateKeysCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestUpdateXRPLBaseFeeCmd(t *testing.T) {
@@ -710,7 +845,12 @@ func TestUpdateXRPLBaseFeeCmd(t *testing.T) {
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().UpdateXRPLBaseFee(gomock.Any(), gomock.Any(), uint32(17))
-	executeTxCmd(t, cli.UpdateXRPLBaseFeeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.UpdateXRPLBaseFeeCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestSendFromCoreumToXRPLCmd(t *testing.T) {
@@ -744,7 +884,12 @@ func TestSendFromCoreumToXRPLCmd(t *testing.T) {
 			return v.String() == deliverAmount.String()
 		}),
 	)
-	executeTxCmd(t, cli.SendFromCoreumToXRPLCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.SendFromCoreumToXRPLCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 
 	// without the deliver amount
 	args = append([]string{
@@ -762,7 +907,12 @@ func TestSendFromCoreumToXRPLCmd(t *testing.T) {
 		amount,
 		nil,
 	)
-	executeTxCmd(t, cli.SendFromCoreumToXRPLCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.SendFromCoreumToXRPLCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
@@ -783,7 +933,12 @@ func TestClaimPendingRefundCmd_WithRefundID(t *testing.T) {
 	args := append(initConfig(t), flagWithPrefix(cli.FlagKeyName), keyName, flagWithPrefix(cli.FlagRefundID), refundID)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	fmt.Println(args)
-	executeTxCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestClaimPendingRefundCmd(t *testing.T) {
@@ -808,7 +963,12 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 	).Return(nil)
 	args := append(initConfig(t), flagWithPrefix(cli.FlagKeyName), keyName)
 	args = append(args, testKeyringFlags(keyringDir)...)
-	executeTxCmd(t, cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.ClaimRefundCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
@@ -831,7 +991,12 @@ func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
 		flagWithPrefix(cli.FlagAmount), amount.String(),
 	)
 	args = append(args, testKeyringFlags(keyringDir)...)
-	executeTxCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestClaimRelayerFees(t *testing.T) {
@@ -856,7 +1021,12 @@ func TestClaimRelayerFees(t *testing.T) {
 	).Return(nil)
 	args := append(initConfig(t), flagWithPrefix(cli.FlagKeyName), keyName)
 	args = append(args, testKeyringFlags(keyringDir)...)
-	executeTxCmd(t, cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.ClaimRelayerFeesCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestHaltBridgeCmd(t *testing.T) {
@@ -872,7 +1042,12 @@ func TestHaltBridgeCmd(t *testing.T) {
 	args := append(initConfig(t), flagWithPrefix(cli.FlagKeyName), keyName)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock.EXPECT().HaltBridge(gomock.Any(), owner).Return(nil)
-	executeTxCmd(t, cli.HaltBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.HaltBridgeCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestResumeBridgeCmd(t *testing.T) {
@@ -888,7 +1063,12 @@ func TestResumeBridgeCmd(t *testing.T) {
 	args := append(initConfig(t), flagWithPrefix(cli.FlagKeyName), keyName)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock.EXPECT().ResumeBridge(gomock.Any(), owner).Return(nil)
-	executeTxCmd(t, cli.ResumeBridgeCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.ResumeBridgeCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestCancelPendingOperationCmd(t *testing.T) {
@@ -908,7 +1088,12 @@ func TestCancelPendingOperationCmd(t *testing.T) {
 	}, initConfig(t)...)
 	args = append(args, testKeyringFlags(keyringDir)...)
 	bridgeClientMock.EXPECT().CancelPendingOperation(gomock.Any(), owner, operationID).Return(nil)
-	executeTxCmd(t, cli.CancelPendingOperationCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.CancelPendingOperationCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestUpdateProhibitedXRPLRecipientsCmd(t *testing.T) {
@@ -934,7 +1119,12 @@ func TestUpdateProhibitedXRPLRecipientsCmd(t *testing.T) {
 		prohibitedXRPLRecipient1,
 		prohibitedXRPLRecipient2,
 	}).Return(nil)
-	executeTxCmd(t, cli.UpdateProhibitedXRPLRecipientsCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.UpdateProhibitedXRPLRecipientsCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
 }
 
 func TestPendingOperationsCmd(t *testing.T) {
@@ -990,7 +1180,7 @@ func TestRegisteredTokensCmd(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	bridgeClientMock.EXPECT().GetAllTokens(gomock.Any()).Return([]coreum.CoreumToken{}, []coreum.XRPLToken{}, nil)
-	executeTxCmd(t, cli.RegisteredTokensCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
+	executeQueryCmd(t, cli.RegisteredTokensCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
 func TestContractConfigCmd(t *testing.T) {
@@ -1002,6 +1192,15 @@ func TestContractConfigCmd(t *testing.T) {
 	executeQueryCmd(t, cli.ContractConfigCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
+func TestContractOwnershipCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+	bridgeClientMock.EXPECT().GetContractOwnership(gomock.Any()).Return(coreum.ContractOwnership{}, nil)
+	executeQueryCmd(t, cli.ContractOwnershipCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
+}
+
 func TestProhibitedXRPLRecipientsCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1010,4 +1209,10 @@ func TestProhibitedXRPLRecipientsCmd(t *testing.T) {
 
 	bridgeClientMock.EXPECT().GetProhibitedXRPLRecipients(gomock.Any()).Return([]string{}, nil)
 	executeQueryCmd(t, cli.ProhibitedXRPLRecipientsCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
+}
+
+func executeCoreumTxCmd(t *testing.T, bcp cli.BridgeClientProvider, cmd *cobra.Command, args ...string) {
+	cli.AddCoreumTxFlags(cmd)
+	cmd.PreRunE = cli.CoreumTxPreRun(bcp)
+	executeCmd(t, cmd, args...)
 }

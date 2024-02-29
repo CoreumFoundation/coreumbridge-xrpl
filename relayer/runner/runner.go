@@ -230,7 +230,8 @@ func NewComponents(
 
 	coreumClientCtx := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics).
 		WithKeyring(coreumSDKClientCtx.Keyring).
-		WithGenerateOnly(cfg.Coreum.GenerateOnly)
+		WithGenerateOnly(coreumSDKClientCtx.GenerateOnly).
+		WithFromAddress(coreumSDKClientCtx.FromAddress)
 
 	if cfg.Coreum.Network.ChainID != "" {
 		coreumChainNetworkConfig, err := coreumchainconfig.NetworkConfigByChainID(
