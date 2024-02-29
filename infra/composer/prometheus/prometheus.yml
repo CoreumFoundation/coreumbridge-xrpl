@@ -2,6 +2,8 @@ global:
   scrape_interval: 5s
   scrape_timeout: 5s
   evaluation_interval: 5s
+rule_files:
+  - "alert.rules"
 alerting:
   alertmanagers:
   - static_configs:
@@ -27,4 +29,4 @@ scrape_configs:
   scheme: http
   static_configs:
     - targets:
-        - coreumbridge-xrpl-relayer:9090
+        - znet-bridge-xrpl-bridgexrpl-00:10090

@@ -7,7 +7,7 @@ coreumbridge-xrpl-relayer init \
   --coreum-contract-address "$CONTRACT_ADDR" \
   --coreum-grpc-url "$COREUM_GRPC_URL" \
   --xrpl-rpc-url "$XRPL_RPC_URL" \
-  --metrics-enable \
+  --metrics-enabled \
   --metrics-listen-addr=:9090
 
 echo "$MNEMONIC_COREUM" | coreumbridge-xrpl-relayer coreum keys add coreum-relayer --recover --keyring-backend=test
