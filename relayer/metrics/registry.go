@@ -180,3 +180,9 @@ func (m *Registry) SetXRPLAccountRecentHistoryScanLedgerIndex(index float64) {
 func (m *Registry) SetXRPLAccountFullHistoryScanLedgerIndex(index float64) {
 	m.XRPLAccountFullHistoryScanLedgerIndexGauge.Set(index)
 }
+
+// SetMaliciousBehaviourKey sets the MaliciousBehaviourGaugeVec value to 1 with MaliciousBehaviourKeyLabel and
+// provided key.
+func (m *Registry) SetMaliciousBehaviourKey(key string) {
+	m.MaliciousBehaviourGaugeVec.WithLabelValues(key).Set(1)
+}

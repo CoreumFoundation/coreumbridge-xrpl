@@ -100,6 +100,7 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 		components.Log,
 		xrplScanner,
 		components.CoreumContractClient,
+		components.MetricsRegistry,
 	)
 	if err != nil {
 		return nil, err
@@ -117,6 +118,7 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 		components.CoreumContractClient,
 		components.XRPLRPCClient,
 		components.XRPLKeyringTxSigner,
+		components.MetricsRegistry,
 	)
 	if err != nil {
 		return nil, err
