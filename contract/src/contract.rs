@@ -190,6 +190,7 @@ pub fn instantiate(
         .add_attribute("contract_name", CONTRACT_NAME)
         .add_attribute("contract_version", CONTRACT_VERSION)
         .add_attribute("owner", msg.owner)
+        .add_attribute("sender", info.sender)
         .add_message(xrp_issue_msg))
 }
 
@@ -347,7 +348,9 @@ fn update_ownership(
     action: Action,
 ) -> CoreumResult<ContractError> {
     let ownership = cw_ownable::update_ownership(deps, &env.block, &info.sender, action)?;
-    Ok(Response::new().add_attributes(ownership.into_attributes()))
+    Ok(Response::new()
+        .add_attribute("sender", info.sender)
+        .add_attributes(ownership.into_attributes()))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -412,6 +415,7 @@ fn register_coreum_token(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RegisterCoreumToken.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("denom", denom)
         .add_attribute("decimals", decimals.to_string())
         .add_attribute("xrpl_currency_for_denom", xrpl_currency))
@@ -515,6 +519,7 @@ fn register_xrpl_token(
     Ok(Response::new()
         .add_message(issue_msg)
         .add_attribute("action", ContractActions::RegisterXRPLToken.as_str())
+        .add_attribute("sender", info.sender)
         .add_attribute("issuer", issuer)
         .add_attribute("currency", currency)
         .add_attribute("denom", denom))
@@ -538,9 +543,11 @@ fn save_evidence(
 
     evidence.validate_basic()?;
 
-    let threshold_reached = handle_evidence(deps.storage, sender, &evidence)?;
+    let threshold_reached = handle_evidence(deps.storage, sender.clone(), &evidence)?;
 
-    let mut response = Response::new();
+    let mut response = Response::new()
+        .add_attribute("action", ContractActions::SaveEvidence.as_str())
+        .add_attribute("sender", sender);
 
     match evidence {
         Evidence::XRPLToCoreumTransfer {
@@ -668,7 +675,6 @@ fn save_evidence(
             }
 
             response = response
-                .add_attribute("action", ContractActions::SaveEvidence.as_str())
                 .add_attribute("hash", tx_hash)
                 .add_attribute("issuer", issuer)
                 .add_attribute("currency", currency)
@@ -729,7 +735,6 @@ fn save_evidence(
             }
 
             response = response
-                .add_attribute("action", ContractActions::SaveEvidence.as_str())
                 .add_attribute("operation_type", operation.operation_type.as_str())
                 .add_attribute("operation_id", operation_id.to_string())
                 .add_attribute("transaction_result", transaction_result.as_str())
@@ -798,6 +803,7 @@ fn recover_tickets(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RecoverTickets.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("account_sequence", account_sequence.to_string()))
 }
 
@@ -851,6 +857,7 @@ fn recover_xrpl_token_registration(
             "action",
             ContractActions::RecoverXRPLTokenRegistration.as_str(),
         )
+        .add_attribute("sender", sender)
         .add_attribute("issuer", issuer)
         .add_attribute("currency", currency))
 }
@@ -878,8 +885,8 @@ fn save_signature(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::SaveSignature.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("operation_id", operation_id.to_string())
-        .add_attribute("relayer_address", sender.to_string())
         .add_attribute("signature", signature))
 }
 
@@ -1110,6 +1117,7 @@ fn update_xrpl_token(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::UpdateXRPLToken.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("issuer", issuer)
         .add_attribute("currency", currency))
 }
@@ -1159,6 +1167,7 @@ fn update_coreum_token(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::UpdateCoreumToken.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("denom", denom))
 }
 
@@ -1203,6 +1212,7 @@ fn update_xrpl_base_fee(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::UpdateXRPLBaseFee.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("new_xrpl_base_fee", xrpl_base_fee.to_string()))
 }
 
@@ -1229,9 +1239,9 @@ fn claim_relayer_fees(
     };
 
     Ok(Response::new()
-        .add_message(send_msg)
         .add_attribute("action", ContractActions::ClaimFees.as_str())
-        .add_attribute("sender", sender))
+        .add_attribute("sender", sender)
+        .add_message(send_msg))
 }
 
 fn claim_pending_refund(
@@ -1248,9 +1258,9 @@ fn claim_pending_refund(
     };
 
     Ok(Response::new()
-        .add_message(send_msg)
         .add_attribute("action", ContractActions::ClaimRefunds.as_str())
-        .add_attribute("sender", sender))
+        .add_attribute("sender", sender)
+        .add_message(send_msg))
 }
 
 fn halt_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
