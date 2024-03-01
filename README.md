@@ -37,7 +37,7 @@ For the document simplicity we use the alias for the command which will be execu
 Pay attention that all files outputs are related to docker container.
 
 ```bash
-alias coreumbridge-xrpl-relayer="docker run --user $(id -u):$(id -g) -it --rm -v $HOME/.coreumbridge-xrpl-relayer:/root/.coreumbridge-xrpl-relayer coreumfoundation/coreumbridge-xrpl-relayer:$RELEASE_VERSION"
+alias coreumbridge-xrpl-relayer="docker run --user $(id -u):$(id -g) -it --rm -v $HOME/.coreumbridge-xrpl-relayer:/.coreumbridge-xrpl-relayer coreumfoundation/coreumbridge-xrpl-relayer:$RELEASE_VERSION"
 ```
 
 ### Init relayer config
