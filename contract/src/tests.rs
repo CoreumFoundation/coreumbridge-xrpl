@@ -5,7 +5,7 @@ mod tests {
     use coreum_wasm_sdk::types::cosmos::bank::v1beta1::QueryTotalSupplyRequest;
     use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
     use coreum_wasm_sdk::{
-        assetft::{BURNING, FREEZING, IBC, MINTING},
+        assetft::{FREEZING, IBC, MINTING},
         types::{
             coreum::asset::ft::v1::{
                 MsgIssue, QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
@@ -486,11 +486,7 @@ mod tests {
                 precision: 6,
                 description: "".to_string(),
                 globally_frozen: false,
-                features: vec![
-                    MINTING.try_into().unwrap(),
-                    BURNING.try_into().unwrap(),
-                    IBC.try_into().unwrap()
-                ],
+                features: vec![MINTING.try_into().unwrap(), IBC.try_into().unwrap()],
                 burn_rate: "0".to_string(),
                 send_commission_rate: "0".to_string(),
                 uri: "".to_string(),

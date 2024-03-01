@@ -32,7 +32,7 @@ use crate::{
 };
 
 use coreum_wasm_sdk::{
-    assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
+    assetft::{self, Msg::Issue, ParamsResponse, Query, IBC, MINTING},
     core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
@@ -155,7 +155,7 @@ pub fn instantiate(
         precision: XRP_DECIMALS,
         initial_amount: Uint128::zero(),
         description: None,
-        features: Some(vec![MINTING, BURNING, IBC]),
+        features: Some(vec![MINTING, IBC]),
         burn_rate: "0.0".to_string(),
         send_commission_rate: "0.0".to_string(),
         uri: None,
@@ -466,7 +466,7 @@ fn register_xrpl_token(
         precision: XRPL_TOKENS_DECIMALS,
         initial_amount: Uint128::zero(),
         description: None,
-        features: Some(vec![MINTING, BURNING, IBC]),
+        features: Some(vec![MINTING, IBC]),
         burn_rate: "0.0".to_string(),
         send_commission_rate: "0.0".to_string(),
         uri: None,

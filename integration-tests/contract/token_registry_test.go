@@ -301,7 +301,6 @@ func TestRegisterAndUpdateXRPLToken(t *testing.T) {
 		GloballyFrozen: false,
 		Features: []assetfttypes.Feature{
 			assetfttypes.Feature_minting,
-			assetfttypes.Feature_burning,
 			assetfttypes.Feature_ibc,
 		},
 		BurnRate:           sdk.ZeroDec(),
