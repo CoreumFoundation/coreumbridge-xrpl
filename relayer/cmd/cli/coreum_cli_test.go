@@ -100,6 +100,7 @@ func TestCoreumTxFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// no additional args
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
+			tt.args = append(tt.args, initConfig(t)...)
 			bridgeClientMock := NewMockBridgeClient(ctrl)
 			tt.mock(bridgeClientMock)
 			executeCoreumTxCmd(
