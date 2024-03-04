@@ -461,6 +461,7 @@ func TestCoreumToXRPLProcess_Start(t *testing.T) {
 				xrplTxSigner = tt.xrplTxSignerBuilder(ctrl)
 			}
 
+			metricRegistryMock := NewMockMetricRegistry(ctrl)
 			o, err := processes.NewCoreumToXRPLProcess(
 				processes.CoreumToXRPLProcessConfig{
 					BridgeXRPLAddress:    bridgeXRPLAddress,
@@ -471,6 +472,7 @@ func TestCoreumToXRPLProcess_Start(t *testing.T) {
 				contractClient,
 				xrplRPCClient,
 				xrplTxSigner,
+				metricRegistryMock,
 			)
 			require.NoError(t, err)
 			require.NoError(t, o.Start(ctx))

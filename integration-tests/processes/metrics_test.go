@@ -26,6 +26,7 @@ import (
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -599,7 +600,7 @@ func TestBridgeStateMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.BridgeState,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.BridgeStateGauge,
 		float64(1),
 	)
 
@@ -610,8 +611,107 @@ func TestBridgeStateMetric(t *testing.T) {
 		ctx,
 		t,
 		runnerEnv,
-		runnerEnv.RunnerComponents[0].MetricsRegistry.BridgeState,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.BridgeStateGauge,
 		float64(0),
+	)
+}
+
+func TestMaliciousBehaviourMetric(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.RelayersCount = 2
+	envCfg.SigningThreshold = 1
+	envCfg.UsedTicketSequenceThreshold = 2
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerPeriodicMetricCollectors()
+	require.NoError(t, runnerEnv.BridgeClient.RecoverTickets(ctx, runnerEnv.ContractOwner, lo.ToPtr(uint32(3))))
+
+	// send invalid signature from the relayer
+	pendingOperations, err := runnerEnv.ContractClient.GetPendingOperations(ctx)
+	require.NoError(t, err)
+	require.Len(t, pendingOperations, 1)
+
+	pendingOperation := pendingOperations[0]
+	// save invalid signature for the operation
+	maliciousCoreumAddress, err := sdk.AccAddressFromBech32(runnerEnv.BootstrappingConfig.Relayers[0].CoreumAddress)
+	require.NoError(t, err)
+	_, err = runnerEnv.ContractClient.SaveSignature(
+		ctx,
+		maliciousCoreumAddress,
+		pendingOperation.GetOperationID(),
+		pendingOperation.Version,
+		xrplTxSignature,
+	)
+	require.NoError(t, err)
+
+	// start relayers now
+	runnerEnv.StartAllRunnerProcesses()
+
+	awaitGaugeVecMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.MaliciousBehaviourGaugeVec,
+		map[string]string{
+			metrics.MaliciousBehaviourKeyLabel: fmt.Sprintf(
+				"invalid_signature_for_operation_%d_relayer_%s",
+				pendingOperation.GetOperationID(), maliciousCoreumAddress.String(),
+			),
+		},
+		1,
+	)
+
+	// sign and send unexpected tx from a relayer
+	regularKey, err := rippledata.NewRegularKeyFromAddress(runnerEnv.BootstrappingConfig.Relayers[0].XRPLAddress)
+	require.NoError(t, err)
+	unexpectedXRPLTx := rippledata.SetRegularKey{
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.SET_REGULAR_KEY,
+		},
+		RegularKey: regularKey,
+	}
+	txHash := multiSignAndSubmitBrdigeTxFromFirstRelayer(ctx, t, runnerEnv, &unexpectedXRPLTx)
+
+	awaitGaugeVecMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.MaliciousBehaviourGaugeVec,
+		map[string]string{
+			metrics.MaliciousBehaviourKeyLabel: fmt.Sprintf(
+				"unexpected_xrpl_tx_type_tx_hash_%s", txHash.String(),
+			),
+		},
+		1,
+	)
+
+	xrpAmount, err := rippledata.NewAmount("0.001")
+	require.NoError(t, err)
+	xrplRecipient, err := rippledata.NewAccountFromAddress(runnerEnv.BootstrappingConfig.Relayers[0].XRPLAddress)
+	require.NoError(t, err)
+	xrpPaymentTxWithoutOperation := rippledata.Payment{
+		Destination: *xrplRecipient,
+		Amount:      *xrpAmount,
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.PAYMENT,
+		},
+	}
+	txHash = multiSignAndSubmitBrdigeTxFromFirstRelayer(ctx, t, runnerEnv, &xrpPaymentTxWithoutOperation)
+
+	awaitGaugeVecMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.MaliciousBehaviourGaugeVec,
+		map[string]string{
+			metrics.MaliciousBehaviourKeyLabel: fmt.Sprintf(
+				"potential_malicious_xrpl_behaviour_tx_hash_%s", txHash.String(),
+			),
+		},
+		1,
 	)
 }
 
@@ -679,4 +779,32 @@ func findConfirmedEvidences(before, after []coreum.TransactionEvidence) []coreum
 		_, found := afterMap[evidence.Hash]
 		return !found
 	})
+}
+
+type multiSignableTransaction interface {
+	rippledata.Transaction
+	rippledata.MultiSignable
+}
+
+func multiSignAndSubmitBrdigeTxFromFirstRelayer(
+	ctx context.Context,
+	t *testing.T,
+	runnerEnv *RunnerEnv,
+	tx multiSignableTransaction,
+) *rippledata.Hash256 {
+	txToSign := tx
+	runnerEnv.Chains.XRPL.AutoFillTx(ctx, t, txToSign, runnerEnv.BridgeXRPLAddress)
+	txToSign.GetBase().SigningPubKey = &rippledata.PublicKey{}
+
+	relayerRunnerCfg := runner.DefaultConfig()
+	signer, err := runnerEnv.RunnerComponents[0].XRPLKeyringTxSigner.MultiSign(
+		txToSign, relayerRunnerCfg.XRPL.MultiSignerKeyName,
+	)
+	require.NoError(t, err)
+	txToSign.GetBase().SigningPubKey = &rippledata.PublicKey{}
+	txToSign.GetBase().TxnSignature = nil
+
+	require.NoError(t, rippledata.SetSigners(txToSign, signer))
+	require.NoError(t, runnerEnv.Chains.XRPL.RPCClient().SubmitAndAwaitSuccess(ctx, txToSign))
+	return txToSign.GetHash()
 }

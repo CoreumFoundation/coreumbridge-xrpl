@@ -1742,6 +1742,32 @@ func IsCannotCoverBridgingFeesError(err error) bool {
 	return isError(err, "CannotCoverBridgingFees")
 }
 
+// IsInvalidOperationResultError returns true if error is `InvalidOperationResult`.
+func IsInvalidOperationResultError(err error) bool {
+	return isError(err, "InvalidOperationResult")
+}
+
+// IsInvalidTransactionResultEvidenceError returns true if error is `InvalidTransactionResultEvidence`.
+func IsInvalidTransactionResultEvidenceError(err error) bool {
+	return isError(err, "InvalidTransactionResultEvidence")
+}
+
+// IsInvalidSuccessfulTransactionResultEvidenceError returns true if error is
+// `InvalidSuccessfulTransactionResultEvidence`.
+func IsInvalidSuccessfulTransactionResultEvidenceError(err error) bool {
+	return isError(err, "InvalidSuccessfulTransactionResultEvidence")
+}
+
+// IsInvalidFailedTransactionResultEvidenceError returns true if error is `InvalidFailedTransactionResultEvidence`.
+func IsInvalidFailedTransactionResultEvidenceError(err error) bool {
+	return isError(err, "InvalidFailedTransactionResultEvidence")
+}
+
+// IsInvalidTicketAllocationEvidenceError returns true if error is `InvalidTicketAllocationEvidence`.
+func IsInvalidTicketAllocationEvidenceError(err error) bool {
+	return isError(err, "InvalidTicketAllocationEvidence")
+}
+
 // ******************** Asset FT errors ********************
 
 // IsAssetFTStateError returns true if the error is caused by enabled asset FT features.

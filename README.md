@@ -37,7 +37,7 @@ For the document simplicity we use the alias for the command which will be execu
 Pay attention that all files outputs are related to docker container.
 
 ```bash
-alias coreumbridge-xrpl-relayer="docker run --user $(id -u):$(id -g) -it --rm -v $HOME/.coreumbridge-xrpl-relayer:/root/.coreumbridge-xrpl-relayer coreumfoundation/coreumbridge-xrpl-relayer:$RELEASE_VERSION"
+alias coreumbridge-xrpl-relayer="docker run --user $(id -u):$(id -g) -it --rm -v $HOME/.coreumbridge-xrpl-relayer:/.coreumbridge-xrpl-relayer coreumfoundation/coreumbridge-xrpl-relayer:$RELEASE_VERSION"
 ```
 
 ### Init relayer config
@@ -118,7 +118,7 @@ Send some core tokens to the generated address, to have enough for the contract 
 #### Generate config template
 
 ```bash
-coreumbridge-xrpl-relayer bootstrap-bridge /root/.coreumbridge-xrpl-relayer/bootstrapping.yaml \
+coreumbridge-xrpl-relayer bootstrap-bridge /.coreumbridge-xrpl-relayer/bootstrapping.yaml \
   --xrpl-key-name bridge-account --coreum-key-name contract-deployer --init-only --relayers-count 32
 ```
 
@@ -132,7 +132,7 @@ XRPL bridge address
 Coreum deployer address
     address: "testcore1qfhm09t9wyf5ttuj9e52v90h7rhrk72zwjxv5l"
 Initializing default bootstrapping config
-    path: "/root/.coreumbridge-xrpl-relayer/bootstrapping.yaml"
+    path: "/.coreumbridge-xrpl-relayer/bootstrapping.yaml"
 Computed minimum XRPL bridge balance
     balance: 594
 ```
@@ -162,7 +162,7 @@ If you don't have the contract bytecode download it.
 #### Run the bootstrapping
 
 ```bash
-coreumbridge-xrpl-relayer bootstrap-bridge /root/.coreumbridge-xrpl-relayer/bootstrapping.yaml \
+coreumbridge-xrpl-relayer bootstrap-bridge /.coreumbridge-xrpl-relayer/bootstrapping.yaml \
   --xrpl-key-name bridge-account --coreum-key-name contract-deployer
 ```
 

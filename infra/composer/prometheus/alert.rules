@@ -66,3 +66,11 @@ groups:
         severity: "major"
       annotations:
         description: "Low amount of free tickets in the contract is left"
+
+    - alert: Detected malicious behaviour
+      expr: malicious_behaviour > 0
+      for: 1s
+      labels:
+        severity: "critical"
+      annotations:
+        description: "Detected malicious behaviour: {{ $labels.malicious_behaviour_key }}"
