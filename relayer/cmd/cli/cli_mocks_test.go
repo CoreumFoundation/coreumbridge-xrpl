@@ -128,6 +128,21 @@ func (mr *MockBridgeClientMockRecorder) GetContractConfig(arg0 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractConfig", reflect.TypeOf((*MockBridgeClient)(nil).GetContractConfig), arg0)
 }
 
+// GetContractOwnership mocks base method.
+func (m *MockBridgeClient) GetContractOwnership(arg0 context.Context) (coreum.ContractOwnership, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetContractOwnership", arg0)
+	ret0, _ := ret[0].(coreum.ContractOwnership)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetContractOwnership indicates an expected call of GetContractOwnership.
+func (mr *MockBridgeClientMockRecorder) GetContractOwnership(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractOwnership", reflect.TypeOf((*MockBridgeClient)(nil).GetContractOwnership), arg0)
+}
+
 // GetCoreumBalances mocks base method.
 func (m *MockBridgeClient) GetCoreumBalances(arg0 context.Context, arg1 types.AccAddress) (types.Coins, error) {
 	m.ctrl.T.Helper()

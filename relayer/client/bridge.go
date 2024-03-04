@@ -39,6 +39,7 @@ type ContractClient interface {
 		config coreum.InstantiationConfig,
 	) (sdk.AccAddress, error)
 	GetContractConfig(ctx context.Context) (coreum.ContractConfig, error)
+	GetContractOwnership(ctx context.Context) (coreum.ContractOwnership, error)
 	RecoverTickets(
 		ctx context.Context,
 		sender sdk.AccAddress,
@@ -324,6 +325,11 @@ func (b *BridgeClient) Bootstrap(
 // GetContractConfig returns contract config.
 func (b *BridgeClient) GetContractConfig(ctx context.Context) (coreum.ContractConfig, error) {
 	return b.contractClient.GetContractConfig(ctx)
+}
+
+// GetContractOwnership returns contract ownership.
+func (b *BridgeClient) GetContractOwnership(ctx context.Context) (coreum.ContractOwnership, error) {
+	return b.contractClient.GetContractOwnership(ctx)
 }
 
 // RecoverTickets recovers tickets allocation.

@@ -1518,12 +1518,12 @@ func (c *ContractClient) execute(
 			return nil, err
 		}
 
-		json, err := clientCtx.TxConfig().TxJSONEncoder()(unsignedTx.GetTx())
+		txData, err := clientCtx.TxConfig().TxJSONEncoder()(unsignedTx.GetTx())
 		if err != nil {
 			return nil, err
 		}
 
-		return nil, clientCtx.PrintString(fmt.Sprintf("%s\n", json))
+		return nil, clientCtx.PrintString(fmt.Sprintf("%s\n", txData))
 	}
 
 	var res *sdk.TxResponse
