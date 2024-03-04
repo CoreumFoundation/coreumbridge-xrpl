@@ -10,7 +10,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-//go:generate mockgen -destination=model_mocks_test.go -package=processes_test . ContractClient,XRPLAccountTxScanner,XRPLRPCClient,XRPLTxSigner
+//go:generate mockgen -destination=model_mocks_test.go -package=processes_test . ContractClient,XRPLAccountTxScanner,XRPLRPCClient,XRPLTxSigner,MetricRegistry
 
 // ContractClient is the interface for the contract client.
 type ContractClient interface {
@@ -67,6 +67,11 @@ type XRPLTxSigner interface {
 	MultiSign(tx rippledata.MultiSignable, keyName string) (rippledata.Signer, error)
 }
 
+// MetricRegistry is metric registry.
+type MetricRegistry interface {
+	SetMaliciousBehaviourKey(key string)
+}
+
 // IsExpectedEvidenceSubmissionError returns true is error is a part of expected business logic e.g:
 // - error caused by tx resubmission;
 // - maximum bridged amount reached;
@@ -75,11 +80,20 @@ type XRPLTxSigner interface {
 func IsExpectedEvidenceSubmissionError(err error) bool {
 	return coreum.IsEvidenceAlreadyProvidedError(err) ||
 		coreum.IsOperationAlreadyExecutedError(err) ||
-		coreum.IsPendingOperationNotFoundError(err) ||
 		coreum.IsMaximumBridgedAmountReachedError(err) ||
 		coreum.IsTokenNotEnabledError(err) ||
 		coreum.IsProhibitedRecipientError(err) ||
 		coreum.IsBridgeHaltedError(err) ||
 		coreum.IsAmountSentIsZeroAfterTruncationError(err) ||
 		coreum.IsCannotCoverBridgingFeesError(err)
+}
+
+// IsUnexpectedEvidenceSubmissionError returns true is the error is related to potential malicious behaviour.
+func IsUnexpectedEvidenceSubmissionError(err error) bool {
+	return coreum.IsPendingOperationNotFoundError(err) ||
+		coreum.IsInvalidOperationResultError(err) ||
+		coreum.IsInvalidTransactionResultEvidenceError(err) ||
+		coreum.IsInvalidSuccessfulTransactionResultEvidenceError(err) ||
+		coreum.IsInvalidFailedTransactionResultEvidenceError(err) ||
+		coreum.IsInvalidTicketAllocationEvidenceError(err)
 }

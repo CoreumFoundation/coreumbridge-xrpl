@@ -1,0 +1,76 @@
+groups:
+  - name: Coreum bridge XRPL monitoring
+    rules:
+
+    - alert: Instance down
+      expr: up == 0
+      for: 3m
+      annotations:
+        title: "Instance {{ $labels.instance }} down"
+      labels:
+        severity: "critical"
+
+    - alert: High relayer error rate
+      expr: rate(relayer_errors_total[5m]) * 5 * 60 > 10
+      for: 30s
+      labels:
+        severity: major
+      annotations:
+        description: "High relayer error rate"
+
+    - alert: Low contract XRPL base fee
+      expr: contract_config_xrpl_base_fee < xrpl_chain_base_fee
+      for: 1h
+      annotations:
+        title: "XRPL base fee in contract is lower than on XRPL chain"
+      labels:
+        severity: "critical"
+
+    - alert: Low XRPL bridge account XRP balance to pay fees
+      expr: (xrpl_bridge_account_balances{xrpl_currency_issuer="XRP/rrrrrrrrrrrrrrrrrrrrrhoLvTp"} - on () contract_balances{xrpl_currency_issuer="XRP/rrrrrrrrrrrrrrrrrrrrrhoLvTp"}) < 700
+      for: 1s
+      annotations:
+        title: "XRPL bridge account XRP balance to pay fees is less than 700XRP"
+      labels:
+        severity: "critical"
+
+    - alert: Exceeded expected pending Coreum to XRPL operation lifetime
+      expr: pending_operations > 0
+      for: 30m
+      annotations:
+        title: "Exceeded expected pending Coreum to XRPL operation lifetime, operation ID: {{ $labels.operation_id }}"
+      labels:
+        severity: "major"
+
+    - alert: Exceeded expected not confirmed XRPL to Coreum  evidence lifetime
+      expr: transaction_evidences > 0
+      # A relayer might find a tx is history first but other relayers might do re-scan later which takes a lot of time
+      for: 1h
+      annotations:
+        title: "Exceeded expected not confirmed XRPL to Coreum evidence lifetime, evidence hash: {{ $labels.evidence_hash }}"
+      labels:
+        severity: "warning"
+
+    - alert: Low relayers balance
+      expr: relayer_balances < 10
+      for: 1s
+      labels:
+        severity: "major"
+      annotations:
+        description: "Relayer {{ $labels.address }} balance is lower than 10.0"
+
+    - alert: Low amount of free tickets in the contract
+      expr: free_contract_tickets < 10
+      for: 1s
+      labels:
+        severity: "major"
+      annotations:
+        description: "Low amount of free tickets in the contract is left"
+
+    - alert: Detected malicious behaviour
+      expr: malicious_behaviour > 0
+      for: 1s
+      labels:
+        severity: "critical"
+      annotations:
+        description: "Detected malicious behaviour: {{ $labels.malicious_behaviour_key }}"

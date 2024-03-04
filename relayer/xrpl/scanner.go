@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"go.uber.org/zap"
 
@@ -14,7 +13,13 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
-//go:generate mockgen -destination=scanner_mocks_test.go -package=xrpl_test . RPCTxProvider
+//go:generate mockgen -destination=scanner_mocks_test.go -package=xrpl_test . RPCTxProvider,MetricRegistry
+
+// MetricRegistry is metric registry.
+type MetricRegistry interface {
+	SetXRPLAccountRecentHistoryScanLedgerIndex(index float64)
+	SetXRPLAccountFullHistoryScanLedgerIndex(index float64)
+}
 
 // RPCTxProvider is RPC transactions provider.
 type RPCTxProvider interface {
@@ -58,11 +63,10 @@ func DefaultAccountScannerConfig(account rippledata.Account) AccountScannerConfi
 
 // AccountScanner is XRPL transactions scanner.
 type AccountScanner struct {
-	cfg                      AccountScannerConfig
-	log                      logger.Logger
-	rpcTxProvider            RPCTxProvider
-	recentScanXRPLedgerGauge prometheus.Gauge
-	historicalScanXRPLedger  prometheus.Gauge
+	cfg            AccountScannerConfig
+	log            logger.Logger
+	rpcTxProvider  RPCTxProvider
+	metricRegistry MetricRegistry
 }
 
 // NewAccountScanner returns a nw instance of the AccountScanner.
@@ -70,15 +74,13 @@ func NewAccountScanner(
 	cfg AccountScannerConfig,
 	log logger.Logger,
 	rpcTxProvider RPCTxProvider,
-	recentScanXRPLedgerGauge prometheus.Gauge,
-	fullScanXRPLedgerGauge prometheus.Gauge,
+	metricRegistry MetricRegistry,
 ) *AccountScanner {
 	return &AccountScanner{
-		cfg:                      cfg,
-		log:                      log,
-		rpcTxProvider:            rpcTxProvider,
-		recentScanXRPLedgerGauge: recentScanXRPLedgerGauge,
-		historicalScanXRPLedger:  fullScanXRPLedgerGauge,
+		cfg:            cfg,
+		log:            log,
+		rpcTxProvider:  rpcTxProvider,
+		metricRegistry: metricRegistry,
 	}
 }
 
@@ -132,7 +134,7 @@ func (s *AccountScanner) scanRecentHistory(
 			zap.Int64("minLedger", minLedger),
 			zap.String("account", s.cfg.Account.String()),
 		)
-		lastLedger := s.scanTransactions(ctx, minLedger, s.recentScanXRPLedgerGauge, ch)
+		lastLedger := s.scanTransactions(ctx, minLedger, s.metricRegistry.SetXRPLAccountRecentHistoryScanLedgerIndex, ch)
 		if lastLedger != 0 {
 			minLedger = lastLedger + 1
 		}
@@ -143,7 +145,7 @@ func (s *AccountScanner) scanRecentHistory(
 func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) {
 	s.doWithRepeat(ctx, s.cfg.RepeatFullScan, func() {
 		s.log.Debug(ctx, "Scanning XRPL account full history", zap.String("account", s.cfg.Account.String()))
-		lastLedger := s.scanTransactions(ctx, -1, s.historicalScanXRPLedger, ch)
+		lastLedger := s.scanTransactions(ctx, -1, s.metricRegistry.SetXRPLAccountFullHistoryScanLedgerIndex, ch)
 		s.log.Debug(ctx, "Scanning of full history is done", zap.Int64("lastLedger", lastLedger))
 	})
 }
@@ -151,7 +153,7 @@ func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippleda
 func (s *AccountScanner) scanTransactions(
 	ctx context.Context,
 	minLedger int64,
-	ledgerGauge prometheus.Gauge,
+	indexRegistryFunc func(float64),
 	ch chan<- rippledata.TransactionWithMetaData,
 ) int64 {
 	if minLedger <= 0 {
@@ -208,7 +210,7 @@ func (s *AccountScanner) scanTransactions(
 			}
 		}
 		if prevProcessedLedger != 0 {
-			ledgerGauge.Set(float64(prevProcessedLedger))
+			indexRegistryFunc(float64(prevProcessedLedger))
 		}
 		if len(accountTxResult.Marker) == 0 {
 			lastLedger = prevProcessedLedger

@@ -46,7 +46,7 @@ type RunnerEnvConfig struct {
 	CustomBridgeXRPLAddress     *rippledata.Account
 	CustomContractAddress       *sdk.AccAddress
 	CustomContractOwner         *sdk.AccAddress
-	// is custom error handler returns false, the runner env fails with the input error
+	// if custom error handler returns false, the runner env fails with the input error
 	CustomErrorHandler func(err error) bool
 }
 
@@ -647,7 +647,10 @@ func createDevRunner(
 	// re-init log to use correct `CallerSkip`
 	log, err := logger.NewZapLogger(logger.DefaultZapLoggerConfig())
 	require.NoError(t, err)
-	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, log)
+
+	xrplSDKClientCtx := chains.Coreum.ClientContext.WithKeyring(xrplKeyring).SDKContext()
+	coreumSDKClientCtx := chains.Coreum.ClientContext.WithKeyring(coreumKeyring).SDKContext()
+	components, err := runner.NewComponents(relayerRunnerCfg, xrplSDKClientCtx, coreumSDKClientCtx, log)
 	require.NoError(t, err)
 
 	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg)
