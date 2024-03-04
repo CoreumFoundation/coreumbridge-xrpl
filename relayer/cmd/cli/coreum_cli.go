@@ -983,7 +983,7 @@ func AddCoreumTxFlags(cmd *cobra.Command) {
 	AddHomeFlag(cmd)
 	cmd.PersistentFlags().Bool(flags.FlagGenerateOnly, false, "Generate unsigned transaction")
 	cmd.PersistentFlags().Bool(
-		FlagFromOwner, false, "Execute the transaction form the owner address set in the contract config",
+		FlagFromOwner, false, "Sets message sender to owner address specified in contract config",
 	)
 }
 
