@@ -418,19 +418,17 @@ func (c *PeriodicCollector) collectRelayerActivity(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		actionCount := make(map[string]int)
+		// even if there are no actions we save two the most important with zero for the alert
+		actionCount := map[string]int{
+			"save_evidence":  0,
+			"save_signature": 0,
+		}
 		for _, res := range txResponses {
 			action := getWasmCallAction(res.Events)
 			if action == "" {
 				continue
 			}
-			count := actionCount[action]
-			actionCount[action] = count + 1
-		}
-		// if there are no actions we save two the most important with zero for the alert
-		if len(actionCount) == 0 {
-			actionCount["save_evidence"] = 0
-			actionCount["save_signature"] = 0
+			actionCount[action]++
 		}
 		// fill the metric with the data
 		for action, count := range actionCount {
