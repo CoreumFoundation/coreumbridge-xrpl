@@ -1131,6 +1131,7 @@ mod tests {
             xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
+        let xrpl_bridge_address = generate_xrpl_address();
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
@@ -1140,7 +1141,7 @@ mod tests {
             2,
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
-            generate_xrpl_address(),
+            xrpl_bridge_address.clone(),
             10,
         );
 
@@ -1348,6 +1349,26 @@ mod tests {
         assert!(register_error
             .to_string()
             .contains(ContractError::InvalidFundsAmount {}.to_string().as_str()));
+
+        // Registering a token with an prohibited address as issuer should fail
+        let issuer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: xrpl_bridge_address,
+                    currency: test_tokens[1].currency.clone(),
+                    sending_precision: test_tokens[1].sending_precision.clone(),
+                    max_holding_amount: test_tokens[1].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[1].bridging_fee,
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(issuer_error
+            .to_string()
+            .contains(ContractError::ProhibitedRecipient {}.to_string().as_str()));
 
         // Registering a token without having tickets for the TrustSet operation should fail
         let available_tickets_error = wasm
