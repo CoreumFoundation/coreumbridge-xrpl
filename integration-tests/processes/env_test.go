@@ -46,7 +46,7 @@ type RunnerEnvConfig struct {
 	CustomBridgeXRPLAddress     *rippledata.Account
 	CustomContractAddress       *sdk.AccAddress
 	CustomContractOwner         *sdk.AccAddress
-	// is custom error handler returns false, the runner env fails with the input error
+	// if custom error handler returns false, the runner env fails with the input error
 	CustomErrorHandler func(err error) bool
 }
 

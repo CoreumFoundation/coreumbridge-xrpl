@@ -33,7 +33,7 @@ contract. The `sending precision` and `max holding amount` should be provided ta
 the [Amount rounding handling](#amount-rounding-handling).
 The token's `denom` is unique and is built by the contract using the `XRPL issuer`, `XRPL currency`, `block time` hash
 and `xrpl` prefix.
-Required features for the issuance are `minting`, `burning`, and `IBC`. During the registration, the contract issues a
+Required features for the issuance are `minting` and `IBC`. During the registration, the contract issues a
 token and will be responsible for its minting when a token is bridged from the XRPL to Coreum. After the registration,
 the token is put in `Processing` state and the contract triggers the `submit trust set for xrpl token` operation
 to allow the XRPL bridge account to receive that token. If this operation succeeds, the token will be `Enabled`,

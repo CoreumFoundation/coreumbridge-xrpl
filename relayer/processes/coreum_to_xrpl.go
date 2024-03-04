@@ -60,6 +60,7 @@ type CoreumToXRPLProcess struct {
 	contractClient ContractClient
 	xrplRPCClient  XRPLRPCClient
 	xrplSigner     XRPLTxSigner
+	metricRegistry MetricRegistry
 }
 
 // NewCoreumToXRPLProcess returns a new instance of the CoreumToXRPLProcess.
@@ -69,6 +70,7 @@ func NewCoreumToXRPLProcess(
 	contractClient ContractClient,
 	xrplRPCClient XRPLRPCClient,
 	xrplSigner XRPLTxSigner,
+	metricRegistry MetricRegistry,
 ) (*CoreumToXRPLProcess, error) {
 	if cfg.RelayerCoreumAddress.Empty() {
 		return nil, errors.Errorf("failed to init process, relayer address is nil or empty")
@@ -86,6 +88,7 @@ func NewCoreumToXRPLProcess(
 		contractClient: contractClient,
 		xrplRPCClient:  xrplRPCClient,
 		xrplSigner:     xrplSigner,
+		metricRegistry: metricRegistry,
 	}, nil
 }
 
@@ -310,12 +313,12 @@ func (p *CoreumToXRPLProcess) buildSubmittableTransaction(
 		}
 		var txSignature rippledata.VariableLength
 		if err := txSignature.UnmarshalText([]byte(signature.Signature)); err != nil {
+			p.registerInvalidSignatureMetric(operation.GetOperationID(), signature)
 			p.log.Error(
 				ctx,
 				"Failed to unmarshal tx signature",
-				zap.Error(err),
-				zap.String("signature", signature.Signature),
-				zap.String("xrplAcc", xrplAcc.String()),
+				zap.Error(err), zap.String("signature", signature.Signature),
+				zap.String("xrplAddress", xrplAcc.String()), zap.String("coreumAddress", signature.RelayerCoreumAddress.String()),
 			)
 			continue
 		}
@@ -335,20 +338,24 @@ func (p *CoreumToXRPLProcess) buildSubmittableTransaction(
 		}
 		isValid, _, err := rippledata.CheckMultiSignature(tx)
 		if err != nil {
+			p.registerInvalidSignatureMetric(operation.GetOperationID(), signature)
 			p.log.Error(
 				ctx,
 				"failed to check transaction signature, err:%s, signer:%+v",
 				zap.Error(err),
 				zap.Any("signer", txSigner),
+				zap.String("xrplAddress", xrplAcc.String()), zap.String("coreumAddress", signature.RelayerCoreumAddress.String()),
 			)
 			continue
 		}
 		if !isValid {
+			p.registerInvalidSignatureMetric(operation.GetOperationID(), signature)
 			p.log.Error(
 				ctx,
 				"Invalid tx signature",
 				zap.Error(err),
 				zap.Any("txSigner", txSigner),
+				zap.String("xrplAddress", xrplAcc.String()), zap.String("coreumAddress", signature.RelayerCoreumAddress.String()),
 			)
 			continue
 		}
@@ -428,6 +435,15 @@ func (p *CoreumToXRPLProcess) preValidateOperation(ctx context.Context, operatio
 	}
 
 	return false, nil
+}
+
+func (p *CoreumToXRPLProcess) registerInvalidSignatureMetric(operationID uint32, signature coreum.Signature) {
+	p.metricRegistry.SetMaliciousBehaviourKey(
+		fmt.Sprintf(
+			"invalid_signature_for_operation_%d_relayer_%s",
+			operationID, signature.RelayerCoreumAddress.String(),
+		),
+	)
 }
 
 func (p *CoreumToXRPLProcess) registerTxSignature(ctx context.Context, operation coreum.Operation) error {

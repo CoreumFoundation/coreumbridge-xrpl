@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/http"
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -53,12 +53,12 @@ func TestFullHistoryScanAccountTx(t *testing.T) {
 		RetryDelay:        time.Second,
 	}
 
+	metricRegistry := metrics.NewRegistry()
 	scanner := xrpl.NewAccountScanner(
 		scannerCfg,
 		chains.Log,
 		rpcClient,
-		prometheus.NewGauge(prometheus.GaugeOpts{}),
-		prometheus.NewGauge(prometheus.GaugeOpts{}),
+		metricRegistry,
 	)
 	// add timeout to finish the tests in case of error
 
@@ -109,12 +109,12 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 		RetryDelay:        500 * time.Millisecond,
 	}
 
+	metricRegistry := metrics.NewRegistry()
 	scanner := xrpl.NewAccountScanner(
 		scannerCfg,
 		chains.Log,
 		rpcClient,
-		prometheus.NewGauge(prometheus.GaugeOpts{}),
-		prometheus.NewGauge(prometheus.GaugeOpts{}),
+		metricRegistry,
 	)
 
 	// await for the state when the current ledger is valid to run the scanner

@@ -371,9 +371,9 @@ func (c *PeriodicCollector) collectBridgeState(ctx context.Context) error {
 
 	switch contractCfg.BridgeState {
 	case coreum.BridgeStateHalted:
-		c.registry.BridgeState.Set(0)
+		c.registry.BridgeStateGauge.Set(0)
 	case coreum.BridgeStateActive:
-		c.registry.BridgeState.Set(1)
+		c.registry.BridgeStateGauge.Set(1)
 	default:
 		return errors.Wrapf(err, "received unexpected bridge state:%s", contractCfg.BridgeState)
 	}
