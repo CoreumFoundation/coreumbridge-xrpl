@@ -82,6 +82,6 @@ metrics:
     server:
         listen_address: localhost:9090
     periodic_collector:
-        repeat_delay: 30s
+        repeat_delay: 1m0s
 `
 }
