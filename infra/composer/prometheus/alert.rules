@@ -57,7 +57,7 @@ groups:
       labels:
         severity: "major"
       annotations:
-        description: "Relayer {{ $labels.address }} balance is lower than 10.0"
+        description: "Relayer {{ $labels.relayer_coreum_address }} balance is lower than 10.0"
 
     - alert: Low amount of free tickets in the contract
       expr: free_contract_tickets < 10
@@ -74,3 +74,11 @@ groups:
         severity: "critical"
       annotations:
         description: "Detected malicious behaviour: {{ $labels.malicious_behaviour_key }}"
+
+    - alert: No relayer activity for more than 24h
+      expr: increase(relayer_activity{action=~"save_evidence|save_signature"}[24h]) == 0
+      for: 10m # to let the relayer provide the metric after the restart
+      labels:
+        severity: "major"
+      annotations:
+        description: "No relayer activity for more than 24h: {{ $labels.relayer_coreum_address }}"

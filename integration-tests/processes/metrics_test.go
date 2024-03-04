@@ -507,7 +507,7 @@ func TestRelayerBalancesMetric(t *testing.T) {
 		runnerEnv,
 		runnerEnv.RunnerComponents[0].MetricsRegistry.RelayerBalancesGaugeVec,
 		map[string]string{
-			metrics.AddressLabel: relayer1Address,
+			metrics.RelayerCoremAddressLabel: relayer1Address,
 		},
 		truncateFloatByMetricCollectorTruncationPrecision(
 			truncateAmountWithDecimals(coreum.TokenDecimals, relayer1BalanceRes.Balance.Amount),
@@ -520,7 +520,7 @@ func TestRelayerBalancesMetric(t *testing.T) {
 		runnerEnv,
 		runnerEnv.RunnerComponents[0].MetricsRegistry.RelayerBalancesGaugeVec,
 		map[string]string{
-			metrics.AddressLabel: relayer2Address,
+			metrics.RelayerCoremAddressLabel: relayer2Address,
 		},
 		truncateFloatByMetricCollectorTruncationPrecision(
 			truncateAmountWithDecimals(coreum.TokenDecimals, relayer2BalanceRes.Balance.Amount),
@@ -713,6 +713,70 @@ func TestMaliciousBehaviourMetric(t *testing.T) {
 		},
 		1,
 	)
+}
+
+func TestRelayerActivityMetrics(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.RelayersCount = 2
+	envCfg.SigningThreshold = 2
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerProcesses()
+	runnerEnv.StartAllRunnerPeriodicMetricCollectors()
+	// 1 signature, 1 evidence
+	runnerEnv.AllocateTickets(ctx, t, uint32(200))
+
+	coreumSenderAddress := chains.Coreum.GenAccount()
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
+		Amount: sdkmath.NewIntWithDecimal(1, 6),
+	})
+
+	xrplSenderAddressAddress := chains.XRPL.GenAccount(ctx, t, 10)
+
+	valueToSendFromXRPLToCoreum, err := rippledata.NewValue("1.0", true)
+	require.NoError(t, err)
+
+	amountToSendFromXRPLtoCoreum := rippledata.Amount{
+		Value:    valueToSendFromXRPLToCoreum,
+		Currency: xrpl.XRPTokenCurrency,
+		Issuer:   xrpl.XRPTokenIssuer,
+	}
+	// 1 evidence
+	runnerEnv.SendFromXRPLToCoreum(
+		ctx,
+		t,
+		xrplSenderAddressAddress.String(),
+		amountToSendFromXRPLtoCoreum,
+		coreumSenderAddress,
+	)
+
+	for _, relayer := range runnerEnv.BootstrappingConfig.Relayers {
+		awaitGaugeVecMetricState(
+			ctx,
+			t,
+			runnerEnv,
+			runnerEnv.RunnerComponents[0].MetricsRegistry.RelayerActivityGaugeVec,
+			map[string]string{
+				metrics.RelayerCoremAddressLabel: relayer.CoreumAddress,
+				metrics.ContractActionLabel:      "save_evidence",
+			},
+			2,
+		)
+		awaitGaugeVecMetricState(
+			ctx,
+			t,
+			runnerEnv,
+			runnerEnv.RunnerComponents[0].MetricsRegistry.RelayerActivityGaugeVec,
+			map[string]string{
+				metrics.RelayerCoremAddressLabel: relayer.CoreumAddress,
+				metrics.ContractActionLabel:      "save_signature",
+			},
+			1,
+		)
+	}
 }
 
 func awaitGaugeMetricState(
