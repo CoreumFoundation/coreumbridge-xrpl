@@ -451,6 +451,11 @@ fn register_xrpl_token(
         return Err(ContractError::XRPLTokenAlreadyRegistered { issuer, currency });
     }
 
+    // We check that the issuer is not prohibited
+    if PROHIBITED_XRPL_RECIPIENTS.has(deps.storage, issuer.clone()) {
+        return Err(ContractError::ProhibitedRecipient {});
+    }
+
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
     let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds()).into_bytes();
 
