@@ -278,7 +278,7 @@ func (p *CoreumToXRPLProcess) signOrSubmitOperation(
 		)
 		return nil
 	default:
-		return errors.Errorf("failed to submit transaction, receveid unexpected result, code:%s result:%+v, tx:%+v",
+		return errors.Errorf("failed to submit transaction, received unexpected result, code:%s result:%+v, tx:%+v",
 			txRes.EngineResult.String(), txRes, tx)
 	}
 }
