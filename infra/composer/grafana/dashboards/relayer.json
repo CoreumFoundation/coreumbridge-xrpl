@@ -352,12 +352,108 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0
+              }
+            ]
+          },
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 7
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "bridge_state",
+          "instant": false,
+          "legendFormat": "Bridge state (1 - active, 0 - halted)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Bridge state",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 7
+        "y": 14
       },
       "id": 13,
       "panels": [],
@@ -428,7 +524,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 8
+        "y": 15
       },
       "id": 7,
       "options": {
@@ -528,7 +624,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 8
+        "y": 15
       },
       "id": 8,
       "options": {
@@ -628,7 +724,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 8
+        "y": 15
       },
       "id": 3,
       "options": {
@@ -745,7 +841,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 14
+        "y": 21
       },
       "id": 4,
       "options": {
@@ -877,7 +973,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 14
+        "y": 21
       },
       "id": 1,
       "options": {
@@ -918,7 +1014,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 27
       },
       "id": 12,
       "panels": [],
@@ -972,8 +1068,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -989,7 +1084,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 21
+        "y": 28
       },
       "id": 9,
       "options": {
@@ -1072,8 +1167,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1089,7 +1183,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 21
+        "y": 28
       },
       "id": 11,
       "options": {
@@ -1168,8 +1262,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1185,7 +1278,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 21
+        "y": 28
       },
       "id": 10,
       "options": {
@@ -1226,7 +1319,7 @@
     "list": [
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": [
             "All"
           ],
@@ -1258,7 +1351,7 @@
       },
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": [
             "All"
           ],
@@ -1290,7 +1383,7 @@
       },
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": [
             "All"
           ],

@@ -82,3 +82,11 @@ groups:
         severity: "major"
       annotations:
         description: "No relayer activity for more than 24h: {{ $labels.relayer_coreum_address }}"
+
+    - alert: The bridge is halted
+      expr: bridge_state == 0
+      for: 1s
+      labels:
+        severity: "critical"
+      annotations:
+        description: "The bridge is halted"
