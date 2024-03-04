@@ -1928,3 +1928,45 @@ func TestUpdateCoreumOriginatedTokenMaxHoldingAmount(t *testing.T) {
 	)
 	require.True(t, coreum.IsInvalidTargetMaxHoldingAmountError(err), err)
 }
+
+func TestRegisterXRPLTokenWithProhibitedIssuer(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+	relayers := genRelayers(ctx, t, chains, 2)
+
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		relayers,
+		uint32(len(relayers)),
+		3,
+		defaultTrustSetLimitAmount,
+		xrpl.GenPrivKeyTxSigner().Account().String(),
+		10,
+	)
+
+	// fund owner to cover issuance fees twice
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.Mul(sdkmath.NewIntFromUint64(2)),
+	})
+
+	currency := xrpl.ConvertCurrencyToString(integrationtests.GenerateXRPLCurrency(t))
+	sendingPrecision := int32(15)
+	maxHoldingAmount := sdkmath.NewInt(10000)
+	bridgingFee := sdkmath.ZeroInt()
+
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
+
+	prohibitedXRPLRecipients, err := contractClient.GetProhibitedXRPLRecipients(ctx)
+	require.NoError(t, err)
+	for _, issuer := range prohibitedXRPLRecipients {
+		_, err = contractClient.RegisterXRPLToken(
+			ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount, bridgingFee,
+		)
+		require.True(t, coreum.IsProhibitedRecipientError(err), err)
+	}
+}
