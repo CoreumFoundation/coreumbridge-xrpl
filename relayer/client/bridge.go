@@ -128,11 +128,11 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		xrplBaseFee uint32,
 	) (*sdk.TxResponse, error)
-	GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error)
-	UpdateProhibitedXRPLRecipients(
+	GetProhibitedXRPLAddresses(ctx context.Context) ([]string, error)
+	UpdateProhibitedXRPLAddresses(
 		ctx context.Context,
 		sender sdk.AccAddress,
-		prohibitedXRPLRecipients []string,
+		prohibitedXRPLAddresses []string,
 	) (*sdk.TxResponse, error)
 	CancelPendingOperation(
 		ctx context.Context,
@@ -933,19 +933,19 @@ func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, 
 	return nil
 }
 
-// GetProhibitedXRPLRecipients queries for the list of the prohibited XRPL recipients.
-func (b *BridgeClient) GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error) {
-	return b.contractClient.GetProhibitedXRPLRecipients(ctx)
+// GetProhibitedXRPLAddresses queries for the list of the prohibited XRPL addresses.
+func (b *BridgeClient) GetProhibitedXRPLAddresses(ctx context.Context) ([]string, error) {
+	return b.contractClient.GetProhibitedXRPLAddresses(ctx)
 }
 
-// UpdateProhibitedXRPLRecipients updates the list of the prohibited XRPL recipients.
-func (b *BridgeClient) UpdateProhibitedXRPLRecipients(
-	ctx context.Context, address sdk.AccAddress, prohibitedXRPLRecipients []string,
+// UpdateProhibitedXRPLAddresses updates the list of the prohibited XRPL addresses.
+func (b *BridgeClient) UpdateProhibitedXRPLAddresses(
+	ctx context.Context, address sdk.AccAddress, prohibitedXRPLAddresses []string,
 ) error {
-	b.log.Info(ctx, "Updating prohibited XRPL recipients",
-		zap.Any("prohibitedXRPLRecipients", prohibitedXRPLRecipients))
+	b.log.Info(ctx, "Updating prohibited XRPL addresses",
+		zap.Any("prohibitedXRPLAddresses", prohibitedXRPLAddresses))
 
-	txRes, err := b.contractClient.UpdateProhibitedXRPLRecipients(ctx, address, prohibitedXRPLRecipients)
+	txRes, err := b.contractClient.UpdateProhibitedXRPLAddresses(ctx, address, prohibitedXRPLAddresses)
 	if err != nil {
 		return err
 	}
@@ -956,7 +956,7 @@ func (b *BridgeClient) UpdateProhibitedXRPLRecipients(
 
 	b.log.Info(
 		ctx,
-		"Successfully updated prohibited XRPL recipients",
+		"Successfully updated prohibited XRPL addresses",
 		zap.String("txHash", txRes.TxHash),
 	)
 	return nil

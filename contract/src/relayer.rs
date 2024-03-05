@@ -38,7 +38,7 @@ pub fn validate_relayers(
 
     for relayer in relayers {
         deps.api.addr_validate(relayer.coreum_address.as_ref())?;
-        validate_xrpl_address(&relayer.xrpl_address)?;
+        validate_xrpl_address(deps.storage, relayer.xrpl_address.clone())?;
 
         // If the set returns false during insertion it means that the key already exists and therefore is duplicated
         if !set_xrpl_addresses.insert(relayer.xrpl_address.clone()) {

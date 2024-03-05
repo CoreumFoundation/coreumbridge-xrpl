@@ -34,24 +34,24 @@ type ExecMethod string
 
 // ExecMethods.
 const (
-	ExecMethodUpdateOwnership          ExecMethod = "update_ownership"
-	ExecMethodRegisterCoreumToken      ExecMethod = "register_coreum_token"
-	ExecMethodRegisterXRPLToken        ExecMethod = "register_xrpl_token"
-	ExecMethodSaveEvidence             ExecMethod = "save_evidence"
-	ExecMethodRecoverTickets           ExecMethod = "recover_tickets"
-	ExecMethodSaveSignature            ExecMethod = "save_signature"
-	ExecSendToXRPL                     ExecMethod = "send_to_xrpl"
-	ExecRecoveryXRPLTokenRegistration  ExecMethod = "recover_xrpl_token_registration"
-	ExecClaimRelayersFees              ExecMethod = "claim_relayer_fees"
-	ExecUpdateXRPLToken                ExecMethod = "update_xrpl_token"
-	ExecUpdateCoreumToken              ExecMethod = "update_coreum_token"
-	ExecClaimRefund                    ExecMethod = "claim_refund"
-	ExecRotateKeys                     ExecMethod = "rotate_keys"
-	ExecHaltBridge                     ExecMethod = "halt_bridge"
-	ExecResumeBridge                   ExecMethod = "resume_bridge"
-	ExecUpdateXRPLBaseFee              ExecMethod = "update_xrpl_base_fee"
-	ExecUpdateProhibitedXRPLRecipients ExecMethod = "update_prohibited_xrpl_recipients"
-	ExecCancelPendingOperation         ExecMethod = "cancel_pending_operation"
+	ExecMethodUpdateOwnership         ExecMethod = "update_ownership"
+	ExecMethodRegisterCoreumToken     ExecMethod = "register_coreum_token"
+	ExecMethodRegisterXRPLToken       ExecMethod = "register_xrpl_token"
+	ExecMethodSaveEvidence            ExecMethod = "save_evidence"
+	ExecMethodRecoverTickets          ExecMethod = "recover_tickets"
+	ExecMethodSaveSignature           ExecMethod = "save_signature"
+	ExecSendToXRPL                    ExecMethod = "send_to_xrpl"
+	ExecRecoveryXRPLTokenRegistration ExecMethod = "recover_xrpl_token_registration"
+	ExecClaimRelayersFees             ExecMethod = "claim_relayer_fees"
+	ExecUpdateXRPLToken               ExecMethod = "update_xrpl_token"
+	ExecUpdateCoreumToken             ExecMethod = "update_coreum_token"
+	ExecClaimRefund                   ExecMethod = "claim_refund"
+	ExecRotateKeys                    ExecMethod = "rotate_keys"
+	ExecHaltBridge                    ExecMethod = "halt_bridge"
+	ExecResumeBridge                  ExecMethod = "resume_bridge"
+	ExecUpdateXRPLBaseFee             ExecMethod = "update_xrpl_base_fee"
+	ExecUpdateProhibitedXRPLAddresses ExecMethod = "update_prohibited_xrpl_addresses"
+	ExecCancelPendingOperation        ExecMethod = "cancel_pending_operation"
 )
 
 // TransactionResult is transaction result.
@@ -89,16 +89,16 @@ type QueryMethod string
 
 // QueryMethods.
 const (
-	QueryMethodConfig                   QueryMethod = "config"
-	QueryMethodOwnership                QueryMethod = "ownership"
-	QueryMethodXRPLTokens               QueryMethod = "xrpl_tokens"
-	QueryMethodFeesCollected            QueryMethod = "fees_collected"
-	QueryMethodCoreumTokens             QueryMethod = "coreum_tokens"
-	QueryMethodPendingOperations        QueryMethod = "pending_operations"
-	QueryMethodAvailableTickets         QueryMethod = "available_tickets"
-	QueryMethodPendingRefunds           QueryMethod = "pending_refunds"
-	QueryMethodTransactionEvidences     QueryMethod = "transaction_evidences"
-	QueryMethodProhibitedXRPLRecipients QueryMethod = "prohibited_xrpl_recipients"
+	QueryMethodConfig                  QueryMethod = "config"
+	QueryMethodOwnership               QueryMethod = "ownership"
+	QueryMethodXRPLTokens              QueryMethod = "xrpl_tokens"
+	QueryMethodFeesCollected           QueryMethod = "fees_collected"
+	QueryMethodCoreumTokens            QueryMethod = "coreum_tokens"
+	QueryMethodPendingOperations       QueryMethod = "pending_operations"
+	QueryMethodAvailableTickets        QueryMethod = "available_tickets"
+	QueryMethodPendingRefunds          QueryMethod = "pending_refunds"
+	QueryMethodTransactionEvidences    QueryMethod = "transaction_evidences"
+	QueryMethodProhibitedXRPLAddresses QueryMethod = "prohibited_xrpl_addresses"
 )
 
 // Relayer is the relayer information in the contract config.
@@ -380,8 +380,8 @@ type updateXRPLBaseFeeRequest struct {
 	XRPLBaseFee uint32 `json:"xrpl_base_fee"`
 }
 
-type updateProhibitedXRPLRecipientsRequest struct {
-	ProhibitedXRPLRecipients []string `json:"prohibited_xrpl_recipients"`
+type updateProhibitedXRPLAddressesRequest struct {
+	ProhibitedXRPLAddresses []string `json:"prohibited_xrpl_addresses"`
 }
 
 type cancelPendingOperationRequest struct {
@@ -445,8 +445,8 @@ type transactionEvidencesResponse struct {
 	TransactionEvidences []TransactionEvidence `json:"transaction_evidences"`
 }
 
-type prohibitedXRPLRecipientsResponse struct {
-	ProhibitedXRPLRecipients []string `json:"prohibited_xrpl_recipients"`
+type prohibitedXRPLAddressesResponse struct {
+	ProhibitedXRPLAddresses []string `json:"prohibited_xrpl_addresses"`
 }
 
 type pagingStringKeyRequest struct {
@@ -1158,16 +1158,16 @@ func (c *ContractClient) CancelPendingOperation(
 	return txRes, nil
 }
 
-// UpdateProhibitedXRPLRecipients executes `update_prohibited_xrpl_recipients` method.
-func (c *ContractClient) UpdateProhibitedXRPLRecipients(
+// UpdateProhibitedXRPLAddresses executes `update_prohibited_xrpl_addresses` method.
+func (c *ContractClient) UpdateProhibitedXRPLAddresses(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	prohibitedXRPLRecipients []string,
+	prohibitedXRPLAddresses []string,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]updateProhibitedXRPLRecipientsRequest{
-			ExecUpdateProhibitedXRPLRecipients: {
-				ProhibitedXRPLRecipients: prohibitedXRPLRecipients,
+		Body: map[ExecMethod]updateProhibitedXRPLAddressesRequest{
+			ExecUpdateProhibitedXRPLAddresses: {
+				ProhibitedXRPLAddresses: prohibitedXRPLAddresses,
 			},
 		},
 	})
@@ -1367,17 +1367,17 @@ func (c *ContractClient) GetTransactionEvidences(ctx context.Context) ([]Transac
 	return transactionEvidences, nil
 }
 
-// GetProhibitedXRPLRecipients returns the list prohibited XRPL recipient.
-func (c *ContractClient) GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error) {
-	var response prohibitedXRPLRecipientsResponse
+// GetProhibitedXRPLAddresses returns the list prohibited XRPL addresses.
+func (c *ContractClient) GetProhibitedXRPLAddresses(ctx context.Context) ([]string, error) {
+	var response prohibitedXRPLAddressesResponse
 	err := c.query(ctx, map[QueryMethod]interface{}{
-		QueryMethodProhibitedXRPLRecipients: struct{}{},
+		QueryMethodProhibitedXRPLAddresses: struct{}{},
 	}, &response)
 	if err != nil {
 		return nil, err
 	}
 
-	return response.ProhibitedXRPLRecipients, nil
+	return response.ProhibitedXRPLAddresses, nil
 }
 
 func (c *ContractClient) getPaginatedXRPLTokens(
@@ -1732,9 +1732,9 @@ func IsOperationVersionMismatchError(err error) bool {
 	return isError(err, "OperationVersionMismatch")
 }
 
-// IsProhibitedRecipientError returns true if error is `ProhibitedRecipient`.
-func IsProhibitedRecipientError(err error) bool {
-	return isError(err, "ProhibitedRecipient")
+// IsProhibitedAddressError returns true if error is `ProhibitedAddress`.
+func IsProhibitedAddressError(err error) bool {
+	return isError(err, "ProhibitedAddress")
 }
 
 // IsCannotCoverBridgingFeesError returns true if error is `CannotCoverBridgingFees`.

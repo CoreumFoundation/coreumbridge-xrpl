@@ -1097,7 +1097,7 @@ func TestCancelPendingOperationCmd(t *testing.T) {
 	)
 }
 
-func TestUpdateProhibitedXRPLRecipientsCmd(t *testing.T) {
+func TestUpdateProhibitedXRPLAddressesCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1107,23 +1107,23 @@ func TestUpdateProhibitedXRPLRecipientsCmd(t *testing.T) {
 	keyName := "owner"
 	owner := addKeyToTestKeyring(t, keyringDir, keyName, cli.CoreumKeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
-	prohibitedXRPLRecipient1 := xrpl.GenPrivKeyTxSigner().Account().String()
-	prohibitedXRPLRecipient2 := xrpl.GenPrivKeyTxSigner().Account().String()
+	prohibitedXRPLAddress1 := xrpl.GenPrivKeyTxSigner().Account().String()
+	prohibitedXRPLAddress2 := xrpl.GenPrivKeyTxSigner().Account().String()
 	args := []string{
-		flagWithPrefix(cli.FlagProhibitedXRPLRecipient), prohibitedXRPLRecipient1,
-		flagWithPrefix(cli.FlagProhibitedXRPLRecipient), prohibitedXRPLRecipient2,
+		flagWithPrefix(cli.FlagProhibitedXRPLAddress), prohibitedXRPLAddress1,
+		flagWithPrefix(cli.FlagProhibitedXRPLAddress), prohibitedXRPLAddress2,
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}
 	args = append(args, testKeyringFlags(keyringDir)...)
 	args = append(args, initConfig(t)...)
-	bridgeClientMock.EXPECT().UpdateProhibitedXRPLRecipients(gomock.Any(), owner, []string{
-		prohibitedXRPLRecipient1,
-		prohibitedXRPLRecipient2,
+	bridgeClientMock.EXPECT().UpdateProhibitedXRPLAddresses(gomock.Any(), owner, []string{
+		prohibitedXRPLAddress1,
+		prohibitedXRPLAddress2,
 	}).Return(nil)
 	executeCoreumTxCmd(
 		t,
 		mockBridgeClientProvider(bridgeClientMock),
-		cli.UpdateProhibitedXRPLRecipientsCmd(mockBridgeClientProvider(bridgeClientMock)),
+		cli.UpdateProhibitedXRPLAddressesCmd(mockBridgeClientProvider(bridgeClientMock)),
 		args...,
 	)
 }
@@ -1202,14 +1202,14 @@ func TestContractOwnershipCmd(t *testing.T) {
 	executeQueryCmd(t, cli.ContractOwnershipCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
-func TestProhibitedXRPLRecipientsCmd(t *testing.T) {
+func TestProhibitedXRPLAddressesCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 
-	bridgeClientMock.EXPECT().GetProhibitedXRPLRecipients(gomock.Any()).Return([]string{}, nil)
-	executeQueryCmd(t, cli.ProhibitedXRPLRecipientsCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
+	bridgeClientMock.EXPECT().GetProhibitedXRPLAddresses(gomock.Any()).Return([]string{}, nil)
+	executeQueryCmd(t, cli.ProhibitedXRPLAddressesCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
 func executeCoreumTxCmd(t *testing.T, bcp cli.BridgeClientProvider, cmd *cobra.Command, args ...string) {
