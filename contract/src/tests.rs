@@ -19,7 +19,7 @@ mod tests {
     use sha2::{Digest, Sha256};
     use std::collections::HashMap;
 
-    use crate::address::validate_xrpl_address;
+    use crate::address::validate_xrpl_address_format;
     use crate::contract::{
         INITIAL_PROHIBITED_XRPL_ADDRESSES, MAX_COREUM_TOKEN_DECIMALS, MAX_RELAYERS,
     };
@@ -10756,7 +10756,7 @@ mod tests {
         }
 
         for address in valid_addresses.iter() {
-            validate_xrpl_address(address).unwrap();
+            validate_xrpl_address_format(address).unwrap();
         }
 
         let mut invalid_addresses: Vec<String> = vec![
@@ -10774,7 +10774,7 @@ mod tests {
         }
 
         for address in invalid_addresses.iter() {
-            validate_xrpl_address(address).unwrap_err();
+            validate_xrpl_address_format(address).unwrap_err();
         }
     }
 }

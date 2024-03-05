@@ -3,7 +3,7 @@ use bs58::Alphabet;
 use cosmwasm_std::Storage;
 use sha2::{Digest, Sha256};
 
-pub fn validate_xrpl_address(address: &str) -> Result<(), ContractError> {
+pub fn validate_xrpl_address_format(address: &str) -> Result<(), ContractError> {
     // We need to use the base58 dictionary for ripple which is rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz
     // To understand this alphabet, see https://xrpl.org/base58-encodings.html#ripple-base58-alphabet
     // In short, the alphabet represents the bytes values in the address. r = 0, p = 1, s = 2, etc.
@@ -52,5 +52,12 @@ pub fn check_xrpl_address_is_not_prohibited(
     if PROHIBITED_XRPL_ADDRESSES.has(storage, address) {
         return Err(ContractError::ProhibitedAddress {});
     }
+    Ok(())
+}
+
+// Checks that address is a valid XRPL address and that is not in the list of prohibited addresses
+pub fn validate_xrpl_address(storage: &dyn Storage, address: String) -> Result<(), ContractError> {
+    validate_xrpl_address_format(&address)?;
+    check_xrpl_address_is_not_prohibited(storage, address)?;
     Ok(())
 }

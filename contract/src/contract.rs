@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::{
-    address::{check_xrpl_address_is_not_prohibited, validate_xrpl_address},
+    address::{validate_xrpl_address, validate_xrpl_address_format},
     error::ContractError,
     evidence::{
         handle_evidence, hash_bytes, Evidence, OperationResult::TicketsAllocation,
@@ -125,7 +125,7 @@ pub fn instantiate(
     )?;
 
     // The multisig address on XRPL must be valid
-    validate_xrpl_address(&msg.bridge_xrpl_address)?;
+    validate_xrpl_address_format(&msg.bridge_xrpl_address)?;
 
     // We want to check that exactly the issue fee was sent
     check_issue_fee(&deps, &info)?;
@@ -440,7 +440,7 @@ fn register_xrpl_token(
         &ContractActions::RegisterXRPLToken,
     )?;
 
-    validate_xrpl_address(&issuer)?;
+    validate_xrpl_address(deps.storage, issuer.clone())?;
     validate_xrpl_currency(&currency)?;
 
     validate_sending_precision(sending_precision, XRPL_TOKENS_DECIMALS)?;
@@ -452,9 +452,6 @@ fn register_xrpl_token(
     if XRPL_TOKENS.has(deps.storage, key.clone()) {
         return Err(ContractError::XRPLTokenAlreadyRegistered { issuer, currency });
     }
-
-    // We check that the issuer is not prohibited
-    check_xrpl_address_is_not_prohibited(deps.storage, issuer.clone())?;
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
     let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds()).into_bytes();
@@ -906,11 +903,8 @@ fn send_to_xrpl(
     // Check that we are only sending 1 type of coin
     let funds = one_coin(&info)?;
 
-    // Check that the recipient is a valid XRPL address
-    validate_xrpl_address(&recipient)?;
-
-    // We don't allow sending to a prohibited addresses
-    check_xrpl_address_is_not_prohibited(deps.storage, recipient.clone())?;
+    // Check that the recipient is a valid XRPL address and it's not prohibited
+    validate_xrpl_address(deps.storage, recipient.clone())?;
 
     // We check that deliver_amount is not greater than the funds sent
     if deliver_amount.is_some() && deliver_amount.unwrap().gt(&funds.amount) {
@@ -1357,7 +1351,7 @@ fn update_prohibited_xrpl_addresses(
     // Add all prohibited addresses provided
     for prohibited_xrpl_address in prohibited_xrpl_addresses {
         // Validate the address that we are adding, to not add useless things
-        validate_xrpl_address(&prohibited_xrpl_address)?;
+        validate_xrpl_address_format(&prohibited_xrpl_address)?;
         PROHIBITED_XRPL_ADDRESSES.save(deps.storage, prohibited_xrpl_address, &Empty {})?;
     }
 
