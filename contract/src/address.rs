@@ -1,5 +1,6 @@
-use crate::error::ContractError;
+use crate::{error::ContractError, state::PROHIBITED_XRPL_ADDRESSES};
 use bs58::Alphabet;
+use cosmwasm_std::Storage;
 use sha2::{Digest, Sha256};
 
 pub fn validate_xrpl_address(address: &str) -> Result<(), ContractError> {
@@ -42,4 +43,14 @@ pub fn validate_xrpl_address(address: &str) -> Result<(), ContractError> {
 
 pub fn checksum(data: &[u8]) -> Vec<u8> {
     Sha256::digest(Sha256::digest(data)).to_vec()
+}
+
+pub fn check_address_is_not_prohibited(
+    storage: &dyn Storage,
+    address: String,
+) -> Result<(), ContractError> {
+    if PROHIBITED_XRPL_ADDRESSES.has(storage, address) {
+        return Err(ContractError::ProhibitedAddress {});
+    }
+    Ok(())
 }

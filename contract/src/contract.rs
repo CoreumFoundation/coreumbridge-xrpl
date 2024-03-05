@@ -1,10 +1,12 @@
 use std::collections::VecDeque;
 
 use crate::{
-    address::validate_xrpl_address,
+    address::{check_address_is_not_prohibited, validate_xrpl_address},
     error::ContractError,
-    evidence::OperationResult::TicketsAllocation,
-    evidence::{handle_evidence, hash_bytes, Evidence, TransactionResult},
+    evidence::{
+        handle_evidence, hash_bytes, Evidence, OperationResult::TicketsAllocation,
+        TransactionResult,
+    },
     fees::{amount_after_bridge_fees, handle_fee_collection, substract_relayer_fees},
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
@@ -110,6 +112,12 @@ pub fn instantiate(
         Some(deps.api.addr_validate(msg.owner.as_ref())?.as_ref()),
     )?;
 
+    // We store all the prohibited addresses in state, including the multisig address, which is also prohibited to send to
+    for address in INITIAL_PROHIBITED_XRPL_ADDRESSES {
+        PROHIBITED_XRPL_ADDRESSES.save(deps.storage, address.to_string(), &Empty {})?;
+    }
+    PROHIBITED_XRPL_ADDRESSES.save(deps.storage, msg.bridge_xrpl_address.clone(), &Empty {})?;
+
     validate_relayers(
         deps.as_ref().into_empty(),
         &msg.relayers,
@@ -141,7 +149,7 @@ pub fn instantiate(
         evidence_threshold: msg.evidence_threshold,
         used_ticket_sequence_threshold: msg.used_ticket_sequence_threshold,
         trust_set_limit_amount: msg.trust_set_limit_amount,
-        bridge_xrpl_address: msg.bridge_xrpl_address.clone(),
+        bridge_xrpl_address: msg.bridge_xrpl_address,
         bridge_state: BridgeState::Active,
         xrpl_base_fee: msg.xrpl_base_fee,
     };
@@ -178,12 +186,6 @@ pub fn instantiate(
 
     let key = build_xrpl_token_key(XRP_ISSUER, XRP_CURRENCY);
     XRPL_TOKENS.save(deps.storage, key, &token)?;
-
-    // We store all the prohibited addresses in state, including the multisig address, which is also prohibited to send to
-    for address in INITIAL_PROHIBITED_XRPL_ADDRESSES {
-        PROHIBITED_XRPL_ADDRESSES.save(deps.storage, address.to_string(), &Empty {})?;
-    }
-    PROHIBITED_XRPL_ADDRESSES.save(deps.storage, msg.bridge_xrpl_address, &Empty {})?;
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::Instantiation.as_str())
@@ -452,7 +454,7 @@ fn register_xrpl_token(
     }
 
     // We check that the issuer is not prohibited
-    check_address_is_prohibited(deps.storage, issuer.clone())?;
+    check_address_is_not_prohibited(deps.storage, issuer.clone())?;
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
     let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds()).into_bytes();
@@ -908,7 +910,7 @@ fn send_to_xrpl(
     validate_xrpl_address(&recipient)?;
 
     // We don't allow sending to a prohibited addresses
-    check_address_is_prohibited(deps.storage, recipient.clone())?;
+    check_address_is_not_prohibited(deps.storage, recipient.clone())?;
 
     // We check that deliver_amount is not greater than the funds sent
     if deliver_amount.is_some() && deliver_amount.unwrap().gt(&funds.amount) {
@@ -1896,15 +1898,5 @@ fn update_bridge_state(
     let mut config = CONFIG.load(storage)?;
     config.bridge_state = bridge_state;
     CONFIG.save(storage, &config)?;
-    Ok(())
-}
-
-fn check_address_is_prohibited(
-    storage: &dyn Storage,
-    address: String,
-) -> Result<(), ContractError> {
-    if PROHIBITED_XRPL_ADDRESSES.has(storage, address) {
-        return Err(ContractError::ProhibitedAddress {});
-    }
     Ok(())
 }

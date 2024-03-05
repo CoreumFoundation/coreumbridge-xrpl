@@ -214,6 +214,12 @@ mod tests {
             xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
+        let relayer_prohibited_xrpl_address = Relayer {
+            coreum_address: Addr::unchecked(relayer_account.address()),
+            xrpl_address: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".to_string(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
+        };
+
         let relayer_correct = Relayer {
             coreum_address: Addr::unchecked(relayer_account.address()),
             xrpl_address: generate_xrpl_address(),
@@ -306,6 +312,30 @@ mod tests {
         assert!(error
             .to_string()
             .contains(ContractError::DuplicatedRelayer {}.to_string().as_str()));
+
+        // We check that trying to use a relayer with a prohibited address fails
+        let error = wasm
+            .instantiate(
+                1,
+                &InstantiateMsg {
+                    owner: Addr::unchecked(signer.address()),
+                    relayers: vec![relayer.clone(), relayer_prohibited_xrpl_address.clone()],
+                    evidence_threshold: 1,
+                    used_ticket_sequence_threshold: 50,
+                    trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+                    bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 10,
+                },
+                None,
+                "label".into(),
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains(ContractError::ProhibitedAddress {}.to_string().as_str()));
 
         // We check that trying to instantiate with invalid bridge_xrpl_address fails
         let invalid_address = "rf0BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(); //invalid because contains a 0
@@ -812,9 +842,7 @@ mod tests {
 
         // Let's try to update this by adding a new one and query again
         let new_prohibited_address = generate_xrpl_address();
-        let mut prohibited_addresses = query_prohibited_addresses
-            .prohibited_xrpl_addresses
-            .clone();
+        let mut prohibited_addresses = query_prohibited_addresses.prohibited_xrpl_addresses.clone();
         prohibited_addresses.push(new_prohibited_address.clone());
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
@@ -10731,7 +10759,7 @@ mod tests {
             validate_xrpl_address(address).unwrap();
         }
 
-        let mut invalid_addresses = vec![
+        let mut invalid_addresses: Vec<String> = vec![
             "zDTXLQ7ZKZVKz33zJbHjgVShjsBnqMBhmN".to_string(), // Invalid prefix
             "rf1BiGeXwwQoi8Z2u".to_string(),                  // Too short
             "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1hBBaU29".to_string(), // Too long
