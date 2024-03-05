@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::{
-    address::{check_address_is_not_prohibited, validate_xrpl_address},
+    address::{check_xrpl_address_is_not_prohibited, validate_xrpl_address},
     error::ContractError,
     evidence::{
         handle_evidence, hash_bytes, Evidence, OperationResult::TicketsAllocation,
@@ -454,7 +454,7 @@ fn register_xrpl_token(
     }
 
     // We check that the issuer is not prohibited
-    check_address_is_not_prohibited(deps.storage, issuer.clone())?;
+    check_xrpl_address_is_not_prohibited(deps.storage, issuer.clone())?;
 
     // We generate a denom creating a Sha256 hash of the issuer, currency and current time
     let to_hash = format!("{}{}{}", issuer, currency, env.block.time.seconds()).into_bytes();
@@ -910,7 +910,7 @@ fn send_to_xrpl(
     validate_xrpl_address(&recipient)?;
 
     // We don't allow sending to a prohibited addresses
-    check_address_is_not_prohibited(deps.storage, recipient.clone())?;
+    check_xrpl_address_is_not_prohibited(deps.storage, recipient.clone())?;
 
     // We check that deliver_amount is not greater than the funds sent
     if deliver_amount.is_some() && deliver_amount.unwrap().gt(&funds.amount) {

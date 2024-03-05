@@ -4,7 +4,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Deps, Storage};
 
 use crate::{
-    address::{check_address_is_not_prohibited, validate_xrpl_address},
+    address::{check_xrpl_address_is_not_prohibited, validate_xrpl_address},
     contract::MAX_RELAYERS,
     error::ContractError,
     evidence::TransactionResult,
@@ -39,7 +39,7 @@ pub fn validate_relayers(
     for relayer in relayers {
         deps.api.addr_validate(relayer.coreum_address.as_ref())?;
         validate_xrpl_address(&relayer.xrpl_address)?;
-        check_address_is_not_prohibited(deps.storage, relayer.xrpl_address.clone())?;
+        check_xrpl_address_is_not_prohibited(deps.storage, relayer.xrpl_address.clone())?;
 
         // If the set returns false during insertion it means that the key already exists and therefore is duplicated
         if !set_xrpl_addresses.insert(relayer.xrpl_address.clone()) {
