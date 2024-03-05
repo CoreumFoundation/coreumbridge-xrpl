@@ -453,7 +453,6 @@ func (b *BridgeClient) RegisterXRPLToken(
 		zap.String("currency", stringCurrency),
 		zap.Int32("sendingPrecision", sendingPrecision),
 		zap.String("maxHoldingAmount", maxHoldingAmount.String()),
-		zap.String("maxHoldingAmount", maxHoldingAmount.String()),
 		zap.String("bridgingFee", bridgingFee.String()),
 	)
 	txRes, err := b.contractClient.RegisterXRPLToken(
@@ -1063,7 +1062,7 @@ func (b *BridgeClient) validateXRPLBridgeAccountBalance(
 	ctx context.Context,
 	xrplBridgeAccount rippledata.Account,
 ) error {
-	requiredXRPLBalance := ComputeXRPLBrideAccountBalance()
+	requiredXRPLBalance := ComputeXRPLBridgeAccountBalance()
 	b.log.Info(
 		ctx,
 		"Compute required XRPL bridge account balance to init the account",
@@ -1134,8 +1133,8 @@ func (b *BridgeClient) setUpXRPLBridgeAccount(
 	return b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &disableMasterKeyTx, bridgeAccountKeyName)
 }
 
-// ComputeXRPLBrideAccountBalance computes the min balance required by the XRPL bridge account.
-func ComputeXRPLBrideAccountBalance() float64 {
+// ComputeXRPLBridgeAccountBalance computes the min balance required by the XRPL bridge account.
+func ComputeXRPLBridgeAccountBalance() float64 {
 	return minBalanceToCoverFeeAndTrustLines +
 		xrpl.ReserveToActivateAccount +
 		// one additional item reserve is needed for a signer list object for multisig.
