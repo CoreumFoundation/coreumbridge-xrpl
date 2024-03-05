@@ -6,12 +6,16 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	sdkmath "cosmossdk.io/math"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	cometbfttypes "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
+	sdktxtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,6 +29,11 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
+)
+
+const (
+	senderEventType = "sender"
+	actionEventType = "action"
 )
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -50,30 +59,43 @@ type PeriodicCollectorConfig struct {
 	RepeatDelay time.Duration
 	// how many decimals we keep in the float values
 	FloatTruncationPrecision uint32
+	CoreumQueryPageLimit     uint64
+	// what time frame to take to track the relayer activity
+	RelayerActivityCheckFrame time.Duration
 }
 
 // DefaultPeriodicCollectorConfig returns default PeriodicCollectorConfig.
 func DefaultPeriodicCollectorConfig() PeriodicCollectorConfig {
 	return PeriodicCollectorConfig{
-		RepeatDelay:              30 * time.Second,
+		RepeatDelay:              time.Minute,
 		FloatTruncationPrecision: 2,
+		CoreumQueryPageLimit:     1000,
+		// we take the activity for the last 2 days
+		RelayerActivityCheckFrame: 24 * time.Hour,
 	}
 }
 
 // PeriodicCollector is metric periodic scanner responsible for the periodic collecting of the metrics.
 type PeriodicCollector struct {
-	cfg              PeriodicCollectorConfig
-	log              logger.Logger
-	registry         *Registry
-	xrplRPCClient    XRPLRPCClient
-	contractClient   ContractClient
-	feemodelClient   feemodeltypes.QueryClient
-	coreumBankClient banktypes.QueryClient
+	cfg                PeriodicCollectorConfig
+	log                logger.Logger
+	registry           *Registry
+	xrplRPCClient      XRPLRPCClient
+	contractClient     ContractClient
+	feemodelClient     feemodeltypes.QueryClient
+	coreumBankClient   banktypes.QueryClient
+	cometServiceClient sdktxtypes.ServiceClient
 
 	pendingOperationsCachedKeys    map[string]struct{}
 	transactionEvidencesCachedKeys map[string]struct{}
 	relayersBalancesCachedKeys     map[string]struct{}
+	relayerActivityCachedKeys      map[string]struct{}
 	cacheMu                        sync.Mutex
+}
+
+type gaugeVecValue struct {
+	keys  []string
+	value float64
 }
 
 // NewPeriodicCollector returns a new instance of the PeriodicCollector.
@@ -86,17 +108,19 @@ func NewPeriodicCollector(
 	clientContext client.Context,
 ) *PeriodicCollector {
 	return &PeriodicCollector{
-		cfg:              cfg,
-		log:              log,
-		registry:         registry,
-		xrplRPCClient:    xrplRPCClient,
-		contractClient:   contractClient,
-		feemodelClient:   feemodeltypes.NewQueryClient(clientContext),
-		coreumBankClient: banktypes.NewQueryClient(clientContext),
+		cfg:                cfg,
+		log:                log,
+		registry:           registry,
+		xrplRPCClient:      xrplRPCClient,
+		contractClient:     contractClient,
+		feemodelClient:     feemodeltypes.NewQueryClient(clientContext),
+		coreumBankClient:   banktypes.NewQueryClient(clientContext),
+		cometServiceClient: sdktxtypes.NewServiceClient(clientContext),
 
 		pendingOperationsCachedKeys:    make(map[string]struct{}),
 		transactionEvidencesCachedKeys: make(map[string]struct{}),
 		relayersBalancesCachedKeys:     make(map[string]struct{}),
+		relayerActivityCachedKeys:      make(map[string]struct{}),
 		cacheMu:                        sync.Mutex{},
 	}
 }
@@ -112,7 +136,8 @@ func (c *PeriodicCollector) Start(ctx context.Context) error {
 		transactionEvidencesMetricName:      c.collectTransactionEvidences,
 		relayerBalancesMetricName:           c.collectRelayerBalances,
 		fmt.Sprintf("%s/%s", freeContractTicketsMetricName, freeXRPLTicketsMetricName): c.collectFreeTickets,
-		bridgeStateMetricName: c.collectBridgeState,
+		bridgeStateMetricName:     c.collectBridgeState,
+		relayerActivityMetricName: c.collectRelayerActivity,
 	}
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		for name, collector := range periodicCollectors {
@@ -256,9 +281,12 @@ func (c *PeriodicCollector) collectPendingOperations(ctx context.Context) error 
 		return errors.Wrap(err, "failed to get pending operations")
 	}
 
-	currentValues := lo.SliceToMap(pendingOperations, func(operation coreum.Operation) (string, float64) {
-		operationID := operation.GetOperationID()
-		return strconv.Itoa(int(operationID)), float64(len(operation.Signatures))
+	currentValues := lo.SliceToMap(pendingOperations, func(operation coreum.Operation) (string, gaugeVecValue) {
+		operationID := strconv.Itoa(int(operation.GetOperationID()))
+		return operationID, gaugeVecValue{
+			keys:  []string{operationID},
+			value: float64(len(operation.Signatures)),
+		}
 	})
 	c.updateGaugeVecAndCachedValues(currentValues, c.pendingOperationsCachedKeys, c.registry.PendingOperationsGaugeVec)
 
@@ -266,12 +294,15 @@ func (c *PeriodicCollector) collectPendingOperations(ctx context.Context) error 
 }
 
 func (c *PeriodicCollector) collectTransactionEvidences(ctx context.Context) error {
-	transactionEvidences, err := c.contractClient.GetTransactionEvidences(ctx)
+	txEvidences, err := c.contractClient.GetTransactionEvidences(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get transaction evidences")
 	}
-	currentValues := lo.SliceToMap(transactionEvidences, func(evidences coreum.TransactionEvidence) (string, float64) {
-		return evidences.Hash, float64(len(evidences.RelayerAddresses))
+	currentValues := lo.SliceToMap(txEvidences, func(evidences coreum.TransactionEvidence) (string, gaugeVecValue) {
+		return evidences.Hash, gaugeVecValue{
+			keys:  []string{evidences.Hash},
+			value: float64(len(evidences.RelayerAddresses)),
+		}
 	})
 	c.updateGaugeVecAndCachedValues(
 		currentValues, c.transactionEvidencesCachedKeys, c.registry.TransactionEvidencesGaugeVec,
@@ -292,36 +323,29 @@ func (c *PeriodicCollector) collectRelayerBalances(ctx context.Context) error {
 		return errors.Wrap(err, "failed to get gas price")
 	}
 
-	currentValues := make(map[string]float64, 0)
-	mu := sync.Mutex{}
-	if err := parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-		for _, relayer := range contractCfg.Relayers {
-			relayerAddress := relayer.CoreumAddress.String()
-			spawn(
-				fmt.Sprintf("get-relayer-balance-%s", relayerAddress),
-				parallel.Continue, func(ctx context.Context) error {
-					balancesRes, err := c.coreumBankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
-						Address: relayerAddress,
-						Denom:   gasPrice.MinGasPrice.Denom,
-					})
-					if err != nil {
-						return errors.Wrapf(err, "failed to get relayer %s balance", relayerAddress)
-					}
-					mu.Lock()
-					defer mu.Unlock()
-					if balancesRes.Balance == nil {
-						currentValues[relayerAddress] = 0
-						return nil
-					}
-					currentValues[relayerAddress] = c.truncateFloatByTruncationPrecision(
-						truncateAmountWithDecimals(coreum.TokenDecimals, balancesRes.Balance.Amount),
-					)
-					return nil
-				})
+	currentValues := make(map[string]gaugeVecValue, 0)
+	// get sequentially to prevent rate limit
+	for _, relayer := range contractCfg.Relayers {
+		relayerAddress := relayer.CoreumAddress.String()
+		balancesRes, err := c.coreumBankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+			Address: relayerAddress,
+			Denom:   gasPrice.MinGasPrice.Denom,
+		})
+		if err != nil {
+			return errors.Wrapf(err, "failed to get relayer %s balance", relayerAddress)
 		}
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "failed to get relayer currentValues")
+		if balancesRes.Balance == nil {
+			currentValues[relayerAddress] = gaugeVecValue{
+				keys:  []string{relayerAddress},
+				value: 0,
+			}
+			continue
+		}
+		currentValues[relayerAddress] = gaugeVecValue{
+			keys:  []string{relayerAddress},
+			value: truncateAmountWithDecimals(coreum.TokenDecimals, balancesRes.Balance.Amount),
+		}
+		continue
 	}
 	c.updateGaugeVecAndCachedValues(currentValues, c.relayersBalancesCachedKeys, c.registry.RelayerBalancesGaugeVec)
 
@@ -381,21 +405,47 @@ func (c *PeriodicCollector) collectBridgeState(ctx context.Context) error {
 	return nil
 }
 
-func truncateAmountWithDecimals(decimals uint32, amount sdkmath.Int) float64 {
-	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
-	balanceRat := big.NewRat(0, 1).SetFrac(amount.BigInt(), tenPowerDec)
-	// float64 should cover the range with enough precision
-	floatValue, _ := balanceRat.Float64()
-	return floatValue
-}
+func (c *PeriodicCollector) collectRelayerActivity(ctx context.Context) error {
+	contractCfg, err := c.contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get contract config")
+	}
+	currentValues := make(map[string]gaugeVecValue, 0)
+	// get sequentially to prevent rate limit
+	for _, relayer := range contractCfg.Relayers {
+		relayerAddress := relayer.CoreumAddress
+		txResponses, err := c.getRelayerCallsWithinTimeFrame(ctx, relayerAddress)
+		if err != nil {
+			return err
+		}
+		// even if there are no actions we save two the most important with zero for the alert
+		actionCount := map[string]int{
+			"save_evidence":  0,
+			"save_signature": 0,
+		}
+		for _, res := range txResponses {
+			action := getWasmCallAction(res.Events)
+			if action == "" {
+				continue
+			}
+			actionCount[action]++
+		}
+		// fill the metric with the data
+		for action, count := range actionCount {
+			currentValues[strings.Join([]string{relayerAddress.String(), action}, "-")] = gaugeVecValue{
+				keys:  []string{relayerAddress.String(), action},
+				value: float64(count),
+			}
+		}
+	}
 
-func (c *PeriodicCollector) truncateFloatByTruncationPrecision(val float64) float64 {
-	ratio := math.Pow(10, float64(c.cfg.FloatTruncationPrecision))
-	return math.Trunc(val*ratio) / ratio
+	c.updateGaugeVecAndCachedValues(currentValues, c.relayerActivityCachedKeys, c.registry.RelayerActivityGaugeVec)
+
+	return nil
 }
 
 func (c *PeriodicCollector) updateGaugeVecAndCachedValues(
-	currentValues map[string]float64,
+	currentValues map[string]gaugeVecValue,
 	cachedKeys map[string]struct{},
 	gaugeVec *prometheus.GaugeVec,
 ) {
@@ -409,7 +459,7 @@ func (c *PeriodicCollector) updateGaugeVecAndCachedValues(
 		}
 	}
 	for k, v := range currentValues {
-		gaugeVec.WithLabelValues(k).Set(v)
+		gaugeVec.WithLabelValues(v.keys...).Set(v.value)
 		cachedKeys[k] = struct{}{}
 	}
 }
@@ -437,4 +487,86 @@ func (c *PeriodicCollector) collectWithRepeat(ctx context.Context, name string, 
 			}
 		}
 	}
+}
+
+func (c *PeriodicCollector) getRelayerCallsWithinTimeFrame(
+	ctx context.Context,
+	relayerAddress sdk.AccAddress,
+) ([]sdk.TxResponse, error) {
+	page := uint64(0)
+	txResponses := make([]sdk.TxResponse, 0)
+	maxTxTime := time.Now().Add(-1 * c.cfg.RelayerActivityCheckFrame)
+	for {
+		txEventsPage, err := c.cometServiceClient.GetTxsEvent(ctx, &sdktxtypes.GetTxsEventRequest{
+			Events: []string{
+				fmt.Sprintf(
+					"%s.%s='%s'",
+					wasmtypes.WasmModuleEventType,
+					wasmtypes.AttributeKeyContractAddr,
+					c.contractClient.GetContractAddress().String(),
+				),
+				fmt.Sprintf(
+					"%s.%s='%s'",
+					wasmtypes.WasmModuleEventType,
+					senderEventType,
+					relayerAddress.String(),
+				),
+			},
+			OrderBy: sdktxtypes.OrderBy_ORDER_BY_DESC,
+			Page:    page,
+			Limit:   c.cfg.CoreumQueryPageLimit,
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get relayer sent tx events, relayer address:%s", relayerAddress)
+		}
+
+		stop := false
+		for _, txRes := range txEventsPage.TxResponses {
+			txDateTime, err := time.Parse(time.RFC3339, txRes.Timestamp)
+			if err != nil {
+				return nil, errors.Wrapf(
+					err, "failed to pars tx timestams, txHash:%s, timestamp:%s", txRes.TxHash, txRes.Timestamp,
+				)
+			}
+			// if the tx is after the max time stop adding the transaction responses
+			if txDateTime.Before(maxTxTime) {
+				stop = true
+				break
+			}
+			txResponses = append(txResponses, *txRes)
+		}
+		if stop || len(txEventsPage.TxResponses) < int(c.cfg.CoreumQueryPageLimit) {
+			break
+		}
+		page++
+	}
+
+	return txResponses, nil
+}
+
+func truncateAmountWithDecimals(decimals uint32, amount sdkmath.Int) float64 {
+	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
+	balanceRat := big.NewRat(0, 1).SetFrac(amount.BigInt(), tenPowerDec)
+	// float64 should cover the range with enough precision
+	floatValue, _ := balanceRat.Float64()
+	return floatValue
+}
+
+func (c *PeriodicCollector) truncateFloatByTruncationPrecision(val float64) float64 {
+	ratio := math.Pow(10, float64(c.cfg.FloatTruncationPrecision))
+	return math.Trunc(val*ratio) / ratio
+}
+
+func getWasmCallAction(events []cometbfttypes.Event) string {
+	for _, event := range events {
+		if event.Type != wasmtypes.WasmModuleEventType {
+			continue
+		}
+		for _, attr := range event.GetAttributes() {
+			if attr.Key == actionEventType {
+				return attr.Value
+			}
+		}
+	}
+	return ""
 }

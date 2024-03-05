@@ -20,6 +20,7 @@ const (
 	freeXRPLTicketsMetricName                         = "free_xrpl_tickets"
 	bridgeStateMetricName                             = "bridge_state"
 	maliciousBehaviourMetricName                      = "malicious_behaviour"
+	relayerActivityMetricName                         = "relayer_activity"
 
 	// XRPLCurrencyIssuerLabel is XRPL currency issuer label.
 	XRPLCurrencyIssuerLabel = "xrpl_currency_issuer"
@@ -29,10 +30,12 @@ const (
 	OperationIDLabel = "operation_id"
 	// EvidenceHashLabel is evidence hash label.
 	EvidenceHashLabel = "evidence_hash"
-	// AddressLabel is address label.
-	AddressLabel = "address"
+	// RelayerCoremAddressLabel is address label.
+	RelayerCoremAddressLabel = "relayer_coreum_address"
 	// MaliciousBehaviourKeyLabel malicious behaviour key label.
 	MaliciousBehaviourKeyLabel = "malicious_behaviour_key"
+	// ContractActionLabel is contract action label.
+	ContractActionLabel = "action"
 )
 
 // Registry contains metrics.
@@ -51,6 +54,7 @@ type Registry struct {
 	FreeXRPLTicketsGauge                         prometheus.Gauge
 	BridgeStateGauge                             prometheus.Gauge
 	MaliciousBehaviourGaugeVec                   *prometheus.GaugeVec
+	RelayerActivityGaugeVec                      *prometheus.GaugeVec
 }
 
 // NewRegistry returns new metric registry.
@@ -104,7 +108,7 @@ func NewRegistry() *Registry {
 			Help: "Relayer evidences",
 		},
 			[]string{
-				AddressLabel,
+				RelayerCoremAddressLabel,
 			},
 		),
 		XRPLAccountRecentHistoryScanLedgerIndexGauge: prometheus.NewGauge(prometheus.GaugeOpts{
@@ -135,6 +139,15 @@ func NewRegistry() *Registry {
 				MaliciousBehaviourKeyLabel,
 			},
 		),
+		RelayerActivityGaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: relayerActivityMetricName,
+			Help: "Relayer activity",
+		},
+			[]string{
+				RelayerCoremAddressLabel,
+				ContractActionLabel,
+			},
+		),
 	}
 }
 
@@ -155,6 +168,7 @@ func (m *Registry) Register(registry prometheus.Registerer) error {
 		m.FreeXRPLTicketsGauge,
 		m.BridgeStateGauge,
 		m.MaliciousBehaviourGaugeVec,
+		m.RelayerActivityGaugeVec,
 	}
 
 	for _, c := range collectors {
