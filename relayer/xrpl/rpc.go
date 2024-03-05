@@ -138,10 +138,12 @@ type AccountTxResult struct {
 
 // ServerStateValidatedLedger is the latest validated ledger from the server state.
 type ServerStateValidatedLedger struct {
-	BaseFee   uint32 `json:"base_fee"`
-	CloseTime uint32 `json:"close_time"`
-	Hash      string `json:"hash"`
-	Seq       int64  `json:"seq"`
+	BaseFee     uint32 `json:"base_fee"`
+	CloseTime   uint32 `json:"close_time"`
+	Hash        string `json:"hash"`
+	Seq         int64  `json:"seq"`
+	ReserveBase int64  `json:"reserve_base"`
+	ReserveInc  int64  `json:"reserve_inc"`
 }
 
 // ServerState is server state.

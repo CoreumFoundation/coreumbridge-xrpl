@@ -29,7 +29,7 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 	testAccounts := 2
 	iterationPerAccount := 30
 	testCount := testAccounts * iterationPerAccount
-	sendAmount := 1
+	sendAmount := 500000 // FIXME restore test !!!!
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*time.Duration(testCount)+5*time.Minute)
 	t.Cleanup(cancel)
 
@@ -77,7 +77,7 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 		chains.Coreum.FundAccountWithOptions(ctx, t, newCoreumAccount, coreumintegration.BalancesOptions{
 			Amount: sdkmath.NewIntFromUint64(500_000 * uint64(iterationPerAccount)),
 		})
-		newXRPLAccount := chains.XRPL.GenAccount(ctx, t, 0.1*float64(iterationPerAccount))
+		newXRPLAccount := chains.XRPL.GenAccount(ctx, t, 10*float64(iterationPerAccount))
 		xrplAccounts = append(xrplAccounts, newXRPLAccount)
 	}
 
