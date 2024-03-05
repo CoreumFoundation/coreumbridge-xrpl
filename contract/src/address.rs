@@ -45,7 +45,7 @@ pub fn checksum(data: &[u8]) -> Vec<u8> {
     Sha256::digest(Sha256::digest(data)).to_vec()
 }
 
-pub fn check_xrpl_address_is_not_prohibited(
+pub fn validate_xrpl_address_is_not_prohibited(
     storage: &dyn Storage,
     address: String,
 ) -> Result<(), ContractError> {
@@ -58,6 +58,6 @@ pub fn check_xrpl_address_is_not_prohibited(
 // Checks that address is a valid XRPL address and that is not in the list of prohibited addresses
 pub fn validate_xrpl_address(storage: &dyn Storage, address: String) -> Result<(), ContractError> {
     validate_xrpl_address_format(&address)?;
-    check_xrpl_address_is_not_prohibited(storage, address)?;
+    validate_xrpl_address_is_not_prohibited(storage, address)?;
     Ok(())
 }
