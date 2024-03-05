@@ -179,7 +179,7 @@ pub enum ContractError {
     )]
     OperationVersionMismatch {},
 
-    #[error("ProhibitedRecipient: The recipient is a prohibited address")]
+    #[error("ProhibitedRecipient: The address is prohibited. It can't issue or receive tokens")]
     ProhibitedRecipient {},
 
     #[error("DeliverAmountIsProhibited: Optional deliver_amount field is only used for XRPL originated tokens (except XRP) being bridged back")]

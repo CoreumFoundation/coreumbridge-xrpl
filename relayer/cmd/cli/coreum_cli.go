@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	sdkmath "cosmossdk.io/math"
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
@@ -16,7 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
 	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	overridecryptokeyring "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/override/crypto/keyring"
@@ -52,16 +52,18 @@ func CoreumCmd(bcp BridgeClientProvider) (*cobra.Command, error) {
 	coreumTxCmd.AddCommand(CancelPendingOperationCmd(bcp))
 	coreumTxCmd.AddCommand(UpdateProhibitedXRPLRecipientsCmd(bcp))
 
-	AddKeyringFlags(coreumTxCmd)
-	AddKeyNameFlag(coreumTxCmd)
-	AddHomeFlag(coreumTxCmd)
-	addGenerateOnlyFlag(coreumTxCmd)
+	AddCoreumTxFlags(coreumTxCmd)
+
+	for _, childCmd := range coreumTxCmd.Commands() {
+		childCmd.PreRunE = CoreumTxPreRun(bcp)
+	}
 
 	coreumQueryCmd := &cobra.Command{
 		Use:   QueryCLIUse,
 		Short: "Coreum queries.",
 	}
 	coreumQueryCmd.AddCommand(ContractConfigCmd(bcp))
+	coreumQueryCmd.AddCommand(ContractOwnershipCmd(bcp))
 	coreumQueryCmd.AddCommand(RegisteredTokensCmd(bcp))
 	coreumQueryCmd.AddCommand(CoreumBalancesCmd(bcp))
 	coreumQueryCmd.AddCommand(PendingRefundsCmd(bcp))
@@ -104,7 +106,7 @@ $ recover-tickets --%s 250 --%s owner
 					return errors.Wrapf(err, "failed to get %s", FlagTicketsToAllocate)
 				}
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -135,7 +137,7 @@ $ claim-relayer-fees --key-name address --%s %s
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				address, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				address, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -181,7 +183,7 @@ $ halt-bridge --%s owner
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -209,7 +211,7 @@ $ resume-bridge --%s owner
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -236,7 +238,7 @@ $ cancel-pending-operation 123 --%s owner
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -271,7 +273,7 @@ $ claim-refund --%s claimer --%s 1705664693-2
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				address, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				address, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -320,7 +322,7 @@ $ register-coreum-token ucore 6 2 500000000000000 4000 --%s owner
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -375,7 +377,7 @@ $ update-coreum-token ucore --%s enabled --%s 2 --%s 10000000 --%s 4000 --%s own
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -424,7 +426,7 @@ $ register-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F52450000000000000000
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -483,7 +485,7 @@ $ recover-xrpl-token-registration [issuer] [currency] --%s owner
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -519,7 +521,7 @@ $ update-xrpl-token rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D 434F5245000000000000000000
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -627,7 +629,7 @@ $ update-xrpl-base-fee 20 --%s owner
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -666,7 +668,7 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender 
 					return err
 				}
 
-				sender, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -708,7 +710,7 @@ $ update-prohibited-xrpl-recipients --%s %s --%s %s --%s owner
 		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
-				owner, err := readAddressFromKeyNameFlag(cmd, components.CoreumClientCtx)
+				owner, err := readFromAddressFromCmdSDKClientCtx(cmd)
 				if err != nil {
 					return err
 				}
@@ -748,6 +750,27 @@ func ContractConfigCmd(bcp BridgeClientProvider) *cobra.Command {
 				}
 
 				components.Log.Info(ctx, "Got contract config", zap.Any("config", cfg))
+
+				return nil
+			}),
+	}
+}
+
+// ContractOwnershipCmd prints contracts ownership.
+func ContractOwnershipCmd(bcp BridgeClientProvider) *cobra.Command {
+	return &cobra.Command{
+		Use:   "contract-ownership",
+		Short: "Print contract ownership.",
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
+
+				ownership, err := bridgeClient.GetContractOwnership(ctx)
+				if err != nil {
+					return err
+				}
+
+				components.Log.Info(ctx, "Got contract ownership", zap.Any("ownership", ownership))
 
 				return nil
 			}),
@@ -838,7 +861,7 @@ $ pending-refunds %s
 					return err
 				}
 
-				components.Log.Info(ctx, "pending refunds", zap.Any("refunds", refunds))
+				components.Log.Info(ctx, "Got pending refunds", zap.Any("refunds", refunds))
 				return nil
 			}),
 	}
@@ -870,7 +893,7 @@ $ relayer-fees %s
 					return err
 				}
 
-				components.Log.Info(ctx, "relayer fees", zap.String("fees", relayerFees.String()))
+				components.Log.Info(ctx, "Got relayer fees", zap.String("fees", relayerFees.String()))
 				return nil
 			}),
 	}
@@ -929,21 +952,94 @@ $ prohibited-xrpl-recipients %s
 	}
 }
 
-func readAddressFromKeyNameFlag(cmd *cobra.Command, clientCtx coreumchainclient.Context) (sdk.AccAddress, error) {
+// CoreumTxPreRun is Coreum transaction CMD pre-run function.
+func CoreumTxPreRun(bcp BridgeClientProvider) func(cmd *cobra.Command, args []string) error {
+	return runBridgeCmd(bcp,
+		func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+			fromAddress, err := getCoreumTxSenderFromCmdSDKClientContext(cmd, components.CoreumSDKClientCtx, bridgeClient)
+			if err != nil {
+				return err
+			}
+			coreumSDKClientCtx := components.CoreumSDKClientCtx.WithFromAddress(fromAddress)
+
+			generateOnly, err := cmd.Flags().GetBool(flags.FlagGenerateOnly)
+			if err != nil {
+				return err
+			}
+			coreumSDKClientCtx = coreumSDKClientCtx.WithGenerateOnly(generateOnly)
+
+			if err := client.SetCmdClientContext(cmd, coreumSDKClientCtx); err != nil {
+				return errors.WithStack(err)
+			}
+
+			return nil
+		})
+}
+
+// AddCoreumTxFlags adds flags related to coreum transactions.
+func AddCoreumTxFlags(cmd *cobra.Command) {
+	AddKeyringFlags(cmd)
+	AddKeyNameFlag(cmd)
+	AddHomeFlag(cmd)
+	cmd.PersistentFlags().Bool(flags.FlagGenerateOnly, false, "Generate unsigned transaction")
+	cmd.PersistentFlags().Bool(
+		FlagFromOwner, false, "Sets message sender to owner address specified in contract config",
+	)
+}
+
+func getCoreumTxSenderFromCmdSDKClientContext(
+	cmd *cobra.Command,
+	coreumSDKClientCtx client.Context,
+	bridgeClient BridgeClient,
+) (sdk.AccAddress, error) {
+	fromOwner, err := cmd.Flags().GetBool(FlagFromOwner)
+	if err != nil {
+		return nil, err
+	}
+
 	keyName, err := cmd.Flags().GetString(FlagKeyName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get flag %s", FlagKeyName)
 	}
-	keyRecord, err := clientCtx.Keyring().Key(keyName)
+
+	if fromOwner && keyName != "" {
+		return nil, errors.Errorf("prohibited to set both flags: %s, %s", FlagFromOwner, FlagKeyName)
+	}
+
+	if !fromOwner && keyName == "" {
+		return nil, errors.Errorf("at least one flag must be set: %s, %s", FlagFromOwner, FlagKeyName)
+	}
+
+	if fromOwner {
+		ownership, err := bridgeClient.GetContractOwnership(cmd.Context())
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get contract config")
+		}
+		return ownership.Owner, nil
+	}
+	keyRecord, err := coreumSDKClientCtx.Keyring.Key(keyName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key by name:%s", keyName)
 	}
-	addr, err := keyRecord.GetAddress()
+	fromAddress, err := keyRecord.GetAddress()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to address for key name:%s", keyName)
 	}
 
-	return addr, nil
+	return fromAddress, nil
+}
+
+func readFromAddressFromCmdSDKClientCtx(cmd *cobra.Command) (sdk.AccAddress, error) {
+	clientCtx, err := client.GetClientQueryContext(cmd)
+	if err != nil {
+		return nil, err
+	}
+	fromAddress := clientCtx.GetFromAddress()
+	if fromAddress.Empty() {
+		return nil, errors.New("tx sender is not set")
+	}
+
+	return fromAddress, nil
 }
 
 func addUpdateTokenFlags(cmd *cobra.Command) {
@@ -1000,8 +1096,4 @@ func convertStateStringTokenState(state *string) (*coreum.TokenState, error) {
 	default:
 		return nil, errors.Errorf("invalid token state: %s", *state)
 	}
-}
-
-func addGenerateOnlyFlag(cmd *cobra.Command) {
-	cmd.PersistentFlags().Bool(flags.FlagGenerateOnly, false, "generate unsigned transaction")
 }

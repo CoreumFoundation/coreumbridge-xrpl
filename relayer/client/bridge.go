@@ -39,6 +39,7 @@ type ContractClient interface {
 		config coreum.InstantiationConfig,
 	) (sdk.AccAddress, error)
 	GetContractConfig(ctx context.Context) (coreum.ContractConfig, error)
+	GetContractOwnership(ctx context.Context) (coreum.ContractOwnership, error)
 	RecoverTickets(
 		ctx context.Context,
 		sender sdk.AccAddress,
@@ -326,6 +327,11 @@ func (b *BridgeClient) GetContractConfig(ctx context.Context) (coreum.ContractCo
 	return b.contractClient.GetContractConfig(ctx)
 }
 
+// GetContractOwnership returns contract ownership.
+func (b *BridgeClient) GetContractOwnership(ctx context.Context) (coreum.ContractOwnership, error) {
+	return b.contractClient.GetContractOwnership(ctx)
+}
+
 // RecoverTickets recovers tickets allocation.
 func (b *BridgeClient) RecoverTickets(
 	ctx context.Context,
@@ -446,7 +452,6 @@ func (b *BridgeClient) RegisterXRPLToken(
 		zap.String("issuer", issuer.String()),
 		zap.String("currency", stringCurrency),
 		zap.Int32("sendingPrecision", sendingPrecision),
-		zap.String("maxHoldingAmount", maxHoldingAmount.String()),
 		zap.String("maxHoldingAmount", maxHoldingAmount.String()),
 		zap.String("bridgingFee", bridgingFee.String()),
 	)
@@ -1057,7 +1062,7 @@ func (b *BridgeClient) validateXRPLBridgeAccountBalance(
 	ctx context.Context,
 	xrplBridgeAccount rippledata.Account,
 ) error {
-	requiredXRPLBalance := ComputeXRPLBrideAccountBalance()
+	requiredXRPLBalance := ComputeXRPLBridgeAccountBalance()
 	b.log.Info(
 		ctx,
 		"Compute required XRPL bridge account balance to init the account",
@@ -1128,8 +1133,8 @@ func (b *BridgeClient) setUpXRPLBridgeAccount(
 	return b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &disableMasterKeyTx, bridgeAccountKeyName)
 }
 
-// ComputeXRPLBrideAccountBalance computes the min balance required by the XRPL bridge account.
-func ComputeXRPLBrideAccountBalance() float64 {
+// ComputeXRPLBridgeAccountBalance computes the min balance required by the XRPL bridge account.
+func ComputeXRPLBridgeAccountBalance() float64 {
 	return minBalanceToCoverFeeAndTrustLines +
 		xrpl.ReserveToActivateAccount +
 		// one additional item reserve is needed for a signer list object for multisig.

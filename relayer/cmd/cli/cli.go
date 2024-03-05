@@ -98,6 +98,8 @@ const (
 	FlagMetricsListenAddr = "metrics-listen-addr"
 	// FlagProhibitedXRPLRecipient the prohibited XRPL recipient.
 	FlagProhibitedXRPLRecipient = "prohibited-xrpl-recipient"
+	// FlagFromOwner from owner flag.
+	FlagFromOwner = "from-owner"
 )
 
 // BridgeClient is bridge client used to interact with the chains and contract.
@@ -110,6 +112,7 @@ type BridgeClient interface {
 		cfg bridgeclient.BootstrappingConfig,
 	) (sdk.AccAddress, error)
 	GetContractConfig(ctx context.Context) (coreum.ContractConfig, error)
+	GetContractOwnership(ctx context.Context) (coreum.ContractOwnership, error)
 	RecoverTickets(
 		ctx context.Context,
 		ownerAddress sdk.AccAddress,
@@ -536,7 +539,7 @@ $ bootstrap-bridge bootstrapping.yaml --%s bridge-account
 						return errors.Wrapf(err, "failed to get %s", FlagRelayersCount)
 					}
 					if relayersCount > 0 {
-						minXrplBridgeBalance := bridgeclient.ComputeXRPLBrideAccountBalance()
+						minXrplBridgeBalance := bridgeclient.ComputeXRPLBridgeAccountBalance()
 						components.Log.Info(ctx, "Computed minimum XRPL bridge balance", zap.Float64("balance", minXrplBridgeBalance))
 					}
 
@@ -612,7 +615,6 @@ func GetHomeRunnerConfig(cmd *cobra.Command) (runner.Config, error) {
 		return runner.Config{}, err
 	}
 
-	cfg.Coreum.GenerateOnly = isGenerateOnly(cmd)
 	return cfg, nil
 }
 
@@ -640,16 +642,6 @@ func AddKeyNameFlag(cmd *cobra.Command) {
 
 func getRelayerHome(cmd *cobra.Command) (string, error) {
 	return cmd.Flags().GetString(FlagHome)
-}
-
-func isGenerateOnly(cmd *cobra.Command) bool {
-	flagSet := cmd.Flags()
-	if flagSet.Changed(flags.FlagGenerateOnly) {
-		genOnly, _ := flagSet.GetBool(flags.FlagGenerateOnly)
-		return genOnly
-	}
-
-	return false
 }
 
 func addCoreumChainIDFlag(cmd *cobra.Command) *string {
