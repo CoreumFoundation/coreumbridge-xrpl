@@ -96,7 +96,7 @@ const (
 	FlagMetricsEnabled = "metrics-enabled"
 	// FlagMetricsListenAddr sets listen address for metrics server.
 	FlagMetricsListenAddr = "metrics-listen-addr"
-	// FlagProhibitedXRPLAddress the prohibited XRPL addresses.
+	// FlagProhibitedXRPLAddress the prohibited XRPL address.
 	FlagProhibitedXRPLAddress = "prohibited-xrpl-address"
 	// FlagFromOwner from owner flag.
 	FlagFromOwner = "from-owner"
