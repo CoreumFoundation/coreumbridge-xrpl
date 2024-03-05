@@ -50,7 +50,7 @@ func CoreumCmd(bcp BridgeClientProvider) (*cobra.Command, error) {
 	coreumTxCmd.AddCommand(HaltBridgeCmd(bcp))
 	coreumTxCmd.AddCommand(ResumeBridgeCmd(bcp))
 	coreumTxCmd.AddCommand(CancelPendingOperationCmd(bcp))
-	coreumTxCmd.AddCommand(UpdateProhibitedXRPLRecipientsCmd(bcp))
+	coreumTxCmd.AddCommand(UpdateProhibitedXRPLAddressesCmd(bcp))
 
 	AddCoreumTxFlags(coreumTxCmd)
 
@@ -69,7 +69,7 @@ func CoreumCmd(bcp BridgeClientProvider) (*cobra.Command, error) {
 	coreumQueryCmd.AddCommand(PendingRefundsCmd(bcp))
 	coreumQueryCmd.AddCommand(RelayerFeesCmd(bcp))
 	coreumQueryCmd.AddCommand(PendingOperationsCmd(bcp))
-	coreumQueryCmd.AddCommand(ProhibitedXRPLRecipientsCmd(bcp))
+	coreumQueryCmd.AddCommand(ProhibitedXRPLAddressesCmd(bcp))
 	AddHomeFlag(coreumQueryCmd)
 
 	keyringCoreumCmd, err := KeyringCmd(CoreumKeyringSuffix, constant.CoinType,
@@ -691,19 +691,19 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender 
 	return cmd
 }
 
-// UpdateProhibitedXRPLRecipientsCmd updates/replace the list of the prohibited XRPL recipients.
-func UpdateProhibitedXRPLRecipientsCmd(bcp BridgeClientProvider) *cobra.Command {
+// UpdateProhibitedXRPLAddressesCmd updates/replace the list of the prohibited XRPL addresses.
+func UpdateProhibitedXRPLAddressesCmd(bcp BridgeClientProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update-prohibited-xrpl-recipients",
-		Short: "Update prohibited XRPL recipients.",
+		Use:   "update-prohibited-xrpl-addresses",
+		Short: "Update prohibited XRPL addresses.",
 		Long: strings.TrimSpace(
-			fmt.Sprintf(`Update prohibited XRPL recipients.
+			fmt.Sprintf(`Update prohibited XRPL addresses.
 Example (expects multiple %s):
-$ update-prohibited-xrpl-recipients --%s %s --%s %s --%s owner
+$ update-prohibited-xrpl-addresses --%s %s --%s %s --%s owner
 `,
-				FlagProhibitedXRPLRecipient,
-				FlagProhibitedXRPLRecipient, xrpl.XRPTokenIssuer.String(),
-				FlagProhibitedXRPLRecipient, xrpl.XRPTokenIssuer.String(),
+				FlagProhibitedXRPLAddress,
+				FlagProhibitedXRPLAddress, xrpl.XRPTokenIssuer.String(),
+				FlagProhibitedXRPLAddress, xrpl.XRPTokenIssuer.String(),
 				FlagKeyName),
 		),
 		Args: cobra.NoArgs,
@@ -715,20 +715,20 @@ $ update-prohibited-xrpl-recipients --%s %s --%s %s --%s owner
 					return err
 				}
 
-				prohibitedXRPLRecipients, err := cmd.Flags().GetStringArray(FlagProhibitedXRPLRecipient)
+				prohibitedXRPLAddresses, err := cmd.Flags().GetStringArray(FlagProhibitedXRPLAddress)
 				if err != nil {
 					return err
 				}
 
-				return bridgeClient.UpdateProhibitedXRPLRecipients(
+				return bridgeClient.UpdateProhibitedXRPLAddresses(
 					ctx,
 					owner,
-					prohibitedXRPLRecipients,
+					prohibitedXRPLAddresses,
 				)
 			}),
 	}
 
-	cmd.PersistentFlags().StringArray(FlagProhibitedXRPLRecipient, []string{}, "Prohibited XRPL recipients")
+	cmd.PersistentFlags().StringArray(FlagProhibitedXRPLAddress, []string{}, "Prohibited XRPL addresses")
 
 	return cmd
 }
@@ -924,28 +924,28 @@ func PendingOperationsCmd(bcp BridgeClientProvider) *cobra.Command {
 	}
 }
 
-// ProhibitedXRPLRecipientsCmd gets the prohibited xrpl recipients from the contract.
-func ProhibitedXRPLRecipientsCmd(bcp BridgeClientProvider) *cobra.Command {
+// ProhibitedXRPLAddressesCmd gets the prohibited xrpl addresses from the contract.
+func ProhibitedXRPLAddressesCmd(bcp BridgeClientProvider) *cobra.Command {
 	return &cobra.Command{
-		Use:   "prohibited-xrpl-recipients",
-		Short: "Print prohibited xrpl recipients.",
-		Long: `Print prohibited xrpl recipients.
+		Use:   "prohibited-xrpl-addresses",
+		Short: "Print prohibited xrpl addresses.",
+		Long: `Print prohibited xrpl addresses.
 Example:
-$ prohibited-xrpl-recipients %s 
+$ prohibited-xrpl-addresses %s 
 `,
 		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				prohibitedXRPLRecipients, err := bridgeClient.GetProhibitedXRPLRecipients(ctx)
+				prohibitedXRPLAddresses, err := bridgeClient.GetProhibitedXRPLAddresses(ctx)
 				if err != nil {
 					return err
 				}
 
 				components.Log.Info(
 					ctx,
-					"Got prohibited XRPL recipients",
-					zap.Any("prohibitedXRPLRecipients", prohibitedXRPLRecipients),
+					"Got prohibited XRPL addresses",
+					zap.Any("prohibitedXRPLAddresses", prohibitedXRPLAddresses),
 				)
 				return nil
 			}),

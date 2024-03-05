@@ -1961,12 +1961,12 @@ func TestRegisterXRPLTokenWithProhibitedIssuer(t *testing.T) {
 	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 
-	prohibitedXRPLRecipients, err := contractClient.GetProhibitedXRPLRecipients(ctx)
+	prohibitedXRPLAddresses, err := contractClient.GetProhibitedXRPLAddresses(ctx)
 	require.NoError(t, err)
-	for _, issuer := range prohibitedXRPLRecipients {
+	for _, issuer := range prohibitedXRPLAddresses {
 		_, err = contractClient.RegisterXRPLToken(
 			ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount, bridgingFee,
 		)
-		require.True(t, coreum.IsProhibitedRecipientError(err), err)
+		require.True(t, coreum.IsProhibitedAddressError(err), err)
 	}
 }
