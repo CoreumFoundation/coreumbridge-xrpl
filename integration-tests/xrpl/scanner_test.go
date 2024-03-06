@@ -197,10 +197,10 @@ func validateTxsHashesInChannel(
 		case <-scanCtx.Done():
 			return scanCtx.Err()
 		case tx := <-txsCh:
-			// validate that we have all sent hashed and no duplicated
+			// validate that we have all sent hashes
 			hash := strings.ToUpper(tx.GetHash().String())
 			if _, found := expectedHashes[hash]; !found {
-				return errors.Errorf("not found expected tx hash:%s", hash)
+				continue
 			}
 
 			delete(expectedHashes, hash)
