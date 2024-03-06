@@ -1212,6 +1212,16 @@ func TestProhibitedXRPLAddressesCmd(t *testing.T) {
 	executeQueryCmd(t, cli.ProhibitedXRPLAddressesCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
+func TestTransactionEvidencesCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	bridgeClientMock.EXPECT().GetTransactionEvidences(gomock.Any()).Return([]coreum.TransactionEvidence{}, nil)
+	executeQueryCmd(t, cli.TransactionEvidencesCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
+}
+
 func executeCoreumTxCmd(t *testing.T, bcp cli.BridgeClientProvider, cmd *cobra.Command, args ...string) {
 	cli.AddCoreumTxFlags(cmd)
 	cmd.PreRunE = cli.CoreumTxPreRun(bcp)

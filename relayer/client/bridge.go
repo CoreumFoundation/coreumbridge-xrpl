@@ -140,6 +140,7 @@ type ContractClient interface {
 		operationID uint32,
 	) (*sdk.TxResponse, error)
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
+	GetTransactionEvidences(ctx context.Context) ([]coreum.TransactionEvidence, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -1056,6 +1057,12 @@ func (b *BridgeClient) CancelPendingOperation(
 func (b *BridgeClient) GetPendingOperations(ctx context.Context) ([]coreum.Operation, error) {
 	b.log.Info(ctx, "Getting pending operations")
 	return b.contractClient.GetPendingOperations(ctx)
+}
+
+// GetTransactionEvidences returns a list of not confirmed transaction evidences.
+func (b *BridgeClient) GetTransactionEvidences(ctx context.Context) ([]coreum.TransactionEvidence, error) {
+	b.log.Info(ctx, "Getting transaction evidences")
+	return b.contractClient.GetTransactionEvidences(ctx)
 }
 
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(
