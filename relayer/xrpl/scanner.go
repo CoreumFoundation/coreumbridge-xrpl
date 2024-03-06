@@ -199,6 +199,7 @@ func (s *AccountScanner) scanTransactions(
 					lastLedger = prevProcessedLedger
 					prevProcessedLedger = int64(tx.LedgerSequence)
 				}
+				indexRegistryFunc(float64(prevProcessedLedger))
 				if tx == nil {
 					continue
 				}
@@ -208,9 +209,6 @@ func (s *AccountScanner) scanTransactions(
 				case ch <- *tx:
 				}
 			}
-		}
-		if prevProcessedLedger != 0 {
-			indexRegistryFunc(float64(prevProcessedLedger))
 		}
 		if len(accountTxResult.Marker) == 0 {
 			lastLedger = prevProcessedLedger

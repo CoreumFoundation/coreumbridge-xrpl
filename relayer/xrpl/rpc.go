@@ -339,7 +339,7 @@ func (c *RPCClient) AccountTx(
 		MinLedger: minLedger,
 		MaxLedger: maxLedger,
 		Binary:    false,
-		Forward:   false,
+		Forward:   true,
 		Limit:     c.cfg.PageLimit,
 		Marker:    marker,
 	}

@@ -213,6 +213,7 @@ type BridgeClient interface {
 		operationID uint32,
 	) error
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
+	GetTransactionEvidences(ctx context.Context) ([]coreum.TransactionEvidence, error)
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
