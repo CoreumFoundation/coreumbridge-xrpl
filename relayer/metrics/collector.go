@@ -215,7 +215,9 @@ func (c *PeriodicCollector) collectXRPLBridgeAccountBalances(ctx context.Context
 			continue
 		}
 		c.registry.XRPLBridgeAccountBalancesGaugeVec.
-			WithLabelValues(fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(balance.Currency), balance.Issuer.String())).
+			WithLabelValues(buildCurrencyIssuerLabel(
+				xrpl.ConvertCurrencyToString(balance.Currency), balance.Issuer.String(),
+			)).
 			Set(floatValue)
 	}
 
@@ -237,7 +239,9 @@ func (c *PeriodicCollector) collectContractBalances(ctx context.Context) error {
 	}
 
 	for _, token := range coreumTokens {
-		denomToXRPLCurrencyIssuer[token.Denom] = fmt.Sprintf("%s/%s", token.XRPLCurrency, contractCfg.BridgeXRPLAddress)
+		denomToXRPLCurrencyIssuer[token.Denom] = buildCurrencyIssuerLabel(
+			token.XRPLCurrency, contractCfg.BridgeXRPLAddress,
+		)
 		denomToDecimals[token.Denom] = token.Decimals
 	}
 
@@ -247,7 +251,7 @@ func (c *PeriodicCollector) collectContractBalances(ctx context.Context) error {
 	}
 
 	for _, token := range xrplTokens {
-		denomToXRPLCurrencyIssuer[token.CoreumDenom] = fmt.Sprintf("%s/%s", token.Currency, token.Issuer)
+		denomToXRPLCurrencyIssuer[token.CoreumDenom] = buildCurrencyIssuerLabel(token.Currency, token.Issuer)
 		if token.Currency == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
 			token.Issuer == xrpl.XRPTokenIssuer.String() {
 			denomToDecimals[token.CoreumDenom] = xrpl.XRPCurrencyDecimals
@@ -461,7 +465,7 @@ func (c *PeriodicCollector) collectXRPLTokensCoreumSupply(ctx context.Context) e
 	}
 
 	for _, token := range xrplTokens {
-		denomToXRPLCurrencyIssuer[token.CoreumDenom] = fmt.Sprintf("%s/%s", token.Currency, token.Issuer)
+		denomToXRPLCurrencyIssuer[token.CoreumDenom] = buildCurrencyIssuerLabel(token.Currency, token.Issuer)
 		if token.Currency == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
 			token.Issuer == xrpl.XRPTokenIssuer.String() {
 			denomToDecimals[token.CoreumDenom] = xrpl.XRPCurrencyDecimals
@@ -511,10 +515,11 @@ func (c *PeriodicCollector) collectXRPLBridgeAccountReserves(ctx context.Context
 	if ownerCount == nil {
 		return errors.New("owner count for the XRPL bridge account is nil")
 	}
-	// base + incremental * owned objects
+	// base + incremental * owned objects + multi-signing reserve
 	// https://xrpl.org/docs/concepts/accounts/reserves#looking-up-reserves
+	// we
 	reserve := serverState.State.ValidatedLedger.ReserveBase +
-		(serverState.State.ValidatedLedger.ReserveInc * int64(*ownerCount))
+		(serverState.State.ValidatedLedger.ReserveInc * int64(*ownerCount)) + xrpl.MultiSigningReserveDrops
 
 	c.registry.XRPLBridgeAccountReservesGauge.
 		Set(truncateAmountWithDecimals(xrpl.XRPCurrencyDecimals, sdk.NewInt(reserve)))
@@ -647,4 +652,8 @@ func getWasmCallAction(events []cometbfttypes.Event) string {
 		}
 	}
 	return ""
+}
+
+func buildCurrencyIssuerLabel(currency, issuer string) string {
+	return fmt.Sprintf("%s/%s", currency, issuer)
 }

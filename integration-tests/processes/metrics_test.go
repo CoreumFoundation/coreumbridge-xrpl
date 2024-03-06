@@ -868,7 +868,7 @@ func TestXRPLBridgeAccountReservesGaugeMetric(t *testing.T) {
 		t,
 		runnerEnv,
 		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLBridgeAccountReservesGauge,
-		12,
+		14,
 	)
 	runnerEnv.AllocateTickets(ctx, t, uint32(200))
 
@@ -878,7 +878,7 @@ func TestXRPLBridgeAccountReservesGaugeMetric(t *testing.T) {
 		t,
 		runnerEnv,
 		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLBridgeAccountReservesGauge,
-		412,
+		414,
 	)
 }
 

@@ -34,6 +34,8 @@ const (
 	MaxTicketsToAllocate = uint32(250)
 	// MaxAllowedXRPLSigners max signers for the signers set.
 	MaxAllowedXRPLSigners = uint32(32)
+	// MultiSigningReserveDrops is the reserve locked for the multi-signing account.
+	MultiSigningReserveDrops = 2000000
 )
 
 // XRP token constants.
