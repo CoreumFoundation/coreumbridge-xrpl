@@ -240,8 +240,7 @@ func (ck *cacheKeyring) MigrateAll() ([]*keyring.Record, error) {
 func (ck *cacheKeyring) cacheKey(keyInfo *keyring.Record) error {
 	// If the local is nil, the `ExportPrivKeyArmor` will return `keyring.ErrPrivKeyExtr`.
 	// Usually it happens to the imported keys with the public key only, that's why we don't cache such keys.
-	rl := keyInfo.GetLocal()
-	if rl == nil {
+	if keyInfo.GetLocal() == nil {
 		return nil
 	}
 
