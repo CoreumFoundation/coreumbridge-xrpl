@@ -237,6 +237,11 @@ func (c *RPCClient) GetXRPLBalances(ctx context.Context, acc rippledata.Account)
 		}
 		for _, line := range accLines.Lines {
 			lineCopy := line
+			// ignore the negative balance, since it means that the token is issued by bridge account and bridge account
+			// owes this amount of token to someone
+			if line.Balance.IsNegative() {
+				continue
+			}
 			balances = append(balances, rippledata.Amount{
 				Value:    &lineCopy.Balance.Value,
 				Currency: lineCopy.Currency,

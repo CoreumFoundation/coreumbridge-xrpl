@@ -209,11 +209,6 @@ func (c *PeriodicCollector) collectXRPLBridgeAccountBalances(ctx context.Context
 
 	for _, balance := range xrplBalances {
 		floatValue := c.truncateFloatByTruncationPrecision(balance.Float())
-		// ignore the negative balance, since in the case on the bridge the negative indicates that the token is held
-		// by not bridge account
-		if floatValue <= 0 {
-			continue
-		}
 		c.registry.XRPLBridgeAccountBalancesGaugeVec.
 			WithLabelValues(buildCurrencyIssuerLabel(
 				xrpl.ConvertCurrencyToString(balance.Currency), balance.Issuer.String(),
