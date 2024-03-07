@@ -136,8 +136,10 @@ func (c *PeriodicCollector) Start(ctx context.Context) error {
 		transactionEvidencesMetricName:      c.collectTransactionEvidences,
 		relayerBalancesMetricName:           c.collectRelayerBalances,
 		fmt.Sprintf("%s/%s", freeContractTicketsMetricName, freeXRPLTicketsMetricName): c.collectFreeTickets,
-		bridgeStateMetricName:     c.collectBridgeState,
-		relayerActivityMetricName: c.collectRelayerActivity,
+		bridgeStateMetricName:               c.collectBridgeState,
+		relayerActivityMetricName:           c.collectRelayerActivity,
+		xrplTokensCoreumSupplyMetricName:    c.collectXRPLTokensCoreumSupply,
+		xrplBridgeAccountReservesMetricName: c.collectXRPLBridgeAccountReserves,
 	}
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		for name, collector := range periodicCollectors {
@@ -208,7 +210,9 @@ func (c *PeriodicCollector) collectXRPLBridgeAccountBalances(ctx context.Context
 	for _, balance := range xrplBalances {
 		floatValue := c.truncateFloatByTruncationPrecision(balance.Float())
 		c.registry.XRPLBridgeAccountBalancesGaugeVec.
-			WithLabelValues(fmt.Sprintf("%s/%s", xrpl.ConvertCurrencyToString(balance.Currency), balance.Issuer.String())).
+			WithLabelValues(buildCurrencyIssuerLabel(
+				xrpl.ConvertCurrencyToString(balance.Currency), balance.Issuer.String(),
+			)).
 			Set(floatValue)
 	}
 
@@ -230,7 +234,9 @@ func (c *PeriodicCollector) collectContractBalances(ctx context.Context) error {
 	}
 
 	for _, token := range coreumTokens {
-		denomToXRPLCurrencyIssuer[token.Denom] = fmt.Sprintf("%s/%s", token.XRPLCurrency, contractCfg.BridgeXRPLAddress)
+		denomToXRPLCurrencyIssuer[token.Denom] = buildCurrencyIssuerLabel(
+			token.XRPLCurrency, contractCfg.BridgeXRPLAddress,
+		)
 		denomToDecimals[token.Denom] = token.Decimals
 	}
 
@@ -240,7 +246,7 @@ func (c *PeriodicCollector) collectContractBalances(ctx context.Context) error {
 	}
 
 	for _, token := range xrplTokens {
-		denomToXRPLCurrencyIssuer[token.CoreumDenom] = fmt.Sprintf("%s/%s", token.Currency, token.Issuer)
+		denomToXRPLCurrencyIssuer[token.CoreumDenom] = buildCurrencyIssuerLabel(token.Currency, token.Issuer)
 		if token.Currency == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
 			token.Issuer == xrpl.XRPTokenIssuer.String() {
 			denomToDecimals[token.CoreumDenom] = xrpl.XRPCurrencyDecimals
@@ -444,6 +450,78 @@ func (c *PeriodicCollector) collectRelayerActivity(ctx context.Context) error {
 	return nil
 }
 
+func (c *PeriodicCollector) collectXRPLTokensCoreumSupply(ctx context.Context) error {
+	denomToXRPLCurrencyIssuer := make(map[string]string)
+	denomToDecimals := make(map[string]uint32)
+
+	xrplTokens, err := c.contractClient.GetXRPLTokens(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get registered XRPL tokens")
+	}
+
+	for _, token := range xrplTokens {
+		denomToXRPLCurrencyIssuer[token.CoreumDenom] = buildCurrencyIssuerLabel(token.Currency, token.Issuer)
+		if token.Currency == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
+			token.Issuer == xrpl.XRPTokenIssuer.String() {
+			denomToDecimals[token.CoreumDenom] = xrpl.XRPCurrencyDecimals
+			continue
+		}
+		denomToDecimals[token.CoreumDenom] = xrpl.XRPLIssuedTokenDecimals
+	}
+
+	for denom, decimals := range denomToDecimals {
+		supplyRes, err := c.coreumBankClient.SupplyOf(ctx, &banktypes.QuerySupplyOfRequest{
+			Denom: denom,
+		})
+		if err != nil {
+			return errors.Wrapf(err, "failed to get supply of denom:%s", denom)
+		}
+		xrplCurrencyIssuerLabel := denomToXRPLCurrencyIssuer[denom]
+		c.registry.XRPLTokensCoreumSupplyGaugeVec.
+			WithLabelValues(xrplCurrencyIssuerLabel, denom).
+			Set(c.truncateFloatByTruncationPrecision(truncateAmountWithDecimals(decimals, supplyRes.Amount.Amount)))
+	}
+
+	return nil
+}
+
+func (c *PeriodicCollector) collectXRPLBridgeAccountReserves(ctx context.Context) error {
+	contractCfg, err := c.contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get contract config")
+	}
+	xrplBridgeAccount, err := rippledata.NewAccountFromAddress(contractCfg.BridgeXRPLAddress)
+	if err != nil {
+		return errors.Wrapf(
+			err,
+			"failed to convert bridge XRPL address to rippledata.Account, address:%s",
+			contractCfg.BridgeXRPLAddress,
+		)
+	}
+	accountInfo, err := c.xrplRPCClient.AccountInfo(ctx, *xrplBridgeAccount)
+	if err != nil {
+		return errors.Wrap(err, "failed to get XRPL bridge account info")
+	}
+	serverState, err := c.xrplRPCClient.ServerState(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get XRPL server state")
+	}
+	ownerCount := accountInfo.AccountData.OwnerCount
+	if ownerCount == nil {
+		return errors.New("owner count for the XRPL bridge account is nil")
+	}
+	// base + incremental * owned objects + multi-signing reserve
+	// https://xrpl.org/docs/concepts/accounts/reserves#looking-up-reserves
+	// we
+	reserve := serverState.State.ValidatedLedger.ReserveBase +
+		(serverState.State.ValidatedLedger.ReserveInc * int64(*ownerCount)) + xrpl.MultiSigningReserveDrops
+
+	c.registry.XRPLBridgeAccountReservesGauge.
+		Set(truncateAmountWithDecimals(xrpl.XRPCurrencyDecimals, sdk.NewInt(reserve)))
+
+	return nil
+}
+
 func (c *PeriodicCollector) updateGaugeVecAndCachedValues(
 	currentValues map[string]gaugeVecValue,
 	cachedKeys map[string]struct{},
@@ -569,4 +647,8 @@ func getWasmCallAction(events []cometbfttypes.Event) string {
 		}
 	}
 	return ""
+}
+
+func buildCurrencyIssuerLabel(currency, issuer string) string {
+	return fmt.Sprintf("%s/%s", currency, issuer)
 }

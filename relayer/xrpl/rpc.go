@@ -138,10 +138,12 @@ type AccountTxResult struct {
 
 // ServerStateValidatedLedger is the latest validated ledger from the server state.
 type ServerStateValidatedLedger struct {
-	BaseFee   uint32 `json:"base_fee"`
-	CloseTime uint32 `json:"close_time"`
-	Hash      string `json:"hash"`
-	Seq       int64  `json:"seq"`
+	BaseFee     uint32 `json:"base_fee"`
+	CloseTime   uint32 `json:"close_time"`
+	Hash        string `json:"hash"`
+	Seq         int64  `json:"seq"`
+	ReserveBase int64  `json:"reserve_base"`
+	ReserveInc  int64  `json:"reserve_inc"`
 }
 
 // ServerState is server state.
@@ -235,6 +237,11 @@ func (c *RPCClient) GetXRPLBalances(ctx context.Context, acc rippledata.Account)
 		}
 		for _, line := range accLines.Lines {
 			lineCopy := line
+			// ignore the negative balance, since it means that the token is issued by bridge account and bridge account
+			// owes this amount of token to someone
+			if line.Balance.IsNegative() {
+				continue
+			}
 			balances = append(balances, rippledata.Amount{
 				Value:    &lineCopy.Balance.Value,
 				Currency: lineCopy.Currency,

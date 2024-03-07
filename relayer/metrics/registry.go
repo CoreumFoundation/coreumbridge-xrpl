@@ -21,6 +21,8 @@ const (
 	bridgeStateMetricName                             = "bridge_state"
 	maliciousBehaviourMetricName                      = "malicious_behaviour"
 	relayerActivityMetricName                         = "relayer_activity"
+	xrplTokensCoreumSupplyMetricName                  = "xrpl_tokens_coreum_supply"
+	xrplBridgeAccountReservesMetricName               = "xrpl_bridge_account_reserves"
 
 	// XRPLCurrencyIssuerLabel is XRPL currency issuer label.
 	XRPLCurrencyIssuerLabel = "xrpl_currency_issuer"
@@ -55,9 +57,13 @@ type Registry struct {
 	BridgeStateGauge                             prometheus.Gauge
 	MaliciousBehaviourGaugeVec                   *prometheus.GaugeVec
 	RelayerActivityGaugeVec                      *prometheus.GaugeVec
+	XRPLTokensCoreumSupplyGaugeVec               *prometheus.GaugeVec
+	XRPLBridgeAccountReservesGauge               prometheus.Gauge
 }
 
 // NewRegistry returns new metric registry.
+//
+//nolint:funlen // linear objects initialisation
 func NewRegistry() *Registry {
 	return &Registry{
 		RelayerErrorCounter: prometheus.NewCounter(prometheus.CounterOpts{
@@ -148,6 +154,19 @@ func NewRegistry() *Registry {
 				ContractActionLabel,
 			},
 		),
+		XRPLTokensCoreumSupplyGaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: xrplTokensCoreumSupplyMetricName,
+			Help: "XRPL tokens supply on Coreum",
+		},
+			[]string{
+				XRPLCurrencyIssuerLabel,
+				CoreumDenomLabel,
+			},
+		),
+		XRPLBridgeAccountReservesGauge: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: xrplBridgeAccountReservesMetricName,
+			Help: "XRPL bridge account reserves",
+		}),
 	}
 }
 
@@ -169,6 +188,8 @@ func (m *Registry) Register(registry prometheus.Registerer) error {
 		m.BridgeStateGauge,
 		m.MaliciousBehaviourGaugeVec,
 		m.RelayerActivityGaugeVec,
+		m.XRPLTokensCoreumSupplyGaugeVec,
+		m.XRPLBridgeAccountReservesGauge,
 	}
 
 	for _, c := range collectors {

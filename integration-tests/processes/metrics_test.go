@@ -779,6 +779,109 @@ func TestRelayerActivityMetrics(t *testing.T) {
 	}
 }
 
+func TestXRPLTokensCoreumSupplyMetric(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.RelayersCount = 1
+	envCfg.SigningThreshold = 1
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerPeriodicMetricCollectors()
+	runnerEnv.StartAllRunnerProcesses()
+	runnerEnv.AllocateTickets(ctx, t, uint32(200))
+
+	coreumSenderAddress := chains.Coreum.GenAccount()
+	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
+	chains.Coreum.FundAccountWithOptions(ctx, t, coreumSenderAddress, coreumintegration.BalancesOptions{
+		Amount: issueFee.Amount.Add(sdkmath.NewIntWithDecimal(1, 6)),
+	})
+
+	xrplSenderAddressAddress := chains.XRPL.GenAccount(ctx, t, 10)
+
+	// send XRP token form XRPL to Coreum
+	valueToSendFromXRPLToCoreum, err := rippledata.NewValue("1.0", true)
+	require.NoError(t, err)
+	amountToSendFromXRPLtoCoreum := rippledata.Amount{
+		Value:    valueToSendFromXRPLToCoreum,
+		Currency: xrpl.XRPTokenCurrency,
+		Issuer:   xrpl.XRPTokenIssuer,
+	}
+	runnerEnv.SendFromXRPLToCoreum(
+		ctx,
+		t,
+		xrplSenderAddressAddress.String(),
+		amountToSendFromXRPLtoCoreum,
+		coreumSenderAddress,
+	)
+
+	registeredXRPToken, err := runnerEnv.ContractClient.GetXRPLTokenByIssuerAndCurrency(
+		ctx, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
+	)
+	require.NoError(t, err)
+
+	runnerEnv.AwaitCoreumBalance(
+		ctx,
+		t,
+		coreumSenderAddress,
+		sdk.NewCoin(
+			registeredXRPToken.CoreumDenom,
+			integrationtests.ConvertStringWithDecimalsToSDKInt(
+				t,
+				valueToSendFromXRPLToCoreum.String(),
+				xrpl.XRPCurrencyDecimals,
+			),
+		),
+	)
+	xrpTokenKey := fmt.Sprintf(
+		"%s/%s", registeredXRPToken.Currency, registeredXRPToken.Issuer,
+	)
+	awaitGaugeVecMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLTokensCoreumSupplyGaugeVec,
+		map[string]string{
+			metrics.XRPLCurrencyIssuerLabel: xrpTokenKey,
+			metrics.CoreumDenomLabel:        registeredXRPToken.CoreumDenom,
+		},
+		truncateFloatByMetricCollectorTruncationPrecision(valueToSendFromXRPLToCoreum.Float()),
+	)
+}
+
+func TestXRPLBridgeAccountReservesGaugeMetric(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	envCfg.RelayersCount = 1
+	envCfg.SigningThreshold = 1
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerPeriodicMetricCollectors()
+	runnerEnv.StartAllRunnerProcesses()
+
+	// await halted
+	awaitGaugeMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLBridgeAccountReservesGauge,
+		14,
+	)
+	runnerEnv.AllocateTickets(ctx, t, uint32(200))
+
+	// tickets are allocated so the reserve is increased
+	awaitGaugeMetricState(
+		ctx,
+		t,
+		runnerEnv,
+		runnerEnv.RunnerComponents[0].MetricsRegistry.XRPLBridgeAccountReservesGauge,
+		414,
+	)
+}
+
 func awaitGaugeMetricState(
 	ctx context.Context,
 	t *testing.T,
