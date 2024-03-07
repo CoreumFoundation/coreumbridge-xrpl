@@ -122,13 +122,13 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 	)
 	require.True(t, coreum.IsTokenNotRegisteredError(err), err)
 
-	// try to provide the evidence with prohibited recipient
-	xrplToCoreumTransferEvidenceWithProhibitedRecipient := xrplToCoreumTransferEvidence
-	xrplToCoreumTransferEvidenceWithProhibitedRecipient.Recipient = contractClient.GetContractAddress()
+	// try to provide the evidence with prohibited address
+	xrplToCoreumTransferEvidenceWithProhibitedAddress := xrplToCoreumTransferEvidence
+	xrplToCoreumTransferEvidenceWithProhibitedAddress.Recipient = contractClient.GetContractAddress()
 	_, err = contractClient.SendXRPLToCoreumTransferEvidence(
-		ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidenceWithProhibitedRecipient,
+		ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidenceWithProhibitedAddress,
 	)
-	require.True(t, coreum.IsProhibitedRecipientError(err), err)
+	require.True(t, coreum.IsProhibitedAddressError(err), err)
 
 	// call from first relayer
 	txRes, err := contractClient.SendXRPLToCoreumTransferEvidence(
@@ -2240,18 +2240,18 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 10)
 
-	prohibitedXRPLRecipients, err := contractClient.GetProhibitedXRPLRecipients(ctx)
+	prohibitedXRPLAddresses, err := contractClient.GetProhibitedXRPLAddresses(ctx)
 	require.NoError(t, err)
 
-	initialProhibitedRecipients := []string{
+	initialProhibitedAddresses := []string{
 		"rrrrrrrrrrrrrrrrrrrrrhoLvTp",
 		"rrrrrrrrrrrrrrrrrrrrBZbvji",
 		"rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
 		"rrrrrrrrrrrrrrrrrNAMEtxvNvQ",
 		"rrrrrrrrrrrrrrrrrrrn5RM1rHd",
 	}
-	initialProhibitedRecipients = append(initialProhibitedRecipients, bridgeXRPLAddress)
-	require.ElementsMatch(t, initialProhibitedRecipients, prohibitedXRPLRecipients)
+	initialProhibitedAddresses = append(initialProhibitedAddresses, bridgeXRPLAddress)
+	require.ElementsMatch(t, initialProhibitedAddresses, prohibitedXRPLAddresses)
 
 	tokenDecimals := uint32(6)
 	sendingPrecision := int32(6)
@@ -2271,7 +2271,7 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 		sdkmath.ZeroInt(),
 	)
 
-	for _, recipient := range prohibitedXRPLRecipients {
+	for _, recipient := range prohibitedXRPLAddresses {
 		_, err = contractClient.SendToXRPL(
 			ctx,
 			coreumSenderAddress,
@@ -2279,7 +2279,7 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 			sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(1)),
 			nil,
 		)
-		require.True(t, coreum.IsProhibitedRecipientError(err), err)
+		require.True(t, coreum.IsProhibitedAddressError(err), err)
 	}
 
 	contractCfg, err := contractClient.GetContractConfig(ctx)
@@ -2293,7 +2293,7 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(1)),
 		nil,
 	)
-	require.True(t, coreum.IsProhibitedRecipientError(err), err)
+	require.True(t, coreum.IsProhibitedAddressError(err), err)
 
 	_, err = contractClient.SendToXRPL(
 		ctx,
@@ -2304,20 +2304,20 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 	//nolint:gocritic // append new item to old list for the assertion
-	newProhibitedRecipients := append(initialProhibitedRecipients, xrplRecipientAddress.String())
+	newProhibitedAddresses := append(initialProhibitedAddresses, xrplRecipientAddress.String())
 
-	// try to update the prohibited recipient list from not owner
-	_, err = contractClient.UpdateProhibitedXRPLRecipients(ctx, relayers[0].CoreumAddress, newProhibitedRecipients)
+	// try to update the prohibited addresses list from not owner
+	_, err = contractClient.UpdateProhibitedXRPLAddresses(ctx, relayers[0].CoreumAddress, newProhibitedAddresses)
 	require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
 	// update form owner
-	_, err = contractClient.UpdateProhibitedXRPLRecipients(ctx, owner, newProhibitedRecipients)
+	_, err = contractClient.UpdateProhibitedXRPLAddresses(ctx, owner, newProhibitedAddresses)
 	require.NoError(t, err)
 
-	prohibitedXRPLRecipients, err = contractClient.GetProhibitedXRPLRecipients(ctx)
+	prohibitedXRPLAddresses, err = contractClient.GetProhibitedXRPLAddresses(ctx)
 	require.NoError(t, err)
 
-	require.ElementsMatch(t, newProhibitedRecipients, prohibitedXRPLRecipients)
+	require.ElementsMatch(t, newProhibitedAddresses, prohibitedXRPLAddresses)
 }
 
 //nolint:tparallel // the test is parallel, but test cases are not

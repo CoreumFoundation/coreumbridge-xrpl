@@ -96,8 +96,8 @@ const (
 	FlagMetricsEnabled = "metrics-enabled"
 	// FlagMetricsListenAddr sets listen address for metrics server.
 	FlagMetricsListenAddr = "metrics-listen-addr"
-	// FlagProhibitedXRPLRecipient the prohibited XRPL recipient.
-	FlagProhibitedXRPLRecipient = "prohibited-xrpl-recipient"
+	// FlagProhibitedXRPLAddress the prohibited XRPL address.
+	FlagProhibitedXRPLAddress = "prohibited-xrpl-address"
 	// FlagFromOwner from owner flag.
 	FlagFromOwner = "from-owner"
 )
@@ -205,14 +205,15 @@ type BridgeClient interface {
 		ctx context.Context,
 		sender sdk.AccAddress,
 	) error
-	GetProhibitedXRPLRecipients(ctx context.Context) ([]string, error)
-	UpdateProhibitedXRPLRecipients(ctx context.Context, address sdk.AccAddress, prohibitedXRPLRecipients []string) error
+	GetProhibitedXRPLAddresses(ctx context.Context) ([]string, error)
+	UpdateProhibitedXRPLAddresses(ctx context.Context, address sdk.AccAddress, prohibitedXRPLAddresses []string) error
 	CancelPendingOperation(
 		ctx context.Context,
 		sender sdk.AccAddress,
 		operationID uint32,
 	) error
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
+	GetTransactionEvidences(ctx context.Context) ([]coreum.TransactionEvidence, error)
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.

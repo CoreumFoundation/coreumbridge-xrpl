@@ -1941,14 +1941,14 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 	)
 	require.Equal(t, "100", xrplRecipientBalance.Value.String())
 
-	// add the recipient to the list of the prohibited recipients and repeat the sending action
-	prohibitedXRPLRecipients, err := runnerEnv.BridgeClient.GetProhibitedXRPLRecipients(ctx)
+	// add the recipient to the list of the prohibited addresses and repeat the sending action
+	prohibitedXRPLAddresses, err := runnerEnv.BridgeClient.GetProhibitedXRPLAddresses(ctx)
 	require.NoError(t, err)
 
-	prohibitedXRPLRecipients = append(prohibitedXRPLRecipients, xrplRecipientAddress.String())
+	prohibitedXRPLAddresses = append(prohibitedXRPLAddresses, xrplRecipientAddress.String())
 	require.NoError(
 		t,
-		runnerEnv.BridgeClient.UpdateProhibitedXRPLRecipients(ctx, runnerEnv.ContractOwner, prohibitedXRPLRecipients),
+		runnerEnv.BridgeClient.UpdateProhibitedXRPLAddresses(ctx, runnerEnv.ContractOwner, prohibitedXRPLAddresses),
 	)
 
 	err = runnerEnv.BridgeClient.SendFromCoreumToXRPL(
@@ -1958,5 +1958,5 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
 		nil,
 	)
-	require.True(t, coreum.IsProhibitedRecipientError(err), err)
+	require.True(t, coreum.IsProhibitedAddressError(err), err)
 }
