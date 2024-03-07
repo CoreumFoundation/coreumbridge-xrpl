@@ -218,6 +218,21 @@ func (mr *MockBridgeClientMockRecorder) GetProhibitedXRPLAddresses(arg0 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProhibitedXRPLAddresses", reflect.TypeOf((*MockBridgeClient)(nil).GetProhibitedXRPLAddresses), arg0)
 }
 
+// GetTransactionEvidences mocks base method.
+func (m *MockBridgeClient) GetTransactionEvidences(arg0 context.Context) ([]coreum.TransactionEvidence, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTransactionEvidences", arg0)
+	ret0, _ := ret[0].([]coreum.TransactionEvidence)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransactionEvidences indicates an expected call of GetTransactionEvidences.
+func (mr *MockBridgeClientMockRecorder) GetTransactionEvidences(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionEvidences", reflect.TypeOf((*MockBridgeClient)(nil).GetTransactionEvidences), arg0)
+}
+
 // GetXRPLBalances mocks base method.
 func (m *MockBridgeClient) GetXRPLBalances(arg0 context.Context, arg1 data.Account) ([]data.Amount, error) {
 	m.ctrl.T.Helper()

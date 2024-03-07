@@ -302,3 +302,40 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, xrplToCoreumXRPLTokenTransferEvidence.Amount.String(), coreumRecipientBalance.Balance.Amount.String())
 }
+
+func TestKeysRotationWithProhibitedAddresses(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	initialRelayers := genRelayers(ctx, t, chains, 1)
+	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+		ctx,
+		t,
+		chains,
+		initialRelayers,
+		uint32(len(initialRelayers)),
+		20,
+		defaultTrustSetLimitAmount,
+		xrpl.GenPrivKeyTxSigner().Account().String(),
+		uint32(10),
+	)
+	// recover tickets to be able to create operations from coreum to XRPL
+	recoverTickets(ctx, t, contractClient, owner, initialRelayers, 100)
+
+	prohibitedXRPLAddresses, err := contractClient.GetProhibitedXRPLAddresses(ctx)
+	require.NoError(t, err)
+
+	// keys rotation
+	for i := 0; i < len(prohibitedXRPLAddresses); i++ {
+		newRelayers := genRelayers(ctx, t, chains, 2)
+		// set one address from prohibited list
+		newRelayers[0].XRPLAddress = prohibitedXRPLAddresses[i]
+		_, err = contractClient.RotateKeys(ctx,
+			owner,
+			newRelayers,
+			1,
+		)
+		require.True(t, coreum.IsProhibitedAddressError(err), err)
+	}
+}
