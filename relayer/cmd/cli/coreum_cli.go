@@ -70,6 +70,8 @@ func CoreumCmd(bcp BridgeClientProvider) (*cobra.Command, error) {
 	coreumQueryCmd.AddCommand(RelayerFeesCmd(bcp))
 	coreumQueryCmd.AddCommand(PendingOperationsCmd(bcp))
 	coreumQueryCmd.AddCommand(ProhibitedXRPLAddressesCmd(bcp))
+	coreumQueryCmd.AddCommand(TransactionEvidencesCmd(bcp))
+
 	AddHomeFlag(coreumQueryCmd)
 
 	keyringCoreumCmd, err := KeyringCmd(CoreumKeyringSuffix, constant.CoinType,
@@ -917,7 +919,7 @@ func PendingOperationsCmd(bcp BridgeClientProvider) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				log.Info(ctx, "Got pending operations", zap.Any("pendingOperations", pendingOperations))
+				log.Info(ctx, "Got pending operations", zap.Any("operations", pendingOperations))
 
 				return nil
 			}),
@@ -945,8 +947,33 @@ $ prohibited-xrpl-addresses %s
 				components.Log.Info(
 					ctx,
 					"Got prohibited XRPL addresses",
-					zap.Any("prohibitedXRPLAddresses", prohibitedXRPLAddresses),
+					zap.Any("addresses", prohibitedXRPLAddresses),
 				)
+				return nil
+			}),
+	}
+}
+
+// TransactionEvidencesCmd prints the not confirmed transaction evidences.
+func TransactionEvidencesCmd(bcp BridgeClientProvider) *cobra.Command {
+	return &cobra.Command{
+		Use:   "transaction-evidences",
+		Short: "Print not confirmed transaction evidences.",
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
+
+				transactionEvidences, err := bridgeClient.GetTransactionEvidences(ctx)
+				if err != nil {
+					return err
+				}
+
+				log, err := GetCLILogger()
+				if err != nil {
+					return err
+				}
+				log.Info(ctx, "Got transaction evidences", zap.Any("evidences", transactionEvidences))
+
 				return nil
 			}),
 	}
