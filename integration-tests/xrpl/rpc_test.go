@@ -943,6 +943,137 @@ func TestXRPLHighLowAmountsPayments(t *testing.T) {
 	}
 }
 
+func TestXRPLClawback(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	issuerClawbackAcc := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Issuer clawback account: %s", issuerClawbackAcc)
+
+	issuerNoClawbackAcc := chains.XRPL.GenAccount(ctx, t, 10)
+	t.Logf("Issuer no-clawback account: %s", issuerClawbackAcc)
+
+	recipientAcc := chains.XRPL.GenAccount(ctx, t, 0)
+	t.Logf("Recipient account: %s", recipientAcc)
+
+	// enable clawback
+	allowClawbackTx := rippledata.AccountSet{
+		TxBase: rippledata.TxBase{
+			Account:         issuerClawbackAcc,
+			TransactionType: rippledata.ACCOUNT_SET,
+		},
+		// https://xrpl.org/docs/references/protocol/transactions/types/accountset/#accountset-flags
+		// asfAllowTrustLineClawback	16
+		SetFlag: lo.ToPtr(uint32(16)),
+	}
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &allowClawbackTx, issuerClawbackAcc))
+
+	const fooCurrencyCode = "FOO"
+	fooCurrency, err := rippledata.NewCurrency(fooCurrencyCode)
+	require.NoError(t, err)
+	fooCurrencyTrustSetValue, err := rippledata.NewValue("10000000000000000", false)
+	require.NoError(t, err)
+	fooClawbackCurrencyTrustSetTx := rippledata.TrustSet{
+		LimitAmount: rippledata.Amount{
+			Value:    fooCurrencyTrustSetValue,
+			Currency: fooCurrency,
+			Issuer:   issuerClawbackAcc,
+		},
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.TRUST_SET,
+		},
+	}
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooClawbackCurrencyTrustSetTx, recipientAcc))
+
+	fooValue, err := rippledata.NewValue("100000", false)
+	require.NoError(t, err)
+	fooPaymentTx := rippledata.Payment{
+		Destination: recipientAcc,
+		Amount: rippledata.Amount{
+			Value:    fooValue,
+			Currency: fooCurrency,
+			Issuer:   issuerClawbackAcc,
+		},
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.PAYMENT,
+		},
+	}
+
+	currencyIssuerClawbackKey := fmt.Sprintf(
+		"%s/%s", xrpl.ConvertCurrencyToString(fooCurrency), issuerClawbackAcc.String(),
+	)
+	balancesBefore := chains.XRPL.GetAccountBalances(ctx, t, recipientAcc)
+	t.Logf("Recipient account balances before: %s", balancesBefore)
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooPaymentTx, issuerClawbackAcc))
+	balancesAfter := chains.XRPL.GetAccountBalances(ctx, t, recipientAcc)
+	t.Logf("Recipient account balances after: %s", balancesAfter)
+	require.Equal(t, fooValue.String(), balancesAfter[currencyIssuerClawbackKey].Value.String())
+
+	// clawback the amount
+	clawbackTx := rippledata.Clawback{
+		Amount: rippledata.Amount{
+			Value:    fooValue,
+			Currency: fooCurrency,
+			// the issuer here is the holder
+			Issuer: recipientAcc,
+		},
+		TxBase: rippledata.TxBase{
+			Account:         issuerClawbackAcc,
+			TransactionType: rippledata.CLAWBACK,
+		},
+	}
+
+	balancesBefore = chains.XRPL.GetAccountBalances(ctx, t, recipientAcc)
+	t.Logf("Recipient account balances before: %s", balancesBefore)
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &clawbackTx, issuerClawbackAcc))
+	balancesAfter = chains.XRPL.GetAccountBalances(ctx, t, recipientAcc)
+	t.Logf("Recipient account balances after: %s", balancesAfter)
+	require.True(t, balancesAfter[currencyIssuerClawbackKey].Value.IsZero())
+
+	// try to do the clawback after the issuance
+	fooNoClawbackCurrencyTrustSetTx := rippledata.TrustSet{
+		LimitAmount: rippledata.Amount{
+			Value:    fooCurrencyTrustSetValue,
+			Currency: fooCurrency,
+			Issuer:   issuerNoClawbackAcc,
+		},
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.TRUST_SET,
+		},
+	}
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooNoClawbackCurrencyTrustSetTx, recipientAcc))
+
+	fooPaymentTx = rippledata.Payment{
+		Destination: recipientAcc,
+		Amount: rippledata.Amount{
+			Value:    fooValue,
+			Currency: fooCurrency,
+			Issuer:   issuerNoClawbackAcc,
+		},
+		TxBase: rippledata.TxBase{
+			TransactionType: rippledata.PAYMENT,
+		},
+	}
+	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooPaymentTx, issuerNoClawbackAcc))
+
+	// try to enable the clawback now
+	allowClawbackTx = rippledata.AccountSet{
+		TxBase: rippledata.TxBase{
+			Account:         issuerNoClawbackAcc,
+			TransactionType: rippledata.ACCOUNT_SET,
+		},
+		// https://xrpl.org/docs/references/protocol/transactions/types/accountset/#accountset-flags
+		// asfAllowTrustLineClawback	16
+		SetFlag: lo.ToPtr(uint32(16)),
+	}
+	require.ErrorContains(
+		t,
+		chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &allowClawbackTx, issuerNoClawbackAcc),
+		rippledata.TecOWNERS.Human(),
+	)
+}
+
 func getBalanceAccount(
 	ctx context.Context,
 	t *testing.T,

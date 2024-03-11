@@ -65,6 +65,7 @@ jobs:
         with:
           repository: CoreumFoundation/crust
           path: crust
+          # FIXME update to the crust version with the XRPL supported clawback
           ref: bfeaa9ae4eace8b2d66e718ad50a03acd59d182c
       - name: Checkout coreum
         uses: actions/checkout@v4
