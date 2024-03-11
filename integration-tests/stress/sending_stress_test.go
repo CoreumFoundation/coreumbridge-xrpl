@@ -27,10 +27,13 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
+var (
+	testAccounts        = 2
+	iterationPerAccount = 30
+)
+
 func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 	_, chains := integrationtests.NewTestingContext(t)
-	testAccounts := 2
-	iterationPerAccount := 30
 	testCount := testAccounts * iterationPerAccount
 	sendAmount := 1
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*time.Duration(testCount)+5*time.Minute)
@@ -145,10 +148,8 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 	expectedCurrentBalance, err := expectedReceived.Add(*xrplRecipientBalanceBefore.Value)
 	require.NoError(t, err)
 
-	waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
-	defer waitCancel()
 	awaitXRPLBalance(
-		waitCtx,
+		ctx,
 		t,
 		chains.XRPL,
 		xrplRecipientAddress,
@@ -170,8 +171,6 @@ func TestStressSendFromXRPLToCoreumAndBack(t *testing.T) {
 
 func TestStressSendWithFailureAndClaimRefund(t *testing.T) {
 	_, chains := integrationtests.NewTestingContext(t)
-	testAccounts := 10
-	iterationPerAccount := 5
 	testCount := testAccounts * iterationPerAccount
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*time.Duration(testCount))
 	t.Cleanup(cancel)
@@ -199,10 +198,11 @@ func TestStressSendWithFailureAndClaimRefund(t *testing.T) {
 	registeredXRPToken, err := contractClient.GetXRPLTokenByIssuerAndCurrency(
 		ctx, xrpl.XRPTokenIssuer.String(), xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency),
 	)
+	require.NoError(t, err)
 	// generate and fund accounts
 	type xrplAccount struct {
-		Acccount rippledata.Account
-		Exists   bool
+		Account rippledata.Account
+		Exists  bool
 	}
 	xrplAccounts := make([]xrplAccount, 0)
 	coreumAccounts := make([]sdk.AccAddress, 0)
@@ -248,7 +248,7 @@ func TestStressSendWithFailureAndClaimRefund(t *testing.T) {
 					err = bridgeClient.SendFromCoreumToXRPL(
 						ctx,
 						coreumAccount,
-						xrplAccount.Acccount,
+						xrplAccount.Account,
 						sdk.NewCoin(
 							registeredXRPToken.CoreumDenom,
 							integrationtests.ConvertStringWithDecimalsToSDKInt(
@@ -267,27 +267,27 @@ func TestStressSendWithFailureAndClaimRefund(t *testing.T) {
 						if err != nil {
 							return err
 						}
-						waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
-						defer waitCancel()
 						awaitXRPLBalance(
-							waitCtx,
+							ctx,
 							t,
 							chains.XRPL,
-							xrplAccount.Acccount,
+							xrplAccount.Account,
 							xrpl.XRPTokenIssuer,
 							xrpl.XRPTokenCurrency,
 							*expectedBalance,
 						)
 					} else {
-						waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
-						defer waitCancel()
-						refunds := awaitPendingRefund(waitCtx, t, contractClient, coreumAccount)
+						refunds := awaitPendingRefund(ctx, t, contractClient, coreumAccount)
 						require.Len(t, refunds, 1)
-						balanceBefore, err := bankClient.Balance(ctx, banktypes.NewQueryBalanceRequest(coreumAccount, registeredXRPToken.CoreumDenom))
+						balanceBefore, err := bankClient.Balance(
+							ctx, banktypes.NewQueryBalanceRequest(coreumAccount, registeredXRPToken.CoreumDenom),
+						)
 						require.NoError(t, err)
 						_, err = contractClient.ClaimRefund(ctx, coreumAccount, refunds[0].ID)
 						require.NoError(t, err)
-						balanceAfter, err := bankClient.Balance(ctx, banktypes.NewQueryBalanceRequest(coreumAccount, registeredXRPToken.CoreumDenom))
+						balanceAfter, err := bankClient.Balance(
+							ctx, banktypes.NewQueryBalanceRequest(coreumAccount, registeredXRPToken.CoreumDenom),
+						)
 						require.NoError(t, err)
 						balanceChange := balanceAfter.GetBalance().Amount.Sub(balanceBefore.Balance.Amount)
 						require.EqualValues(t, balanceChange.Int64(), sendAmount)
@@ -389,6 +389,9 @@ func awaitXRPLBalance(
 	expectedBalance rippledata.Value,
 ) {
 	t.Helper()
+	ctx, waitCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer waitCancel()
+
 	awaitState(ctx, t, func(t *testing.T) error {
 		balance := xrpl.GetAccountBalance(ctx, t, account, issuer, currency)
 		if !balance.Value.Equals(expectedBalance) {
@@ -404,11 +407,13 @@ func awaitPendingRefund(
 	contractClient *coreum.ContractClient,
 	account sdk.AccAddress,
 ) []coreum.PendingRefund {
+	waitCtx, waitCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer waitCancel()
 	t.Helper()
 	var refunds []coreum.PendingRefund
-	awaitState(ctx, t, func(t *testing.T) error {
+	awaitState(waitCtx, t, func(t *testing.T) error {
 		var err error
-		refunds, err = contractClient.GetPendingRefunds(ctx, account)
+		refunds, err = contractClient.GetPendingRefunds(waitCtx, account)
 		if err != nil {
 			return err
 		}
