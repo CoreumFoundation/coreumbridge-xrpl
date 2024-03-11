@@ -572,11 +572,6 @@ $ rotate-keys new-keys.yaml --%s owner
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
 
-				keyName, err := cmd.Flags().GetString(FlagKeyName)
-				if err != nil {
-					return errors.Wrapf(err, "failed to get %s", FlagKeyName)
-				}
-
 				filePath := args[0]
 				initOnly, err := cmd.Flags().GetBool(FlagInitOnly)
 				if err != nil {
@@ -585,15 +580,6 @@ $ rotate-keys new-keys.yaml --%s owner
 				if initOnly {
 					components.Log.Info(ctx, "Initializing default keys rotation config", zap.String("path", filePath))
 					return bridgeclient.InitKeysRotationConfig(filePath)
-				}
-
-				record, err := components.CoreumClientCtx.Keyring().Key(keyName)
-				if err != nil {
-					return errors.Wrapf(err, "failed to get key by name:%s", keyName)
-				}
-				addr, err := record.GetAddress()
-				if err != nil {
-					return errors.Wrapf(err, "failed to address for key name:%s", keyName)
 				}
 
 				cfg, err := bridgeclient.ReadKeysRotationConfig(filePath)
@@ -607,7 +593,12 @@ $ rotate-keys new-keys.yaml --%s owner
 				input := bufio.NewScanner(os.Stdin)
 				input.Scan()
 
-				return bridgeClient.RotateKeys(ctx, addr, cfg)
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
+				if err != nil {
+					return err
+				}
+
+				return bridgeClient.RotateKeys(ctx, sender, cfg)
 			}),
 	}
 
