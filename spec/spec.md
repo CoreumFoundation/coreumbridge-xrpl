@@ -17,7 +17,7 @@ public keys associated with each relayer from the contract for the transaction s
 
 The bridge contract is the major state transition of the bridge. It holds the operations state and protects the
 execution using the trusted addresses voting/signing mechanisms. Also, it has an owner account that can change the
-settings of the contract or request operation execution from the relayers.
+settings of the contract/tokens or request operation execution from the relayers.
 
 #### Tokens registry
 
