@@ -54,6 +54,7 @@ func TestXRPAndIssuedTokensPayment(t *testing.T) {
 		},
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.TRUST_SET,
+			Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 		},
 	}
 	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooCurrencyTrustSetTx, recipientAcc))
@@ -843,6 +844,7 @@ func TestXRPLHighLowAmountsPayments(t *testing.T) {
 					},
 					TxBase: rippledata.TxBase{
 						TransactionType: rippledata.TRUST_SET,
+						Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 					},
 				}
 				require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &fooCurrencyTrustSetTx, acc))
