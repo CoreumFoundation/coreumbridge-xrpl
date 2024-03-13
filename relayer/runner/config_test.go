@@ -77,11 +77,11 @@ coreum:
 processes:
     coreum_to_xrpl:
         repeat_delay: 10s
-metrics_registry:
+metrics:
     enabled: false
     server:
         listen_address: localhost:9090
     periodic_collector:
-        repeat_delay: 30s
+        repeat_delay: 1m0s
 `
 }

@@ -12,7 +12,7 @@ replace (
 	// Fix upstream GHSA-h395-qcrw-5vmq vulnerability.
 	// TODO remove it: https://github.com/cosmos/cosmos-sdk/issues/10409
 	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.9.0
-	github.com/rubblelabs/ripple => github.com/sologenic/ripple v0.0.0-20240205173934-eeba9e1d1b70
+	github.com/rubblelabs/ripple => github.com/sologenic/ripple v0.0.0-20240212093037-7c70304af75a
 	// https://github.com/cosmos/cosmos-sdk/issues/14949
 	// pin the version of goleveldb to v1.0.1-0.20210819022825-2ae1ddf74ef7 required by SDK v47 upgrade guide.
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
@@ -20,7 +20,7 @@ replace (
 
 require (
 	cosmossdk.io/math v1.2.0
-	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240223065112-97400ae15d8e
+	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240306133015-8a9ec4eb1bf0
 	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240220134751-03b0f19e9a28
 	github.com/CosmWasm/wasmd v0.44.0
 	github.com/cosmos/cosmos-sdk v0.47.8

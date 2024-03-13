@@ -3,7 +3,7 @@ use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
 
-use crate::contract::{MAX_RELAYERS, MAX_TICKETS};
+use crate::contract::{MAX_COREUM_TOKEN_DECIMALS, MAX_RELAYERS, MAX_TICKETS};
 
 #[derive(Error, Debug)]
 pub enum ContractError {
@@ -129,6 +129,12 @@ pub enum ContractError {
     )]
     InvalidSendingPrecision {},
 
+    #[error(
+        "InvalidDecimals: registered Coreum token can't have more than {} decimals",
+        MAX_COREUM_TOKEN_DECIMALS
+    )]
+    InvalidDecimals {},
+
     #[error("InvalidOperationResult: OperationResult doesn't match a Pending Operation with the right Operation Type")]
     InvalidOperationResult {},
 
@@ -173,8 +179,8 @@ pub enum ContractError {
     )]
     OperationVersionMismatch {},
 
-    #[error("ProhibitedRecipient: The recipient is a prohibited address")]
-    ProhibitedRecipient {},
+    #[error("ProhibitedAddress: The address is prohibited")]
+    ProhibitedAddress {},
 
     #[error("DeliverAmountIsProhibited: Optional deliver_amount field is only used for XRPL originated tokens (except XRP) being bridged back")]
     DeliverAmountIsProhibited {},

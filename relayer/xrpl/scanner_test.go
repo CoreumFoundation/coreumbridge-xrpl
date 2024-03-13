@@ -176,7 +176,16 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 			require.NoError(t, err)
 			rpcTxProvider := tt.rpcTxProvider(ctrl)
 
-			s := xrpl.NewAccountScanner(tt.cfg, logger.NewZapLoggerFromLogger(zapDevLogger), rpcTxProvider)
+			metricRegistryMock := NewMockMetricRegistry(ctrl)
+			metricRegistryMock.EXPECT().SetXRPLAccountRecentHistoryScanLedgerIndex(gomock.Any()).AnyTimes()
+			metricRegistryMock.EXPECT().SetXRPLAccountFullHistoryScanLedgerIndex(gomock.Any()).AnyTimes()
+
+			s := xrpl.NewAccountScanner(
+				tt.cfg,
+				logger.NewZapLoggerFromLogger(zapDevLogger),
+				rpcTxProvider,
+				metricRegistryMock,
+			)
 			txsCh := make(chan rippledata.TransactionWithMetaData)
 
 			ctx := context.Background()

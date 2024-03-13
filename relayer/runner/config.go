@@ -90,7 +90,6 @@ type CoreumConfig struct {
 	GRPC           CoreumGRPCConfig     `yaml:"grpc"`
 	Network        CoreumNetworkConfig  `yaml:"network"`
 	Contract       CoreumContractConfig `yaml:"contract"`
-	GenerateOnly   bool                 `yaml:"-"`
 }
 
 // CoreumToXRPLProcessConfig is CoreumToXRPLProcess config.
@@ -128,7 +127,7 @@ type Config struct {
 	XRPL          XRPLConfig      `yaml:"xrpl"`
 	Coreum        CoreumConfig    `yaml:"coreum"`
 	Processes     ProcessesConfig `yaml:"processes"`
-	Metrics       MetricsConfig   `yaml:"metrics_registry"`
+	Metrics       MetricsConfig   `yaml:"metrics"`
 }
 
 // DefaultConfig returns default runner config.

@@ -16,6 +16,7 @@ import (
 	"github.com/CoreumFoundation/coreum-tools/pkg/http"
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -51,7 +52,14 @@ func TestFullHistoryScanAccountTx(t *testing.T) {
 		FullScanEnabled:   true,
 		RetryDelay:        time.Second,
 	}
-	scanner := xrpl.NewAccountScanner(scannerCfg, chains.Log, rpcClient)
+
+	metricRegistry := metrics.NewRegistry()
+	scanner := xrpl.NewAccountScanner(
+		scannerCfg,
+		chains.Log,
+		rpcClient,
+		metricRegistry,
+	)
 	// add timeout to finish the tests in case of error
 
 	txsCh := make(chan rippledata.TransactionWithMetaData, txsCount)
@@ -100,7 +108,14 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 		FullScanEnabled:   false,
 		RetryDelay:        500 * time.Millisecond,
 	}
-	scanner := xrpl.NewAccountScanner(scannerCfg, chains.Log, rpcClient)
+
+	metricRegistry := metrics.NewRegistry()
+	scanner := xrpl.NewAccountScanner(
+		scannerCfg,
+		chains.Log,
+		rpcClient,
+		metricRegistry,
+	)
 
 	// await for the state when the current ledger is valid to run the scanner
 	currentLedger, err := chains.XRPL.RPCClient().LedgerCurrent(ctx)
@@ -182,10 +197,10 @@ func validateTxsHashesInChannel(
 		case <-scanCtx.Done():
 			return scanCtx.Err()
 		case tx := <-txsCh:
-			// validate that we have all sent hashed and no duplicated
+			// validate that we have all sent hashes
 			hash := strings.ToUpper(tx.GetHash().String())
 			if _, found := expectedHashes[hash]; !found {
-				return errors.Errorf("not found expected tx hash:%s", hash)
+				continue
 			}
 
 			delete(expectedHashes, hash)

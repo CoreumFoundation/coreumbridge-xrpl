@@ -120,7 +120,22 @@ restart-dev-env:
 
 .PHONY: build-dev-env
 build-dev-env:
-	crust build/crust build/znet images/cored
+	crust build
+	crust images
+	coreum-builder images
+
+.PHONY: build-bridge-znet-env
+build-bridge-znet-env:
+	make build-dev-env
+	make build-relayer-docker
+
+.PHONY: restart-bridge-znet-env
+restart-bridge-znet-env:
+	docker compose -p bridge-znet -f ./infra/composer/docker-compose.yaml stop
+	crust znet remove
+	docker compose -p bridge-znet -f ./infra/composer/docker-compose.yaml down
+	crust znet start --profiles=bridge-xrpl
+	docker compose -p bridge-znet -f ./infra/composer/docker-compose.yaml up -d
 
 .PHONY: smoke
 smoke:

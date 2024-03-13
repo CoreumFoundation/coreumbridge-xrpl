@@ -1,15 +1,17 @@
 use std::collections::VecDeque;
 
 use crate::{
-    address::validate_xrpl_address,
+    address::{validate_xrpl_address, validate_xrpl_address_format},
     error::ContractError,
-    evidence::OperationResult::TicketsAllocation,
-    evidence::{handle_evidence, hash_bytes, Evidence, TransactionResult},
+    evidence::{
+        handle_evidence, hash_bytes, Evidence, OperationResult::TicketsAllocation,
+        TransactionResult,
+    },
     fees::{amount_after_bridge_fees, handle_fee_collection, substract_relayer_fees},
     msg::{
         AvailableTicketsResponse, BridgeStateResponse, CoreumTokensResponse, ExecuteMsg,
         FeesCollectedResponse, InstantiateMsg, PendingOperationsResponse, PendingRefund,
-        PendingRefundsResponse, ProcessedTxsResponse, ProhibitedXRPLRecipientsResponse, QueryMsg,
+        PendingRefundsResponse, ProcessedTxsResponse, ProhibitedXRPLAddressesResponse, QueryMsg,
         TransactionEvidence, TransactionEvidencesResponse, XRPLTokensResponse,
     },
     operation::{
@@ -22,7 +24,7 @@ use crate::{
         BridgeState, Config, ContractActions, CoreumToken, TokenState, UserType, XRPLToken,
         AVAILABLE_TICKETS, CONFIG, COREUM_TOKENS, FEES_COLLECTED, PENDING_OPERATIONS,
         PENDING_REFUNDS, PENDING_ROTATE_KEYS, PENDING_TICKET_UPDATE, PROCESSED_TXS,
-        PROHIBITED_XRPL_RECIPIENTS, TX_EVIDENCES, USED_TICKETS_COUNTER, XRPL_TOKENS,
+        PROHIBITED_XRPL_ADDRESSES, TX_EVIDENCES, USED_TICKETS_COUNTER, XRPL_TOKENS,
     },
     tickets::{allocate_ticket, register_used_ticket},
     token::{
@@ -32,7 +34,7 @@ use crate::{
 };
 
 use coreum_wasm_sdk::{
-    assetft::{self, Msg::Issue, ParamsResponse, Query, BURNING, IBC, MINTING},
+    assetft::{self, Msg::Issue, ParamsResponse, Query, IBC, MINTING},
     core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
@@ -54,6 +56,9 @@ const MAX_PAGE_LIMIT: u32 = 250;
 // Range of precisions that can be used for tokens
 const MIN_SENDING_PRECISION: i32 = -15;
 const MAX_SENDING_PRECISION: i32 = 15;
+
+// Maximum amount of decimals a Coreum token can be registered with
+pub const MAX_COREUM_TOKEN_DECIMALS: u32 = 100;
 
 pub const MAX_TICKETS: u32 = 250;
 pub const MAX_RELAYERS: usize = 32;
@@ -85,7 +90,7 @@ pub const MIN_DENOM_LENGTH: usize = 3;
 pub const MAX_DENOM_LENGTH: usize = 128;
 pub const DENOM_SPECIAL_CHARACTERS: [char; 5] = ['/', ':', '.', '_', '-'];
 
-pub const INITIAL_PROHIBITED_XRPL_RECIPIENTS: [&str; 5] = [
+pub const INITIAL_PROHIBITED_XRPL_ADDRESSES: [&str; 5] = [
     "rrrrrrrrrrrrrrrrrrrrrhoLvTp", // ACCOUNT_ZERO: An address that is the XRP Ledger's base58 encoding of the value 0. In peer-to-peer communications, rippled uses this address as the issuer for XRP.
     "rrrrrrrrrrrrrrrrrrrrBZbvji", // ACCOUNT_ONE: An address that is the XRP Ledger's base58 encoding of the value 1. In the ledger, RippleState entries use this address as a placeholder for the issuer of a trust line balance.
     "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", // Genesis account: When rippled starts a new genesis ledger from scratch (for example, in stand-alone mode), this account holds all the XRP. This address is generated from the seed value masterpassphrase which is hard-coded.
@@ -107,6 +112,12 @@ pub fn instantiate(
         Some(deps.api.addr_validate(msg.owner.as_ref())?.as_ref()),
     )?;
 
+    // We store all the prohibited addresses in state, including the multisig address, which is also prohibited to send to
+    for address in INITIAL_PROHIBITED_XRPL_ADDRESSES {
+        PROHIBITED_XRPL_ADDRESSES.save(deps.storage, address.to_string(), &Empty {})?;
+    }
+    PROHIBITED_XRPL_ADDRESSES.save(deps.storage, msg.bridge_xrpl_address.clone(), &Empty {})?;
+
     validate_relayers(
         deps.as_ref().into_empty(),
         &msg.relayers,
@@ -114,7 +125,7 @@ pub fn instantiate(
     )?;
 
     // The multisig address on XRPL must be valid
-    validate_xrpl_address(&msg.bridge_xrpl_address)?;
+    validate_xrpl_address_format(&msg.bridge_xrpl_address)?;
 
     // We want to check that exactly the issue fee was sent
     check_issue_fee(&deps, &info)?;
@@ -138,7 +149,7 @@ pub fn instantiate(
         evidence_threshold: msg.evidence_threshold,
         used_ticket_sequence_threshold: msg.used_ticket_sequence_threshold,
         trust_set_limit_amount: msg.trust_set_limit_amount,
-        bridge_xrpl_address: msg.bridge_xrpl_address.clone(),
+        bridge_xrpl_address: msg.bridge_xrpl_address,
         bridge_state: BridgeState::Active,
         xrpl_base_fee: msg.xrpl_base_fee,
     };
@@ -152,7 +163,7 @@ pub fn instantiate(
         precision: XRP_DECIMALS,
         initial_amount: Uint128::zero(),
         description: None,
-        features: Some(vec![MINTING, BURNING, IBC]),
+        features: Some(vec![MINTING, IBC]),
         burn_rate: "0.0".to_string(),
         send_commission_rate: "0.0".to_string(),
         uri: None,
@@ -176,17 +187,12 @@ pub fn instantiate(
     let key = build_xrpl_token_key(XRP_ISSUER, XRP_CURRENCY);
     XRPL_TOKENS.save(deps.storage, key, &token)?;
 
-    // We store all the prohibited recipients in state, including the multisig address, which is also prohibited to send to
-    for address in INITIAL_PROHIBITED_XRPL_RECIPIENTS {
-        PROHIBITED_XRPL_RECIPIENTS.save(deps.storage, address.to_string(), &Empty {})?;
-    }
-    PROHIBITED_XRPL_RECIPIENTS.save(deps.storage, msg.bridge_xrpl_address, &Empty {})?;
-
     Ok(Response::new()
         .add_attribute("action", ContractActions::Instantiation.as_str())
         .add_attribute("contract_name", CONTRACT_NAME)
         .add_attribute("contract_version", CONTRACT_VERSION)
         .add_attribute("owner", msg.owner)
+        .add_attribute("sender", info.sender)
         .add_message(xrp_issue_msg))
 }
 
@@ -324,12 +330,12 @@ pub fn execute(
             new_relayers,
             new_evidence_threshold,
         ),
-        ExecuteMsg::UpdateProhibitedXRPLRecipients {
-            prohibited_xrpl_recipients,
-        } => update_prohibited_xrpl_recipients(
+        ExecuteMsg::UpdateProhibitedXRPLAddresses {
+            prohibited_xrpl_addresses,
+        } => update_prohibited_xrpl_addresses(
             deps.into_empty(),
             info.sender,
-            prohibited_xrpl_recipients,
+            prohibited_xrpl_addresses,
         ),
         ExecuteMsg::CancelPendingOperation { operation_id } => {
             cancel_pending_operation(deps.into_empty(), info.sender, operation_id)
@@ -344,7 +350,9 @@ fn update_ownership(
     action: Action,
 ) -> CoreumResult<ContractError> {
     let ownership = cw_ownable::update_ownership(deps, &env.block, &info.sender, action)?;
-    Ok(Response::new().add_attributes(ownership.into_attributes()))
+    Ok(Response::new()
+        .add_attribute("sender", info.sender)
+        .add_attributes(ownership.into_attributes()))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -361,6 +369,7 @@ fn register_coreum_token(
     check_authorization(deps.storage, &sender, &ContractActions::RegisterCoreumToken)?;
     assert_bridge_active(deps.as_ref())?;
 
+    validate_coreum_token_decimals(decimals)?;
     validate_sending_precision(sending_precision, decimals)?;
 
     if COREUM_TOKENS.has(deps.storage, denom.clone()) {
@@ -408,6 +417,7 @@ fn register_coreum_token(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RegisterCoreumToken.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("denom", denom)
         .add_attribute("decimals", decimals.to_string())
         .add_attribute("xrpl_currency_for_denom", xrpl_currency))
@@ -430,7 +440,7 @@ fn register_xrpl_token(
         &ContractActions::RegisterXRPLToken,
     )?;
 
-    validate_xrpl_address(&issuer)?;
+    validate_xrpl_address(deps.storage, issuer.clone())?;
     validate_xrpl_currency(&currency)?;
 
     validate_sending_precision(sending_precision, XRPL_TOKENS_DECIMALS)?;
@@ -462,7 +472,7 @@ fn register_xrpl_token(
         precision: XRPL_TOKENS_DECIMALS,
         initial_amount: Uint128::zero(),
         description: None,
-        features: Some(vec![MINTING, BURNING, IBC]),
+        features: Some(vec![MINTING, IBC]),
         burn_rate: "0.0".to_string(),
         send_commission_rate: "0.0".to_string(),
         uri: None,
@@ -511,6 +521,7 @@ fn register_xrpl_token(
     Ok(Response::new()
         .add_message(issue_msg)
         .add_attribute("action", ContractActions::RegisterXRPLToken.as_str())
+        .add_attribute("sender", info.sender)
         .add_attribute("issuer", issuer)
         .add_attribute("currency", currency)
         .add_attribute("denom", denom))
@@ -534,9 +545,11 @@ fn save_evidence(
 
     evidence.validate_basic()?;
 
-    let threshold_reached = handle_evidence(deps.storage, sender, &evidence)?;
+    let threshold_reached = handle_evidence(deps.storage, sender.clone(), &evidence)?;
 
-    let mut response = Response::new();
+    let mut response = Response::new()
+        .add_attribute("action", ContractActions::SaveEvidence.as_str())
+        .add_attribute("sender", sender);
 
     match evidence {
         Evidence::XRPLToCoreumTransfer {
@@ -553,7 +566,7 @@ fn save_evidence(
 
             // If the recipient of the operation is the bridge contract address, we error
             if recipient.eq(&env.contract.address) {
-                return Err(ContractError::ProhibitedRecipient {});
+                return Err(ContractError::ProhibitedAddress {});
             }
 
             // This means the token is not a Coreum originated token (the issuer is not the XRPL multisig address)
@@ -664,7 +677,6 @@ fn save_evidence(
             }
 
             response = response
-                .add_attribute("action", ContractActions::SaveEvidence.as_str())
                 .add_attribute("hash", tx_hash)
                 .add_attribute("issuer", issuer)
                 .add_attribute("currency", currency)
@@ -725,7 +737,6 @@ fn save_evidence(
             }
 
             response = response
-                .add_attribute("action", ContractActions::SaveEvidence.as_str())
                 .add_attribute("operation_type", operation.operation_type.as_str())
                 .add_attribute("operation_id", operation_id.to_string())
                 .add_attribute("transaction_result", transaction_result.as_str())
@@ -794,6 +805,7 @@ fn recover_tickets(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RecoverTickets.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("account_sequence", account_sequence.to_string()))
 }
 
@@ -847,6 +859,7 @@ fn recover_xrpl_token_registration(
             "action",
             ContractActions::RecoverXRPLTokenRegistration.as_str(),
         )
+        .add_attribute("sender", sender)
         .add_attribute("issuer", issuer)
         .add_attribute("currency", currency))
 }
@@ -874,8 +887,8 @@ fn save_signature(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::SaveSignature.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("operation_id", operation_id.to_string())
-        .add_attribute("relayer_address", sender.to_string())
         .add_attribute("signature", signature))
 }
 
@@ -890,13 +903,8 @@ fn send_to_xrpl(
     // Check that we are only sending 1 type of coin
     let funds = one_coin(&info)?;
 
-    // Check that the recipient is a valid XRPL address
-    validate_xrpl_address(&recipient)?;
-
-    // We don't allow sending to a prohibited recipient
-    if PROHIBITED_XRPL_RECIPIENTS.has(deps.storage, recipient.clone()) {
-        return Err(ContractError::ProhibitedRecipient {});
-    }
+    // Check that the recipient is a valid XRPL address and it's not prohibited
+    validate_xrpl_address(deps.storage, recipient.clone())?;
 
     // We check that deliver_amount is not greater than the funds sent
     if deliver_amount.is_some() && deliver_amount.unwrap().gt(&funds.amount) {
@@ -1106,6 +1114,7 @@ fn update_xrpl_token(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::UpdateXRPLToken.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("issuer", issuer)
         .add_attribute("currency", currency))
 }
@@ -1155,6 +1164,7 @@ fn update_coreum_token(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::UpdateCoreumToken.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("denom", denom))
 }
 
@@ -1199,6 +1209,7 @@ fn update_xrpl_base_fee(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::UpdateXRPLBaseFee.as_str())
+        .add_attribute("sender", sender)
         .add_attribute("new_xrpl_base_fee", xrpl_base_fee.to_string()))
 }
 
@@ -1225,9 +1236,9 @@ fn claim_relayer_fees(
     };
 
     Ok(Response::new()
-        .add_message(send_msg)
         .add_attribute("action", ContractActions::ClaimFees.as_str())
-        .add_attribute("sender", sender))
+        .add_attribute("sender", sender)
+        .add_message(send_msg))
 }
 
 fn claim_pending_refund(
@@ -1244,9 +1255,9 @@ fn claim_pending_refund(
     };
 
     Ok(Response::new()
-        .add_message(send_msg)
         .add_attribute("action", ContractActions::ClaimRefunds.as_str())
-        .add_attribute("sender", sender))
+        .add_attribute("sender", sender)
+        .add_message(send_msg))
 }
 
 fn halt_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
@@ -1319,35 +1330,35 @@ fn rotate_keys(
         .add_attribute("sender", sender))
 }
 
-fn update_prohibited_xrpl_recipients(
+fn update_prohibited_xrpl_addresses(
     deps: DepsMut,
     sender: Addr,
-    prohibited_xrpl_recipients: Vec<String>,
+    prohibited_xrpl_addresses: Vec<String>,
 ) -> CoreumResult<ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
-        &ContractActions::UpdateProhibitedXRPLRecipients,
+        &ContractActions::UpdateProhibitedXRPLAddresses,
     )?;
 
-    // We clear the previous prohibited recipients
-    PROHIBITED_XRPL_RECIPIENTS.clear(deps.storage);
+    // We clear the previous prohibited addresses
+    PROHIBITED_XRPL_ADDRESSES.clear(deps.storage);
 
     // We add the current multisig address which is always prohibited
     let config = CONFIG.load(deps.storage)?;
-    PROHIBITED_XRPL_RECIPIENTS.save(deps.storage, config.bridge_xrpl_address, &Empty {})?;
+    PROHIBITED_XRPL_ADDRESSES.save(deps.storage, config.bridge_xrpl_address, &Empty {})?;
 
-    // Add all prohibited recipients provided
-    for prohibited_xrpl_recipient in prohibited_xrpl_recipients {
+    // Add all prohibited addresses provided
+    for prohibited_xrpl_address in prohibited_xrpl_addresses {
         // Validate the address that we are adding, to not add useless things
-        validate_xrpl_address(&prohibited_xrpl_recipient)?;
-        PROHIBITED_XRPL_RECIPIENTS.save(deps.storage, prohibited_xrpl_recipient, &Empty {})?;
+        validate_xrpl_address_format(&prohibited_xrpl_address)?;
+        PROHIBITED_XRPL_ADDRESSES.save(deps.storage, prohibited_xrpl_address, &Empty {})?;
     }
 
     Ok(Response::new()
         .add_attribute(
             "action",
-            ContractActions::UpdateProhibitedXRPLRecipients.as_str(),
+            ContractActions::UpdateProhibitedXRPLAddresses.as_str(),
         )
         .add_attribute("sender", sender))
 }
@@ -1434,8 +1445,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after_key,
             limit,
         } => to_json_binary(&query_processed_txs(deps, start_after_key, limit)),
-        QueryMsg::ProhibitedXRPLRecipients {} => {
-            to_json_binary(&query_prohibited_xrpl_recipients(deps))
+        QueryMsg::ProhibitedXRPLAddresses {} => {
+            to_json_binary(&query_prohibited_xrpl_addresses(deps))
         }
     }
 }
@@ -1633,15 +1644,15 @@ fn query_processed_txs(
     }
 }
 
-fn query_prohibited_xrpl_recipients(deps: Deps) -> ProhibitedXRPLRecipientsResponse {
-    let prohibited_xrpl_recipients: Vec<String> = PROHIBITED_XRPL_RECIPIENTS
+fn query_prohibited_xrpl_addresses(deps: Deps) -> ProhibitedXRPLAddressesResponse {
+    let prohibited_xrpl_addresses: Vec<String> = PROHIBITED_XRPL_ADDRESSES
         .range(deps.storage, None, None, Order::Ascending)
         .filter_map(Result::ok)
         .map(|(addr, _)| addr)
         .collect();
 
-    ProhibitedXRPLRecipientsResponse {
-        prohibited_xrpl_recipients,
+    ProhibitedXRPLAddressesResponse {
+        prohibited_xrpl_addresses,
     }
 }
 
@@ -1689,6 +1700,14 @@ pub fn validate_xrpl_currency(currency: &str) -> Result<(), ContractError> {
             }
         }
         _ => return Err(ContractError::InvalidXRPLCurrency {}),
+    }
+
+    Ok(())
+}
+
+pub fn validate_coreum_token_decimals(decimals: u32) -> Result<(), ContractError> {
+    if decimals > MAX_COREUM_TOKEN_DECIMALS {
+        return Err(ContractError::InvalidDecimals {});
     }
 
     Ok(())

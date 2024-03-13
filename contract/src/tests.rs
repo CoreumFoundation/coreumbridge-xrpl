@@ -5,7 +5,7 @@ mod tests {
     use coreum_wasm_sdk::types::cosmos::bank::v1beta1::QueryTotalSupplyRequest;
     use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
     use coreum_wasm_sdk::{
-        assetft::{BURNING, FREEZING, IBC, MINTING},
+        assetft::{FREEZING, IBC, MINTING},
         types::{
             coreum::asset::ft::v1::{
                 MsgIssue, QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
@@ -19,10 +19,12 @@ mod tests {
     use sha2::{Digest, Sha256};
     use std::collections::HashMap;
 
-    use crate::address::validate_xrpl_address;
-    use crate::contract::{INITIAL_PROHIBITED_XRPL_RECIPIENTS, MAX_RELAYERS};
+    use crate::address::validate_xrpl_address_format;
+    use crate::contract::{
+        INITIAL_PROHIBITED_XRPL_ADDRESSES, MAX_COREUM_TOKEN_DECIMALS, MAX_RELAYERS,
+    };
     use crate::msg::{
-        BridgeStateResponse, ProcessedTxsResponse, ProhibitedXRPLRecipientsResponse,
+        BridgeStateResponse, ProcessedTxsResponse, ProhibitedXRPLAddressesResponse,
         TransactionEvidence, TransactionEvidencesResponse,
     };
     use crate::state::BridgeState;
@@ -212,6 +214,12 @@ mod tests {
             xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
+        let relayer_prohibited_xrpl_address = Relayer {
+            coreum_address: Addr::unchecked(relayer_account.address()),
+            xrpl_address: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".to_string(),
+            xrpl_pub_key: generate_xrpl_pub_key(),
+        };
+
         let relayer_correct = Relayer {
             coreum_address: Addr::unchecked(relayer_account.address()),
             xrpl_address: generate_xrpl_address(),
@@ -304,6 +312,30 @@ mod tests {
         assert!(error
             .to_string()
             .contains(ContractError::DuplicatedRelayer {}.to_string().as_str()));
+
+        // We check that trying to use a relayer with a prohibited address fails
+        let error = wasm
+            .instantiate(
+                1,
+                &InstantiateMsg {
+                    owner: Addr::unchecked(signer.address()),
+                    relayers: vec![relayer.clone(), relayer_prohibited_xrpl_address.clone()],
+                    evidence_threshold: 1,
+                    used_ticket_sequence_threshold: 50,
+                    trust_set_limit_amount: Uint128::new(TRUST_SET_LIMIT_AMOUNT),
+                    bridge_xrpl_address: generate_xrpl_address(),
+                    xrpl_base_fee: 10,
+                },
+                None,
+                "label".into(),
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains(ContractError::ProhibitedAddress {}.to_string().as_str()));
 
         // We check that trying to instantiate with invalid bridge_xrpl_address fails
         let invalid_address = "rf0BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".to_string(); //invalid because contains a 0
@@ -484,11 +516,7 @@ mod tests {
                 precision: 6,
                 description: "".to_string(),
                 globally_frozen: false,
-                features: vec![
-                    MINTING.try_into().unwrap(),
-                    BURNING.try_into().unwrap(),
-                    IBC.try_into().unwrap()
-                ],
+                features: vec![MINTING.try_into().unwrap(), IBC.try_into().unwrap()],
                 burn_rate: "0".to_string(),
                 send_commission_rate: "0".to_string(),
                 uri: "".to_string(),
@@ -796,63 +824,61 @@ mod tests {
 
         assert!(!query_transaction_evidence.relayer_addresses.is_empty());
 
-        // Let's query the prohibited recipients
-        let query_prohibited_recipients = wasm
-            .query::<QueryMsg, ProhibitedXRPLRecipientsResponse>(
+        // Let's query the prohibited addresses
+        let query_prohibited_addresses = wasm
+            .query::<QueryMsg, ProhibitedXRPLAddressesResponse>(
                 &contract_addr,
-                &QueryMsg::ProhibitedXRPLRecipients {},
+                &QueryMsg::ProhibitedXRPLAddresses {},
             )
             .unwrap();
 
         assert_eq!(
-            query_prohibited_recipients.prohibited_xrpl_recipients.len(),
-            INITIAL_PROHIBITED_XRPL_RECIPIENTS.len() + 1
+            query_prohibited_addresses.prohibited_xrpl_addresses.len(),
+            INITIAL_PROHIBITED_XRPL_ADDRESSES.len() + 1
         );
-        assert!(query_prohibited_recipients
-            .prohibited_xrpl_recipients
+        assert!(query_prohibited_addresses
+            .prohibited_xrpl_addresses
             .contains(&bridge_xrpl_address));
 
         // Let's try to update this by adding a new one and query again
-        let new_prohibited_recipient = generate_xrpl_address();
-        let mut prohibited_recipients = query_prohibited_recipients
-            .prohibited_xrpl_recipients
-            .clone();
-        prohibited_recipients.push(new_prohibited_recipient.clone());
+        let new_prohibited_address = generate_xrpl_address();
+        let mut prohibited_addresses = query_prohibited_addresses.prohibited_xrpl_addresses.clone();
+        prohibited_addresses.push(new_prohibited_address.clone());
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
-            &ExecuteMsg::UpdateProhibitedXRPLRecipients {
-                prohibited_xrpl_recipients: prohibited_recipients,
+            &ExecuteMsg::UpdateProhibitedXRPLAddresses {
+                prohibited_xrpl_addresses: prohibited_addresses,
             },
             &vec![],
             &signer,
         )
         .unwrap();
 
-        let query_prohibited_recipients = wasm
-            .query::<QueryMsg, ProhibitedXRPLRecipientsResponse>(
+        let query_prohibited_addresses = wasm
+            .query::<QueryMsg, ProhibitedXRPLAddressesResponse>(
                 &contract_addr,
-                &QueryMsg::ProhibitedXRPLRecipients {},
+                &QueryMsg::ProhibitedXRPLAddresses {},
             )
             .unwrap();
 
         assert_eq!(
-            query_prohibited_recipients.prohibited_xrpl_recipients.len(),
-            INITIAL_PROHIBITED_XRPL_RECIPIENTS.len() + 2
+            query_prohibited_addresses.prohibited_xrpl_addresses.len(),
+            INITIAL_PROHIBITED_XRPL_ADDRESSES.len() + 2
         );
-        assert!(query_prohibited_recipients
-            .prohibited_xrpl_recipients
+        assert!(query_prohibited_addresses
+            .prohibited_xrpl_addresses
             .contains(&bridge_xrpl_address));
 
-        assert!(query_prohibited_recipients
-            .prohibited_xrpl_recipients
-            .contains(&new_prohibited_recipient));
+        assert!(query_prohibited_addresses
+            .prohibited_xrpl_addresses
+            .contains(&new_prohibited_address));
 
         // If we try to update this from an account that is not the owner it will fail
         let update_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::UpdateProhibitedXRPLRecipients {
-                    prohibited_xrpl_recipients: vec![],
+                &ExecuteMsg::UpdateProhibitedXRPLAddresses {
+                    prohibited_xrpl_addresses: vec![],
                 },
                 &vec![],
                 &relayer_accounts[0],
@@ -971,6 +997,26 @@ mod tests {
                 .to_string()
                 .as_str()
         ));
+
+        // Registering a token with invalid decimals should fail
+        let register_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterCoreumToken {
+                    denom: test_tokens[0].denom.clone(),
+                    decimals: MAX_COREUM_TOKEN_DECIMALS + 1,
+                    sending_precision: test_tokens[0].sending_precision,
+                    max_holding_amount: Uint128::one(),
+                    bridging_fee: test_tokens[0].bridging_fee,
+                },
+                &vec![],
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(register_error
+            .to_string()
+            .contains(ContractError::InvalidDecimals {}.to_string().as_str()));
 
         // Registering tokens with invalid denoms will fail
         let invalid_denom_error = wasm
@@ -1113,6 +1159,7 @@ mod tests {
             xrpl_pub_key: generate_xrpl_pub_key(),
         };
 
+        let xrpl_bridge_address = generate_xrpl_address();
         let contract_addr = store_and_instantiate(
             &wasm,
             &signer,
@@ -1122,7 +1169,7 @@ mod tests {
             2,
             Uint128::new(TRUST_SET_LIMIT_AMOUNT),
             query_issue_fee(&asset_ft),
-            generate_xrpl_address(),
+            xrpl_bridge_address.clone(),
             10,
         );
 
@@ -1330,6 +1377,26 @@ mod tests {
         assert!(register_error
             .to_string()
             .contains(ContractError::InvalidFundsAmount {}.to_string().as_str()));
+
+        // Registering a token with an prohibited address as issuer should fail
+        let issuer_error = wasm
+            .execute::<ExecuteMsg>(
+                &contract_addr,
+                &ExecuteMsg::RegisterXRPLToken {
+                    issuer: xrpl_bridge_address,
+                    currency: test_tokens[1].currency.clone(),
+                    sending_precision: test_tokens[1].sending_precision.clone(),
+                    max_holding_amount: test_tokens[1].max_holding_amount.clone(),
+                    bridging_fee: test_tokens[1].bridging_fee,
+                },
+                &query_issue_fee(&asset_ft),
+                &signer,
+            )
+            .unwrap_err();
+
+        assert!(issuer_error
+            .to_string()
+            .contains(ContractError::ProhibitedAddress {}.to_string().as_str()));
 
         // Registering a token without having tickets for the TrustSet operation should fail
         let available_tickets_error = wasm
@@ -1718,7 +1785,7 @@ mod tests {
 
         assert!(bridge_error
             .to_string()
-            .contains(ContractError::ProhibitedRecipient {}.to_string().as_str()));
+            .contains(ContractError::ProhibitedAddress {}.to_string().as_str()));
 
         // Test with more than 1 relayer
         let contract_addr = store_and_instantiate(
@@ -3260,14 +3327,14 @@ mod tests {
 
         assert!(bridge_error
             .to_string()
-            .contains(ContractError::ProhibitedRecipient {}.to_string().as_str()));
+            .contains(ContractError::ProhibitedAddress {}.to_string().as_str()));
 
-        // If we try to send tokens from Coreum to XRPL using a prohibited recipient address, it should fail.
+        // If we try to send tokens from Coreum to XRPL using a prohibited address, it should fail.
         let bridge_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SendToXRPL {
-                    recipient: INITIAL_PROHIBITED_XRPL_RECIPIENTS[0].to_string(),
+                    recipient: INITIAL_PROHIBITED_XRPL_ADDRESSES[0].to_string(),
                     deliver_amount: None,
                 },
                 &coins(1, denom_xrp.clone()),
@@ -3277,7 +3344,7 @@ mod tests {
 
         assert!(bridge_error
             .to_string()
-            .contains(ContractError::ProhibitedRecipient {}.to_string().as_str()));
+            .contains(ContractError::ProhibitedAddress {}.to_string().as_str()));
 
         // Sending a CoreumToXRPLTransfer evidence with account sequence should fail.
         let invalid_evidence = wasm
@@ -10683,16 +10750,16 @@ mod tests {
             generate_xrpl_address(),
         ];
 
-        // Add the current prohibited recipients and check that they are valid generated xrpl addresses
-        for prohibited_recipient in INITIAL_PROHIBITED_XRPL_RECIPIENTS {
-            valid_addresses.push(prohibited_recipient.to_string());
+        // Add the current prohibited address and check that they are valid generated xrpl addresses
+        for prohibited_address in INITIAL_PROHIBITED_XRPL_ADDRESSES {
+            valid_addresses.push(prohibited_address.to_string());
         }
 
         for address in valid_addresses.iter() {
-            validate_xrpl_address(address).unwrap();
+            validate_xrpl_address_format(address).unwrap();
         }
 
-        let mut invalid_addresses = vec![
+        let mut invalid_addresses: Vec<String> = vec![
             "zDTXLQ7ZKZVKz33zJbHjgVShjsBnqMBhmN".to_string(), // Invalid prefix
             "rf1BiGeXwwQoi8Z2u".to_string(),                  // Too short
             "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1hBBaU29".to_string(), // Too long
@@ -10707,7 +10774,7 @@ mod tests {
         }
 
         for address in invalid_addresses.iter() {
-            validate_xrpl_address(address).unwrap_err();
+            validate_xrpl_address_format(address).unwrap_err();
         }
     }
 }

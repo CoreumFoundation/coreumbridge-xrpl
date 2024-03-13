@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -19,8 +20,9 @@ var chains Chains
 
 // flag variables.
 var (
-	coreumCfg CoreumChainConfig
-	xrplCfg   XRPLChainConfig
+	coreumCfg             CoreumChainConfig
+	xrplCfg               XRPLChainConfig
+	contractAddressString string
 )
 
 // Chains struct holds chains required for the testing.
@@ -37,6 +39,8 @@ func init() {
 	flag.StringVar(&coreumCfg.ContractPath, "coreum-contract-path", "../../contract/artifacts/coreumbridge_xrpl.wasm", "Path to smart contract bytecode")
 	flag.StringVar(&xrplCfg.RPCAddress, "xrpl-rpc-address", "http://localhost:5005", "RPC address of xrpl node")
 	flag.StringVar(&xrplCfg.FundingSeed, "xrpl-funding-seed", "snoPBrXtMeMyMHUVTgbuqAfg1SUTb", "Funding XRPL account seed required by tests")
+	// this is the default address used in znet
+	flag.StringVar(&contractAddressString, "contract-address", "devcore14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sd4f0ak", "Smart contract address of the bridge")
 
 	// accept testing flags
 	testing.Init()
@@ -74,4 +78,11 @@ func NewTestingContext(t *testing.T) (context.Context, Chains) {
 	})
 
 	return testCtx, chains
+}
+
+// GetContractAddress returns the contract address for the bridge.
+func GetContractAddress(t *testing.T) sdk.AccAddress {
+	address, err := sdk.AccAddressFromBech32(contractAddressString)
+	require.NoError(t, err)
+	return address
 }
