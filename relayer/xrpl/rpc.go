@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
@@ -165,6 +166,30 @@ type ServerState struct {
 type ServerStateResult struct {
 	State  ServerState `json:"state"`
 	Status string      `json:"status"`
+}
+
+// SrcCurrency is source currency for the pathfinding.
+type SrcCurrency struct {
+	Currency rippledata.Currency `json:"currency"`
+}
+
+// RipplePathFindRequest is ripple_path_find request.
+type RipplePathFindRequest struct {
+	SrcAccount    rippledata.Account `json:"source_account"`
+	SrcCurrencies *[]SrcCurrency     `json:"source_currencies,omitempty"`
+	DestAccount   rippledata.Account `json:"destination_account"`
+	DestAmount    rippledata.Amount  `json:"destination_amount"`
+}
+
+// RipplePathFindResult is ripple_path_find result.
+type RipplePathFindResult struct {
+	Alternatives []struct {
+		SrcAmount      rippledata.Amount  `json:"source_amount"`
+		PathsComputed  rippledata.PathSet `json:"paths_computed,omitempty"`
+		PathsCanonical rippledata.PathSet `json:"paths_canonical,omitempty"`
+	}
+	DestAccount    rippledata.Account    `json:"destination_account"`
+	DestCurrencies []rippledata.Currency `json:"destination_currencies"`
 }
 
 // ******************** RPC transport objects ********************
@@ -363,6 +388,42 @@ func (c *RPCClient) ServerState(ctx context.Context) (ServerStateResult, error) 
 	var result ServerStateResult
 	if err := c.callRPC(ctx, "server_state", struct{}{}, &result); err != nil {
 		return ServerStateResult{}, err
+	}
+
+	return result, nil
+}
+
+// RipplePathFind returns the found ripple paths.
+func (c *RPCClient) RipplePathFind(
+	ctx context.Context,
+	srcAccount rippledata.Account,
+	srcCurrencies *[]rippledata.Currency,
+	destAccount rippledata.Account,
+	destAmount rippledata.Amount,
+) (RipplePathFindResult, error) {
+	var paramsSrcCurrencies *[]SrcCurrency
+	if srcCurrencies != nil {
+		paramsSrcCurrencies = lo.ToPtr(
+			lo.Map(
+				*srcCurrencies,
+				func(currency rippledata.Currency, _ int) SrcCurrency {
+					return SrcCurrency{
+						Currency: currency,
+					}
+				}),
+		)
+	}
+
+	params := RipplePathFindRequest{
+		SrcAccount:    srcAccount,
+		SrcCurrencies: paramsSrcCurrencies,
+		DestAccount:   destAccount,
+		DestAmount:    destAmount,
+	}
+
+	var result RipplePathFindResult
+	if err := c.callRPC(ctx, "ripple_path_find", params, &result); err != nil {
+		return RipplePathFindResult{}, err
 	}
 
 	return result, nil

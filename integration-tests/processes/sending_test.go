@@ -4,7 +4,9 @@
 package processes_test
 
 import (
+	"context"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -1959,4 +1961,197 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 		nil,
 	)
 	require.True(t, coreum.IsProhibitedAddressError(err), err)
+}
+
+func TestSendXRPLOriginatedTokensWithRippling(t *testing.T) {
+	t.Parallel()
+
+	ctx, chains := integrationtests.NewTestingContext(t)
+
+	envCfg := DefaultRunnerEnvConfig()
+	runnerEnv := NewRunnerEnv(ctx, t, envCfg, chains)
+	runnerEnv.StartAllRunnerProcesses()
+	runnerEnv.AllocateTickets(ctx, t, uint32(200))
+
+	coreumRecipient := chains.Coreum.GenAccount()
+
+	// generate 2 issuers
+	xrplIssuer1Address := chains.XRPL.GenAccount(ctx, t, 1)
+	xrplIssuer2Address := chains.XRPL.GenAccount(ctx, t, 1)
+
+	// generate 2 holders
+	xrplHolder1Address := chains.XRPL.GenAccount(ctx, t, 1)
+	xrplHolder2Address := chains.XRPL.GenAccount(ctx, t, 1)
+
+	// enable to be able to send to any address
+	runnerEnv.EnableXRPLAccountRippling(ctx, t, xrplIssuer1Address)
+	runnerEnv.EnableXRPLAccountRippling(ctx, t, xrplIssuer2Address)
+
+	xrplCurrency, err := rippledata.NewCurrency("FOO")
+	require.NoError(t, err)
+
+	// register 2 tokens with the same currency, but different issuer
+	registeredIssuer1XRPLToken := runnerEnv.RegisterXRPLOriginatedToken(
+		ctx,
+		t,
+		xrplIssuer1Address,
+		xrplCurrency,
+		int32(6),
+		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		sdkmath.ZeroInt(),
+	)
+	registeredIssuer2XRPLToken := runnerEnv.RegisterXRPLOriginatedToken(
+		ctx,
+		t,
+		xrplIssuer2Address,
+		xrplCurrency,
+		int32(6),
+		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
+		sdkmath.ZeroInt(),
+	)
+
+	// lock 100 tokens of issuer 1 in the bridge XRPL account
+	valueSentToCoreum, err := rippledata.NewValue("100", false)
+	require.NoError(t, err)
+	issuer1AmountToSendToCoreum := rippledata.Amount{
+		Value:    valueSentToCoreum,
+		Currency: xrplCurrency,
+		Issuer:   xrplIssuer1Address,
+	}
+	runnerEnv.SendFromXRPLToCoreum(ctx, t, xrplIssuer1Address.String(), issuer1AmountToSendToCoreum, coreumRecipient)
+	runnerEnv.AwaitCoreumBalance(
+		ctx,
+		t,
+		coreumRecipient,
+		sdk.NewCoin(
+			registeredIssuer1XRPLToken.CoreumDenom,
+			integrationtests.ConvertStringWithDecimalsToSDKInt(
+				t,
+				valueSentToCoreum.String(),
+				xrpl.XRPLIssuedTokenDecimals,
+			),
+		),
+	)
+
+	// lock 100 tokens of issuer 2 in the bridge XRPL account
+	issuer2AmountToSendToCoreum := rippledata.Amount{
+		Value:    valueSentToCoreum,
+		Currency: xrplCurrency,
+		Issuer:   xrplIssuer2Address,
+	}
+	runnerEnv.SendFromXRPLToCoreum(ctx, t, xrplIssuer2Address.String(), issuer2AmountToSendToCoreum, coreumRecipient)
+	runnerEnv.AwaitCoreumBalance(
+		ctx,
+		t,
+		coreumRecipient,
+		sdk.NewCoin(
+			registeredIssuer2XRPLToken.CoreumDenom,
+			integrationtests.ConvertStringWithDecimalsToSDKInt(
+				t,
+				valueSentToCoreum.String(),
+				xrpl.XRPLIssuedTokenDecimals,
+			),
+		),
+	)
+
+	// now the XRPL bridge account address holds 100 currency/issuer1 and 100 currency/issuer2
+	bridgeXRPLAddressIssuer1CurrencyBalances := getBalanceByIssuerAndCurrency(
+		ctx, t, runnerEnv, runnerEnv.BridgeXRPLAddress, xrplIssuer1Address, xrplCurrency,
+	)
+	require.Equal(t, valueSentToCoreum.String(), bridgeXRPLAddressIssuer1CurrencyBalances.Value.String())
+
+	bridgeXRPLAddressIssuer2CurrencyBalances := getBalanceByIssuerAndCurrency(
+		ctx, t, runnerEnv, runnerEnv.BridgeXRPLAddress, xrplIssuer2Address, xrplCurrency,
+	)
+	require.Equal(t, valueSentToCoreum.String(), bridgeXRPLAddressIssuer2CurrencyBalances.Value.String())
+
+	// fund holders
+	valueToFundHolder, err := rippledata.NewValue("20", false)
+
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplHolder1Address, xrplIssuer1Address, xrplCurrency)
+	require.NoError(t, err)
+	issuer1AmountToFundHolder1 := rippledata.Amount{
+		Value:    valueToFundHolder,
+		Currency: xrplCurrency,
+		Issuer:   xrplIssuer1Address,
+	}
+	runnerEnv.SendXRPLPaymentTx(
+		ctx,
+		t,
+		xrplIssuer1Address,
+		xrplHolder1Address,
+		issuer1AmountToFundHolder1,
+		rippledata.Memo{},
+	)
+
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplHolder2Address, xrplIssuer2Address, xrplCurrency)
+	issuer2AmountToFundHolder1 := rippledata.Amount{
+		Value:    valueToFundHolder,
+		Currency: xrplCurrency,
+		Issuer:   xrplIssuer2Address,
+	}
+	runnerEnv.SendXRPLPaymentTx(
+		ctx,
+		t,
+		xrplIssuer2Address,
+		xrplHolder2Address,
+		issuer2AmountToFundHolder1,
+		rippledata.Memo{},
+	)
+
+	// now the holder1 and holder2 balances are 20currency/issuer1 and 20currency/issuer2 correspondingly
+	xrplHolder1Issuer1CurrencyBalances := getBalanceByIssuerAndCurrency(
+		ctx, t, runnerEnv, xrplHolder1Address, xrplIssuer1Address, xrplCurrency,
+	)
+	require.Equal(t, valueToFundHolder.String(), xrplHolder1Issuer1CurrencyBalances.Value.String())
+
+	xrplHolder2Issuer2Balances := getBalanceByIssuerAndCurrency(
+		ctx, t, runnerEnv, xrplHolder2Address, xrplIssuer2Address, xrplCurrency,
+	)
+	require.Equal(t, valueToFundHolder.String(), xrplHolder2Issuer2Balances.Value.String())
+
+	// now we have a state when the XRPL bridge contract address could allow swap of the issuer1 currency to issuer2
+	// currency without the TxSetNoRipple flag enabled on the trust set. But since we use TxSetNoRipple such situation
+	// not expected.
+
+	// try to find a path to send payment from holder2 to holder1 with the bridge in PATH
+	valueToSendToHolder2, err := rippledata.NewValue("10", false)
+	require.NoError(t, err)
+	amountSendToHolder2 := rippledata.Amount{
+		Value:    valueToSendToHolder2,
+		Currency: xrplCurrency,
+		Issuer:   xrplIssuer1Address,
+	}
+	paths, err := runnerEnv.Chains.XRPL.RPCClient().RipplePathFind(
+		ctx,
+		xrplHolder2Address,
+		&[]rippledata.Currency{
+			xrplCurrency,
+		},
+		xrplHolder1Address,
+		// the issuer here is the issuer which will be received
+		amountSendToHolder2,
+	)
+	require.NoError(t, err)
+	// no alternatives found, meas we can't execute the tx through the bridge XRPL address.
+	require.Empty(t, paths.Alternatives)
+}
+
+func getBalanceByIssuerAndCurrency(
+	ctx context.Context,
+	t *testing.T,
+	runnerEnv *RunnerEnv,
+	acc, issuer rippledata.Account,
+	currency rippledata.Currency,
+) rippledata.Amount {
+	balances, err := runnerEnv.Chains.XRPL.RPCClient().GetXRPLBalances(ctx, acc)
+	require.NoError(t, err)
+	keyName := fmt.Sprintf(
+		"%s/%s", xrpl.ConvertCurrencyToString(currency), issuer,
+	)
+	return lo.FindOrElse(balances, rippledata.Amount{}, func(item rippledata.Amount) bool {
+		return keyName == fmt.Sprintf(
+			"%s/%s", xrpl.ConvertCurrencyToString(currency), item.Issuer.String(),
+		)
+	})
 }
