@@ -1142,6 +1142,7 @@ func TestDeployContractCmd(t *testing.T) {
 
 	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
 	args = append(args, testKeyringFlags(keyringDir)...)
+	args = append(args, initConfig(t)...)
 	args = append(args, contractPath)
 	bridgeClientMock.EXPECT().DeployContract(gomock.Any(), deployer, contractPath).Return(nil, uint64(1), nil)
 	executeCoreumTxCmd(
