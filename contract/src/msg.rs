@@ -143,11 +143,11 @@ pub enum ExecuteMsg {
         new_relayers: Vec<Relayer>,
         new_evidence_threshold: u32,
     },
-    // Update the prohibited recipients list
+    // Update the prohibited addresses list
     // Only the owner can do this
-    #[serde(rename = "update_prohibited_xrpl_recipients")]
-    UpdateProhibitedXRPLRecipients {
-        prohibited_xrpl_recipients: Vec<String>,
+    #[serde(rename = "update_prohibited_xrpl_addresses")]
+    UpdateProhibitedXRPLAddresses {
+        prohibited_xrpl_addresses: Vec<String>,
     },
     // Cancels a pending operation, considering it as invalid
     // This will almost NEVER be used, unless there is some expected operation that causes an error on relayers
@@ -205,9 +205,9 @@ pub enum QueryMsg {
         start_after_key: Option<String>,
         limit: Option<u32>,
     },
-    #[returns(ProhibitedXRPLRecipientsResponse)]
-    #[serde(rename = "prohibited_xrpl_recipients")]
-    ProhibitedXRPLRecipients {},
+    #[returns(ProhibitedXRPLAddressesResponse)]
+    #[serde(rename = "prohibited_xrpl_addresses")]
+    ProhibitedXRPLAddresses {},
 }
 
 #[cw_serde]
@@ -275,6 +275,6 @@ pub struct ProcessedTxsResponse {
 }
 
 #[cw_serde]
-pub struct ProhibitedXRPLRecipientsResponse {
-    pub prohibited_xrpl_recipients: Vec<String>,
+pub struct ProhibitedXRPLAddressesResponse {
+    pub prohibited_xrpl_addresses: Vec<String>,
 }

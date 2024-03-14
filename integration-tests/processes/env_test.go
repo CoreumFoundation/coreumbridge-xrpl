@@ -29,6 +29,7 @@ import (
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -45,7 +46,7 @@ type RunnerEnvConfig struct {
 	CustomBridgeXRPLAddress     *rippledata.Account
 	CustomContractAddress       *sdk.AccAddress
 	CustomContractOwner         *sdk.AccAddress
-	// is custom error handler returns false, the runner env fails with the input error
+	// if custom error handler returns false, the runner env fails with the input error
 	CustomErrorHandler func(err error) bool
 }
 
@@ -645,8 +646,15 @@ func createDevRunner(
 	// make the collector faster
 	relayerRunnerCfg.Metrics.PeriodicCollector.RepeatDelay = 500 * time.Millisecond
 
-	components, err := runner.NewComponents(relayerRunnerCfg, xrplKeyring, coreumKeyring, chains.Log, false, false)
+	// re-init log to use correct `CallerSkip`
+	log, err := logger.NewZapLogger(logger.DefaultZapLoggerConfig())
 	require.NoError(t, err)
+
+	xrplSDKClientCtx := chains.Coreum.ClientContext.WithKeyring(xrplKeyring).SDKContext()
+	coreumSDKClientCtx := chains.Coreum.ClientContext.WithKeyring(coreumKeyring).SDKContext()
+	components, err := runner.NewComponents(relayerRunnerCfg, xrplSDKClientCtx, coreumSDKClientCtx, log)
+	require.NoError(t, err)
+
 	relayerRunner, err := runner.NewRunner(ctx, components, relayerRunnerCfg)
 	require.NoError(t, err)
 	return components, relayerRunner

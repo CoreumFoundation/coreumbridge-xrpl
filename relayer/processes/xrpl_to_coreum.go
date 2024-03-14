@@ -2,6 +2,7 @@ package processes
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -29,6 +30,7 @@ type XRPLToCoreumProcess struct {
 	log            logger.Logger
 	txScanner      XRPLAccountTxScanner
 	contractClient ContractClient
+	metricRegistry MetricRegistry
 }
 
 // NewXRPLToCoreumProcess returns a new instance of the XRPLToCoreumProcess.
@@ -37,6 +39,7 @@ func NewXRPLToCoreumProcess(
 	log logger.Logger,
 	txScanner XRPLAccountTxScanner,
 	contractClient ContractClient,
+	metricRegistry MetricRegistry,
 ) (*XRPLToCoreumProcess, error) {
 	if cfg.RelayerCoreumAddress.Empty() {
 		return nil, errors.Errorf("failed to init process, relayer address is nil or empty")
@@ -50,6 +53,7 @@ func NewXRPLToCoreumProcess(
 		log:            log,
 		txScanner:      txScanner,
 		contractClient: contractClient,
+		metricRegistry: metricRegistry,
 	}, nil
 }
 
@@ -68,7 +72,14 @@ func (p *XRPLToCoreumProcess) Start(ctx context.Context) error {
 					if errors.Is(err, context.Canceled) {
 						p.log.Warn(ctx, "Context canceled during the XRPL tx processing", zap.String("error", err.Error()))
 					} else {
-						return errors.Wrapf(err, "failed to process XRPL tx, txHash:%s", strings.ToUpper(tx.GetHash().String()))
+						p.log.Error(
+							ctx,
+							"Failed to process XRPL tx",
+							zap.Error(err),
+							zap.String("txHash", strings.ToUpper(tx.GetHash().String())),
+							zap.Any("tx", tx),
+						)
+						continue
 					}
 				}
 			}
@@ -116,7 +127,7 @@ func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 	coreumRecipient := xrpl.DecodeCoreumRecipientFromMemo(paymentTx.Memos)
 	if coreumRecipient == nil {
-		p.log.Info(ctx, "Bridge memo does not include expected structure", zap.Any("memos", paymentTx.Memos))
+		p.log.Debug(ctx, "Bridge memo does not include expected structure", zap.Any("memos", paymentTx.Memos))
 		return nil
 	}
 
@@ -136,7 +147,7 @@ func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 
 	if coreumAmount.IsZero() {
-		p.log.Info(ctx, "Nothing to send, amount is zero")
+		p.log.Debug(ctx, "Nothing to send, amount is zero")
 		return nil
 	}
 
@@ -155,17 +166,12 @@ func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 
 	if coreum.IsTokenNotRegisteredError(err) {
-		p.log.Info(ctx, "Token not registered")
-		return nil
-	}
-
-	if IsExpectedEvidenceSubmissionError(err) {
-		p.log.Debug(ctx, "Received expected evidence submission error", zap.String("errText", err.Error()))
+		p.log.Debug(ctx, "Token not registered")
 		return nil
 	}
 
 	if coreum.IsAssetFTStateError(err) {
-		p.log.Info(
+		p.log.Debug(
 			ctx,
 			"The evidence saving is failed because of the asset FT rules, the evidence is skipped",
 			zap.Any("evidence", evidence),
@@ -174,7 +180,7 @@ func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 	}
 
 	if coreum.IsRecipientBlockedError(err) {
-		p.log.Info(
+		p.log.Debug(
 			ctx,
 			"The evidence saving is failed because of the recipient address is blocked, the evidence is skipped",
 			zap.Any("evidence", evidence),
@@ -182,7 +188,7 @@ func (p *XRPLToCoreumProcess) processIncomingTx(ctx context.Context, tx rippleda
 		return nil
 	}
 
-	return err
+	return p.handleOperationEvidenceSubmissionError(ctx, err, tx, evidence)
 }
 
 func (p *XRPLToCoreumProcess) processOutgoingTx(ctx context.Context, tx rippledata.TransactionWithMetaData) error {
@@ -205,7 +211,8 @@ func (p *XRPLToCoreumProcess) processOutgoingTx(ctx context.Context, tx rippleda
 		p.log.Debug(ctx, "Skipped expected tx type", zap.String("txType", txType), zap.Any("tx", tx))
 		return nil
 	default:
-		p.log.Error(ctx, "Found unsupported transaction type", zap.Any("tx", tx))
+		p.metricRegistry.SetMaliciousBehaviourKey(fmt.Sprintf("unexpected_xrpl_tx_type_tx_hash_%s", tx.GetHash().String()))
+		p.log.Error(ctx, "Found unexpected transaction type", zap.Any("tx", tx))
 		return nil
 	}
 }
@@ -303,20 +310,20 @@ func (p *XRPLToCoreumProcess) sendKeysRotationTransactionResultEvidence(
 	if !ok {
 		return errors.Errorf("failed to cast tx to SignerListSet, data:%+v", tx)
 	}
+	if len(signerListSetTx.Signers) == 0 {
+		p.log.Debug(
+			ctx,
+			//nolint:lll // message text
+			"Skipping the evidence sending for the tx, since the SignerListSet tx was sent initially for the bridge bootstrapping.",
+			zap.Any("tx", tx),
+		)
+		return nil
+	}
 	evidence := coreum.XRPLTransactionResultKeysRotationEvidence{
 		XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
 			TxHash:            strings.ToUpper(tx.GetHash().String()),
 			TransactionResult: getTransactionResult(tx),
 		},
-	}
-	// handle the case when the tx was set initially to set up the bridge
-	if signerListSetTx.Sequence != 0 {
-		p.log.Debug(
-			ctx,
-			"Skipping the evidence sending for the tx, since the SignerListSet tx contains account sequence.",
-			zap.Any("tx", tx),
-		)
-		return nil
 	}
 	if signerListSetTx.TicketSequence != nil && *signerListSetTx.TicketSequence != 0 {
 		evidence.TicketSequence = lo.ToPtr(*signerListSetTx.TicketSequence)
@@ -334,7 +341,7 @@ func (p *XRPLToCoreumProcess) handleOperationEvidenceSubmissionError(
 	ctx context.Context,
 	err error,
 	tx rippledata.TransactionWithMetaData,
-	evidence coreum.XRPLTransactionResultEvidence,
+	evidence any,
 ) error {
 	if err == nil {
 		p.log.Info(
@@ -349,6 +356,10 @@ func (p *XRPLToCoreumProcess) handleOperationEvidenceSubmissionError(
 		p.log.Debug(ctx, "Received expected evidence submission error", zap.String("errText", err.Error()))
 		return nil
 	}
+	if IsUnexpectedEvidenceSubmissionError(err) {
+		p.metricRegistry.SetMaliciousBehaviourKey(fmt.Sprintf("potential_malicious_xrpl_behaviour_tx_hash_%s", tx.GetHash()))
+	}
+
 	return err
 }
 
@@ -365,8 +376,8 @@ func txIsFinal(tx rippledata.TransactionWithMetaData) bool {
 	return tx.MetaData.TransactionResult.Success() ||
 		strings.HasPrefix(txResult.String(), xrpl.TecTxResultPrefix) ||
 		strings.HasPrefix(txResult.String(), xrpl.TemTxResultPrefix) ||
-		txResult.String() == xrpl.TefPastSeqTxResult ||
-		txResult.String() == xrpl.TefMaxLedgerTxResult
+		txResult == rippledata.TefPAST_SEQ ||
+		txResult == rippledata.TefMAX_LEDGER
 }
 
 func getTransactionResult(tx rippledata.TransactionWithMetaData) coreum.TransactionResult {

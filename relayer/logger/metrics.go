@@ -3,21 +3,25 @@ package logger
 import (
 	"context"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
-// WithErrorCounterMetric returns logger reporting metrics.
-func WithErrorCounterMetric(l Logger, errorCounter prometheus.Counter) (Logger, error) {
+// MetricRegistry is metric registry.
+type MetricRegistry interface {
+	IncrementRelayerErrorCounter()
+}
+
+// WithMetrics returns logger reporting metrics.
+func WithMetrics(l Logger, metricRegistry MetricRegistry) (Logger, error) {
 	return metricLogger{
-		parentLogger: l,
-		errorCounter: errorCounter,
+		parentLogger:   l,
+		metricRegistry: metricRegistry,
 	}, nil
 }
 
 type metricLogger struct {
-	parentLogger Logger
-	errorCounter prometheus.Counter
+	parentLogger   Logger
+	metricRegistry MetricRegistry
 }
 
 func (l metricLogger) Debug(ctx context.Context, msg string, fields ...zap.Field) {
@@ -25,7 +29,6 @@ func (l metricLogger) Debug(ctx context.Context, msg string, fields ...zap.Field
 }
 
 func (l metricLogger) Info(ctx context.Context, msg string, fields ...zap.Field) {
-	l.errorCounter.Inc()
 	l.parentLogger.Info(ctx, msg, fields...)
 }
 
@@ -34,6 +37,6 @@ func (l metricLogger) Warn(ctx context.Context, msg string, fields ...zap.Field)
 }
 
 func (l metricLogger) Error(ctx context.Context, msg string, fields ...zap.Field) {
-	l.errorCounter.Inc()
+	l.metricRegistry.IncrementRelayerErrorCounter()
 	l.parentLogger.Error(ctx, msg, fields...)
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
@@ -138,10 +139,12 @@ type AccountTxResult struct {
 
 // ServerStateValidatedLedger is the latest validated ledger from the server state.
 type ServerStateValidatedLedger struct {
-	BaseFee   uint32 `json:"base_fee"`
-	CloseTime uint32 `json:"close_time"`
-	Hash      string `json:"hash"`
-	Seq       int64  `json:"seq"`
+	BaseFee     uint32 `json:"base_fee"`
+	CloseTime   uint32 `json:"close_time"`
+	Hash        string `json:"hash"`
+	Seq         int64  `json:"seq"`
+	ReserveBase int64  `json:"reserve_base"`
+	ReserveInc  int64  `json:"reserve_inc"`
 }
 
 // ServerState is server state.
@@ -163,6 +166,30 @@ type ServerState struct {
 type ServerStateResult struct {
 	State  ServerState `json:"state"`
 	Status string      `json:"status"`
+}
+
+// SrcCurrency is source currency for the pathfinding.
+type SrcCurrency struct {
+	Currency rippledata.Currency `json:"currency"`
+}
+
+// RipplePathFindRequest is ripple_path_find request.
+type RipplePathFindRequest struct {
+	SrcAccount    rippledata.Account `json:"source_account"`
+	SrcCurrencies *[]SrcCurrency     `json:"source_currencies,omitempty"`
+	DestAccount   rippledata.Account `json:"destination_account"`
+	DestAmount    rippledata.Amount  `json:"destination_amount"`
+}
+
+// RipplePathFindResult is ripple_path_find result.
+type RipplePathFindResult struct {
+	Alternatives []struct {
+		SrcAmount      rippledata.Amount  `json:"source_amount"`
+		PathsComputed  rippledata.PathSet `json:"paths_computed,omitempty"`
+		PathsCanonical rippledata.PathSet `json:"paths_canonical,omitempty"`
+	}
+	DestAccount    rippledata.Account    `json:"destination_account"`
+	DestCurrencies []rippledata.Currency `json:"destination_currencies"`
 }
 
 // ******************** RPC transport objects ********************
@@ -235,6 +262,11 @@ func (c *RPCClient) GetXRPLBalances(ctx context.Context, acc rippledata.Account)
 		}
 		for _, line := range accLines.Lines {
 			lineCopy := line
+			// ignore the negative balance, since it means that the token is issued by bridge account and bridge account
+			// owes this amount of token to someone
+			if line.Balance.IsNegative() {
+				continue
+			}
 			balances = append(balances, rippledata.Amount{
 				Value:    &lineCopy.Balance.Value,
 				Currency: lineCopy.Currency,
@@ -339,7 +371,7 @@ func (c *RPCClient) AccountTx(
 		MinLedger: minLedger,
 		MaxLedger: maxLedger,
 		Binary:    false,
-		Forward:   false,
+		Forward:   true,
 		Limit:     c.cfg.PageLimit,
 		Marker:    marker,
 	}
@@ -356,6 +388,42 @@ func (c *RPCClient) ServerState(ctx context.Context) (ServerStateResult, error) 
 	var result ServerStateResult
 	if err := c.callRPC(ctx, "server_state", struct{}{}, &result); err != nil {
 		return ServerStateResult{}, err
+	}
+
+	return result, nil
+}
+
+// RipplePathFind returns the found ripple paths.
+func (c *RPCClient) RipplePathFind(
+	ctx context.Context,
+	srcAccount rippledata.Account,
+	srcCurrencies *[]rippledata.Currency,
+	destAccount rippledata.Account,
+	destAmount rippledata.Amount,
+) (RipplePathFindResult, error) {
+	var paramsSrcCurrencies *[]SrcCurrency
+	if srcCurrencies != nil {
+		paramsSrcCurrencies = lo.ToPtr(
+			lo.Map(
+				*srcCurrencies,
+				func(currency rippledata.Currency, _ int) SrcCurrency {
+					return SrcCurrency{
+						Currency: currency,
+					}
+				}),
+		)
+	}
+
+	params := RipplePathFindRequest{
+		SrcAccount:    srcAccount,
+		SrcCurrencies: paramsSrcCurrencies,
+		DestAccount:   destAccount,
+		DestAmount:    destAmount,
+	}
+
+	var result RipplePathFindResult
+	if err := c.callRPC(ctx, "ripple_path_find", params, &result); err != nil {
+		return RipplePathFindResult{}, err
 	}
 
 	return result, nil
@@ -430,7 +498,7 @@ func (c *RPCClient) AutoFillTx(
 
 // SubmitAndAwaitSuccess submits tx a waits for its result, if result is not success returns an error.
 func (c *RPCClient) SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Transaction) error {
-	c.log.Info(ctx, "Submitting transaction", zap.String("txHash", strings.ToUpper(tx.GetHash().String())))
+	c.log.Info(ctx, "Submitting XRPL transaction", zap.String("txHash", strings.ToUpper(tx.GetHash().String())))
 	// submit the transaction
 	res, err := c.Submit(ctx, tx)
 	if err != nil {

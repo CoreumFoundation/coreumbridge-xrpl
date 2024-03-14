@@ -17,7 +17,7 @@ public keys associated with each relayer from the contract for the transaction s
 
 The bridge contract is the major state transition of the bridge. It holds the operations state and protects the
 execution using the trusted addresses voting/signing mechanisms. Also, it has an owner account that can change the
-settings of the bridge and execute the workflows' recovery.
+settings of the contract/tokens or request operation execution from the relayers.
 
 #### Tokens registry
 
@@ -33,11 +33,11 @@ contract. The `sending precision` and `max holding amount` should be provided ta
 the [Amount rounding handling](#amount-rounding-handling).
 The token's `denom` is unique and is built by the contract using the `XRPL issuer`, `XRPL currency`, `block time` hash
 and `xrpl` prefix.
-Required features for the issuance are `minting`, `burning`, and `IBC`. During the registration, the contract issues a
+Required features for the issuance are `minting` and `IBC`. During the registration, the contract issues a
 token and will be responsible for its minting when a token is bridged from the XRPL to Coreum. After the registration,
 the token is put in `Processing` state and the contract triggers the `submit trust set for xrpl token` operation
 to allow the XRPL bridge account to receive that token. If this operation succeeds, the token will be `Enabled`,
-if it fails, it will be put to `Inactive` state awaiting a token registration recovery operation by the owner.
+if it fails, it will be put to `Inactive` state awaiting a token registration recovery requested operation by the owner.
 The value of the trustset limit amount will be provided during contract instantiation and saved in the config of the
 contract.
 Check [register-token workflow](#register-token) for more details.
@@ -72,7 +72,7 @@ In the case of Token state, a token can be Enabled/Disabled only if it's not in 
 case it requires a recovery operation and for the second one it's in the middle of TrustSet operation). In the case
 of `sending precision`, the owner can change it to another valid sending precision value. For `max holding amount`, the
 owner can change it to another max holding amount as long as the bridge holds equal or less than the new value. In the
-case of `bridging fee`, the owner can change it to any value.
+case of `bridging fee`, the owner can change it to a different value.
 
 #### Queues
 
@@ -111,7 +111,7 @@ contract initiates the `allocate tickets` operation to increase the amount. Once
 contract increases the free slots on the contract as well (based on the tx result). In the case the `allocate tickets`
 operation is rejected, another `allocate tickets` operation will be initiated by the contract. If no tickets are
 available, the contract will finish execution but notify with an event that it has run out of tickets. If this happens,
-the contract owner must initiate the ticket recovery workflow.
+the contract owner must request the ticket recovery.
 
 Check [workflow](#allocate-ticket) for more details.
 
@@ -203,21 +203,20 @@ unexpected behavior of any bridge component. Only the owner can resume the bridg
 #### Keys rotation
 
 All accounts that can interact with the contract or multi-signing account are registered on the contract. And can be
-rotated using the key rotation workflow. The workflow is triggered by the owner. The owner provides the new relayer
-Coreum addresses, XRPL public keys and signing/evidence threshold. This action will automatically halt the bridge
-in case it is not halted yet and start the key rotation workflow.
-During this workflow execution, no actions are allowed on the contract except for key rotation and tickets allocation.
-If there is a key rotation in process, the owner cannot trigger another key rotation. Once the key rotation
-operation has been confirmed by the relayers, the owner can trigger another key rotation (if needed/it failed) and/or
+rotated using the keys rotation. The workflow is started by the owner, and can be confirmed by the current relayer set.
+The owner provides the new proposed relayer Coreum addresses, XRPL public keys and signing/evidence threshold. This 
+action will automatically halt the bridge in case it is not halted yet and start the keys rotation workflow.
+If there is a keys rotation in process, the owner cannot trigger another keys rotation. Once the keys rotation
+operation has been confirmed by the relayers, the owner can trigger another keys rotation (if needed/it failed) and/or
 resume the bridge.
-This option gives the owner an ability to rotate the keys in case of a malicious re layer, or if the malicious relayer
-halted it. Check [workflow](#rotate-keys) for more details.
+Check [workflow](#rotate-keys) for more details.
 
 ### Relayer
 
 The relayer is a connector of the XRPL bridge account on XRPL chain and smart contract. There are multiple instances
 of relayers, one for each key pair in the smart contract and multi-signing account. Most of the workflows are
-implemented as event processing produced by the contract and multi-signing account.
+implemented as event processing produced by the contract and multi-signing account. The relayer source code is 
+open-sourced and public, so can be updatable at any time by any relayer.
 
 ## Amount rounding handling
 

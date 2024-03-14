@@ -144,6 +144,21 @@ func (mr *MockBridgeClientMockRecorder) GetContractConfig(arg0 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractConfig", reflect.TypeOf((*MockBridgeClient)(nil).GetContractConfig), arg0)
 }
 
+// GetContractOwnership mocks base method.
+func (m *MockBridgeClient) GetContractOwnership(arg0 context.Context) (coreum.ContractOwnership, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetContractOwnership", arg0)
+	ret0, _ := ret[0].(coreum.ContractOwnership)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetContractOwnership indicates an expected call of GetContractOwnership.
+func (mr *MockBridgeClientMockRecorder) GetContractOwnership(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractOwnership", reflect.TypeOf((*MockBridgeClient)(nil).GetContractOwnership), arg0)
+}
+
 // GetCoreumBalances mocks base method.
 func (m *MockBridgeClient) GetCoreumBalances(arg0 context.Context, arg1 types.AccAddress) (types.Coins, error) {
 	m.ctrl.T.Helper()
@@ -202,6 +217,36 @@ func (m *MockBridgeClient) GetPendingRefunds(arg0 context.Context, arg1 types.Ac
 func (mr *MockBridgeClientMockRecorder) GetPendingRefunds(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingRefunds", reflect.TypeOf((*MockBridgeClient)(nil).GetPendingRefunds), arg0, arg1)
+}
+
+// GetProhibitedXRPLAddresses mocks base method.
+func (m *MockBridgeClient) GetProhibitedXRPLAddresses(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProhibitedXRPLAddresses", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProhibitedXRPLAddresses indicates an expected call of GetProhibitedXRPLAddresses.
+func (mr *MockBridgeClientMockRecorder) GetProhibitedXRPLAddresses(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProhibitedXRPLAddresses", reflect.TypeOf((*MockBridgeClient)(nil).GetProhibitedXRPLAddresses), arg0)
+}
+
+// GetTransactionEvidences mocks base method.
+func (m *MockBridgeClient) GetTransactionEvidences(arg0 context.Context) ([]coreum.TransactionEvidence, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTransactionEvidences", arg0)
+	ret0, _ := ret[0].([]coreum.TransactionEvidence)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransactionEvidences indicates an expected call of GetTransactionEvidences.
+func (mr *MockBridgeClientMockRecorder) GetTransactionEvidences(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionEvidences", reflect.TypeOf((*MockBridgeClient)(nil).GetTransactionEvidences), arg0)
 }
 
 // GetXRPLBalances mocks base method.
@@ -387,6 +432,20 @@ func (m *MockBridgeClient) UpdateCoreumToken(arg0 context.Context, arg1 types.Ac
 func (mr *MockBridgeClientMockRecorder) UpdateCoreumToken(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCoreumToken", reflect.TypeOf((*MockBridgeClient)(nil).UpdateCoreumToken), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+}
+
+// UpdateProhibitedXRPLAddresses mocks base method.
+func (m *MockBridgeClient) UpdateProhibitedXRPLAddresses(arg0 context.Context, arg1 types.AccAddress, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateProhibitedXRPLAddresses", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateProhibitedXRPLAddresses indicates an expected call of UpdateProhibitedXRPLAddresses.
+func (mr *MockBridgeClientMockRecorder) UpdateProhibitedXRPLAddresses(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProhibitedXRPLAddresses", reflect.TypeOf((*MockBridgeClient)(nil).UpdateProhibitedXRPLAddresses), arg0, arg1, arg2)
 }
 
 // UpdateXRPLBaseFee mocks base method.

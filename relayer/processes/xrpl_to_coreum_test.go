@@ -115,6 +115,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 	tests := []struct {
 		name                  string
 		errorsCount           int
+		unexpectedTxCount     int
 		txScannerBuilder      func(ctrl *gomock.Controller, cancel func()) processes.XRPLAccountTxScanner
 		contractClientBuilder func(ctrl *gomock.Controller) processes.ContractClient
 	}{
@@ -245,6 +246,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 							Transaction: &rippledata.TrustSet{
 								TxBase: rippledata.TxBase{
 									TransactionType: rippledata.TRUST_SET,
+									Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 								},
 							},
 						}
@@ -410,6 +412,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 								TxBase: rippledata.TxBase{
 									Account:         bridgeXRPLAddress,
 									TransactionType: rippledata.TRUST_SET,
+									Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 								},
 								LimitAmount:    xrplOriginatedTokenXRPLAmount,
 								TicketSequence: lo.ToPtr(uint32(11)),
@@ -450,6 +453,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 								TxBase: rippledata.TxBase{
 									Account:         bridgeXRPLAddress,
 									TransactionType: rippledata.TRUST_SET,
+									Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 								},
 								LimitAmount:    xrplOriginatedTokenXRPLAmount,
 								TicketSequence: lo.ToPtr(uint32(11)),
@@ -578,6 +582,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 								TxBase: rippledata.TxBase{
 									Account:         bridgeXRPLAddress,
 									TransactionType: rippledata.SIGNER_LIST_SET,
+									Signers:         []rippledata.Signer{{}},
 								},
 								TicketSequence: lo.ToPtr(uint32(11)),
 							},
@@ -644,6 +649,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 								TxBase: rippledata.TxBase{
 									Account:         bridgeXRPLAddress,
 									TransactionType: rippledata.SIGNER_LIST_SET,
+									Signers:         []rippledata.Signer{{}},
 								},
 								TicketSequence: lo.ToPtr(uint32(11)),
 							},
@@ -700,6 +706,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 
 				return xrplAccountTxScannerMock
 			},
+			unexpectedTxCount: 1,
 		},
 	}
 	for _, tt := range tests {
@@ -718,6 +725,10 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 			if tt.contractClientBuilder != nil {
 				contractClient = tt.contractClientBuilder(ctrl)
 			}
+			metricRegistryMock := NewMockMetricRegistry(ctrl)
+			if tt.unexpectedTxCount > 0 {
+				metricRegistryMock.EXPECT().SetMaliciousBehaviourKey(gomock.Any()).Times(tt.unexpectedTxCount)
+			}
 			o, err := processes.NewXRPLToCoreumProcess(
 				processes.XRPLToCoreumProcessConfig{
 					BridgeXRPLAddress:    bridgeXRPLAddress,
@@ -726,6 +737,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 				logMock,
 				tt.txScannerBuilder(ctrl, cancel),
 				contractClient,
+				metricRegistryMock,
 			)
 			require.NoError(t, err)
 			require.ErrorIs(t, o.Start(ctx), context.Canceled)

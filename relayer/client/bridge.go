@@ -39,6 +39,7 @@ type ContractClient interface {
 		config coreum.InstantiationConfig,
 	) (sdk.AccAddress, error)
 	GetContractConfig(ctx context.Context) (coreum.ContractConfig, error)
+	GetContractOwnership(ctx context.Context) (coreum.ContractOwnership, error)
 	RecoverTickets(
 		ctx context.Context,
 		sender sdk.AccAddress,
@@ -127,12 +128,19 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		xrplBaseFee uint32,
 	) (*sdk.TxResponse, error)
+	GetProhibitedXRPLAddresses(ctx context.Context) ([]string, error)
+	UpdateProhibitedXRPLAddresses(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		prohibitedXRPLAddresses []string,
+	) (*sdk.TxResponse, error)
 	CancelPendingOperation(
 		ctx context.Context,
 		sender sdk.AccAddress,
 		operationID uint32,
 	) (*sdk.TxResponse, error)
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
+	GetTransactionEvidences(ctx context.Context) ([]coreum.TransactionEvidence, error)
 	DeployContract(
 		ctx context.Context,
 		sender sdk.AccAddress,
@@ -395,6 +403,11 @@ func (b *BridgeClient) GetContractConfig(ctx context.Context) (coreum.ContractCo
 	return b.contractClient.GetContractConfig(ctx)
 }
 
+// GetContractOwnership returns contract ownership.
+func (b *BridgeClient) GetContractOwnership(ctx context.Context) (coreum.ContractOwnership, error) {
+	return b.contractClient.GetContractOwnership(ctx)
+}
+
 // RecoverTickets recovers tickets allocation.
 func (b *BridgeClient) RecoverTickets(
 	ctx context.Context,
@@ -515,7 +528,6 @@ func (b *BridgeClient) RegisterXRPLToken(
 		zap.String("issuer", issuer.String()),
 		zap.String("currency", stringCurrency),
 		zap.Int32("sendingPrecision", sendingPrecision),
-		zap.String("maxHoldingAmount", maxHoldingAmount.String()),
 		zap.String("maxHoldingAmount", maxHoldingAmount.String()),
 		zap.String("bridgingFee", bridgingFee.String()),
 	)
@@ -713,6 +725,7 @@ func (b *BridgeClient) SetXRPLTrustSet(
 		LimitAmount: limitAmount,
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.TRUST_SET,
+			Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 		},
 	}
 
@@ -977,7 +990,7 @@ func (b *BridgeClient) GetPendingRefunds(ctx context.Context, address sdk.AccAdd
 
 // ClaimRefund claims pending refund.
 func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, refundID string) error {
-	b.log.Info(ctx, "claiming pending refund",
+	b.log.Info(ctx, "Claiming pending refund",
 		zap.String("address", address.String()),
 		zap.String("refundID", refundID))
 	txRes, err := b.contractClient.ClaimRefund(ctx, address, refundID)
@@ -989,9 +1002,38 @@ func (b *BridgeClient) ClaimRefund(ctx context.Context, address sdk.AccAddress, 
 		return nil
 	}
 
-	b.log.Info(ctx, "finished execution of claiming pending refund",
+	b.log.Info(ctx, "Finished execution of claiming pending refund",
 		zap.String("address", address.String()),
 		zap.String("refundID", refundID),
+		zap.String("txHash", txRes.TxHash),
+	)
+	return nil
+}
+
+// GetProhibitedXRPLAddresses queries for the list of the prohibited XRPL addresses.
+func (b *BridgeClient) GetProhibitedXRPLAddresses(ctx context.Context) ([]string, error) {
+	return b.contractClient.GetProhibitedXRPLAddresses(ctx)
+}
+
+// UpdateProhibitedXRPLAddresses updates the list of the prohibited XRPL addresses.
+func (b *BridgeClient) UpdateProhibitedXRPLAddresses(
+	ctx context.Context, address sdk.AccAddress, prohibitedXRPLAddresses []string,
+) error {
+	b.log.Info(ctx, "Updating prohibited XRPL addresses",
+		zap.Any("prohibitedXRPLAddresses", prohibitedXRPLAddresses))
+
+	txRes, err := b.contractClient.UpdateProhibitedXRPLAddresses(ctx, address, prohibitedXRPLAddresses)
+	if err != nil {
+		return err
+	}
+
+	if txRes == nil {
+		return nil
+	}
+
+	b.log.Info(
+		ctx,
+		"Successfully updated prohibited XRPL addresses",
 		zap.String("txHash", txRes.TxHash),
 	)
 	return nil
@@ -1053,7 +1095,7 @@ func (b *BridgeClient) HaltBridge(
 	ctx context.Context,
 	sender sdk.AccAddress,
 ) error {
-	b.log.Info(ctx, "halting the bridge", zap.String("sender", sender.String()))
+	b.log.Info(ctx, "Halting the bridge", zap.String("sender", sender.String()))
 	txRes, err := b.contractClient.HaltBridge(ctx, sender)
 	if err != nil {
 		return err
@@ -1063,7 +1105,7 @@ func (b *BridgeClient) HaltBridge(
 		return nil
 	}
 
-	b.log.Info(ctx, "finished execution of halt-bridge", zap.String("txHash", txRes.TxHash))
+	b.log.Info(ctx, "The bridge is halted", zap.String("txHash", txRes.TxHash))
 	return nil
 }
 
@@ -1093,11 +1135,17 @@ func (b *BridgeClient) GetPendingOperations(ctx context.Context) ([]coreum.Opera
 	return b.contractClient.GetPendingOperations(ctx)
 }
 
+// GetTransactionEvidences returns a list of not confirmed transaction evidences.
+func (b *BridgeClient) GetTransactionEvidences(ctx context.Context) ([]coreum.TransactionEvidence, error) {
+	b.log.Info(ctx, "Getting transaction evidences")
+	return b.contractClient.GetTransactionEvidences(ctx)
+}
+
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(
 	ctx context.Context,
 	xrplBridgeAccount rippledata.Account,
 ) error {
-	requiredXRPLBalance := ComputeXRPLBrideAccountBalance()
+	requiredXRPLBalance := ComputeXRPLBridgeAccountBalance()
 	b.log.Info(
 		ctx,
 		"Compute required XRPL bridge account balance to init the account",
@@ -1168,8 +1216,8 @@ func (b *BridgeClient) setUpXRPLBridgeAccount(
 	return b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &disableMasterKeyTx, bridgeAccountKeyName)
 }
 
-// ComputeXRPLBrideAccountBalance computes the min balance required by the XRPL bridge account.
-func ComputeXRPLBrideAccountBalance() float64 {
+// ComputeXRPLBridgeAccountBalance computes the min balance required by the XRPL bridge account.
+func ComputeXRPLBridgeAccountBalance() float64 {
 	return minBalanceToCoverFeeAndTrustLines +
 		xrpl.ReserveToActivateAccount +
 		// one additional item reserve is needed for a signer list object for multisig.
@@ -1217,8 +1265,9 @@ func ReadKeysRotationConfig(filePath string) (KeysRotationConfig, error) {
 }
 
 func saveConfigToFile(filePath string, srt any) error {
-	if err := os.MkdirAll(filepath.Dir(filePath), 0o700); err != nil {
-		return errors.Errorf("failed to create dirs by path:%s", filePath)
+	dirPath := filepath.Dir(filePath)
+	if err := os.MkdirAll(dirPath, 0o700); err != nil {
+		return errors.Errorf("failed to create dirs by path:%s", dirPath)
 	}
 
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)

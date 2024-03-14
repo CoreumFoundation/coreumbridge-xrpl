@@ -60,6 +60,7 @@ type CoreumToXRPLProcess struct {
 	contractClient ContractClient
 	xrplRPCClient  XRPLRPCClient
 	xrplSigner     XRPLTxSigner
+	metricRegistry MetricRegistry
 }
 
 // NewCoreumToXRPLProcess returns a new instance of the CoreumToXRPLProcess.
@@ -69,6 +70,7 @@ func NewCoreumToXRPLProcess(
 	contractClient ContractClient,
 	xrplRPCClient XRPLRPCClient,
 	xrplSigner XRPLTxSigner,
+	metricRegistry MetricRegistry,
 ) (*CoreumToXRPLProcess, error) {
 	if cfg.RelayerCoreumAddress.Empty() {
 		return nil, errors.Errorf("failed to init process, relayer address is nil or empty")
@@ -86,6 +88,7 @@ func NewCoreumToXRPLProcess(
 		contractClient: contractClient,
 		xrplRPCClient:  xrplRPCClient,
 		xrplSigner:     xrplSigner,
+		metricRegistry: metricRegistry,
 	}, nil
 }
 
@@ -104,7 +107,7 @@ func (p *CoreumToXRPLProcess) Start(ctx context.Context) error {
 				p.log.Info(ctx, "Process repeating is disabled, process is finished")
 				return nil
 			}
-			p.log.Info(ctx, "Waiting before the next execution", zap.String("delay", p.cfg.RepeatDelay.String()))
+			p.log.Debug(ctx, "Waiting before the next execution", zap.String("delay", p.cfg.RepeatDelay.String()))
 			select {
 			case <-ctx.Done():
 				return errors.WithStack(ctx.Err())
@@ -123,7 +126,7 @@ func (p *CoreumToXRPLProcess) processPendingOperations(ctx context.Context) erro
 		p.log.Debug(ctx, "No pending operations to process")
 		return nil
 	}
-	p.log.Info(ctx, "Processing pending operations", zap.Int("count", len(operations)))
+	p.log.Debug(ctx, "Processing pending operations", zap.Int("count", len(operations)))
 
 	bridgeSigners, err := p.getBridgeSigners(ctx)
 	if err != nil {
@@ -132,7 +135,13 @@ func (p *CoreumToXRPLProcess) processPendingOperations(ctx context.Context) erro
 
 	for _, operation := range operations {
 		if err := p.signOrSubmitOperation(ctx, operation, bridgeSigners); err != nil {
-			return err
+			p.log.Error(
+				ctx,
+				"Failed to process pending operation, skipping processing",
+				zap.Error(err),
+				zap.Any("operation", operation),
+			)
+			continue
 		}
 	}
 
@@ -245,7 +254,7 @@ func (p *CoreumToXRPLProcess) signOrSubmitOperation(
 	}
 	// These codes indicate that the transaction failed, but it was applied to a ledger to apply the transaction cost.
 	if strings.HasPrefix(txRes.EngineResult.String(), xrpl.TecTxResultPrefix) {
-		p.log.Info(
+		p.log.Debug(
 			ctx,
 			fmt.Sprintf(
 				"The transaction has been sent, but will be reverted, code:%s, description:%s",
@@ -255,21 +264,21 @@ func (p *CoreumToXRPLProcess) signOrSubmitOperation(
 		return nil
 	}
 
-	switch txRes.EngineResult.String() {
-	case xrpl.TefNOTicketTxResult, xrpl.TefPastSeqTxResult:
+	switch txRes.EngineResult {
+	case rippledata.TefNO_TICKET, rippledata.TefPAST_SEQ:
 		p.log.Debug(
 			ctx,
 			"Transaction has been already submitted",
 		)
 		return nil
-	case xrpl.TelInsufFeeP:
+	case rippledata.TelINSUF_FEE_P:
 		p.log.Warn(
 			ctx,
 			"The Fee from the transaction is not high enough to meet the server's current transaction cost requirement.",
 		)
 		return nil
 	default:
-		return errors.Errorf("failed to submit transaction, receveid unexpected result, code:%s result:%+v, tx:%+v",
+		return errors.Errorf("failed to submit transaction, received unexpected result, code:%s result:%+v, tx:%+v",
 			txRes.EngineResult.String(), txRes, tx)
 	}
 }
@@ -304,12 +313,12 @@ func (p *CoreumToXRPLProcess) buildSubmittableTransaction(
 		}
 		var txSignature rippledata.VariableLength
 		if err := txSignature.UnmarshalText([]byte(signature.Signature)); err != nil {
+			p.registerInvalidSignatureMetric(operation.GetOperationID(), signature)
 			p.log.Error(
 				ctx,
 				"Failed to unmarshal tx signature",
-				zap.Error(err),
-				zap.String("signature", signature.Signature),
-				zap.String("xrplAcc", xrplAcc.String()),
+				zap.Error(err), zap.String("signature", signature.Signature),
+				zap.String("xrplAddress", xrplAcc.String()), zap.String("coreumAddress", signature.RelayerCoreumAddress.String()),
 			)
 			continue
 		}
@@ -329,20 +338,24 @@ func (p *CoreumToXRPLProcess) buildSubmittableTransaction(
 		}
 		isValid, _, err := rippledata.CheckMultiSignature(tx)
 		if err != nil {
+			p.registerInvalidSignatureMetric(operation.GetOperationID(), signature)
 			p.log.Error(
 				ctx,
 				"failed to check transaction signature, err:%s, signer:%+v",
 				zap.Error(err),
 				zap.Any("signer", txSigner),
+				zap.String("xrplAddress", xrplAcc.String()), zap.String("coreumAddress", signature.RelayerCoreumAddress.String()),
 			)
 			continue
 		}
 		if !isValid {
+			p.registerInvalidSignatureMetric(operation.GetOperationID(), signature)
 			p.log.Error(
 				ctx,
 				"Invalid tx signature",
 				zap.Error(err),
 				zap.Any("txSigner", txSigner),
+				zap.String("xrplAddress", xrplAcc.String()), zap.String("coreumAddress", signature.RelayerCoreumAddress.String()),
 			)
 			continue
 		}
@@ -422,6 +435,15 @@ func (p *CoreumToXRPLProcess) preValidateOperation(ctx context.Context, operatio
 	}
 
 	return false, nil
+}
+
+func (p *CoreumToXRPLProcess) registerInvalidSignatureMetric(operationID uint32, signature coreum.Signature) {
+	p.metricRegistry.SetMaliciousBehaviourKey(
+		fmt.Sprintf(
+			"invalid_signature_for_operation_%d_relayer_%s",
+			operationID, signature.RelayerCoreumAddress.String(),
+		),
+	)
 }
 
 func (p *CoreumToXRPLProcess) registerTxSignature(ctx context.Context, operation coreum.Operation) error {

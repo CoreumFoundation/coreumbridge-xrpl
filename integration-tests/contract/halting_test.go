@@ -120,7 +120,7 @@ func TestBridgeHalting(t *testing.T) {
 
 	// try to provide transfer evidence with the halted bridge
 	xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{
-		TxHash:    genXRPLTxHash(t),
+		TxHash:    integrationtests.GenXRPLTxHash(t),
 		Issuer:    xrpl.GenPrivKeyTxSigner().Account().String(),
 		Currency:  xrpl.ConvertCurrencyToString(integrationtests.GenerateXRPLCurrency(t)),
 		Amount:    sdkmath.NewInt(1000),
@@ -162,7 +162,7 @@ func TestBridgeHalting(t *testing.T) {
 	for _, operation := range pendingOperations {
 		operationType := operation.OperationType.CoreumToXRPLTransfer
 		require.NotNil(t, operationType)
-		hash := genXRPLTxHash(t)
+		hash := integrationtests.GenXRPLTxHash(t)
 		for _, relayer := range relayers {
 			acceptTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
 				XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{
@@ -192,7 +192,7 @@ func TestBridgeHalting(t *testing.T) {
 	require.Empty(t, availableTickets)
 
 	// reject allocation first to check the recovery with the halted bridge
-	xrplTxHash := genXRPLTxHash(t)
+	xrplTxHash := integrationtests.GenXRPLTxHash(t)
 	for _, relayer := range relayers {
 		rejectTxEvidence := coreum.XRPLTransactionResultTicketsAllocationEvidence{
 			XRPLTransactionResultEvidence: coreum.XRPLTransactionResultEvidence{

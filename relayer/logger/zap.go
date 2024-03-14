@@ -23,6 +23,11 @@ const (
 type ZapLoggerConfig struct {
 	Level  string
 	Format string
+	// CallerSkip increases the number of callers skipped by caller annotation
+	// (as enabled by the AddCaller option). When building wrappers around the
+	// Logger and SugaredLogger, supplying this Option prevents zap from always
+	// reporting the wrapper code as the caller.
+	CallerSkip int
 }
 
 // DefaultZapLoggerConfig returns default ZapLoggerConfig.
@@ -30,6 +35,8 @@ func DefaultZapLoggerConfig() ZapLoggerConfig {
 	return ZapLoggerConfig{
 		Level:  "info",
 		Format: "console",
+		//
+		CallerSkip: 2,
 	}
 }
 
@@ -64,7 +71,11 @@ func NewZapLogger(cfg ZapLoggerConfig) (*ZapLogger, error) {
 		ErrorOutputPaths: []string{"stderr"},
 	}
 
-	zapLogger, err := zapCfg.Build(zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zapcore.ErrorLevel))
+	zapLogger, err := zapCfg.Build(
+		zap.AddCaller(),
+		zap.AddCallerSkip(cfg.CallerSkip),
+		zap.AddStacktrace(zapcore.ErrorLevel),
+	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build zap logger from the config, config:%+v", zapCfg)
 	}

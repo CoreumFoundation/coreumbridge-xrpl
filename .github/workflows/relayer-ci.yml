@@ -65,13 +65,13 @@ jobs:
         with:
           repository: CoreumFoundation/crust
           path: crust
-          ref: 10752622f34c65d216f755ff30ee0d532e20a5be
+          ref: bfeaa9ae4eace8b2d66e718ad50a03acd59d182c
       - name: Checkout coreum
         uses: actions/checkout@v4
         with:
           repository: CoreumFoundation/coreum
           path: coreum
-          ref: v3.0.3
+          ref: 4695973601fb222a90677c645e975f6a264238b6
       - name: Get crust-coreum cache key
         id: crust-coreum-cache-key
         run: |
@@ -81,7 +81,7 @@ jobs:
           COREM_HASH=$(git rev-parse HEAD)
           echo "key=$CRUST_HASH-$COREM_HASH" >> $GITHUB_OUTPUT
         shell: bash
-      - name: Set up crust
+      - name: Set up crust binaries
         run: echo "$(pwd)/crust/bin" >> $GITHUB_PATH
       - name: Set up crust cache
         uses: actions/cache@v4
@@ -90,6 +90,8 @@ jobs:
             ~/.cache/crust/
             ${{ github.workspace }}/crust/bin/.cache
           key: ${{ runner.os }}-crust-cache-${{ steps.crust-coreum-cache-key.outputs.key }}
+      - name: Set up coreum binaries
+        run: echo "$(pwd)/coreum/bin" >> $GITHUB_PATH
       - name: Set up go cache
         uses: actions/cache@v4
         with:
