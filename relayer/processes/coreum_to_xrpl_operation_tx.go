@@ -56,6 +56,7 @@ func BuildTrustSetTxForMultiSigning(
 		TxBase: rippledata.TxBase{
 			Account:         bridgeXRPLAddress,
 			TransactionType: rippledata.TRUST_SET,
+			Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 		},
 		LimitAmount: value,
 	}
