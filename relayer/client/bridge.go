@@ -368,36 +368,6 @@ func (b *BridgeClient) DeployContract(
 	return txRes, codeID, nil
 }
 
-// MigrateContract calls the contract migration.
-func (b *BridgeClient) MigrateContract(
-	ctx context.Context,
-	sender sdk.AccAddress,
-	codeID uint64,
-) error {
-	b.log.Info(
-		ctx,
-		"Migrating contract",
-		zap.Uint64("codeID", codeID),
-	)
-
-	txRes, err := b.contractClient.MigrateContract(ctx, sender, codeID)
-	if err != nil {
-		return err
-	}
-
-	if txRes == nil {
-		return nil
-	}
-
-	b.log.Info(
-		ctx,
-		"Successfully migrated contract",
-		zap.String("txHash", txRes.TxHash),
-	)
-
-	return nil
-}
-
 // GetContractConfig returns contract config.
 func (b *BridgeClient) GetContractConfig(ctx context.Context) (coreum.ContractConfig, error) {
 	return b.contractClient.GetContractConfig(ctx)

@@ -150,7 +150,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		EvidenceThreshold:           cfg.SigningThreshold,
 		UsedTicketSequenceThreshold: cfg.UsedTicketSequenceThreshold,
 		TrustSetLimitAmount:         cfg.TrustSetLimitAmount.String(),
-		ContractByteCodePath:        integrationtests.ContractFilePathV002,
+		ContractByteCodePath:        integrationtests.ContractFilePathV110,
 		XRPLBaseFee:                 cfg.XRPLBaseFee,
 		SkipXRPLBalanceValidation:   true,
 	}
@@ -164,7 +164,8 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 		_, codeID, err := bridgeClient.DeployContract(ctx, contractOwner, integrationtests.CompiledContractFilePath)
 		require.NoError(t, err)
 
-		require.NoError(t, bridgeClient.MigrateContract(ctx, contractOwner, codeID))
+		_, err = contractClient.MigrateContract(ctx, contractOwner, codeID)
+		require.NoError(t, err)
 	} else {
 		require.NoError(t, contractClient.SetContractAddress(*cfg.CustomContractAddress))
 	}

@@ -295,7 +295,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenTooLowAmounts(t *testing.T) {
 		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -2226,7 +2226,7 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,

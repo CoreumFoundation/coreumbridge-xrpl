@@ -278,20 +278,6 @@ func (mr *MockBridgeClientMockRecorder) HaltBridge(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HaltBridge", reflect.TypeOf((*MockBridgeClient)(nil).HaltBridge), arg0, arg1)
 }
 
-// MigrateContract mocks base method.
-func (m *MockBridgeClient) MigrateContract(arg0 context.Context, arg1 types.AccAddress, arg2 uint64) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MigrateContract", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MigrateContract indicates an expected call of MigrateContract.
-func (mr *MockBridgeClientMockRecorder) MigrateContract(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateContract", reflect.TypeOf((*MockBridgeClient)(nil).MigrateContract), arg0, arg1, arg2)
-}
-
 // RecoverTickets mocks base method.
 func (m *MockBridgeClient) RecoverTickets(arg0 context.Context, arg1 types.AccAddress, arg2 *uint32) error {
 	m.ctrl.T.Helper()

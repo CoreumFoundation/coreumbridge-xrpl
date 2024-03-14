@@ -1936,7 +1936,7 @@ func TestRegisterXRPLTokenWithProhibitedIssuer(t *testing.T) {
 	ctx, chains := integrationtests.NewTestingContext(t)
 	relayers := genRelayers(ctx, t, chains, 2)
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,

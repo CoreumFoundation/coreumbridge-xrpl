@@ -219,11 +219,6 @@ type BridgeClient interface {
 		sender sdk.AccAddress,
 		contractByteCodePath string,
 	) (*sdk.TxResponse, uint64, error)
-	MigrateContract(
-		ctx context.Context,
-		sender sdk.AccAddress,
-		codeID uint64,
-	) error
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.

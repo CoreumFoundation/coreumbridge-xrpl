@@ -119,45 +119,6 @@ func executeQueryCmd(t *testing.T, cmd *cobra.Command, args ...string) {
 	executeCmd(t, cmd, args...)
 }
 
-func TestDeployContractCmd(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	bridgeClientMock := NewMockBridgeClient(ctrl)
-
-	keyringDir := t.TempDir()
-	keyName := "deployer"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	deployer := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
-
-	contractPath := "/home/coreumbridge_xrpl.wasm"
-
-	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
-	args = append(args, testKeyringFlags(keyringDir)...)
-	args = append(args, contractPath)
-	bridgeClientMock.EXPECT().DeployContract(gomock.Any(), deployer, contractPath).Return(nil, uint64(1), nil)
-	executeCmd(t, cli.DeployContractCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
-}
-
-func TestMigrateContractCmd(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	bridgeClientMock := NewMockBridgeClient(ctrl)
-
-	keyringDir := t.TempDir()
-	keyName := "owner"
-	addKeyToTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
-	deployer := readKeyFromTestKeyring(t, keyringDir, keyName, coreum.KeyringSuffix)
-
-	codeID := uint64(123)
-	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
-	args = append(args, testKeyringFlags(keyringDir)...)
-	args = append(args, strconv.Itoa(int(codeID)))
-	bridgeClientMock.EXPECT().MigrateContract(gomock.Any(), deployer, codeID).Return(nil)
-	executeCmd(t, cli.MigrateContractCmd(mockBridgeClientProvider(bridgeClientMock)), args...)
-}
-
 func executeCmd(t *testing.T, cmd *cobra.Command, args ...string) string {
 	return executeCmdWithOutputOption(t, cmd, "text", args...)
 }

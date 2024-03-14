@@ -23,7 +23,7 @@ func TestContractMigration(t *testing.T) {
 
 	xrplBridgeAddress := xrpl.GenPrivKeyTxSigner().Account()
 	xrplBaseFee := uint32(10)
-	owner, contractClient := integrationtests.DeployAndInstantiateContrantV002(
+	owner, contractClient := integrationtests.DeployAndInstantiateContrantV110(
 		ctx,
 		t,
 		chains,
