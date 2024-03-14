@@ -141,6 +141,7 @@ func TestRegisterAndUpdateCoreumToken(t *testing.T) {
 		},
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.TRUST_SET,
+			Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 		},
 	}
 	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &trustSetTx, recipientAcc))

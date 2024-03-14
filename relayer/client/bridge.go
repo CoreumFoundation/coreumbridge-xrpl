@@ -650,6 +650,7 @@ func (b *BridgeClient) SetXRPLTrustSet(
 		LimitAmount: limitAmount,
 		TxBase: rippledata.TxBase{
 			TransactionType: rippledata.TRUST_SET,
+			Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 		},
 	}
 
