@@ -34,7 +34,7 @@ func DeployInstantiateAndMigrateContract(
 ) (sdk.AccAddress, *coreum.ContractClient) {
 	t.Helper()
 
-	owner, contractClient := DeployAndInstantiateContrantV110(
+	owner, contractClient := DeployAndInstantiateContractV110(
 		ctx,
 		t,
 		chains,
@@ -61,8 +61,8 @@ func MigrateContract(ctx context.Context, t *testing.T, contractClient *coreum.C
 	require.NoError(t, err)
 }
 
-// DeployAndInstantiateContrantV110 deploys and instantiates the mainnet version of the contract.
-func DeployAndInstantiateContrantV110(
+// DeployAndInstantiateContractV110 deploys and instantiates the mainnet version of the contract.
+func DeployAndInstantiateContractV110(
 	ctx context.Context,
 	t *testing.T,
 	chains Chains,
