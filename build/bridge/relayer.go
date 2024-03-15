@@ -2,7 +2,9 @@ package bridge
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/build"
 	"github.com/CoreumFoundation/crust/build/git"
@@ -11,13 +13,15 @@ import (
 )
 
 const (
-	repoName    = "coreumbridge-xrpl"
-	repoPath    = "."
-	binaryName  = "coreumbridge-xrpl"
-	binaryPath  = "bin/" + binaryName
-	testsDir    = repoPath + "/integration-tests"
-	testsBinDir = "bin/.cache/integration-tests"
-	goCoverFlag = "-cover"
+	repoName         = "coreumbridge-xrpl"
+	repoPath         = "."
+	binaryName       = "coreumbridge-xrpl"
+	binaryPath       = "bin/" + binaryName
+	testsDir         = repoPath + "/integration-tests"
+	testsBinDir      = "bin/.cache/integration-tests"
+	goCoverFlag      = "-cover"
+	binaryOutputFlag = "-o"
+	tagsFlag         = "-tags"
 )
 
 // BuildRelayer builds all the versions of relayer binary.
@@ -28,7 +32,7 @@ func BuildRelayer(ctx context.Context, deps build.DepsFunc) error {
 
 // BuildRelayerLocally builds relayer locally.
 func BuildRelayerLocally(ctx context.Context, deps build.DepsFunc) error {
-	parameters, err := relayerVersionParams(ctx)
+	versionFlags, err := relayerVersionLDFlags(ctx)
 	if err != nil {
 		return err
 	}
@@ -36,8 +40,10 @@ func BuildRelayerLocally(ctx context.Context, deps build.DepsFunc) error {
 	return golang.Build(ctx, deps, golang.BinaryBuildConfig{
 		TargetPlatform: tools.TargetPlatformLocal,
 		PackagePath:    filepath.Join(repoPath, "relayer/cmd"),
-		BinOutputPath:  binaryPath,
-		Parameters:     parameters,
+		Flags: []string{
+			versionFlags,
+			binaryOutputFlag + "=" + binaryPath,
+		},
 	})
 }
 
@@ -52,7 +58,7 @@ func buildRelayerInDocker(
 	targetPlatform tools.TargetPlatform,
 	extraFlags []string,
 ) error {
-	parameters, err := relayerVersionParams(ctx)
+	versionFlags, err := relayerVersionLDFlags(ctx)
 	if err != nil {
 		return err
 	}
@@ -60,9 +66,10 @@ func buildRelayerInDocker(
 	return golang.Build(ctx, deps, golang.BinaryBuildConfig{
 		TargetPlatform: targetPlatform,
 		PackagePath:    filepath.Join(repoPath, "relayer/cmd"),
-		BinOutputPath:  filepath.Join("bin", ".cache", binaryName, targetPlatform.String(), "bin", binaryName),
-		Parameters:     parameters,
-		Flags:          extraFlags,
+		Flags: append(extraFlags,
+			versionFlags,
+			binaryOutputFlag+"="+
+				filepath.Join("bin", ".cache", binaryName, targetPlatform.String(), "bin", binaryName)),
 	})
 }
 
@@ -82,22 +89,29 @@ func Test(ctx context.Context, deps build.DepsFunc) error {
 	return golang.Test(ctx, repoPath, deps)
 }
 
-func relayerVersionParams(ctx context.Context) (map[string]string, error) {
+func relayerVersionLDFlags(ctx context.Context) (string, error) {
 	hash, err := git.DirtyHeadHash(ctx, repoPath)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	version, err := git.VersionFromTag(ctx, repoPath)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if version == "" {
 		version = hash
 	}
 
-	return map[string]string{
+	ps := map[string]string{
 		"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo.VersionTag": version,
 		"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo.GitCommit":  hash,
-	}, nil
+	}
+
+	var ldFlags []string
+	for k, v := range ps {
+		ldFlags = append(ldFlags, fmt.Sprintf("-X %s=%s", k, v))
+	}
+
+	return "-ldflags=" + strings.Join(ldFlags, " "), nil
 }

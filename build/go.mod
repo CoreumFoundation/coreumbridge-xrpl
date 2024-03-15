@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240223065112-97400ae15d8e
-	github.com/CoreumFoundation/crust/build v0.0.0-20240223131002-860a2548b628
+	github.com/CoreumFoundation/crust/build v0.0.0-20240314162557-6208b1828c90
 	github.com/pkg/errors v0.9.1
 	go.uber.org/zap v1.26.0
 	golang.org/x/mod v0.14.0
