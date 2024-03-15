@@ -17,6 +17,8 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
+const asfAllowTrustLineClawbackFlag = uint32(16)
+
 func TestXRPAndIssuedTokensPayment(t *testing.T) {
 	t.Parallel()
 
@@ -966,8 +968,7 @@ func TestXRPLClawback(t *testing.T) {
 			TransactionType: rippledata.ACCOUNT_SET,
 		},
 		// https://xrpl.org/docs/references/protocol/transactions/types/accountset/#accountset-flags
-		// asfAllowTrustLineClawback	16
-		SetFlag: lo.ToPtr(uint32(16)),
+		SetFlag: lo.ToPtr(asfAllowTrustLineClawbackFlag),
 	}
 	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &allowClawbackTx, issuerClawbackAcc))
 
@@ -1066,8 +1067,7 @@ func TestXRPLClawback(t *testing.T) {
 			TransactionType: rippledata.ACCOUNT_SET,
 		},
 		// https://xrpl.org/docs/references/protocol/transactions/types/accountset/#accountset-flags
-		// asfAllowTrustLineClawback	16
-		SetFlag: lo.ToPtr(uint32(16)),
+		SetFlag: lo.ToPtr(asfAllowTrustLineClawbackFlag),
 	}
 	require.ErrorContains(
 		t,
