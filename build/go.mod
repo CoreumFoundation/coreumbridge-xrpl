@@ -4,10 +4,8 @@ go 1.21
 
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240223065112-97400ae15d8e
-	github.com/CoreumFoundation/crust/build v0.0.0-20240314162557-6208b1828c90
+	github.com/CoreumFoundation/crust/build v0.0.0-20240315073401-1192a9abf980
 	github.com/pkg/errors v0.9.1
-	go.uber.org/zap v1.26.0
-	golang.org/x/mod v0.14.0
 )
 
 require (
@@ -15,8 +13,10 @@ require (
 	github.com/samber/lo v1.39.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.26.0 // indirect
 	// Make sure to not bump x/exp dependency without cosmos-sdk updated because their breaking change is not compatible
 	// with cosmos-sdk v0.47.
 	// Details: https://github.com/cosmos/cosmos-sdk/issues/18415
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1 // indirect
+	golang.org/x/mod v0.14.0 // indirect
 )

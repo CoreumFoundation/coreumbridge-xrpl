@@ -42,7 +42,7 @@ func BuildIntegrationTests(name string) build.CommandFunc {
 	return func(ctx context.Context, deps build.DepsFunc) error {
 		deps(BuildSmartContract)
 
-		return golang.BuildTests(ctx, golang.TestBuildConfig{
+		return golang.BuildTests(ctx, deps, golang.TestBuildConfig{
 			PackagePath: filepath.Join(testsDir, name),
 			Flags: []string{
 				"-tags=integrationtests",
