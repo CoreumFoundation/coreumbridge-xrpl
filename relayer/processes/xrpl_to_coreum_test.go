@@ -246,6 +246,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 							Transaction: &rippledata.TrustSet{
 								TxBase: rippledata.TxBase{
 									TransactionType: rippledata.TRUST_SET,
+									Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 								},
 							},
 						}
@@ -411,6 +412,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 								TxBase: rippledata.TxBase{
 									Account:         bridgeXRPLAddress,
 									TransactionType: rippledata.TRUST_SET,
+									Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 								},
 								LimitAmount:    xrplOriginatedTokenXRPLAmount,
 								TicketSequence: lo.ToPtr(uint32(11)),
@@ -451,6 +453,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 								TxBase: rippledata.TxBase{
 									Account:         bridgeXRPLAddress,
 									TransactionType: rippledata.TRUST_SET,
+									Flags:           lo.ToPtr(rippledata.TxSetNoRipple),
 								},
 								LimitAmount:    xrplOriginatedTokenXRPLAmount,
 								TicketSequence: lo.ToPtr(uint32(11)),
