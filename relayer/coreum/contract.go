@@ -522,7 +522,7 @@ func (c *ContractClient) DeployAndInstantiate(
 	byteCode []byte,
 	config InstantiationConfig,
 ) (sdk.AccAddress, error) {
-	_, codeID, err := c.deployContract(ctx, sender, byteCode)
+	_, codeID, err := c.DeployContract(ctx, sender, byteCode)
 	if err != nil {
 		return nil, err
 	}
@@ -583,10 +583,25 @@ func (c *ContractClient) DeployContract(
 	sender sdk.AccAddress,
 	byteCode []byte,
 ) (*sdk.TxResponse, uint64, error) {
-	txRes, codeID, err := c.deployContract(ctx, sender, byteCode)
-	if err != nil {
-		return nil, 0, err
+	msgStoreCode := &wasmtypes.MsgStoreCode{
+		Sender:       sender.String(),
+		WASMByteCode: byteCode,
 	}
+	c.log.Info(ctx, "Deploying contract bytecode.")
+
+	txRes, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgStoreCode)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "failed to deploy wasm bytecode")
+	}
+	// handle the genereate only case
+	if txRes == nil {
+		return nil, 0, nil
+	}
+	codeID, err := event.FindUint64EventAttribute(txRes.Events, wasmtypes.EventTypeStoreCode, wasmtypes.AttributeKeyCodeID)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "failed to find code ID in the tx result")
+	}
+	c.log.Info(ctx, "The contract bytecode is deployed.", zap.Uint64("codeID", codeID))
 
 	return txRes, codeID, nil
 }
@@ -1403,34 +1418,6 @@ func (c *ContractClient) GetProhibitedXRPLAddresses(ctx context.Context) ([]stri
 	}
 
 	return response.ProhibitedXRPLAddresses, nil
-}
-
-func (c *ContractClient) deployContract(
-	ctx context.Context,
-	sender sdk.AccAddress,
-	byteCode []byte,
-) (*sdk.TxResponse, uint64, error) {
-	msgStoreCode := &wasmtypes.MsgStoreCode{
-		Sender:       sender.String(),
-		WASMByteCode: byteCode,
-	}
-	c.log.Info(ctx, "Deploying contract bytecode.")
-
-	txRes, err := client.BroadcastTx(ctx, c.clientCtx.WithFromAddress(sender), c.getTxFactory(), msgStoreCode)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "failed to deploy wasm bytecode")
-	}
-	// handle the genereate only case
-	if txRes == nil {
-		return nil, 0, nil
-	}
-	codeID, err := event.FindUint64EventAttribute(txRes.Events, wasmtypes.EventTypeStoreCode, wasmtypes.AttributeKeyCodeID)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "failed to find code ID in the tx result")
-	}
-	c.log.Info(ctx, "The contract bytecode is deployed.", zap.Uint64("codeID", codeID))
-
-	return txRes, codeID, nil
 }
 
 func (c *ContractClient) getPaginatedXRPLTokens(
