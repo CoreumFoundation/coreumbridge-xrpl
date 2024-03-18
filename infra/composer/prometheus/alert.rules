@@ -10,13 +10,13 @@ groups:
       labels:
         severity: "critical"
 
-    - alert: High relayer error rate
-      expr: rate(relayer_errors_total[5m]) * 5 * 60 > 10
-      for: 30s
+    - alert: High relayer error increase
+      expr: increase(relayer_errors_total[5m]) > 10
+      for: 10m
       labels:
         severity: major
       annotations:
-        description: "High relayer error rate"
+        description: "High relayer error increase"
 
     - alert: Low contract XRPL base fee
       expr: contract_config_xrpl_base_fee < xrpl_chain_base_fee
@@ -76,7 +76,7 @@ groups:
         description: "Detected malicious behaviour: {{ $labels.malicious_behaviour_key }}"
 
     - alert: No relayer activity for more than 24h
-      expr: increase(relayer_activity{action=~"save_evidence|save_signature"}[24h]) == 0
+      expr: (relayer_activity{action="save_evidence"} + on (relayer_coreum_address) relayer_activity{action="save_signature"}) == 0
       for: 10m # to let the relayer provide the metric after the restart
       labels:
         severity: "major"

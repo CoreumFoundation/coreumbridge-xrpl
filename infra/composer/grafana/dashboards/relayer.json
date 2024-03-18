@@ -1293,7 +1293,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "increase(relayer_errors_total[$__range])",
+          "expr": "increase(relayer_errors_total[5m])",
           "format": "time_series",
           "instant": false,
           "legendFormat": "Errors",
@@ -1301,7 +1301,7 @@
           "refId": "A"
         }
       ],
-      "title": "Errors count",
+      "title": "Errors increase 5m",
       "type": "timeseries"
     },
     {
