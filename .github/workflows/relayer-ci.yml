@@ -121,6 +121,10 @@ jobs:
         run: make build-contract
         working-directory: ./coreumbridge-xrpl
         if: ${{ matrix.build-contract }}
+      - name: Download released wasm contract
+        run: make download-released-contract
+        if: ${{ matrix.build-contract }}
+        working-directory: ./coreumbridge-xrpl
       - name: Build dev environment
         run: make build-dev-env
         working-directory: ./coreumbridge-xrpl

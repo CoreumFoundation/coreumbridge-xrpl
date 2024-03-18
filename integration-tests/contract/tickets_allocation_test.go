@@ -28,7 +28,7 @@ func TestRecoverTickets(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 3)
 	xrplBaseFee := uint32(10)
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,

@@ -36,7 +36,7 @@ func TestBridgeHalting(t *testing.T) {
 
 	xrplBridgeAddress := xrpl.GenPrivKeyTxSigner().Account()
 	xrplBaseFee := uint32(10)
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,

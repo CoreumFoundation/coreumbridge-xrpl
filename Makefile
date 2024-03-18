@@ -15,6 +15,7 @@ LD_FLAGS:="-extldflags=-static \
 GOOS?=
 GOARCH?=
 BINARY_NAME?=coreumbridge-xrpl-relayer
+RELEASE_VERSION=v1.1.0
 
 ###############################################################################
 ###                                  Build                                  ###
@@ -137,6 +138,11 @@ restart-bridge-znet-env:
 	docker compose -p bridge-znet -f ./infra/composer/docker-compose.yaml down
 	crust znet start --profiles=bridge-xrpl
 	docker compose -p bridge-znet -f ./infra/composer/docker-compose.yaml up -d
+
+.PHONY: download-released-contract
+download-released-contract:
+	mkdir -p $(BUILD_DIR)
+	curl --fail -LJ -o $(BUILD_DIR)/coreumbridge_xrpl_$(RELEASE_VERSION).wasm https://github.com/CoreumFoundation/coreumbridge-xrpl/releases/download/$(RELEASE_VERSION)/coreumbridge_xrpl.wasm
 
 .PHONY: smoke
 smoke:

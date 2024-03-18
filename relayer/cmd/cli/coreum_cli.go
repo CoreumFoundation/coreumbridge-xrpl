@@ -51,6 +51,7 @@ func CoreumCmd(bcp BridgeClientProvider) (*cobra.Command, error) {
 	coreumTxCmd.AddCommand(ResumeBridgeCmd(bcp))
 	coreumTxCmd.AddCommand(CancelPendingOperationCmd(bcp))
 	coreumTxCmd.AddCommand(UpdateProhibitedXRPLAddressesCmd(bcp))
+	coreumTxCmd.AddCommand(DeployContractCmd(bcp))
 
 	AddCoreumTxFlags(coreumTxCmd)
 
@@ -722,6 +723,36 @@ $ update-prohibited-xrpl-addresses --%s %s --%s %s --%s owner
 	}
 
 	cmd.PersistentFlags().StringArray(FlagProhibitedXRPLAddress, []string{}, "Prohibited XRPL addresses")
+
+	return cmd
+}
+
+// DeployContractCmd deploys contract bytecode.
+func DeployContractCmd(bcp BridgeClientProvider) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "deploy-contract [path]",
+		Short: "Deploy contract bytecode.",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`Deploy contract bytecode.
+Example:
+$ deploy-contract /home/coreumbridge_xrpl.wasm --%s deployer
+`, FlagKeyName)),
+		Args: cobra.ExactArgs(1),
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
+				sender, err := readFromAddressFromCmdSDKClientCtx(cmd)
+				if err != nil {
+					return err
+				}
+				_, _, err = bridgeClient.DeployContract(
+					ctx,
+					sender,
+					args[0],
+				)
+				return err
+			}),
+	}
 
 	return cmd
 }

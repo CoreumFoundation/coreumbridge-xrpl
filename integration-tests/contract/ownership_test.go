@@ -22,7 +22,7 @@ func TestChangeContractOwnership(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 1)
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,

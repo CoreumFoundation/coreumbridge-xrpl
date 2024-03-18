@@ -1128,6 +1128,31 @@ func TestUpdateProhibitedXRPLAddressesCmd(t *testing.T) {
 	)
 }
 
+func TestDeployContractCmd(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	keyringDir := t.TempDir()
+	keyName := "deployer"
+	deployer := addKeyToTestKeyring(t, keyringDir, keyName, cli.CoreumKeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
+
+	contractPath := "/home/coreumbridge_xrpl.wasm"
+
+	args := []string{flagWithPrefix(cli.FlagKeyName), keyName}
+	args = append(args, testKeyringFlags(keyringDir)...)
+	args = append(args, initConfig(t)...)
+	args = append(args, contractPath)
+	bridgeClientMock.EXPECT().DeployContract(gomock.Any(), deployer, contractPath).Return(nil, uint64(1), nil)
+	executeCoreumTxCmd(
+		t,
+		mockBridgeClientProvider(bridgeClientMock),
+		cli.DeployContractCmd(mockBridgeClientProvider(bridgeClientMock)),
+		args...,
+	)
+}
+
 func TestPendingOperationsCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

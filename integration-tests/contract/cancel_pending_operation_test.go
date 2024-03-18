@@ -34,7 +34,7 @@ func TestCancelPendingOperation(t *testing.T) {
 		Amount: issueFee.Amount.Add(sdkmath.NewIntWithDecimal(1, 7)),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,

@@ -44,7 +44,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -225,7 +225,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithMaxAmount(t *testing.T) {
 		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -295,7 +295,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenTooLowAmounts(t *testing.T) {
 		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -369,7 +369,7 @@ func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
 	moduleAccountRecipient := authtypes.NewModuleAddress(govtypes.ModuleName)
 	relayers := genRelayers(ctx, t, chains, 2)
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -458,7 +458,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 	relayers := genRelayers(ctx, t, chains, 2)
 	coreumRecipient := chains.Coreum.GenAccount()
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -627,7 +627,7 @@ func TestSendFromXRPLToCoreumXRPToken(t *testing.T) {
 		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 
-	_, contractClient := integrationtests.DeployAndInstantiateContract(
+	_, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -743,7 +743,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedToken(t *testing.T) {
 	})
 
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -850,7 +850,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 	bankClient := banktypes.NewQueryClient(chains.Coreum.ClientContext)
 
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1070,7 +1070,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 	coreumRecipient := chains.Coreum.GenAccount()
 
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1252,7 +1252,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
 
 	relayers := genRelayers(ctx, t, chains, 2)
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1437,7 +1437,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 	relayers := genRelayers(ctx, t, chains, 2)
 	xrplRecipient := xrpl.GenPrivKeyTxSigner().Account()
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1603,7 +1603,7 @@ func TestSendFromCoreumToXRPLXRPToken(t *testing.T) {
 
 	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1720,7 +1720,7 @@ func TestSendFromCoreumXRPLOriginatedTokenWithDeliverAmount(t *testing.T) {
 	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
 
 	relayers := genRelayers(ctx, t, chains, 2)
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1927,7 +1927,7 @@ func TestSendFromCoreumCoreumOriginatedTokenWithDeliverAmount(t *testing.T) {
 
 	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
 	relayers := genRelayers(ctx, t, chains, 2)
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1989,7 +1989,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -2226,7 +2226,7 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -2331,7 +2331,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 	xrplRecipient := xrpl.GenPrivKeyTxSigner().Account()
 
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -2517,7 +2517,7 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	xrplRecipientAddress := xrpl.GenPrivKeyTxSigner().Account()
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -2702,7 +2702,7 @@ func TestBridgingFeeForCoreumOriginatedTokens(t *testing.T) {
 	tokenDecimals := uint32(15)
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -2851,7 +2851,7 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 3)
 	bridgeAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -3011,7 +3011,7 @@ func TestFeeCalculations_FeeRemainder(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -3141,7 +3141,7 @@ func TestBridgingFeeForXRPLOrginatedTokens(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,

@@ -34,7 +34,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 
 	xrplBridgeAddress := xrpl.GenPrivKeyTxSigner().Account()
 	xrplBaseFee := uint32(10)
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -309,7 +309,7 @@ func TestKeysRotationWithProhibitedAddresses(t *testing.T) {
 	ctx, chains := integrationtests.NewTestingContext(t)
 
 	initialRelayers := genRelayers(ctx, t, chains, 1)
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,

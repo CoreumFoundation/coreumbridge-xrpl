@@ -214,6 +214,11 @@ type BridgeClient interface {
 	) error
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
 	GetTransactionEvidences(ctx context.Context) ([]coreum.TransactionEvidence, error)
+	DeployContract(
+		ctx context.Context,
+		sender sdk.AccAddress,
+		contractByteCodePath string,
+	) (*sdk.TxResponse, uint64, error)
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
