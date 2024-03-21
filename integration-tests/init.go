@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -20,9 +19,9 @@ var chains Chains
 
 // flag variables.
 var (
-	coreumCfg             CoreumChainConfig
-	xrplCfg               XRPLChainConfig
-	contractAddressString string
+	coreumCfg CoreumChainConfig
+	xrplCfg   XRPLChainConfig
+	bridgeCfg BridgeConfig
 )
 
 // Chains struct holds chains required for the testing.
@@ -39,7 +38,8 @@ func init() {
 	flag.StringVar(&xrplCfg.RPCAddress, "xrpl-rpc-address", "http://localhost:5005", "RPC address of xrpl node")
 	flag.StringVar(&xrplCfg.FundingSeed, "xrpl-funding-seed", "snoPBrXtMeMyMHUVTgbuqAfg1SUTb", "Funding XRPL account seed required by tests")
 	// this is the default address used in znet
-	flag.StringVar(&contractAddressString, "contract-address", "devcore14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sd4f0ak", "Smart contract address of the bridge")
+	flag.StringVar(&bridgeCfg.ContractAddress, "contract-address", "devcore14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sd4f0ak", "Smart contract address of the bridge (znet)")
+	flag.StringVar(&bridgeCfg.OwnerMnemonic, "owner-mnemonic", "analyst evil lucky job exhaust inform note where grant file already exit vibrant come finger spatial absorb enter aisle orange soldier false attend response", "Smart contract owner of the bridge (znet)")
 
 	// accept testing flags
 	testing.Init()
@@ -79,9 +79,7 @@ func NewTestingContext(t *testing.T) (context.Context, Chains) {
 	return testCtx, chains
 }
 
-// GetContractAddress returns the contract address for the bridge.
-func GetContractAddress(t *testing.T) sdk.AccAddress {
-	address, err := sdk.AccAddressFromBech32(contractAddressString)
-	require.NoError(t, err)
-	return address
+// GetBridgeConfig returns the bridge config.
+func GetBridgeConfig() BridgeConfig {
+	return bridgeCfg
 }

@@ -240,6 +240,31 @@ func NewRPCClient(cfg RPCClientConfig, log logger.Logger, httpClient HTTPClient)
 	}
 }
 
+// GetXRPLBalance return account's XRPL balance.
+func (c *RPCClient) GetXRPLBalance(
+	ctx context.Context,
+	acc rippledata.Account,
+	currency rippledata.Currency,
+	issuer rippledata.Account,
+) (rippledata.Amount, error) {
+	balances, err := c.GetXRPLBalances(ctx, acc)
+	if err != nil {
+		return rippledata.Amount{}, err
+	}
+	for _, balance := range balances {
+		if balance.Currency.String() == currency.String() &&
+			balance.Issuer.String() == issuer.String() {
+			return balance, nil
+		}
+	}
+
+	return rippledata.Amount{
+		Value:    &rippledata.Value{},
+		Currency: currency,
+		Issuer:   issuer,
+	}, nil
+}
+
 // GetXRPLBalances returns all account's XRPL balances including XRP token.
 func (c *RPCClient) GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error) {
 	balances := make([]rippledata.Amount, 0)
