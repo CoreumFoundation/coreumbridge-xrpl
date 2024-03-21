@@ -32,6 +32,8 @@ type EnvConfig struct {
 	AwaitStateTimeout       time.Duration
 	ParallelExecutionNumber int
 	RepeatTestCaseCount     int
+	RepeatOwnerActionCount  int
+	OwnerActionDelay        time.Duration
 }
 
 // DefaultEnvConfig returns default env config.
@@ -42,6 +44,8 @@ func DefaultEnvConfig() EnvConfig {
 		AwaitStateTimeout:       time.Second,
 		ParallelExecutionNumber: 3,
 		RepeatTestCaseCount:     5,
+		RepeatOwnerActionCount:  10,
+		OwnerActionDelay:        5 * time.Second,
 	}
 }
 
@@ -83,6 +87,24 @@ func NewEnv(t *testing.T, cfg EnvConfig) *Env {
 		BridgeClient:   bridgeClient,
 		ContractClient: contractClient,
 	}
+}
+
+// NewBridgeClient returns new instance of BridgeClient.
+func (env *Env) NewBridgeClient() *bridgeclient.BridgeClient {
+	bridgeCfg := integrationtests.GetBridgeConfig()
+	contractClient := coreum.NewContractClient(
+		coreum.DefaultContractClientConfig(sdk.MustAccAddressFromBech32(bridgeCfg.ContractAddress)),
+		env.Chains.Log,
+		env.Chains.Coreum.ClientContext,
+	)
+
+	return bridgeclient.NewBridgeClient(
+		env.Chains.Log,
+		env.Chains.Coreum.ClientContext,
+		contractClient,
+		env.Chains.XRPL.RPCClient(),
+		xrpl.NewKeyringTxSigner(env.Chains.XRPL.GetSignerKeyring()),
+	)
 }
 
 // FundCoreumAccountsWithXRP funds the Coreum accounts with the particular XRP token thought the bridge on the
@@ -234,7 +256,7 @@ func (env *Env) AwaitCoreumBalance(
 	})
 }
 
-// AwaitXRPLBalance await for the balance on the XRPL change.
+// AwaitXRPLBalance awaits for the balance on the XRPL change.
 func (env *Env) AwaitXRPLBalance(
 	ctx context.Context,
 	account rippledata.Account,
@@ -254,7 +276,7 @@ func (env *Env) AwaitXRPLBalance(
 	})
 }
 
-// AwaitPendingRefund await for pending refunds on the Coreum change.
+// AwaitPendingRefund awaits for pending refunds on the Coreum change.
 func (env *Env) AwaitPendingRefund(
 	ctx context.Context,
 	account sdk.AccAddress,
@@ -276,11 +298,57 @@ func (env *Env) AwaitPendingRefund(
 	return refunds, nil
 }
 
-// AwaitState await for particular state.
+// AwaitState awaits for particular state.
 func (env *Env) AwaitState(ctx context.Context, stateChecker func() error) error {
 	return retry.Do(ctx, env.Cfg.AwaitStateTimeout, func() error {
 		if err := stateChecker(); err != nil {
 			return retry.Retryable(err)
+		}
+
+		return nil
+	})
+}
+
+// RepeatOwnerActionWithDelay calls the action, waits for some time and call the actionCompensation.
+func (env *Env) RepeatOwnerActionWithDelay(ctx context.Context, action, actionCompensation func() error) error {
+	for j := 0; j < env.Cfg.RepeatOwnerActionCount; j++ {
+		ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
+		// use common BridgeClient to prevent sequence mismatch
+		if err := env.AwaitContractCall(ctx, func() error {
+			return action()
+		}); err != nil {
+			cancel()
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			cancel()
+			return ctx.Err()
+		case <-time.After(env.Cfg.OwnerActionDelay):
+		}
+		// use common BridgeClient to prevent sequence mismatch
+		if err := env.AwaitContractCall(ctx, func() error {
+			return actionCompensation()
+		}); err != nil {
+			cancel()
+			return err
+		}
+		cancel()
+	}
+	return nil
+}
+
+// AwaitContractCall awaits for the call to the contract to be executed if the error is expected.
+func (env *Env) AwaitContractCall(ctx context.Context, call func() error) error {
+	return retry.Do(ctx, env.Cfg.AwaitStateTimeout, func() error {
+		if err := call(); err != nil {
+			if coreum.IsTokenNotEnabledError(err) ||
+				coreum.IsBridgeHaltedError(err) ||
+				coreum.IsNoAvailableTicketsError(err) ||
+				coreum.IsLastTicketReservedError(err) {
+				return retry.Retryable(err)
+			}
+			return err
 		}
 
 		return nil
