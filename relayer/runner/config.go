@@ -269,6 +269,7 @@ func ReadConfig(homePath string) (Config, error) {
 	return config, nil
 }
 
+// BuildFilePath builds the file path.
 func BuildFilePath(homePath string) string {
 	return filepath.Join(homePath, ConfigFileName)
 }

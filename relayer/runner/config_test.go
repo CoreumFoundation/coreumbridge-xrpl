@@ -15,6 +15,7 @@ func TestInitAndReadConfig(t *testing.T) {
 	defaultCfg := runner.DefaultConfig()
 
 	t.Run("latest", func(tt *testing.T) {
+		t.Parallel()
 		yamlStringConfig, err := yaml.Marshal(defaultCfg)
 		require.NoError(tt, err)
 		require.Equal(tt, getDefaultConfigString(), string(yamlStringConfig))
@@ -39,6 +40,7 @@ func TestInitAndReadConfig(t *testing.T) {
 	})
 
 	t.Run("v1.1.0", func(tt *testing.T) {
+		t.Parallel()
 		// create temp dir to store the config
 		tempDir := tt.TempDir()
 		//  try to read none-existing config
@@ -50,7 +52,7 @@ func TestInitAndReadConfig(t *testing.T) {
 		file, err := os.OpenFile(configPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 		require.NoError(tt, err)
 		defer file.Close()
-		_, err = file.Write([]byte(getV110DefaultConfigString()))
+		_, err = file.WriteString(getV110DefaultConfigString())
 		require.NoError(tt, err)
 
 		// read config

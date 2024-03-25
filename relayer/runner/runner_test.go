@@ -101,13 +101,14 @@ func Test_taskWithRestartOnError(t *testing.T) {
 	for i, tt := range tests {
 		tt := tt
 		t.Run(fmt.Sprintf("counter-%v", i), func(t *testing.T) {
+			t.Parallel()
 			ctx, cancelF := context.WithTimeout(context.Background(), tt.runTimeout)
 			defer cancelF()
 
 			c := newCounter()
 
 			err = parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-				spawn(fmt.Sprintf("counter-%v", i), parallel.Continue, func(ctx context.Context) error {
+				spawn(tt.name, parallel.Continue, func(ctx context.Context) error {
 					tsk := taskWithRestartOnError(
 						c.Start,
 						zapLogger,
@@ -122,5 +123,4 @@ func Test_taskWithRestartOnError(t *testing.T) {
 			require.Equal(t, tt.expectedValue, c.Value())
 		})
 	}
-
 }
