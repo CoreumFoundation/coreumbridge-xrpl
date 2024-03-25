@@ -40,6 +40,7 @@ type CoreumToXRPLProcessConfig struct {
 	RepeatDelay          time.Duration
 }
 
+// ProcessConfig is the CoreumToXRPLProcess config.
 type ProcessConfig struct {
 	CoreumToXRPL CoreumToXRPLProcessConfig
 	RetryDelay   time.Duration

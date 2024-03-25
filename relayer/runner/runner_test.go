@@ -98,29 +98,29 @@ func Test_taskWithRestartOnError(t *testing.T) {
 		},
 	}
 
-	for i, tt := range tests {
-		tt := tt
-		t.Run(fmt.Sprintf("counter-%v", i), func(t *testing.T) {
-			t.Parallel()
-			ctx, cancelF := context.WithTimeout(context.Background(), tt.runTimeout)
+	for i, tc := range tests {
+		tc := tc
+		t.Run(fmt.Sprintf("counter-%v", i), func(tt *testing.T) {
+			tt.Parallel()
+			ctx, cancelF := context.WithTimeout(context.Background(), tc.runTimeout)
 			defer cancelF()
 
 			c := newCounter()
 
 			err = parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-				spawn(tt.name, parallel.Continue, func(ctx context.Context) error {
+				spawn(tc.name, parallel.Continue, func(ctx context.Context) error {
 					tsk := taskWithRestartOnError(
 						c.Start,
 						zapLogger,
-						tt.exitOnError,
-						tt.retryDelay,
+						tc.exitOnError,
+						tc.retryDelay,
 					)
 					return tsk(ctx)
 				})
 				return nil
 			})
-			tt.errFunc(t, err)
-			require.Equal(t, tt.expectedValue, c.Value())
+			tc.errFunc(tt, err)
+			require.Equal(tt, tc.expectedValue, c.Value())
 		})
 	}
 }

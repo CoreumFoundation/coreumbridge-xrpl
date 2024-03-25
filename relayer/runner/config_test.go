@@ -15,7 +15,7 @@ func TestInitAndReadConfig(t *testing.T) {
 	defaultCfg := runner.DefaultConfig()
 
 	t.Run("latest", func(tt *testing.T) {
-		t.Parallel()
+		tt.Parallel()
 		yamlStringConfig, err := yaml.Marshal(defaultCfg)
 		require.NoError(tt, err)
 		require.Equal(tt, getDefaultConfigString(), string(yamlStringConfig))
@@ -40,7 +40,7 @@ func TestInitAndReadConfig(t *testing.T) {
 	})
 
 	t.Run("v1.1.0", func(tt *testing.T) {
-		t.Parallel()
+		tt.Parallel()
 		// create temp dir to store the config
 		tempDir := tt.TempDir()
 		//  try to read none-existing config
