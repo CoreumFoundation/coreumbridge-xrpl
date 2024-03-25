@@ -100,6 +100,7 @@ type CoreumToXRPLProcessConfig struct {
 // ProcessesConfig  is processes config.
 type ProcessesConfig struct {
 	CoreumToXRPLProcess CoreumToXRPLProcessConfig `yaml:"coreum_to_xrpl"`
+	RetryDelay          time.Duration             `yaml:"retry_delay"`
 	ExitOnError         bool                      `yaml:"-"`
 }
 
@@ -138,7 +139,7 @@ func DefaultConfig() Config {
 	defaultCoreumContactConfig := coreum.DefaultContractClientConfig(sdk.AccAddress(nil))
 	defaultClientCtxDefaultCfg := coreumchainclient.DefaultContextConfig()
 
-	defaultCoreumToXRPLProcessConfig := processes.DefaultCoreumToXRPLProcessConfig(
+	defaultProcessConfig := processes.DefaultProcessConfig(
 		rippledata.Account{},
 		sdk.AccAddress(nil),
 	)
@@ -198,8 +199,9 @@ func DefaultConfig() Config {
 
 		Processes: ProcessesConfig{
 			CoreumToXRPLProcess: CoreumToXRPLProcessConfig{
-				RepeatDelay: defaultCoreumToXRPLProcessConfig.RepeatDelay,
+				RepeatDelay: defaultProcessConfig.CoreumToXRPL.RepeatDelay,
 			},
+			RetryDelay: defaultProcessConfig.RetryDelay,
 		},
 
 		Metrics: MetricsConfig{
@@ -216,7 +218,7 @@ func DefaultConfig() Config {
 
 // InitConfig creates config yaml file.
 func InitConfig(homePath string, cfg Config) error {
-	path := buildFilePath(homePath)
+	path := BuildFilePath(homePath)
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 		return errors.Errorf("failed to init config, file already exists, path:%s", path)
 	}
@@ -244,7 +246,7 @@ func InitConfig(homePath string, cfg Config) error {
 
 // ReadConfig reads config yaml file.
 func ReadConfig(homePath string) (Config, error) {
-	path := buildFilePath(homePath)
+	path := BuildFilePath(homePath)
 	file, err := os.OpenFile(path, os.O_RDONLY, 0o600)
 	defer file.Close() //nolint:staticcheck //we accept the error ignoring
 	if errors.Is(err, os.ErrNotExist) {
@@ -259,10 +261,14 @@ func ReadConfig(homePath string) (Config, error) {
 	if err := yaml.Unmarshal(fileBytes, &config); err != nil {
 		return Config{}, errors.Wrapf(err, "failed to unmarshal file to yaml, path:%s", path)
 	}
+	// Set the default value if the value is not set because of an old config version which doesn't contain retry_delay.
+	if config.Processes.RetryDelay == 0 {
+		config.Processes.RetryDelay = DefaultConfig().Processes.RetryDelay
+	}
 
 	return config, nil
 }
 
-func buildFilePath(homePath string) string {
+func BuildFilePath(homePath string) string {
 	return filepath.Join(homePath, ConfigFileName)
 }

@@ -40,16 +40,24 @@ type CoreumToXRPLProcessConfig struct {
 	RepeatDelay          time.Duration
 }
 
-// DefaultCoreumToXRPLProcessConfig returns the default CoreumToXRPLProcess.
-func DefaultCoreumToXRPLProcessConfig(
+type ProcessConfig struct {
+	CoreumToXRPL CoreumToXRPLProcessConfig
+	RetryDelay   time.Duration
+}
+
+// DefaultProcessConfig returns the default ProcessConfig.
+func DefaultProcessConfig(
 	bridgeXRPLAddress rippledata.Account,
 	relayerAddress sdk.AccAddress,
-) CoreumToXRPLProcessConfig {
-	return CoreumToXRPLProcessConfig{
-		BridgeXRPLAddress:    bridgeXRPLAddress,
-		RelayerCoreumAddress: relayerAddress,
-		RepeatRecentScan:     true,
-		RepeatDelay:          10 * time.Second,
+) ProcessConfig {
+	return ProcessConfig{
+		CoreumToXRPL: CoreumToXRPLProcessConfig{
+			BridgeXRPLAddress:    bridgeXRPLAddress,
+			RelayerCoreumAddress: relayerAddress,
+			RepeatRecentScan:     true,
+			RepeatDelay:          10 * time.Second,
+		},
+		RetryDelay: 10 * time.Second,
 	}
 }
 

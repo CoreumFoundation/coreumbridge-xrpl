@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"runtime/debug"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -143,8 +144,18 @@ func NewRunner(ctx context.Context, components Components, cfg Config) (*Runner,
 // Start starts runner.
 func (r *Runner) Start(ctx context.Context) error {
 	runnerProcesses := map[string]func(context.Context) error{
-		"XRPL-to-Coreum": r.withRestartOnError(r.xrplToCoreumProcess.Start),
-		"Coreum-to-XRPL": r.withRestartOnError(r.coreumToXRPLProcess.Start),
+		"XRPL-to-Coreum": taskWithRestartOnError(
+			r.xrplToCoreumProcess.Start,
+			r.log,
+			r.cfg.Processes.ExitOnError,
+			r.cfg.Processes.RetryDelay,
+		),
+		"Coreum-to-XRPL": taskWithRestartOnError(
+			r.coreumToXRPLProcess.Start,
+			r.log,
+			r.cfg.Processes.ExitOnError,
+			r.cfg.Processes.RetryDelay,
+		),
 	}
 	if r.cfg.Metrics.Enabled {
 		runnerProcesses["metrics-server"] = r.metricsServer.Start
@@ -163,7 +174,12 @@ func (r *Runner) Start(ctx context.Context) error {
 	})
 }
 
-func (r *Runner) withRestartOnError(task parallel.Task) parallel.Task {
+func taskWithRestartOnError(
+	task parallel.Task,
+	log logger.Logger,
+	exitOnError bool,
+	retryDelay time.Duration,
+) parallel.Task {
 	return func(ctx context.Context) error {
 		for {
 			// start process and handle the panic
@@ -182,13 +198,23 @@ func (r *Runner) withRestartOnError(task parallel.Task) parallel.Task {
 			}
 
 			// restart the process if it is restartable
-
-			r.log.Error(ctx, "Received unexpected error from the process", zap.Error(err))
-			if r.cfg.Processes.ExitOnError {
-				r.log.Warn(ctx, "The process is not auto-restartable on error")
+			log.Error(ctx, "Received unexpected error from the process", zap.Error(err))
+			if exitOnError {
+				log.Warn(ctx, "The process is not auto-restartable on error")
 				return err
 			}
-			r.log.Info(ctx, "Restarting process after the error")
+
+			if retryDelay > 0 {
+				log.Info(ctx,
+					"Process is paused and will be restarted later",
+					zap.Duration("retry-delay", retryDelay))
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-time.After(retryDelay):
+				}
+			}
+			log.Info(ctx, "Restarting process after the error")
 		}
 	}
 }
