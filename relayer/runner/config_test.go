@@ -1,17 +1,27 @@
 package runner_test
 
 import (
+	"context"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 )
 
 func TestInitAndReadConfig(t *testing.T) {
 	t.Parallel()
+
+	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig{
+		Level:  "error",
+		Format: logger.YamlConsoleLoggerFormat,
+	})
+	require.NoError(t, err)
+	ctx := context.Background()
+
 	defaultCfg := runner.DefaultConfig()
 
 	t.Run("latest", func(tt *testing.T) {
@@ -22,7 +32,7 @@ func TestInitAndReadConfig(t *testing.T) {
 		// create temp dir to store the config
 		tempDir := tt.TempDir()
 		//  try to read none-existing config
-		_, err = runner.ReadConfig(tempDir)
+		_, err = runner.ReadConfig(ctx, zapLogger, tempDir)
 		require.Error(tt, err)
 
 		// init the config first time
@@ -32,7 +42,7 @@ func TestInitAndReadConfig(t *testing.T) {
 		require.Error(tt, runner.InitConfig(tempDir, defaultCfg))
 
 		// read config
-		readConfig, err := runner.ReadConfig(tempDir)
+		readConfig, err := runner.ReadConfig(ctx, zapLogger, tempDir)
 		require.NoError(tt, err)
 		require.Error(tt, runner.InitConfig(tempDir, defaultCfg))
 
@@ -44,7 +54,7 @@ func TestInitAndReadConfig(t *testing.T) {
 		// create temp dir to store the config
 		tempDir := tt.TempDir()
 		//  try to read none-existing config
-		_, err := runner.ReadConfig(tempDir)
+		_, err := runner.ReadConfig(ctx, zapLogger, tempDir)
 		require.Error(tt, err)
 
 		// store v1.1.0 config to temp dir
@@ -56,7 +66,7 @@ func TestInitAndReadConfig(t *testing.T) {
 		require.NoError(tt, err)
 
 		// read config
-		readConfig, err := runner.ReadConfig(tempDir)
+		readConfig, err := runner.ReadConfig(ctx, zapLogger, tempDir)
 		require.NoError(tt, err)
 
 		// Retry delay is set even though it is absent in v1.1.0 config.

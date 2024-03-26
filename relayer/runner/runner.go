@@ -207,7 +207,7 @@ func taskWithRestartOnError(
 			if retryDelay > 0 {
 				log.Info(ctx,
 					"Process is paused and will be restarted later",
-					zap.Duration("retry-delay", retryDelay))
+					zap.Duration("retryDelay", retryDelay))
 				select {
 				case <-ctx.Done():
 					return nil

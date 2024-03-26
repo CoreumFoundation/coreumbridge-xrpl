@@ -2,6 +2,7 @@
 package runner
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
 	toolshttp "github.com/CoreumFoundation/coreum-tools/pkg/http"
@@ -245,7 +247,7 @@ func InitConfig(homePath string, cfg Config) error {
 }
 
 // ReadConfig reads config yaml file.
-func ReadConfig(homePath string) (Config, error) {
+func ReadConfig(ctx context.Context, log logger.Logger, homePath string) (Config, error) {
 	path := BuildFilePath(homePath)
 	file, err := os.OpenFile(path, os.O_RDONLY, 0o600)
 	defer file.Close() //nolint:staticcheck //we accept the error ignoring
@@ -263,7 +265,9 @@ func ReadConfig(homePath string) (Config, error) {
 	}
 	// Set the default value if the value is not set because of an old config version which doesn't contain retry_delay.
 	if config.Processes.RetryDelay == 0 {
-		config.Processes.RetryDelay = DefaultConfig().Processes.RetryDelay
+		defaultRetryDelay := DefaultConfig().Processes.RetryDelay
+		log.Warn(ctx, "retry_delay is not set, using default value", zap.Duration("retryDelay", defaultRetryDelay))
+		config.Processes.RetryDelay = defaultRetryDelay
 	}
 
 	return config, nil
