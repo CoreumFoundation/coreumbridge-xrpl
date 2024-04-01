@@ -310,7 +310,7 @@ func (env *Env) AwaitState(ctx context.Context, stateChecker func() error) error
 }
 
 // RepeatOwnerActionWithDelay calls the action, waits for some time and call the actionCompensation.
-func (env *Env) RepeatOwnerActionWithDelay(ctx context.Context, action, actionCompensation func() error) error {
+func (env *Env) RepeatOwnerActionWithDelay(ctx context.Context, action, rollbackAction func() error) error {
 	for j := 0; j < env.Cfg.RepeatOwnerActionCount; j++ {
 		ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
 		// use common BridgeClient to prevent sequence mismatch
@@ -328,7 +328,7 @@ func (env *Env) RepeatOwnerActionWithDelay(ctx context.Context, action, actionCo
 		}
 		// use common BridgeClient to prevent sequence mismatch
 		if err := env.AwaitContractCall(ctx, func() error {
-			return actionCompensation()
+			return rollbackAction()
 		}); err != nil {
 			cancel()
 			return err

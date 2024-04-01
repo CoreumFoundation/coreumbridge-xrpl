@@ -338,7 +338,7 @@ func changeXRPLBaseFeeToLowAndBack(ctx context.Context, t *testing.T, env *Env) 
 			return env.BridgeClient.UpdateXRPLBaseFee(
 				ctx,
 				env.ContractOwner,
-				// low base XRPL fee, so the XRPL transactions won't pass
+				// normal base XRPL fee, so the XRPL transactions pass
 				initialXRPLBaseFee,
 			)
 		},
