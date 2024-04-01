@@ -248,15 +248,15 @@ func InitConfig(homePath string, cfg Config) error {
 
 // ReadConfig reads config yaml file.
 func ReadConfig(ctx context.Context, log logger.Logger, homePath string) (Config, error) {
-	config, err := ReadConfigFromFile(homePath)
+	config, err := readConfigFromFile(homePath)
 	if err != nil {
 		return Config{}, err
 	}
-	SetConfigDefaults(ctx, log, &config)
+	setConfigDefaults(ctx, log, &config)
 	return config, nil
 }
 
-func SetConfigDefaults(ctx context.Context, log logger.Logger, config *Config) {
+func setConfigDefaults(ctx context.Context, log logger.Logger, config *Config) {
 	// Set default retry_delay if the value is not set because of an old config version which doesn't contain retry_delay.
 	if config.Processes.RetryDelay == 0 {
 		defaultRetryDelay := DefaultConfig().Processes.RetryDelay
@@ -265,7 +265,7 @@ func SetConfigDefaults(ctx context.Context, log logger.Logger, config *Config) {
 	}
 }
 
-func ReadConfigFromFile(homePath string) (Config, error) {
+func readConfigFromFile(homePath string) (Config, error) {
 	path := BuildFilePath(homePath)
 	file, err := os.OpenFile(path, os.O_RDONLY, 0o600)
 	defer file.Close() //nolint:staticcheck //we accept the error ignoring
