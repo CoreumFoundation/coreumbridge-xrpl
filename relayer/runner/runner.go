@@ -183,7 +183,6 @@ func taskWithRestartOnError(
 	return func(ctx context.Context) error {
 		for {
 			// start process and handle the panic
-
 			err := func() (err error) {
 				defer func() {
 					if p := recover(); p != nil {

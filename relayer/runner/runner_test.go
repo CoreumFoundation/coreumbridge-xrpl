@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,14 +17,12 @@ import (
 )
 
 type counter struct {
-	mu *sync.RWMutex
-	n  int
+	atomic.Int64
 }
 
 func newCounter() counter {
 	return counter{
-		mu: &sync.RWMutex{},
-		n:  0,
+		atomic.Int64{},
 	}
 }
 
@@ -34,12 +32,10 @@ func (c *counter) Start(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		c.mu.Lock()
-		c.n++
-		c.mu.Unlock()
+		c.Add(1)
 
-		if c.Value()%10 == 0 {
-			failureMsg := "failed counter: " + strconv.Itoa(c.Value())
+		if c.Load()%10 == 0 {
+			failureMsg := "failed counter: " + strconv.Itoa(int(c.Load()))
 			// Randomly panic or return error.
 			if rand.Int()%2 == 0 {
 				panic(failureMsg)
@@ -47,12 +43,6 @@ func (c *counter) Start(ctx context.Context) error {
 			return errors.New(failureMsg)
 		}
 	}
-}
-
-func (c *counter) Value() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.n
 }
 
 func Test_taskWithRestartOnError(t *testing.T) {
@@ -120,7 +110,7 @@ func Test_taskWithRestartOnError(t *testing.T) {
 				return nil
 			})
 			tc.errFunc(tt, err)
-			require.Equal(tt, tc.expectedValue, c.Value())
+			require.EqualValues(tt, tc.expectedValue, c.Load())
 		})
 	}
 }
