@@ -32,12 +32,12 @@ func TestInitAndReadConfig(t *testing.T) {
 		expectedConfigFunc    func(config runner.Config) runner.Config
 	}{
 		{
-			name:                  "default config",
+			name:                  "default_config",
 			beforeWriteModifyFunc: func(config runner.Config) runner.Config { return config },
 			expectedConfigFunc:    func(config runner.Config) runner.Config { return config },
 		},
 		{
-			name: "zero retry_delay", // version 1.1.0 or earlier.
+			name: "zero_retry_delay", // version 1.1.0 or earlier.
 			beforeWriteModifyFunc: func(config runner.Config) runner.Config {
 				config.Processes.RetryDelay = 0
 				return config
@@ -45,7 +45,7 @@ func TestInitAndReadConfig(t *testing.T) {
 			expectedConfigFunc: func(config runner.Config) runner.Config { return config },
 		},
 		{
-			name: "custom retry_delay",
+			name: "custom_retry_delay",
 			beforeWriteModifyFunc: func(config runner.Config) runner.Config {
 				config.Processes.RetryDelay *= 2
 				return config
