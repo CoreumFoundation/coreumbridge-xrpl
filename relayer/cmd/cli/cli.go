@@ -616,7 +616,12 @@ func GetHomeRunnerConfig(cmd *cobra.Command) (runner.Config, error) {
 	if err != nil {
 		return runner.Config{}, err
 	}
-	cfg, err := runner.ReadConfig(home)
+
+	log, err := GetCLILogger()
+	if err != nil {
+		return runner.Config{}, err
+	}
+	cfg, err := runner.ReadConfig(cmd.Context(), log, home)
 	if err != nil {
 		return runner.Config{}, err
 	}
