@@ -38,6 +38,7 @@ jobs:
             docker-cache: false
           - ci_step: "integration tests contract"
             command: |
+              make download-released-contract
               coreumbridge-xrpl-builder build/contract build/integration-tests/contract images
               coreum-builder images
               crust znet test --test-groups=coreumbridge-xrpl-contract --timeout-commit 0.5s
@@ -75,9 +76,7 @@ jobs:
         with:
           repository: CoreumFoundation/crust
           path: crust
-          # FIXME (wojciech): change to master once https://reviewable.io/reviews/CoreumFoundation/crust/365
-          # is merged
-          ref: e8b4330cd4fd6fe9841b6324d66910dbcec45451
+          ref: 9e29fa9e7f52a0e8db70c1a1d43404de432bdac3
       - name: Checkout coreum
         uses: actions/checkout@v4
         with:

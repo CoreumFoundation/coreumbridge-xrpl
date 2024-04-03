@@ -28,6 +28,9 @@ pub struct InstantiateMsg {
     pub xrpl_base_fee: u64,
 }
 
+#[cw_serde]
+pub struct MigrateMsg {}
+
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {

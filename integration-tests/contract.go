@@ -13,8 +13,56 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 )
 
-// DeployAndInstantiateContract deploys and instantiates the contract.
-func DeployAndInstantiateContract(
+// CompiledContractFilePath is bridge contract file path.
+const (
+	ContractFilePathV110     = "../../build/coreumbridge_xrpl_v1.1.0.wasm"
+	CompiledContractFilePath = "../../build/coreumbridge_xrpl.wasm"
+)
+
+// DeployInstantiateAndMigrateContract deploys and instantiates the mainnet version of the contract and applies
+// migration.
+func DeployInstantiateAndMigrateContract(
+	ctx context.Context,
+	t *testing.T,
+	chains Chains,
+	relayers []coreum.Relayer,
+	evidenceThreshold uint32,
+	usedTicketSequenceThreshold uint32,
+	trustSetLimitAmount sdkmath.Int,
+	bridgeXRPLAddress string,
+	xrplBaseFee uint32,
+) (sdk.AccAddress, *coreum.ContractClient) {
+	t.Helper()
+
+	owner, contractClient := DeployAndInstantiateContractV110(
+		ctx,
+		t,
+		chains,
+		relayers,
+		evidenceThreshold,
+		usedTicketSequenceThreshold,
+		trustSetLimitAmount,
+		bridgeXRPLAddress,
+		xrplBaseFee,
+	)
+
+	MigrateContract(ctx, t, contractClient, owner)
+
+	return owner, contractClient
+}
+
+// MigrateContract migrates the contract to the compiled version.
+func MigrateContract(ctx context.Context, t *testing.T, contractClient *coreum.ContractClient, owner sdk.AccAddress) {
+	t.Helper()
+
+	_, codeID, err := contractClient.DeployContract(ctx, owner, readBuiltContract(t, CompiledContractFilePath))
+	require.NoError(t, err)
+	_, err = contractClient.MigrateContract(ctx, owner, codeID)
+	require.NoError(t, err)
+}
+
+// DeployAndInstantiateContractV110 deploys and instantiates the mainnet version of the contract.
+func DeployAndInstantiateContractV110(
 	ctx context.Context,
 	t *testing.T,
 	chains Chains,
@@ -51,9 +99,9 @@ func DeployAndInstantiateContract(
 		BridgeXRPLAddress:           bridgeXRPLAddress,
 		XRPLBaseFee:                 xrplBaseFee,
 	}
-
-	contractAddress, err := contractClient.DeployAndInstantiate(ctx, owner,
-		readBuiltContract(t, chains.Coreum.Config().ContractPath), instantiationCfg)
+	contractAddress, err := contractClient.DeployAndInstantiate(
+		ctx, owner, readBuiltContract(t, chains.Coreum.Config().ContractPath), instantiationCfg,
+	)
 	require.NoError(t, err)
 
 	require.NoError(t, contractClient.SetContractAddress(contractAddress))
@@ -61,10 +109,10 @@ func DeployAndInstantiateContract(
 	return owner, contractClient
 }
 
-func readBuiltContract(t *testing.T, contractPath string) []byte {
+func readBuiltContract(t *testing.T, path string) []byte {
 	t.Helper()
 
-	body, err := os.ReadFile(contractPath)
+	body, err := os.ReadFile(path)
 	require.NoError(t, err)
 
 	return body

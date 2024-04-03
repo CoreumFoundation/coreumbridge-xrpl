@@ -1,42 +1,91 @@
 package runner_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 )
 
 func TestInitAndReadConfig(t *testing.T) {
 	t.Parallel()
 
+	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig{
+		Level:  "error",
+		Format: logger.YamlConsoleLoggerFormat,
+	})
+	require.NoError(t, err)
+	ctx := context.Background()
+
 	defaultCfg := runner.DefaultConfig()
 	yamlStringConfig, err := yaml.Marshal(defaultCfg)
 	require.NoError(t, err)
 	require.Equal(t, getDefaultConfigString(), string(yamlStringConfig))
-	// create temp dir to store the config
-	tempDir := t.TempDir()
-	//  try to read none-existing config
-	_, err = runner.ReadConfig(tempDir)
-	require.Error(t, err)
 
-	// init the config first time
-	require.NoError(t, runner.InitConfig(tempDir, defaultCfg))
+	tests := []struct {
+		name                  string
+		beforeWriteModifyFunc func(config runner.Config) runner.Config
+		expectedConfigFunc    func(config runner.Config) runner.Config
+	}{
+		{
+			name:                  "default_config",
+			beforeWriteModifyFunc: func(config runner.Config) runner.Config { return config },
+			expectedConfigFunc:    func(config runner.Config) runner.Config { return config },
+		},
+		{
+			name: "zero_retry_delay", // version 1.1.0 or earlier.
+			beforeWriteModifyFunc: func(config runner.Config) runner.Config {
+				config.Processes.RetryDelay = 0
+				return config
+			},
+			expectedConfigFunc: func(config runner.Config) runner.Config { return config },
+		},
+		{
+			name: "custom_retry_delay",
+			beforeWriteModifyFunc: func(config runner.Config) runner.Config {
+				config.Processes.RetryDelay *= 2
+				return config
+			},
+			expectedConfigFunc: func(config runner.Config) runner.Config {
+				config.Processes.RetryDelay *= 2
+				return config
+			},
+		},
+	}
 
-	// try to init the config second time
-	require.Error(t, runner.InitConfig(tempDir, defaultCfg))
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(tt *testing.T) {
+			tt.Parallel()
 
-	// read config
-	readConfig, err := runner.ReadConfig(tempDir)
-	require.NoError(t, err)
-	require.Error(t, runner.InitConfig(tempDir, defaultCfg))
+			// create temp dir to store the config
+			tempDir := tt.TempDir()
+			// try to read none-existing config
+			_, err = runner.ReadConfig(ctx, zapLogger, tempDir)
+			require.Error(tt, err)
 
-	require.Equal(t, defaultCfg, readConfig)
+			// init the config first time
+			modifiedCfg := tc.beforeWriteModifyFunc(defaultCfg)
+			require.NoError(tt, runner.InitConfig(tempDir, modifiedCfg))
+
+			// try to init the config second time
+			require.Error(tt, runner.InitConfig(tempDir, modifiedCfg))
+
+			// read config
+			readConfig, err := runner.ReadConfig(ctx, zapLogger, tempDir)
+			require.NoError(tt, err)
+			require.Error(tt, runner.InitConfig(tempDir, defaultCfg))
+
+			require.Equal(tt, tc.expectedConfigFunc(defaultCfg), readConfig)
+		})
+	}
 }
 
-// the func returns the default config snapshot.
+// the func returns the default config snapshot as string.
 func getDefaultConfigString() string {
 	return `version: v1
 logging:
@@ -77,6 +126,7 @@ coreum:
 processes:
     coreum_to_xrpl:
         repeat_delay: 10s
+    retry_delay: 10s
 metrics:
     enabled: false
     server:

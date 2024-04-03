@@ -38,7 +38,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 
 	xrplBaseFee := uint32(10)
 	usedTicketSequenceThreshold := uint32(10)
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,

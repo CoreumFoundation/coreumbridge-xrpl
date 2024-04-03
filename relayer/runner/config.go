@@ -2,6 +2,7 @@
 package runner
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
 	toolshttp "github.com/CoreumFoundation/coreum-tools/pkg/http"
@@ -100,6 +102,7 @@ type CoreumToXRPLProcessConfig struct {
 // ProcessesConfig  is processes config.
 type ProcessesConfig struct {
 	CoreumToXRPLProcess CoreumToXRPLProcessConfig `yaml:"coreum_to_xrpl"`
+	RetryDelay          time.Duration             `yaml:"retry_delay"`
 	ExitOnError         bool                      `yaml:"-"`
 }
 
@@ -138,7 +141,7 @@ func DefaultConfig() Config {
 	defaultCoreumContactConfig := coreum.DefaultContractClientConfig(sdk.AccAddress(nil))
 	defaultClientCtxDefaultCfg := coreumchainclient.DefaultContextConfig()
 
-	defaultCoreumToXRPLProcessConfig := processes.DefaultCoreumToXRPLProcessConfig(
+	defaultProcessConfig := processes.DefaultProcessConfig(
 		rippledata.Account{},
 		sdk.AccAddress(nil),
 	)
@@ -198,8 +201,9 @@ func DefaultConfig() Config {
 
 		Processes: ProcessesConfig{
 			CoreumToXRPLProcess: CoreumToXRPLProcessConfig{
-				RepeatDelay: defaultCoreumToXRPLProcessConfig.RepeatDelay,
+				RepeatDelay: defaultProcessConfig.CoreumToXRPL.RepeatDelay,
 			},
+			RetryDelay: defaultProcessConfig.RetryDelay,
 		},
 
 		Metrics: MetricsConfig{
@@ -216,7 +220,7 @@ func DefaultConfig() Config {
 
 // InitConfig creates config yaml file.
 func InitConfig(homePath string, cfg Config) error {
-	path := buildFilePath(homePath)
+	path := BuildFilePath(homePath)
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 		return errors.Errorf("failed to init config, file already exists, path:%s", path)
 	}
@@ -243,8 +247,26 @@ func InitConfig(homePath string, cfg Config) error {
 }
 
 // ReadConfig reads config yaml file.
-func ReadConfig(homePath string) (Config, error) {
-	path := buildFilePath(homePath)
+func ReadConfig(ctx context.Context, log logger.Logger, homePath string) (Config, error) {
+	config, err := readConfigFromFile(homePath)
+	if err != nil {
+		return Config{}, err
+	}
+	setConfigDefaults(ctx, log, &config)
+	return config, nil
+}
+
+func setConfigDefaults(ctx context.Context, log logger.Logger, config *Config) {
+	// Set default retry_delay if the value is not set because of an old config version which doesn't contain retry_delay.
+	if config.Processes.RetryDelay == 0 {
+		defaultRetryDelay := DefaultConfig().Processes.RetryDelay
+		log.Warn(ctx, "retry_delay is not set, using default value", zap.Duration("retryDelay", defaultRetryDelay))
+		config.Processes.RetryDelay = defaultRetryDelay
+	}
+}
+
+func readConfigFromFile(homePath string) (Config, error) {
+	path := BuildFilePath(homePath)
 	file, err := os.OpenFile(path, os.O_RDONLY, 0o600)
 	defer file.Close() //nolint:staticcheck //we accept the error ignoring
 	if errors.Is(err, os.ErrNotExist) {
@@ -263,6 +285,7 @@ func ReadConfig(homePath string) (Config, error) {
 	return config, nil
 }
 
-func buildFilePath(homePath string) string {
+// BuildFilePath builds the file path.
+func BuildFilePath(homePath string) string {
 	return filepath.Join(homePath, ConfigFileName)
 }

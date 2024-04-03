@@ -64,7 +64,7 @@ func TestRegisterAndUpdateCoreumToken(t *testing.T) {
 		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -216,7 +216,7 @@ func TestRegisterAndUpdateXRPLToken(t *testing.T) {
 		Amount: issueFee.Amount.AddRaw(1_000_000),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -468,7 +468,7 @@ func TestRecoverXRPLTokeRegistration(t *testing.T) {
 		Amount: issueFee.Amount.AddRaw(1_000_000),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -641,7 +641,7 @@ func TestEnableAndDisableXRPLOriginatedToken(t *testing.T) {
 		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -932,7 +932,7 @@ func TestEnableAndDisableCoreumOriginatedToken(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1195,7 +1195,7 @@ func TestUpdateXRPLOriginatedTokenSendingPrecision(t *testing.T) {
 		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1324,7 +1324,7 @@ func TestUpdateCoreumOriginatedTokenSendingPrecision(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1462,7 +1462,7 @@ func TestUpdateXRPLOriginatedTokenBridgingFee(t *testing.T) {
 		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1590,7 +1590,7 @@ func TestUpdateCoreumOriginatedTokenBridgingFee(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1727,7 +1727,7 @@ func TestUpdateXRPLOriginatedTokenMaxHoldingAmount(t *testing.T) {
 		Amount: sdkmath.NewIntWithDecimal(1, 6),
 	})
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1849,7 +1849,7 @@ func TestUpdateCoreumOriginatedTokenMaxHoldingAmount(t *testing.T) {
 
 	relayers := genRelayers(ctx, t, chains, 2)
 	bridgeXRPLAddress := xrpl.GenPrivKeyTxSigner().Account().String()
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
@@ -1936,7 +1936,7 @@ func TestRegisterXRPLTokenWithProhibitedIssuer(t *testing.T) {
 	ctx, chains := integrationtests.NewTestingContext(t)
 	relayers := genRelayers(ctx, t, chains, 2)
 
-	owner, contractClient := integrationtests.DeployAndInstantiateContract(
+	owner, contractClient := integrationtests.DeployInstantiateAndMigrateContract(
 		ctx,
 		t,
 		chains,
