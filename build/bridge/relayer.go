@@ -21,7 +21,6 @@ const (
 	testsBinDir      = "bin/.cache/integration-tests"
 	goCoverFlag      = "-cover"
 	binaryOutputFlag = "-o"
-	tagsFlag         = "-tags"
 )
 
 // BuildRelayer builds all the versions of relayer binary.
