@@ -9,26 +9,30 @@ import (
 )
 
 // Commands is a definition of commands available in build system.
-var Commands = map[string]build.CommandFunc{
-	"build/me": crust.BuildBuilder,
-	"build": func(ctx context.Context, deps build.DepsFunc) error {
+var Commands = map[string]build.Command{
+	"build/me": {Fn: crust.BuildBuilder, Description: "Builds the builder"},
+	"build": {Fn: func(ctx context.Context, deps build.DepsFunc) error {
 		deps(
 			bridge.BuildRelayer,
 			bridge.BuildSmartContract,
 		)
 		return nil
-	},
-	"build/relayer":                     bridge.BuildRelayer,
-	"build/contract":                    bridge.BuildSmartContract,
-	"build/integration-tests":           bridge.BuildAllIntegrationTests,
-	"build/integration-tests/xrpl":      bridge.BuildIntegrationTests(bridge.TestXRPL),
-	"build/integration-tests/processes": bridge.BuildIntegrationTests(bridge.TestProcesses),
-	"build/integration-tests/contract":  bridge.BuildIntegrationTests(bridge.TestContract),
-	"generate":                          bridge.Generate,
-	"images":                            bridge.BuildRelayerDockerImage,
-	"lint":                              bridge.Lint,
-	"release":                           bridge.ReleaseRelayer,
-	"release/images":                    bridge.ReleaseRelayerImage,
-	"test":                              bridge.Test,
-	"tidy":                              bridge.Tidy,
+	}, Description: "Builds relayer and smart contract"},
+	"build/relayer":           {Fn: bridge.BuildRelayer, Description: "Builds relayer"},
+	"build/contract":          {Fn: bridge.BuildSmartContract, Description: "Builds smart contract"},
+	"build/integration-tests": {Fn: bridge.BuildAllIntegrationTests, Description: "Builds integration tests"},
+	"build/integration-tests/xrpl": {Fn: bridge.BuildIntegrationTests(bridge.TestXRPL),
+		Description: "Builds XRPL integration tests"},
+	"build/integration-tests/processes": {Fn: bridge.BuildIntegrationTests(bridge.TestProcesses),
+		Description: "Builds processes integration tests"},
+	"build/integration-tests/contract": {Fn: bridge.BuildIntegrationTests(bridge.TestContract),
+		Description: "Builds smart contract integration tests"},
+	"download":       {Fn: bridge.DownloadDependencies, Description: "Downloads go dependencies"},
+	"generate":       {Fn: bridge.Generate, Description: "Generates artifacts"},
+	"images":         {Fn: bridge.BuildRelayerDockerImage, Description: "Builds relayer docker image"},
+	"lint":           {Fn: bridge.Lint, Description: "lints code"},
+	"release":        {Fn: bridge.ReleaseRelayer, Description: "Releases relayer binary"},
+	"release/images": {Fn: bridge.ReleaseRelayerImage, Description: "Releases relayer docker image"},
+	"test":           {Fn: bridge.Test, Description: "Runs unit tests"},
+	"tidy":           {Fn: bridge.Tidy, Description: "Runs go mod tidy"},
 }

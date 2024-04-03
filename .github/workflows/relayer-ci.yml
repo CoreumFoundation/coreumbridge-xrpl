@@ -37,6 +37,7 @@ jobs:
             linter-cache: false
             docker-cache: false
           - ci_step: "integration tests contract"
+            # FIXME (wojciech): Don't use make for this
             command: |
               make download-released-contract
               coreumbridge-xrpl-builder build/contract build/integration-tests/contract images
@@ -138,6 +139,15 @@ jobs:
             ~/.cache/crust/wasm/code-hashes.json
           key: ${{ runner.os }}-cache-smart-contracts-${{ hashFiles('./coreumbridge-xrpl/contract/**/*.rs') }}
         if: ${{ matrix.wasm-cache }}
+      - name: Prepare dependencies
+        # FIXME (wojciech): Execute `download` commands for crust and coreum builders once available
+        run: |
+          crust build/me
+          crust build
+          crust znet remove
+          coreum-builder build/me
+          coreumbridge-xrpl-builder build/me
+          coreumbridge-xrpl-builder download
       - name: Run ${{ matrix.ci_step }}
         working-directory: ./coreumbridge-xrpl
         run: ${{ matrix.command }}

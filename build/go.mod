@@ -3,8 +3,8 @@ module github.com/CoreumFoundation/coreumbridge-xrpl/build
 go 1.21
 
 require (
-	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240223065112-97400ae15d8e
-	github.com/CoreumFoundation/crust/build v0.0.0-20240315073401-1192a9abf980
+	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240321120602-0a9c50facc68
+	github.com/CoreumFoundation/crust/build v0.0.0-20240402112538-89269a24f336
 	github.com/pkg/errors v0.9.1
 )
 
