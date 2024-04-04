@@ -136,7 +136,7 @@ func (s *AccountScanner) scanRecentHistory(
 		lastLedger, err := s.scanTransactions(ctx, minLedger, s.metricRegistry.SetXRPLAccountRecentHistoryScanLedgerIndex, ch)
 		// set minLedger to start with it in next iteration
 		// even if the error was returned we still re-scan from the lastLedger
-		if lastLedger != 0 {
+		if lastLedger > 0 {
 			minLedger = lastLedger + 1
 		}
 		if err != nil {
