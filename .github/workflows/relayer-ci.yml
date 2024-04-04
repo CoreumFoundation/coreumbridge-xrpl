@@ -37,9 +37,7 @@ jobs:
             linter-cache: false
             docker-cache: false
           - ci_step: "integration tests contract"
-            # FIXME (wojciech): Don't use make for this
             command: |
-              make download-released-contract
               coreumbridge-xrpl-builder build/contract build/integration-tests/contract images
               coreum-builder images
               crust znet test --test-groups=coreumbridge-xrpl-contract --timeout-commit 0.5s

@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/build"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/build/tools"
 	"github.com/CoreumFoundation/crust/build/golang"
 )
 
@@ -40,7 +41,7 @@ func BuildAllIntegrationTests(ctx context.Context, deps build.DepsFunc) error {
 // BuildIntegrationTests returns function compiling integration tests.
 func BuildIntegrationTests(name string) build.CommandFunc {
 	return func(ctx context.Context, deps build.DepsFunc) error {
-		deps(BuildSmartContract)
+		deps(BuildSmartContract, tools.EnsureBridgeXRPLWASM)
 
 		return golang.BuildTests(ctx, deps, golang.TestBuildConfig{
 			PackagePath: filepath.Join(testsDir, name),

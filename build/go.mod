@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240321120602-0a9c50facc68
-	github.com/CoreumFoundation/crust/build v0.0.0-20240402112538-89269a24f336
+	github.com/CoreumFoundation/crust/build v0.0.0-20240404060811-847cbba6fc72
 	github.com/pkg/errors v0.9.1
 )
 
