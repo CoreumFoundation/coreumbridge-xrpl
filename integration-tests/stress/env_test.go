@@ -312,32 +312,9 @@ func (env *Env) AwaitState(ctx context.Context, stateChecker func() error) error
 // RepeatOwnerActionWithDelay calls the action, waits for some time and call the actionCompensation.
 func (env *Env) RepeatOwnerActionWithDelay(ctx context.Context, action, rollbackAction func() error) error {
 	for j := 0; j < env.Cfg.RepeatOwnerActionCount; j++ {
-		if err := func() error {
-			ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
-			defer cancel()
-			// use common BridgeClient to prevent sequence mismatch
-			if err := env.AwaitContractCall(ctx, func() error {
-				return action()
-			}); err != nil {
-				return err
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(env.Cfg.OwnerActionDelay):
-			}
-			// use common BridgeClient to prevent sequence mismatch
-			if err := env.AwaitContractCall(ctx, func() error {
-				return rollbackAction()
-			}); err != nil {
-				return err
-			}
-
-			return nil
-		}(); err != nil {
+		if err := env.callAdminAction(ctx, action, rollbackAction); err != nil {
 			return err
 		}
-
 	}
 	return nil
 }
@@ -357,4 +334,28 @@ func (env *Env) AwaitContractCall(ctx context.Context, call func() error) error 
 
 		return nil
 	})
+}
+
+func (env *Env) callAdminAction(ctx context.Context, action func() error, rollbackAction func() error) error {
+	ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
+	defer cancel()
+	// use common BridgeClient to prevent sequence mismatch
+	if err := env.AwaitContractCall(ctx, func() error {
+		return action()
+	}); err != nil {
+		return err
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(env.Cfg.OwnerActionDelay):
+	}
+	// use common BridgeClient to prevent sequence mismatch
+	if err := env.AwaitContractCall(ctx, func() error {
+		return rollbackAction()
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
