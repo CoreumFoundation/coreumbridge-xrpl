@@ -13,7 +13,6 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
@@ -38,6 +37,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 			cfg: xrpl.AccountScannerConfig{
 				Account:         account,
 				FullScanEnabled: true,
+				RepeatFullScan:  true,
 				RetryDelay:      time.Millisecond,
 			},
 			rpcTxProvider: func(ctrl *gomock.Controller) xrpl.RPCTxProvider {
@@ -53,6 +53,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 						callNumber++
 						switch callNumber {
 						case 1:
+							require.Equal(t, int64(-1), minLedger)
 							return xrpl.AccountTxResult{
 								Validated: true,
 								Transactions: buildEmptyTransactions(map[string]uint32{
@@ -64,8 +65,10 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 							}, nil
 						// emulate error
 						case 2:
+							require.Equal(t, int64(-1), minLedger)
 							return xrpl.AccountTxResult{}, errors.New("error")
 						case 3:
+							require.Equal(t, int64(3), minLedger)
 							return xrpl.AccountTxResult{
 								Validated: true,
 								Transactions: buildEmptyTransactions(map[string]uint32{
@@ -172,8 +175,8 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			zapDevLogger, err := zap.NewDevelopment()
-			require.NoError(t, err)
+			logMock := logger.NewAnyLogMock(ctrl)
+			logMock.EXPECT().Error(gomock.Any(), gomock.Any(), gomock.Any())
 			rpcTxProvider := tt.rpcTxProvider(ctrl)
 
 			metricRegistryMock := NewMockMetricRegistry(ctrl)
@@ -182,7 +185,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 
 			s := xrpl.NewAccountScanner(
 				tt.cfg,
-				logger.NewZapLoggerFromLogger(zapDevLogger),
+				logMock,
 				rpcTxProvider,
 				metricRegistryMock,
 			)
