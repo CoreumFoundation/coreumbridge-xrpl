@@ -351,11 +351,7 @@ func (env *Env) callAdminAction(ctx context.Context, action func() error, rollba
 	case <-time.After(env.Cfg.OwnerActionDelay):
 	}
 	// use common BridgeClient to prevent sequence mismatch
-	if err := env.AwaitContractCall(ctx, func() error {
+	return env.AwaitContractCall(ctx, func() error {
 		return rollbackAction()
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
