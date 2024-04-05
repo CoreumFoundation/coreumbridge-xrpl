@@ -1165,6 +1165,15 @@ func (b *BridgeClient) GetXRPLToCoreumTracingInfo(
 		return XRPLToCoreumTracingInfo{}, errors.New("XRPL tx memo does not include expected structure")
 	}
 
+	contractCfg, err := b.contractClient.GetContractConfig(ctx)
+	if err != nil {
+		return XRPLToCoreumTracingInfo{}, err
+	}
+
+	if paymentTx.Destination.String() != contractCfg.BridgeXRPLAddress {
+		return XRPLToCoreumTracingInfo{}, errors.New("the destination is not bridge XRPL address")
+	}
+
 	coreumTracingInfo, err := b.contractClient.GetXRPLToCoreumTracingInfo(ctx, xrplTxHash)
 	if err != nil {
 		return XRPLToCoreumTracingInfo{}, err
