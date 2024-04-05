@@ -582,6 +582,14 @@ func (b *BridgeClient) GetAllTokens(ctx context.Context) ([]coreum.CoreumToken, 
 	return coreumTokens, xrplTokens, nil
 }
 
+// GetXRPLTokenByIssuerAndCurrency returns XRPL registered token by issuer and currency.
+func (b *BridgeClient) GetXRPLTokenByIssuerAndCurrency(
+	ctx context.Context,
+	issuer, currency string,
+) (coreum.XRPLToken, error) {
+	return b.contractClient.GetXRPLTokenByIssuerAndCurrency(ctx, issuer, currency)
+}
+
 // SendFromCoreumToXRPL sends tokens form Coreum to XRPL.
 func (b *BridgeClient) SendFromCoreumToXRPL(
 	ctx context.Context,
