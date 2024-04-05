@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
@@ -47,12 +48,6 @@ func (c *counter) Start(ctx context.Context) error {
 
 func Test_taskWithRestartOnError(t *testing.T) {
 	t.Parallel()
-
-	zapLogger, err := logger.NewZapLogger(logger.ZapLoggerConfig{
-		Level:  "error",
-		Format: logger.YamlConsoleLoggerFormat,
-	})
-	require.NoError(t, err)
 
 	tests := []struct {
 		name          string
@@ -97,11 +92,16 @@ func Test_taskWithRestartOnError(t *testing.T) {
 
 			c := newCounter()
 
-			err = parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			logMock := logger.NewAnyLogMock(ctrl)
+			logMock.EXPECT().Error(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+			err := parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 				spawn(tc.name, parallel.Continue, func(ctx context.Context) error {
 					tsk := taskWithRestartOnError(
 						c.Start,
-						zapLogger,
+						logMock,
 						tc.exitOnError,
 						tc.retryDelay,
 					)
