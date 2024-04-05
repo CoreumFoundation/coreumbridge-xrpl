@@ -14,7 +14,6 @@ jobs:
         ci_step: [
           "lint",
           "test",
-          "fuzz-test",
           "integration tests contract",
           "integration tests processes",
           "integration tests xrpl",
@@ -26,13 +25,7 @@ jobs:
             linter-cache: true
             docker-cache: false
           - ci_step: "test"
-            command: "coreumbridge-xrpl-builder test"
-            wasm-cache: false
-            linter-cache: false
-            docker-cache: false
-          # FIXME (wojciech): fuzz tests still use `make` because we need to support them in crust first
-          - ci_step: "fuzz-test"
-            command: "make test-fuzz"
+            command: "coreumbridge-xrpl-builder test fuzz-test"
             wasm-cache: false
             linter-cache: false
             docker-cache: false

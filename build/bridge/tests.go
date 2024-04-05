@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -46,8 +47,28 @@ func RunIntegrationTests(name string) build.CommandFunc {
 		return golang.RunTests(ctx, deps, golang.TestConfig{
 			PackagePath: filepath.Join(testsDir, name),
 			Flags: []string{
+				"-timeout=20m",
 				"-tags=integrationtests",
 			},
 		})
 	}
+}
+
+// RunFuzzTests runs fuzz tests.
+func RunFuzzTests(ctx context.Context, deps build.DepsFunc) error {
+	if err := runFuzzTest(ctx, deps, "FuzzAmountConversionCoreumToXRPLAndBack"); err != nil {
+		return err
+	}
+	return runFuzzTest(ctx, deps, "FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber")
+}
+
+func runFuzzTest(ctx context.Context, deps build.DepsFunc, name string) error {
+	return golang.RunTests(ctx, deps, golang.TestConfig{
+		PackagePath: "relayer/processes",
+		Flags: []string{
+			"-run", "^$",
+			"-fuzz", fmt.Sprintf("^%s$", name),
+			"-fuzztime", "20s",
+		},
+	})
 }
