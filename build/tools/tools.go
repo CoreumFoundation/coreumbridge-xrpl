@@ -7,8 +7,10 @@ import (
 	"github.com/CoreumFoundation/crust/build/tools"
 )
 
+// CoreumBridgeXRPLWASMV110 is the previous version of bridge smart contract.
 const CoreumBridgeXRPLWASMV110 tools.Name = "coreumbridge-xrpl-wasm-v1.1.0"
 
+// Tools is a list of tools required by the bridge builder.
 var Tools = []tools.Tool{
 	// https://github.com/CoreumFoundation/coreumbridge-xrpl/releases
 	tools.BinaryTool{

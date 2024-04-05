@@ -13,12 +13,10 @@ import (
 )
 
 const (
-	repoName         = "coreumbridge-xrpl"
 	repoPath         = "."
 	binaryName       = "coreumbridge-xrpl"
 	binaryPath       = "bin/" + binaryName
 	testsDir         = repoPath + "/integration-tests"
-	testsBinDir      = "bin/.cache/integration-tests"
 	goCoverFlag      = "-cover"
 	binaryOutputFlag = "-o"
 )
