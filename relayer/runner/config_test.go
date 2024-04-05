@@ -11,6 +11,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 )
 
+//nolint:tparallel // the test is parallel, but test cases are not
 func TestInitAndReadConfig(t *testing.T) {
 	t.Parallel()
 
@@ -60,7 +61,7 @@ func TestInitAndReadConfig(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(tt *testing.T) {
-			tt.Parallel()
+			// not parallel intentionally top prevent race
 
 			// create temp dir to store the config
 			tempDir := tt.TempDir()
