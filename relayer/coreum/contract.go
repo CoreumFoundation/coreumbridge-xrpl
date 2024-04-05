@@ -11,9 +11,11 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	comettypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	cosmoserrors "github.com/cosmos/cosmos-sdk/types/errors"
+	sdktxtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -27,6 +29,11 @@ import (
 
 const (
 	contractLabel = "coreumbridge-xrpl"
+
+	eventAttributeAction           = "action"
+	eventAttributeHash             = "hash"
+	eventAttributeThresholdReached = "threshold_reached"
+	eventValueSaveAction           = "save_evidence"
 )
 
 // ExecMethod is contract exec method.
@@ -287,6 +294,28 @@ type TransactionEvidence struct {
 	RelayerAddresses []sdk.AccAddress `json:"relayer_addresses"`
 }
 
+// DataToTx is data to tx mapping.
+type DataToTx[T any] struct {
+	Evidence T
+	Tx       *sdk.TxResponse
+}
+
+// XRPLToCoreumTracingInfo is XRPL to Coreum tracing info.
+type XRPLToCoreumTracingInfo struct {
+	CoreumTx      *sdk.TxResponse
+	EvidenceToTxs []DataToTx[XRPLToCoreumTransferEvidence]
+}
+
+// SaveEvidenceRequest is save_evidence method request.
+type SaveEvidenceRequest struct {
+	Evidence evidence `json:"evidence"`
+}
+
+// ExecutePayload aggregates execute contract payload.
+type ExecutePayload struct {
+	SaveEvidence *SaveEvidenceRequest `json:"save_evidence,omitempty"`
+}
+
 // ******************** Internal transport object  ********************
 
 type instantiateRequest struct {
@@ -319,10 +348,6 @@ type registerXRPLTokenRequest struct {
 	SendingPrecision int32       `json:"sending_precision"`
 	MaxHoldingAmount sdkmath.Int `json:"max_holding_amount"`
 	BridgingFee      sdkmath.Int `json:"bridging_fee"`
-}
-
-type saveEvidenceRequest struct {
-	Evidence evidence `json:"evidence"`
 }
 
 type recoverTicketsRequest struct {
@@ -474,6 +499,7 @@ type ContractClientConfig struct {
 	PageLimit             uint32
 	OutOfGasRetryDelay    time.Duration
 	OutOfGasRetryAttempts uint32
+	TxsQueryPageLimit     uint32
 }
 
 // DefaultContractClientConfig returns default ContractClient config.
@@ -485,16 +511,18 @@ func DefaultContractClientConfig(contractAddress sdk.AccAddress) ContractClientC
 		PageLimit:             50,
 		OutOfGasRetryDelay:    500 * time.Millisecond,
 		OutOfGasRetryAttempts: 5,
+		TxsQueryPageLimit:     1000,
 	}
 }
 
 // ContractClient is the bridge contract client.
 type ContractClient struct {
-	cfg           ContractClientConfig
-	log           logger.Logger
-	clientCtx     client.Context
-	wasmClient    wasmtypes.QueryClient
-	assetftClient assetfttypes.QueryClient
+	cfg                ContractClientConfig
+	log                logger.Logger
+	clientCtx          client.Context
+	wasmClient         wasmtypes.QueryClient
+	assetftClient      assetfttypes.QueryClient
+	cometServiceClient sdktxtypes.ServiceClient
 
 	execMu sync.Mutex
 }
@@ -508,8 +536,9 @@ func NewContractClient(cfg ContractClientConfig, log logger.Logger, clientCtx cl
 			WithBroadcastMode(flags.BroadcastSync).
 			WithAwaitTx(true).WithGasPriceAdjustment(cfg.GasPriceAdjustment).
 			WithGasAdjustment(cfg.GasAdjustment),
-		wasmClient:    wasmtypes.NewQueryClient(clientCtx),
-		assetftClient: assetfttypes.NewQueryClient(clientCtx),
+		wasmClient:         wasmtypes.NewQueryClient(clientCtx),
+		assetftClient:      assetfttypes.NewQueryClient(clientCtx),
+		cometServiceClient: sdktxtypes.NewServiceClient(clientCtx),
 
 		execMu: sync.Mutex{},
 	}
@@ -751,13 +780,13 @@ func (c *ContractClient) SendXRPLToCoreumTransferEvidence(
 	sender sdk.AccAddress,
 	evd XRPLToCoreumTransferEvidence,
 ) (*sdk.TxResponse, error) {
-	req := saveEvidenceRequest{
+	req := SaveEvidenceRequest{
 		Evidence: evidence{
 			XRPLToCoreumTransfer: &evd,
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveEvidenceRequest{
+		Body: map[ExecMethod]SaveEvidenceRequest{
 			ExecMethodSaveEvidence: req,
 		},
 	})
@@ -775,7 +804,7 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(
 	sender sdk.AccAddress,
 	evd XRPLTransactionResultTicketsAllocationEvidence,
 ) (*sdk.TxResponse, error) {
-	req := saveEvidenceRequest{
+	req := SaveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
@@ -788,7 +817,7 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveEvidenceRequest{
+		Body: map[ExecMethod]SaveEvidenceRequest{
 			ExecMethodSaveEvidence: req,
 		},
 	})
@@ -805,7 +834,7 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(
 	sender sdk.AccAddress,
 	evd XRPLTransactionResultTrustSetEvidence,
 ) (*sdk.TxResponse, error) {
-	req := saveEvidenceRequest{
+	req := SaveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
@@ -813,7 +842,7 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveEvidenceRequest{
+		Body: map[ExecMethod]SaveEvidenceRequest{
 			ExecMethodSaveEvidence: req,
 		},
 	})
@@ -831,7 +860,7 @@ func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(
 	sender sdk.AccAddress,
 	evd XRPLTransactionResultCoreumToXRPLTransferEvidence,
 ) (*sdk.TxResponse, error) {
-	req := saveEvidenceRequest{
+	req := SaveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
@@ -839,7 +868,7 @@ func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveEvidenceRequest{
+		Body: map[ExecMethod]SaveEvidenceRequest{
 			ExecMethodSaveEvidence: req,
 		},
 	})
@@ -857,7 +886,7 @@ func (c *ContractClient) SendKeysRotationTransactionResultEvidence(
 	sender sdk.AccAddress,
 	evd XRPLTransactionResultKeysRotationEvidence,
 ) (*sdk.TxResponse, error) {
-	req := saveEvidenceRequest{
+	req := SaveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
@@ -865,7 +894,7 @@ func (c *ContractClient) SendKeysRotationTransactionResultEvidence(
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveEvidenceRequest{
+		Body: map[ExecMethod]SaveEvidenceRequest{
 			ExecMethodSaveEvidence: req,
 		},
 	})
@@ -1420,6 +1449,48 @@ func (c *ContractClient) GetProhibitedXRPLAddresses(ctx context.Context) ([]stri
 	return response.ProhibitedXRPLAddresses, nil
 }
 
+// GetXRPLToCoreumTracingInfo returns XRPL to Coreum tracing info.
+func (c *ContractClient) GetXRPLToCoreumTracingInfo(
+	ctx context.Context,
+	xrplTxHash string,
+) (XRPLToCoreumTracingInfo, error) {
+	txs, err := c.getContractTransactionsByWasmEventAttributes(ctx,
+		map[string]string{
+			eventAttributeAction: eventValueSaveAction,
+			eventAttributeHash:   xrplTxHash,
+		},
+	)
+	if err != nil {
+		return XRPLToCoreumTracingInfo{}, err
+	}
+
+	xrplToCoreumTracingInfo := XRPLToCoreumTracingInfo{
+		EvidenceToTxs: make([]DataToTx[XRPLToCoreumTransferEvidence], 0),
+	}
+	for _, tx := range txs {
+		executePayloads, err := c.decodeExecutePayload(tx)
+		if err != nil {
+			return XRPLToCoreumTracingInfo{}, err
+		}
+		for _, payload := range executePayloads {
+			if payload.SaveEvidence == nil || payload.SaveEvidence.Evidence.XRPLToCoreumTransfer == nil {
+				continue
+			}
+			xrplToCoreumTracingInfo.EvidenceToTxs = append(
+				xrplToCoreumTracingInfo.EvidenceToTxs,
+				DataToTx[XRPLToCoreumTransferEvidence]{
+					Evidence: *payload.SaveEvidence.Evidence.XRPLToCoreumTransfer,
+					Tx:       tx,
+				})
+		}
+		if isEventValueEqual(tx.Events, wasmtypes.WasmModuleEventType, eventAttributeThresholdReached, "true") {
+			xrplToCoreumTracingInfo.CoreumTx = tx
+		}
+	}
+
+	return xrplToCoreumTracingInfo, nil
+}
+
 func (c *ContractClient) getPaginatedXRPLTokens(
 	ctx context.Context,
 	startAfterKey string,
@@ -1633,6 +1704,94 @@ func (c *ContractClient) getTxFactory() client.Factory {
 		WithTxConfig(c.clientCtx.TxConfig()).
 		WithMemo(fmt.Sprintf("Coreum XRPL bridge relayer version: %s", buildinfo.VersionTag)).
 		WithSimulateAndExecute(true)
+}
+
+func (c *ContractClient) getContractTransactionsByWasmEventAttributes(
+	ctx context.Context,
+	attributes map[string]string,
+) ([]*sdk.TxResponse, error) {
+	page := uint64(0)
+	txResponses := make([]*sdk.TxResponse, 0)
+	events := []string{
+		fmt.Sprintf(
+			"%s.%s='%s'",
+			wasmtypes.WasmModuleEventType,
+			wasmtypes.AttributeKeyContractAddr,
+			c.GetContractAddress().String(),
+		),
+	}
+	for key, value := range attributes {
+		events = append(events, fmt.Sprintf(
+			"%s.%s='%s'",
+			wasmtypes.WasmModuleEventType,
+			key,
+			value,
+		))
+	}
+
+	attributes[wasmtypes.AttributeKeyContractAddr] = wasmtypes.WasmModuleEventType
+	for {
+		txEventsPage, err := c.cometServiceClient.GetTxsEvent(ctx, &sdktxtypes.GetTxsEventRequest{
+			Events:  events,
+			OrderBy: sdktxtypes.OrderBy_ORDER_BY_DESC,
+			Page:    page,
+			Limit:   uint64(c.cfg.TxsQueryPageLimit),
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get contrac txs by events")
+		}
+		txResponses = append(txResponses, txEventsPage.TxResponses...)
+		if len(txEventsPage.TxResponses) < int(c.cfg.TxsQueryPageLimit) {
+			break
+		}
+		page++
+	}
+
+	return txResponses, nil
+}
+
+func (c *ContractClient) decodeExecutePayload(txAny *sdk.TxResponse) ([]ExecutePayload, error) {
+	var tx sdk.Tx
+	if err := c.clientCtx.Codec().UnpackAny(txAny.Tx, &tx); err != nil {
+		return nil, errors.Errorf("failed to unpack sdk.Tx, tx:%v", tx)
+	}
+
+	executePayloads := make([]ExecutePayload, 0)
+	for _, msg := range tx.GetMsgs() {
+		executeContractMsg, ok := msg.(*wasmtypes.MsgExecuteContract)
+		if !ok {
+			continue
+		}
+		payload := executeContractMsg.Msg
+		var executePayload ExecutePayload
+		if err := json.Unmarshal(payload, &executePayload); err != nil {
+			return nil, errors.Wrapf(err, "failed to decode contract payload to map, raw payload:%s, tx:%v", string(payload), tx)
+		}
+		executePayloads = append(executePayloads, executePayload)
+	}
+
+	return executePayloads, nil
+}
+
+func isEventValueEqual(
+	events []comettypes.Event,
+	etype, key, value string,
+) bool {
+	for _, ev := range sdk.StringifyEvents(events) {
+		if ev.Type != etype {
+			continue
+		}
+		for _, attr := range ev.Attributes {
+			if attr.Key != key {
+				continue
+			}
+			if attr.Value == value {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 // ******************** Contract error ********************

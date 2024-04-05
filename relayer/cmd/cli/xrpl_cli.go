@@ -40,6 +40,7 @@ func XRPLCmd(bcp BridgeClientProvider) (*cobra.Command, error) {
 		Short: "XRPL queries.",
 	}
 	xrplQueryCmd.AddCommand(XRPLBalancesCmd(bcp))
+	xrplQueryCmd.AddCommand(TraceXRPLToCoreumTransfer(bcp))
 	AddHomeFlag(xrplQueryCmd)
 
 	keyringXRPLCmd, err := KeyringCmd(XRPLKeyringSuffix, xrpl.CoinType,
@@ -109,7 +110,7 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s --%s sender
 					return errors.Wrapf(err, "failed to get flag %s", FlagKeyName)
 				}
 
-				return bridgeClient.SendFromXRPLToCoreum(
+				_, err = bridgeClient.SendFromXRPLToCoreum(
 					ctx,
 					keyName,
 					rippledata.Amount{
@@ -119,6 +120,8 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s --%s sender
 					},
 					recipient,
 				)
+
+				return err
 			}),
 	}
 }
@@ -209,6 +212,48 @@ func XRPLBalancesCmd(bcp BridgeClientProvider) *cobra.Command {
 				})
 
 				components.Log.Info(ctx, "Got balances: [issuer/currency amount]", zap.Any("balances", balancesFormatted))
+				return nil
+			}),
+	}
+}
+
+// TraceXRPLToCoreumTransfer prints XRPL to Coreum transfer tracing info.
+func TraceXRPLToCoreumTransfer(bcp BridgeClientProvider) *cobra.Command {
+	return &cobra.Command{
+		Use:   "trace-xrpl-to-coreum-transfer [xrpl tx hash]",
+		Short: "XRPL to Coreum transfer tracing info.",
+		Args:  cobra.ExactArgs(1),
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
+
+				xrplTxHash := args[0]
+				tracingInfo, err := bridgeClient.GetXRPLToCoreumTracingInfo(ctx, xrplTxHash)
+				if err != nil {
+					return err
+				}
+
+				if tracingInfo.CoreumTx != nil {
+					components.Log.Info(
+						ctx,
+						"Transfer is complete.",
+						zap.String("coreumTxHah", tracingInfo.CoreumTx.TxHash),
+					)
+					return nil
+				}
+
+				contractCfg, err := bridgeClient.GetContractConfig(ctx)
+				if err != nil {
+					return err
+				}
+
+				components.Log.Info(
+					ctx,
+					"Transfer is in progress.",
+					zap.Int("evidencesProvided", len(tracingInfo.EvidenceToTxs)),
+					zap.Uint32("threshold", contractCfg.EvidenceThreshold),
+				)
+
 				return nil
 			}),
 	}

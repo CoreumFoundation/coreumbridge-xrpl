@@ -115,9 +115,10 @@ func sendXRPFromXRPLAndBack(ctx context.Context, t *testing.T, env *Env) {
 						ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
 						defer cancel()
 
-						if err := bridgeClient.SendFromXRPLToCoreum(
+						_, err := bridgeClient.SendFromXRPLToCoreum(
 							ctx, xrplAccount.String(), amountToSendFromXRPLtoCoreum, coreumAccount,
-						); err != nil {
+						)
+						if err != nil {
 							return err
 						}
 

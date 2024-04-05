@@ -151,6 +151,10 @@ type ContractClient interface {
 		sender sdk.AccAddress,
 		codeID uint64,
 	) (*sdk.TxResponse, error)
+	GetXRPLToCoreumTracingInfo(
+		ctx context.Context,
+		xrplTxHash string,
+	) (coreum.XRPLToCoreumTracingInfo, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -171,6 +175,7 @@ type XRPLRPCClient interface {
 		marker string,
 	) (xrpl.AccountLinesResult, error)
 	GetXRPLBalances(ctx context.Context, acc rippledata.Account) ([]rippledata.Amount, error)
+	Tx(ctx context.Context, hash rippledata.Hash256) (xrpl.TxResult, error)
 }
 
 // XRPLTxSigner is XRPL transaction signer.
@@ -230,6 +235,13 @@ func DefaultKeysRotationConfig() KeysRotationConfig {
 		},
 		EvidenceThreshold: 0,
 	}
+}
+
+// XRPLToCoreumTracingInfo is XRPL to Coreum tracing info.
+type XRPLToCoreumTracingInfo struct {
+	XRPLTx        rippledata.TransactionWithMetaData
+	CoreumTx      *sdk.TxResponse
+	EvidenceToTxs []coreum.DataToTx[coreum.XRPLToCoreumTransferEvidence]
 }
 
 // BridgeClient is the service responsible for the bridge bootstrapping.
@@ -635,10 +647,10 @@ func (b *BridgeClient) SendFromXRPLToCoreum(
 	senderKeyName string,
 	amount rippledata.Amount,
 	recipient sdk.AccAddress,
-) error {
+) (string, error) {
 	senderAccount, err := b.xrplTxSigner.Account(senderKeyName)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	b.log.Info(
@@ -651,11 +663,11 @@ func (b *BridgeClient) SendFromXRPLToCoreum(
 
 	cfg, err := b.contractClient.GetContractConfig(ctx)
 	if err != nil {
-		return err
+		return "", err
 	}
 	xrplBridgeAddress, err := rippledata.NewAccountFromAddress(cfg.BridgeXRPLAddress)
 	if err != nil {
-		return errors.Wrapf(
+		return "", errors.Wrapf(
 			err,
 			"failed to convert BridgeXRPLAddress from contract to rippledata.Account, address:%s",
 			cfg.BridgeXRPLAddress,
@@ -664,7 +676,7 @@ func (b *BridgeClient) SendFromXRPLToCoreum(
 
 	memo, err := xrpl.EncodeCoreumRecipientToMemo(recipient)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	paymentTx := rippledata.Payment{
@@ -707,7 +719,11 @@ func (b *BridgeClient) SetXRPLTrustSet(
 		},
 	}
 
-	return b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &trustSetTx, senderKeyName)
+	if _, err := b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &trustSetTx, senderKeyName); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // UpdateCoreumToken updates Coreum token.
@@ -1119,6 +1135,48 @@ func (b *BridgeClient) GetTransactionEvidences(ctx context.Context) ([]coreum.Tr
 	return b.contractClient.GetTransactionEvidences(ctx)
 }
 
+// GetXRPLToCoreumTracingInfo returns XRPL to Coreum tracing info.
+func (b *BridgeClient) GetXRPLToCoreumTracingInfo(
+	ctx context.Context,
+	xrplTxHash string,
+) (XRPLToCoreumTracingInfo, error) {
+	b.log.Info(ctx, "Getting XRPL to Coreum transfer tracing info")
+	xrplHash, err := rippledata.NewHash256(xrplTxHash)
+	if err != nil {
+		return XRPLToCoreumTracingInfo{}, errors.Wrapf(err, "invalid XRPL tx hash:%s", xrplTxHash)
+	}
+
+	tx, err := b.xrplRPCClient.Tx(ctx, *xrplHash)
+	if err != nil {
+		return XRPLToCoreumTracingInfo{}, err
+	}
+
+	if tx.GetType() != rippledata.PAYMENT.String() {
+		return XRPLToCoreumTracingInfo{}, errors.Errorf(
+			"invalid XRPL transaction type, expected %s, got: %s", rippledata.PAYMENT.String(), tx.GetType(),
+		)
+	}
+	paymentTx, ok := tx.Transaction.(*rippledata.Payment)
+	if !ok {
+		return XRPLToCoreumTracingInfo{}, errors.Errorf("failed to cast tx to Payment, data:%+v", tx)
+	}
+	coreumRecipient := xrpl.DecodeCoreumRecipientFromMemo(paymentTx.Memos)
+	if coreumRecipient == nil {
+		return XRPLToCoreumTracingInfo{}, errors.New("XRPL tx memo does not include expected structure")
+	}
+
+	coreumTracingInfo, err := b.contractClient.GetXRPLToCoreumTracingInfo(ctx, xrplTxHash)
+	if err != nil {
+		return XRPLToCoreumTracingInfo{}, err
+	}
+
+	return XRPLToCoreumTracingInfo{
+		XRPLTx:        tx.TransactionWithMetaData,
+		CoreumTx:      coreumTracingInfo.CoreumTx,
+		EvidenceToTxs: coreumTracingInfo.EvidenceToTxs,
+	}, nil
+}
+
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(
 	ctx context.Context,
 	xrplBridgeAccount rippledata.Account,
@@ -1167,7 +1225,7 @@ func (b *BridgeClient) setUpXRPLBridgeAccount(
 			TransactionType: rippledata.ACCOUNT_SET,
 		},
 	}
-	if err := b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &enableRipplingTx, bridgeAccountKeyName); err != nil {
+	if _, err := b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &enableRipplingTx, bridgeAccountKeyName); err != nil {
 		return err
 	}
 
@@ -1179,7 +1237,7 @@ func (b *BridgeClient) setUpXRPLBridgeAccount(
 			TransactionType: rippledata.SIGNER_LIST_SET,
 		},
 	}
-	if err := b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &signerListSetTx, bridgeAccountKeyName); err != nil {
+	if _, err := b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &signerListSetTx, bridgeAccountKeyName); err != nil {
 		return err
 	}
 
@@ -1191,7 +1249,11 @@ func (b *BridgeClient) setUpXRPLBridgeAccount(
 		},
 		SetFlag: lo.ToPtr(uint32(rippledata.TxSetDisableMaster)),
 	}
-	return b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &disableMasterKeyTx, bridgeAccountKeyName)
+	if _, err := b.autoFillSignSubmitAndAwaitXRPLTx(ctx, &disableMasterKeyTx, bridgeAccountKeyName); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ComputeXRPLBridgeAccountBalance computes the min balance required by the XRPL bridge account.
@@ -1282,23 +1344,23 @@ func (b *BridgeClient) autoFillSignSubmitAndAwaitXRPLTx(
 	ctx context.Context,
 	tx rippledata.Transaction,
 	signerKeyName string,
-) error {
+) (string, error) {
 	sender, err := b.xrplTxSigner.Account(signerKeyName)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := b.xrplRPCClient.AutoFillTx(ctx, tx, sender, xrpl.MaxAllowedXRPLSigners); err != nil {
-		return err
+		return "", err
 	}
 	if err := b.xrplTxSigner.Sign(tx, signerKeyName); err != nil {
-		return err
+		return "", err
 	}
 
 	b.log.Info(ctx, "Submitting XRPL transaction", zap.String("txHash", tx.GetHash().String()))
 	if err = b.xrplRPCClient.SubmitAndAwaitSuccess(ctx, tx); err != nil {
-		return err
+		return "", err
 	}
 	b.log.Info(ctx, "Successfully submitted transaction", zap.String("txHash", tx.GetHash().String()))
 
-	return nil
+	return tx.GetHash().String(), nil
 }
