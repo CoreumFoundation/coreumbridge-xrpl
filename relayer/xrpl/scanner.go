@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
-	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
@@ -121,32 +120,47 @@ func (s *AccountScanner) scanRecentHistory(
 	currentLedger int64,
 	ch chan<- rippledata.TransactionWithMetaData,
 ) {
-	// in case we don't have enough ledges for the window we start from the initial
+	// in case we don't have enough ledgers for the window we start from the initial
 	minLedger := int64(0)
 	if currentLedger > s.cfg.RecentScanWindow {
 		minLedger = currentLedger - s.cfg.RecentScanWindow
 	}
 
-	s.doWithRepeat(ctx, s.cfg.RepeatRecentScan, func() {
+	s.doWithRepeat(ctx, s.cfg.RepeatRecentScan, func() error {
 		s.log.Debug(
 			ctx,
 			"Scanning recent XRPL account history",
 			zap.Int64("minLedger", minLedger),
 			zap.String("account", s.cfg.Account.String()),
 		)
-		lastLedger := s.scanTransactions(ctx, minLedger, s.metricRegistry.SetXRPLAccountRecentHistoryScanLedgerIndex, ch)
-		if lastLedger != 0 {
+		lastLedger, err := s.scanTransactions(ctx, minLedger, s.metricRegistry.SetXRPLAccountRecentHistoryScanLedgerIndex, ch)
+		// set minLedger to start with it in next iteration
+		// even if the error was returned we still re-scan from the lastLedger
+		if lastLedger > 0 {
 			minLedger = lastLedger + 1
 		}
+		if err != nil {
+			return err
+		}
 		s.log.Debug(ctx, "Scanning of the recent history is done", zap.Int64("lastLedger", lastLedger))
+		return nil
 	})
 }
 
 func (s *AccountScanner) scanFullHistory(ctx context.Context, ch chan<- rippledata.TransactionWithMetaData) {
-	s.doWithRepeat(ctx, s.cfg.RepeatFullScan, func() {
+	minLedger := int64(-1)
+	s.doWithRepeat(ctx, s.cfg.RepeatFullScan, func() error {
 		s.log.Debug(ctx, "Scanning XRPL account full history", zap.String("account", s.cfg.Account.String()))
-		lastLedger := s.scanTransactions(ctx, -1, s.metricRegistry.SetXRPLAccountFullHistoryScanLedgerIndex, ch)
+		lastLedger, err := s.scanTransactions(ctx, minLedger, s.metricRegistry.SetXRPLAccountFullHistoryScanLedgerIndex, ch)
+		if err != nil {
+			// set minLedger to start with it in next iteration to complete the scanning
+			minLedger = lastLedger + 1
+			return err
+		}
+		// if scanning was done successfully update minLedger to start form the beginning in the next iteration
+		minLedger = int64(-1)
 		s.log.Debug(ctx, "Scanning of full history is done", zap.Int64("lastLedger", lastLedger))
+		return nil
 	})
 }
 
@@ -155,7 +169,7 @@ func (s *AccountScanner) scanTransactions(
 	minLedger int64,
 	indexRegistryFunc func(float64),
 	ch chan<- rippledata.TransactionWithMetaData,
-) int64 {
+) (int64, error) {
 	if minLedger <= 0 {
 		minLedger = -1
 	}
@@ -165,28 +179,13 @@ func (s *AccountScanner) scanTransactions(
 		prevProcessedLedger int64
 	)
 	for {
-		var accountTxResult AccountTxResult
-		err := retry.Do(ctx, s.cfg.RetryDelay, func() error {
-			var err error
-			accountTxResult, err = s.rpcTxProvider.AccountTx(ctx, s.cfg.Account, minLedger, -1, marker)
-			if err != nil {
-				return retry.Retryable(
-					errors.Wrapf(err, "failed to get account transactions, account:%s, minLedger:%d, marker:%+v",
-						s.cfg.Account.String(), minLedger, marker),
-				)
-			}
-			return nil
-		})
+		accountTxResult, err := s.rpcTxProvider.AccountTx(ctx, s.cfg.Account, minLedger, -1, marker)
 		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return lastLedger
-			}
-			// this panic is unexpected
-			panic(errors.Wrapf(
+			return lastLedger, errors.Wrapf(
 				err,
-				"unexpected error received for the get account transactions with retry, err:%s",
-				err.Error(),
-			))
+				"failed to get account transactions, account:%s, minLedger:%d, marker:%+v",
+				s.cfg.Account.String(), minLedger, marker,
+			)
 		}
 		// we accept the transaction from the validated ledger only
 		if accountTxResult.Validated {
@@ -205,7 +204,7 @@ func (s *AccountScanner) scanTransactions(
 				}
 				select {
 				case <-ctx.Done():
-					return lastLedger
+					return lastLedger, ctx.Err()
 				case ch <- *tx:
 				}
 			}
@@ -217,16 +216,18 @@ func (s *AccountScanner) scanTransactions(
 		marker = accountTxResult.Marker
 	}
 
-	return lastLedger
+	return lastLedger, nil
 }
 
-func (s *AccountScanner) doWithRepeat(ctx context.Context, shouldRepeat bool, f func()) {
+func (s *AccountScanner) doWithRepeat(ctx context.Context, shouldRepeat bool, f func() error) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			f()
+			if err := f(); err != nil {
+				s.log.Error(ctx, "XRPL scanner is failed in do with repeat", zap.Error(err))
+			}
 			if !shouldRepeat {
 				s.log.Info(ctx, "Execution is fully stopped.")
 				return
