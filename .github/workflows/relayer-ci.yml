@@ -38,25 +38,28 @@ jobs:
             docker-cache: false
           - ci_step: "integration tests contract"
             command: |
-              coreumbridge-xrpl-builder build/contract build/integration-tests/contract images
-              coreum-builder images
-              crust znet test --test-groups=coreumbridge-xrpl-contract --timeout-commit 0.5s
+              coreumbridge-xrpl-builder build/contract images
+              coreum-builder build images
+              crust znet start --profiles=1cored,xrpl --timeout-commit 0.5s
+              coreumbridge-xrpl-builder integration-tests/contract
             wasm-cache: true
             linter-cache: false
             docker-cache: true
           - ci_step: "integration tests processes"
             command: |
-              coreumbridge-xrpl-builder build/contract build/integration-tests/processes images
-              coreum-builder images
-              crust znet test --test-groups=coreumbridge-xrpl-processes --timeout-commit 0.5s
+              coreumbridge-xrpl-builder build/contract images
+              coreum-builder build images
+              crust znet start --profiles=1cored,xrpl --timeout-commit 0.5s
+              coreumbridge-xrpl-builder integration-tests/processes
             wasm-cache: true
             linter-cache: false
             docker-cache: true
           - ci_step: "integration tests xrpl"
             command: |
-              coreumbridge-xrpl-builder build/contract build/integration-tests/xrpl images
-              coreum-builder images
-              crust znet test --test-groups=coreumbridge-xrpl-xrpl --timeout-commit 0.5s
+              coreumbridge-xrpl-builder build/contract images
+              coreum-builder build images
+              crust znet start --profiles=1cored,xrpl --timeout-commit 0.5s
+              coreumbridge-xrpl-builder integration-tests/xrpl
             wasm-cache: true
             linter-cache: false
             docker-cache: true

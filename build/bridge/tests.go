@@ -19,8 +19,8 @@ const (
 	TestXRPL      = "xrpl"
 )
 
-// BuildAllIntegrationTests builds all the bridge integration tests.
-func BuildAllIntegrationTests(ctx context.Context, deps build.DepsFunc) error {
+// RunAllIntegrationTests runs all the bridge integration tests.
+func RunAllIntegrationTests(ctx context.Context, deps build.DepsFunc) error {
 	entries, err := os.ReadDir(testsDir)
 	if err != nil {
 		return errors.WithStack(err)
@@ -32,22 +32,21 @@ func BuildAllIntegrationTests(ctx context.Context, deps build.DepsFunc) error {
 			continue
 		}
 
-		actions = append(actions, BuildIntegrationTests(e.Name()))
+		actions = append(actions, RunIntegrationTests(e.Name()))
 	}
 	deps(actions...)
 	return nil
 }
 
-// BuildIntegrationTests returns function compiling integration tests.
-func BuildIntegrationTests(name string) build.CommandFunc {
+// RunIntegrationTests returns function running integration tests.
+func RunIntegrationTests(name string) build.CommandFunc {
 	return func(ctx context.Context, deps build.DepsFunc) error {
 		deps(BuildSmartContract, tools.EnsureBridgeXRPLWASM)
 
-		return golang.BuildTests(ctx, deps, golang.TestBuildConfig{
+		return golang.RunTests(ctx, deps, golang.TestConfig{
 			PackagePath: filepath.Join(testsDir, name),
 			Flags: []string{
 				"-tags=integrationtests",
-				binaryOutputFlag + "=" + filepath.Join(testsBinDir, repoName+"-"+name),
 			},
 		})
 	}
