@@ -53,7 +53,6 @@ build-contract:
       -v $(CONTRACT_DIR)/target:/target \
       -v $(CONTRACT_DIR)/target:/usr/local/cargo/registry \
       cosmwasm/optimizer:0.15.0
-	mkdir -p $(BUILD_DIR)
 
 .PHONY: build-dev-contract
 build-dev-contract:
