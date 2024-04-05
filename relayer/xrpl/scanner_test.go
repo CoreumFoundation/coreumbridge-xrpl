@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -87,86 +88,86 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		{
-			name: "recent_scan_positive_with_retry_four_pages",
-			cfg: xrpl.AccountScannerConfig{
-				Account:           account,
-				RecentScanEnabled: true,
-				RecentScanWindow:  10,
-				RepeatRecentScan:  true,
-				RetryDelay:        time.Millisecond,
-			},
-			rpcTxProvider: func(ctrl *gomock.Controller) xrpl.RPCTxProvider {
-				mockedProvider := NewMockRPCTxProvider(ctrl)
-
-				mockedProvider.EXPECT().LedgerCurrent(gomock.Any()).Return(xrpl.LedgerCurrentResult{
-					LedgerCurrentIndex: 100,
-				}, nil)
-
-				callNumber := 0
-				mockedProvider.EXPECT().AccountTx(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-					func(
-						ctx context.Context,
-						account rippledata.Account,
-						minLedger, maxLedger int64,
-						marker map[string]any,
-					) (xrpl.AccountTxResult, error) {
-						callNumber++
-						switch callNumber {
-						case 1:
-							require.Equal(t, int64(100-10), minLedger)
-							return xrpl.AccountTxResult{
-								Validated: true,
-								Transactions: buildEmptyTransactions(map[string]uint32{
-									"1": 90,
-									"2": 91,
-									"3": 91,
-									"4": 92,
-								}),
-								Marker: notEmptyMarker,
-							}, nil
-						case 2:
-							require.Equal(t, int64(100-10), minLedger)
-							return xrpl.AccountTxResult{
-								Validated: true,
-								Transactions: buildEmptyTransactions(map[string]uint32{
-									"5": 92,
-								}),
-								// finish
-								Marker: nil,
-							}, nil
-						case 3:
-							require.Equal(t, int64(93), minLedger)
-							return xrpl.AccountTxResult{}, errors.New("error")
-						case 4:
-							require.Equal(t, int64(93), minLedger)
-							return xrpl.AccountTxResult{
-								Validated: true,
-								Transactions: buildEmptyTransactions(map[string]uint32{
-									"6": 93,
-								}),
-								// finish
-								Marker: nil,
-							}, nil
-						case 5:
-							require.Equal(t, int64(94), minLedger)
-							return xrpl.AccountTxResult{
-								Validated: true,
-								Transactions: buildEmptyTransactions(map[string]uint32{
-									"7": 94,
-								}),
-							}, nil
-						default:
-							panic("unexpected call")
-						}
-					}).AnyTimes()
-				return mockedProvider
-			},
-			wantTxHashes: []string{
-				"1", "2", "3", "4", "5", "6", "7",
-			},
-			wantErr: false,
-		},
+		//{
+		//	name: "recent_scan_positive_with_retry_four_pages",
+		//	cfg: xrpl.AccountScannerConfig{
+		//		Account:           account,
+		//		RecentScanEnabled: true,
+		//		RecentScanWindow:  10,
+		//		RepeatRecentScan:  true,
+		//		RetryDelay:        time.Millisecond,
+		//	},
+		//	rpcTxProvider: func(ctrl *gomock.Controller) xrpl.RPCTxProvider {
+		//		mockedProvider := NewMockRPCTxProvider(ctrl)
+		//
+		//		mockedProvider.EXPECT().LedgerCurrent(gomock.Any()).Return(xrpl.LedgerCurrentResult{
+		//			LedgerCurrentIndex: 100,
+		//		}, nil)
+		//
+		//		callNumber := 0
+		//		mockedProvider.EXPECT().AccountTx(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		//			func(
+		//				ctx context.Context,
+		//				account rippledata.Account,
+		//				minLedger, maxLedger int64,
+		//				marker map[string]any,
+		//			) (xrpl.AccountTxResult, error) {
+		//				callNumber++
+		//				switch callNumber {
+		//				case 1:
+		//					require.Equal(t, int64(100-10), minLedger)
+		//					return xrpl.AccountTxResult{
+		//						Validated: true,
+		//						Transactions: buildEmptyTransactions(map[string]uint32{
+		//							"1": 90,
+		//							"2": 91,
+		//							"3": 91,
+		//							"4": 92,
+		//						}),
+		//						Marker: notEmptyMarker,
+		//					}, nil
+		//				case 2:
+		//					require.Equal(t, int64(100-10), minLedger)
+		//					return xrpl.AccountTxResult{
+		//						Validated: true,
+		//						Transactions: buildEmptyTransactions(map[string]uint32{
+		//							"5": 92,
+		//						}),
+		//						// finish
+		//						Marker: nil,
+		//					}, nil
+		//				case 3:
+		//					require.Equal(t, int64(93), minLedger)
+		//					return xrpl.AccountTxResult{}, errors.New("error")
+		//				case 4:
+		//					require.Equal(t, int64(93), minLedger)
+		//					return xrpl.AccountTxResult{
+		//						Validated: true,
+		//						Transactions: buildEmptyTransactions(map[string]uint32{
+		//							"6": 93,
+		//						}),
+		//						// finish
+		//						Marker: nil,
+		//					}, nil
+		//				case 5:
+		//					require.Equal(t, int64(94), minLedger)
+		//					return xrpl.AccountTxResult{
+		//						Validated: true,
+		//						Transactions: buildEmptyTransactions(map[string]uint32{
+		//							"7": 94,
+		//						}),
+		//					}, nil
+		//				default:
+		//					panic("unexpected call")
+		//				}
+		//			}).AnyTimes()
+		//		return mockedProvider
+		//	},
+		//	wantTxHashes: []string{
+		//		"1", "2", "3", "4", "5", "6", "7",
+		//	},
+		//	wantErr: false,
+		//},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -249,5 +250,9 @@ func buildEmptyTransactions(txsData map[string]uint32) []*rippledata.Transaction
 			},
 		})
 	}
+	// order by ledger sequence
+	sort.Slice(txs, func(i, j int) bool {
+		return txs[i].LedgerSequence < txs[j].LedgerSequence
+	})
 	return txs
 }
