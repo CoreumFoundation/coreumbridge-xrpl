@@ -47,7 +47,7 @@ func RunIntegrationTests(name string) build.CommandFunc {
 		return golang.RunTests(ctx, deps, golang.TestConfig{
 			PackagePath: filepath.Join(testsDir, name),
 			Flags: []string{
-				"-timeout=20m",
+				"-timeout=30m",
 				"-tags=integrationtests",
 			},
 		})

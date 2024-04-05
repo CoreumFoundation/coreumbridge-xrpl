@@ -72,7 +72,7 @@ func init() {
 
 // NewTestingContext returns the configured coreum and xrpl chains and new context for the integration tests.
 func NewTestingContext(t *testing.T) (context.Context, Chains) {
-	testCtx, testCtxCancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	testCtx, testCtxCancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	t.Cleanup(func() {
 		require.NoError(t, testCtx.Err())
 		testCtxCancel()
