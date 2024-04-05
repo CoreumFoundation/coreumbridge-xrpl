@@ -84,8 +84,16 @@ func DeployAndInstantiateContractV110(
 		Amount: issueFee.Amount.AddRaw(2_000_000),
 	})
 
+	contactCfg := coreum.DefaultContractClientConfig(sdk.AccAddress(nil))
+
+	// integration tests are running in parallel producing the high load on the chain, as a result, periodically,
+	// with default gas adjustments, the tests might fail because of estimation delay and feemodel gas price change
+	// the custom gas adjustment config prevents the failure
+	contactCfg.GasAdjustment = 1.5
+	contactCfg.GasPriceAdjustment = sdk.MustNewDecFromStr("1.5")
+
 	contractClient := coreum.NewContractClient(
-		coreum.DefaultContractClientConfig(sdk.AccAddress(nil)),
+		contactCfg,
 		chains.Log,
 		chains.Coreum.ClientContext,
 	)
