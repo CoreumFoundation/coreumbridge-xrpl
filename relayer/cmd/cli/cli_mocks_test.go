@@ -174,6 +174,21 @@ func (mr *MockBridgeClientMockRecorder) GetCoreumBalances(arg0, arg1 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCoreumBalances", reflect.TypeOf((*MockBridgeClient)(nil).GetCoreumBalances), arg0, arg1)
 }
 
+// GetCoreumToXRPLTracingInfo mocks base method.
+func (m *MockBridgeClient) GetCoreumToXRPLTracingInfo(arg0 context.Context, arg1 string) (client.CoreumToXRPLTracingInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCoreumToXRPLTracingInfo", arg0, arg1)
+	ret0, _ := ret[0].(client.CoreumToXRPLTracingInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCoreumToXRPLTracingInfo indicates an expected call of GetCoreumToXRPLTracingInfo.
+func (mr *MockBridgeClientMockRecorder) GetCoreumToXRPLTracingInfo(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCoreumToXRPLTracingInfo", reflect.TypeOf((*MockBridgeClient)(nil).GetCoreumToXRPLTracingInfo), arg0, arg1)
+}
+
 // GetFeesCollected mocks base method.
 func (m *MockBridgeClient) GetFeesCollected(arg0 context.Context, arg1 types.Address) (types.Coins, error) {
 	m.ctrl.T.Helper()
@@ -380,11 +395,12 @@ func (mr *MockBridgeClientMockRecorder) RotateKeys(arg0, arg1, arg2 interface{})
 }
 
 // SendFromCoreumToXRPL mocks base method.
-func (m *MockBridgeClient) SendFromCoreumToXRPL(arg0 context.Context, arg1 types.AccAddress, arg2 data.Account, arg3 types.Coin, arg4 *math.Int) error {
+func (m *MockBridgeClient) SendFromCoreumToXRPL(arg0 context.Context, arg1 types.AccAddress, arg2 data.Account, arg3 types.Coin, arg4 *math.Int) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendFromCoreumToXRPL", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // SendFromCoreumToXRPL indicates an expected call of SendFromCoreumToXRPL.

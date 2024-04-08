@@ -418,7 +418,8 @@ func (r *RunnerEnv) SendFromCoreumToXRPL(
 	amount sdk.Coin,
 	deliverAmount *sdkmath.Int,
 ) {
-	require.NoError(t, r.BridgeClient.SendFromCoreumToXRPL(ctx, sender, recipient, amount, deliverAmount))
+	_, err := r.BridgeClient.SendFromCoreumToXRPL(ctx, sender, recipient, amount, deliverAmount)
+	require.NoError(t, err)
 }
 
 // SendFromXRPLToCoreum sends tokens form XRPL to Coreum.

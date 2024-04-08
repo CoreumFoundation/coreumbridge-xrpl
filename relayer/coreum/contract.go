@@ -5,19 +5,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	sdkmath "cosmossdk.io/math"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	comettypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	cosmoserrors "github.com/cosmos/cosmos-sdk/types/errors"
+	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 	sdktxtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreum/v4/pkg/client"
@@ -33,6 +36,7 @@ const (
 	eventAttributeAction           = "action"
 	eventAttributeHash             = "hash"
 	eventAttributeThresholdReached = "threshold_reached"
+	eventAttributeOperationID      = "operation_id"
 	eventValueSaveAction           = "save_evidence"
 )
 
@@ -304,6 +308,15 @@ type DataToTx[T any] struct {
 type XRPLToCoreumTracingInfo struct {
 	CoreumTx      *sdk.TxResponse
 	EvidenceToTxs []DataToTx[XRPLToCoreumTransferEvidence]
+}
+
+// CoreumToXRPLTracingInfo is Coreum to XRPL tracing info.
+//
+//nolint:revive //kept for the better naming convention.
+type CoreumToXRPLTracingInfo struct {
+	XRPLTxHash    *string
+	CoreumTx      sdk.TxResponse
+	EvidenceToTxs []DataToTx[XRPLTransactionResultEvidence]
 }
 
 // SaveEvidenceRequest is save_evidence method request.
@@ -1472,7 +1485,7 @@ func (c *ContractClient) GetXRPLToCoreumTracingInfo(
 		if err != nil {
 			return XRPLToCoreumTracingInfo{}, err
 		}
-		for _, payload := range executePayloads {
+		for i, payload := range executePayloads {
 			if payload.SaveEvidence == nil || payload.SaveEvidence.Evidence.XRPLToCoreumTransfer == nil {
 				continue
 			}
@@ -1482,13 +1495,85 @@ func (c *ContractClient) GetXRPLToCoreumTracingInfo(
 					Evidence: *payload.SaveEvidence.Evidence.XRPLToCoreumTransfer,
 					Tx:       tx,
 				})
-		}
-		if isEventValueEqual(tx.Events, wasmtypes.WasmModuleEventType, eventAttributeThresholdReached, "true") {
-			xrplToCoreumTracingInfo.CoreumTx = tx
+			if isEventValueEqual(tx.Logs[i].Events, wasmtypes.WasmModuleEventType, eventAttributeThresholdReached, "true") {
+				xrplToCoreumTracingInfo.CoreumTx = tx
+			}
 		}
 	}
 
 	return xrplToCoreumTracingInfo, nil
+}
+
+// GetCoreumToXRPLTracingInfo returns Coreum to XRPL tracing info.
+func (c *ContractClient) GetCoreumToXRPLTracingInfo(
+	ctx context.Context,
+	coreumTxHash string,
+) (CoreumToXRPLTracingInfo, error) {
+	txRes, err := c.cometServiceClient.GetTx(ctx, &sdktxtypes.GetTxRequest{
+		Hash: coreumTxHash,
+	})
+	if err != nil {
+		return CoreumToXRPLTracingInfo{}, err
+	}
+	if txRes == nil || txRes.TxResponse == nil {
+		return CoreumToXRPLTracingInfo{}, errors.Errorf("tx with hash %s not found", coreumTxHash)
+	}
+	tx := txRes.TxResponse
+
+	// validate that tx is wasm tx
+	executePayload, err := c.decodeExecutePayload(tx)
+	if err != nil {
+		return CoreumToXRPLTracingInfo{}, err
+	}
+	if len(executePayload) == 0 {
+		return CoreumToXRPLTracingInfo{}, errors.Errorf("the tx is not the WASM execution tx")
+	}
+
+	operationIDs, err := c.getUsedOperationIDsForTx(ctx, tx.Height)
+	if err != nil {
+		return CoreumToXRPLTracingInfo{}, err
+	}
+	if len(operationIDs) == 0 {
+		return CoreumToXRPLTracingInfo{}, errors.Errorf("the tx doesn't use XRPL tickets")
+	}
+	if len(operationIDs) > 1 {
+		return CoreumToXRPLTracingInfo{},
+			errors.Errorf("the tx/block uses multiple tickets unable find corresponding XRPL tx")
+	}
+
+	txs, err := c.getContractTransactionsByWasmEventAttributes(ctx,
+		map[string]string{
+			eventAttributeAction:      eventValueSaveAction,
+			eventAttributeOperationID: strconv.FormatUint(uint64(operationIDs[0]), 10),
+		},
+	)
+
+	coreumToXRPLTracingInfo := CoreumToXRPLTracingInfo{
+		EvidenceToTxs: make([]DataToTx[XRPLTransactionResultEvidence], 0),
+	}
+	for _, tx := range txs {
+		executePayloads, err := c.decodeExecutePayload(tx)
+		if err != nil {
+			return CoreumToXRPLTracingInfo{}, err
+		}
+		for i, payload := range executePayloads {
+			if payload.SaveEvidence == nil ||
+				payload.SaveEvidence.Evidence.XRPLTransactionResult == nil {
+				continue
+			}
+			coreumToXRPLTracingInfo.EvidenceToTxs = append(
+				coreumToXRPLTracingInfo.EvidenceToTxs,
+				DataToTx[XRPLTransactionResultEvidence]{
+					Evidence: payload.SaveEvidence.Evidence.XRPLTransactionResult.XRPLTransactionResultEvidence,
+					Tx:       tx,
+				})
+			if isEventValueEqual(tx.Logs[i].Events, wasmtypes.WasmModuleEventType, eventAttributeThresholdReached, "true") {
+				coreumToXRPLTracingInfo.XRPLTxHash = &payload.SaveEvidence.Evidence.XRPLTransactionResult.TxHash
+			}
+		}
+	}
+
+	return coreumToXRPLTracingInfo, err
 }
 
 func (c *ContractClient) getPaginatedXRPLTokens(
@@ -1774,10 +1859,10 @@ func (c *ContractClient) decodeExecutePayload(txAny *sdk.TxResponse) ([]ExecuteP
 }
 
 func isEventValueEqual(
-	events []comettypes.Event,
+	events sdk.StringEvents,
 	etype, key, value string,
 ) bool {
-	for _, ev := range sdk.StringifyEvents(events) {
+	for _, ev := range events {
 		if ev.Type != etype {
 			continue
 		}
@@ -1792,6 +1877,46 @@ func isEventValueEqual(
 		}
 	}
 	return false
+}
+
+func (c *ContractClient) getUsedOperationIDsForTx(ctx context.Context, txHeight int64) ([]uint32, error) {
+	// use height-1 to get free tickets before the call
+	beforeCtx := WithHeightRequestContext(ctx, txHeight-1)
+	ticketsBefore, err := c.GetAvailableTickets(beforeCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	afterCtx := WithHeightRequestContext(ctx, txHeight)
+	ticketsAfter, err := c.GetAvailableTickets(afterCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	ticketAfterMap := lo.SliceToMap(ticketsAfter, func(item uint32) (uint32, struct{}) {
+		return item, struct{}{}
+	})
+
+	// find used tickets
+	usedTickets := make([]uint32, 0)
+	for _, ticket := range ticketsBefore {
+		if _, ok := ticketAfterMap[ticket]; !ok {
+			usedTickets = append(usedTickets, ticket)
+		}
+	}
+
+	return usedTickets, nil
+}
+
+// ******************** Context ********************
+
+// WithHeightRequestContext adds the height to the context for queries.
+func WithHeightRequestContext(ctx context.Context, height int64) context.Context {
+	return metadata.AppendToOutgoingContext(
+		ctx,
+		grpctypes.GRPCBlockHeightHeader,
+		strconv.FormatInt(height, 10),
+	)
 }
 
 // ******************** Contract error ********************

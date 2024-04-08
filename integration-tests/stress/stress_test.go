@@ -142,13 +142,14 @@ func sendXRPFromXRPLAndBack(ctx context.Context, t *testing.T, env *Env) {
 
 						// send back to XRPL
 						if err = env.AwaitContractCall(ctx, func() error {
-							return bridgeClient.SendFromCoreumToXRPL(
+							_, err := bridgeClient.SendFromCoreumToXRPL(
 								ctx,
 								coreumAccount,
 								xrplAccount,
 								coreumAmount,
 								nil,
 							)
+							return err
 						}); err != nil {
 							return err
 						}
@@ -211,7 +212,7 @@ func sendWithFailureAndClaimRefund(ctx context.Context, t *testing.T, env *Env) 
 						xrplAccount := xrpl.GenPrivKeyTxSigner().Account()
 
 						if err = env.AwaitContractCall(ctx, func() error {
-							return bridgeClient.SendFromCoreumToXRPL(
+							_, err := bridgeClient.SendFromCoreumToXRPL(
 								ctx,
 								coreumAccount,
 								xrplAccount,
@@ -220,6 +221,7 @@ func sendWithFailureAndClaimRefund(ctx context.Context, t *testing.T, env *Env) 
 									amountToSendFromCoreumXRPL),
 								nil,
 							)
+							return err
 						}); err != nil {
 							return err
 						}

@@ -1,8 +1,6 @@
 package cli_test
 
 import (
-	cryptorand "crypto/rand"
-	"strings"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -69,7 +67,7 @@ func TestTraceXRPLToCoreumTransfer(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 
-	xrplTxHash := genXRPLTxHash(t)
+	xrplTxHash := "hash"
 	args := append(initConfig(t), xrplTxHash)
 
 	// complete
@@ -87,14 +85,4 @@ func TestTraceXRPLToCoreumTransfer(t *testing.T) {
 		}, nil)
 
 	executeQueryCmd(t, cli.TraceXRPLToCoreumTransfer(mockBridgeClientProvider(bridgeClientMock)), args...)
-}
-
-func genXRPLTxHash(t *testing.T) string {
-	t.Helper()
-
-	hash := rippledata.Hash256{}
-	_, err := cryptorand.Read(hash[:])
-	require.NoError(t, err)
-
-	return strings.ToUpper(hash.String())
 }

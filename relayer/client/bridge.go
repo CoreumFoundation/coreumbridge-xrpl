@@ -155,6 +155,10 @@ type ContractClient interface {
 		ctx context.Context,
 		xrplTxHash string,
 	) (coreum.XRPLToCoreumTracingInfo, error)
+	GetCoreumToXRPLTracingInfo(
+		ctx context.Context,
+		coreumTxHash string,
+	) (coreum.CoreumToXRPLTracingInfo, error)
 }
 
 // XRPLRPCClient is XRPL RPC client interface.
@@ -242,6 +246,13 @@ type XRPLToCoreumTracingInfo struct {
 	XRPLTx        rippledata.TransactionWithMetaData
 	CoreumTx      *sdk.TxResponse
 	EvidenceToTxs []coreum.DataToTx[coreum.XRPLToCoreumTransferEvidence]
+}
+
+// CoreumToXRPLTracingInfo is Coreum to XRPL tracing info.
+type CoreumToXRPLTracingInfo struct {
+	CoreumTx      sdk.TxResponse
+	XRPLTx        *rippledata.TransactionWithMetaData
+	EvidenceToTxs []coreum.DataToTx[coreum.XRPLTransactionResultEvidence]
 }
 
 // BridgeClient is the service responsible for the bridge bootstrapping.
@@ -609,7 +620,7 @@ func (b *BridgeClient) SendFromCoreumToXRPL(
 	recipient rippledata.Account,
 	amount sdk.Coin,
 	deliverAmount *sdkmath.Int,
-) error {
+) (string, error) {
 	logFields := []zap.Field{
 		zap.String("sender", sender.String()),
 		zap.String("amount", amount.String()),
@@ -625,11 +636,11 @@ func (b *BridgeClient) SendFromCoreumToXRPL(
 	)
 	txRes, err := b.contractClient.SendToXRPL(ctx, sender, recipient.String(), amount, deliverAmount)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if txRes == nil {
-		return nil
+		return "", nil
 	}
 
 	b.log.Info(
@@ -638,7 +649,7 @@ func (b *BridgeClient) SendFromCoreumToXRPL(
 		zap.String("txHash", txRes.TxHash),
 	)
 
-	return nil
+	return txRes.TxHash, nil
 }
 
 // SendFromXRPLToCoreum sends tokens form XRPL to Coreum.
@@ -1184,6 +1195,47 @@ func (b *BridgeClient) GetXRPLToCoreumTracingInfo(
 		CoreumTx:      coreumTracingInfo.CoreumTx,
 		EvidenceToTxs: coreumTracingInfo.EvidenceToTxs,
 	}, nil
+}
+
+// GetCoreumToXRPLTracingInfo returns Coreum to XRPL tracing info.
+func (b *BridgeClient) GetCoreumToXRPLTracingInfo(
+	ctx context.Context,
+	coreumTxHash string,
+) (CoreumToXRPLTracingInfo, error) {
+	b.log.Info(ctx, "Getting Coreum to XRPL transfer tracing info")
+
+	tracingInfo, err := b.contractClient.GetCoreumToXRPLTracingInfo(ctx, coreumTxHash)
+	if err != nil {
+		return CoreumToXRPLTracingInfo{}, err
+	}
+	if err != nil {
+		return CoreumToXRPLTracingInfo{}, err
+	}
+
+	coreumToXRPLTracingInfo := CoreumToXRPLTracingInfo{
+		CoreumTx:      tracingInfo.CoreumTx,
+		XRPLTx:        nil,
+		EvidenceToTxs: tracingInfo.EvidenceToTxs,
+	}
+
+	if tracingInfo.XRPLTxHash != nil {
+		xrplHash, err := rippledata.NewHash256(*tracingInfo.XRPLTxHash)
+		if err != nil {
+			return CoreumToXRPLTracingInfo{}, errors.Wrapf(err, "invalid XRPL tx hash:%s", *tracingInfo.XRPLTxHash)
+		}
+		tx, err := b.xrplRPCClient.Tx(ctx, *xrplHash)
+		if err != nil {
+			return CoreumToXRPLTracingInfo{}, err
+		}
+		if tx.GetType() != rippledata.PAYMENT.String() {
+			return CoreumToXRPLTracingInfo{}, errors.Errorf(
+				"invalid XRPL transaction type, expected %s, got: %s", rippledata.PAYMENT.String(), tx.GetType(),
+			)
+		}
+		coreumToXRPLTracingInfo.XRPLTx = &tx.TransactionWithMetaData
+	}
+
+	return coreumToXRPLTracingInfo, nil
 }
 
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(
