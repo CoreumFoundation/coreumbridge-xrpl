@@ -1006,9 +1006,10 @@ func TransactionEvidencesCmd(bcp BridgeClientProvider) *cobra.Command {
 // TraceCoreumToXRPLTransfer prints Coreum to XRPL transfer tracing info.
 func TraceCoreumToXRPLTransfer(bcp BridgeClientProvider) *cobra.Command {
 	return &cobra.Command{
-		Use:   "trace-coreum-to-xrpl-transfer [coreum tx hash]",
-		Short: "Coreum to XRPL transfer tracing info.",
-		Args:  cobra.ExactArgs(1),
+		Use: "trace-coreum-to-xrpl-transfer [coreum tx hash]",
+		Short: `Coreum to XRPL transfer tracing info. The command returns result successfully in case the block of the 
+		tx contains only one transaction which allocates tickets in the contract (e.g. send_to_xrpl, register_xrpl_token and etc.) `,
+		Args: cobra.ExactArgs(1),
 		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
