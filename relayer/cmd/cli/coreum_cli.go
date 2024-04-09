@@ -1006,11 +1006,9 @@ func TransactionEvidencesCmd(bcp BridgeClientProvider) *cobra.Command {
 // TraceCoreumToXRPLTransfer prints Coreum to XRPL transfer tracing info.
 func TraceCoreumToXRPLTransfer(bcp BridgeClientProvider) *cobra.Command {
 	return &cobra.Command{
-		Use: "trace-coreum-to-xrpl-transfer [coreum tx hash]",
-		Short: `Coreum to XRPL transfer tracing info. The command returns result successfully in case the block of 
-the tx contains only one transaction which allocates tickets in the contract 
-(e.g. send_to_xrpl, register_xrpl_token and etc.) `,
-		Args: cobra.ExactArgs(1),
+		Use:   "trace-coreum-to-xrpl-transfer [coreum tx hash]",
+		Short: "Coreum to XRPL transfer tracing info.",
+		Args:  cobra.ExactArgs(1),
 		RunE: runBridgeCmd(bcp,
 			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
 				ctx := cmd.Context()
@@ -1021,20 +1019,21 @@ the tx contains only one transaction which allocates tickets in the contract
 					return err
 				}
 
-				if tracingInfo.XRPLTx != nil {
+				if len(tracingInfo.XRPLTxs) == 0 {
 					components.Log.Info(
 						ctx,
-						"Transfer is complete.",
-						zap.String("xrplTxHah", tracingInfo.XRPLTx.GetHash().String()),
+						"No XRPL transactions found. The transfer might be in-progress.",
 					)
 					return nil
 				}
 
 				components.Log.Info(
 					ctx,
-					"Transfer is in progress.",
+					"Transfer is complete for XRPL txs.",
+					zap.Strings("xrplTxHashes", lo.Map(tracingInfo.XRPLTxs, func(tx rippledata.TransactionWithMetaData, _ int) string {
+						return tx.GetHash().String()
+					})),
 				)
-
 				return nil
 			}),
 	}

@@ -13,6 +13,7 @@ import (
 
 	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -82,7 +83,8 @@ func TestTraceCoreumToXRPLTransfer(t *testing.T) {
 
 	ctx, chains := integrationtests.NewTestingContext(t)
 
-	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
+	xrplRecipient1Address := chains.XRPL.GenAccount(ctx, t, 0)
+	xrplRecipient2Address := chains.XRPL.GenAccount(ctx, t, 0)
 
 	coreumSenderAddress := chains.Coreum.GenAccount()
 	issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
@@ -117,28 +119,42 @@ func TestTraceCoreumToXRPLTransfer(t *testing.T) {
 	// send TrustSet to be able to receive coins from the bridge
 	xrplCurrency, err := rippledata.NewCurrency(registeredCoreumOriginatedToken.XRPLCurrency)
 	require.NoError(t, err)
-	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency)
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipient1Address, runnerEnv.BridgeXRPLAddress, xrplCurrency)
+	runnerEnv.SendXRPLMaxTrustSetTx(ctx, t, xrplRecipient2Address, runnerEnv.BridgeXRPLAddress, xrplCurrency)
 
-	// equal to 11.1111 on XRPL
-	amountToSendToXRPL := sdkmath.NewInt(111111)
-	txHash, err := runnerEnv.BridgeClient.SendFromCoreumToXRPL(
+	amountToSendToRecipient1 := sdkmath.NewInt(111111)
+	amountToSendToRecipient2 := sdkmath.NewInt(211111)
+	txRes, err := runnerEnv.ContractClient.MultiSendToXRPL(
 		ctx,
 		coreumSenderAddress,
-		xrplRecipientAddress,
-		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToXRPL),
-		nil,
+		[]coreum.SendToXRPLRequest{
+			{
+				Recipient:     xrplRecipient1Address.String(),
+				DeliverAmount: nil,
+				Amount:        sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToRecipient1),
+			},
+			{
+				Recipient:     xrplRecipient2Address.String(),
+				DeliverAmount: nil,
+				Amount:        sdk.NewCoin(registeredCoreumOriginatedToken.Denom, amountToSendToRecipient2),
+			},
+		}...,
 	)
 	require.NoError(t, err)
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 
-	// check the XRPL recipient balance
-	xrplRecipientBalance := runnerEnv.Chains.XRPL.GetAccountBalance(
-		ctx, t, xrplRecipientAddress, runnerEnv.BridgeXRPLAddress, xrplCurrency,
+	// check the XRPL recipients balance
+	xrplRecipient1Balance := runnerEnv.Chains.XRPL.GetAccountBalance(
+		ctx, t, xrplRecipient1Address, runnerEnv.BridgeXRPLAddress, xrplCurrency,
 	)
-	require.Equal(t, "11.11", xrplRecipientBalance.Value.String())
+	require.Equal(t, "11.11", xrplRecipient1Balance.Value.String())
+	xrplRecipient2Balance := runnerEnv.Chains.XRPL.GetAccountBalance(
+		ctx, t, xrplRecipient2Address, runnerEnv.BridgeXRPLAddress, xrplCurrency,
+	)
+	require.Equal(t, "21.11", xrplRecipient2Balance.Value.String())
 
-	tracingInfo, err := runnerEnv.BridgeClient.GetCoreumToXRPLTracingInfo(ctx, txHash)
+	tracingInfo, err := runnerEnv.BridgeClient.GetCoreumToXRPLTracingInfo(ctx, txRes.TxHash)
 	require.NoError(t, err)
-	require.NotNil(t, tracingInfo.XRPLTx)
+	require.Len(t, tracingInfo.XRPLTxs, 2)
 	require.Len(t, tracingInfo.EvidenceToTxs, 2)
 }

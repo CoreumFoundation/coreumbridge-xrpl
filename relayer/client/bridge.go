@@ -251,8 +251,8 @@ type XRPLToCoreumTracingInfo struct {
 // CoreumToXRPLTracingInfo is Coreum to XRPL tracing info.
 type CoreumToXRPLTracingInfo struct {
 	CoreumTx      sdk.TxResponse
-	XRPLTx        *rippledata.TransactionWithMetaData
-	EvidenceToTxs []coreum.DataToTx[coreum.XRPLTransactionResultEvidence]
+	XRPLTxs       []rippledata.TransactionWithMetaData
+	EvidenceToTxs [][]coreum.DataToTx[coreum.XRPLTransactionResultEvidence]
 }
 
 // BridgeClient is the service responsible for the bridge bootstrapping.
@@ -1208,20 +1208,17 @@ func (b *BridgeClient) GetCoreumToXRPLTracingInfo(
 	if err != nil {
 		return CoreumToXRPLTracingInfo{}, err
 	}
-	if err != nil {
-		return CoreumToXRPLTracingInfo{}, err
-	}
 
 	coreumToXRPLTracingInfo := CoreumToXRPLTracingInfo{
 		CoreumTx:      tracingInfo.CoreumTx,
-		XRPLTx:        nil,
+		XRPLTxs:       make([]rippledata.TransactionWithMetaData, 0),
 		EvidenceToTxs: tracingInfo.EvidenceToTxs,
 	}
 
-	if tracingInfo.XRPLTxHash != nil {
-		xrplHash, err := rippledata.NewHash256(*tracingInfo.XRPLTxHash)
+	for _, xrplTxHashString := range tracingInfo.XRPLTxHashes {
+		xrplHash, err := rippledata.NewHash256(xrplTxHashString)
 		if err != nil {
-			return CoreumToXRPLTracingInfo{}, errors.Wrapf(err, "invalid XRPL tx hash:%s", *tracingInfo.XRPLTxHash)
+			return CoreumToXRPLTracingInfo{}, errors.Wrapf(err, "invalid XRPL tx hash:%s", xrplTxHashString)
 		}
 		tx, err := b.xrplRPCClient.Tx(ctx, *xrplHash)
 		if err != nil {
@@ -1229,10 +1226,11 @@ func (b *BridgeClient) GetCoreumToXRPLTracingInfo(
 		}
 		if tx.GetType() != rippledata.PAYMENT.String() {
 			return CoreumToXRPLTracingInfo{}, errors.Errorf(
-				"invalid XRPL transaction type, expected %s, got: %s", rippledata.PAYMENT.String(), tx.GetType(),
+				"invalid XRPL transaction type, expected %s, got: %s, hash:%s",
+				rippledata.PAYMENT.String(), tx.GetType(), xrplTxHashString,
 			)
 		}
-		coreumToXRPLTracingInfo.XRPLTx = &tx.TransactionWithMetaData
+		coreumToXRPLTracingInfo.XRPLTxs = append(coreumToXRPLTracingInfo.XRPLTxs, tx.TransactionWithMetaData)
 	}
 
 	return coreumToXRPLTracingInfo, nil

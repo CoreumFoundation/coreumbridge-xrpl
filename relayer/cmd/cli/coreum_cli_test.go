@@ -1256,23 +1256,18 @@ func TestTraceCoreumToXRPLTransfer(t *testing.T) {
 	coreumTxHash := "hash"
 	args := append(initConfig(t), coreumTxHash)
 
-	// complete
 	bridgeClientMock.EXPECT().GetCoreumToXRPLTracingInfo(gomock.Any(), coreumTxHash).
 		Return(bridgeclient.CoreumToXRPLTracingInfo{
-			XRPLTx: &rippledata.TransactionWithMetaData{
-				Transaction: &rippledata.Payment{
-					TxBase: rippledata.TxBase{
-						Hash: rippledata.Hash256{},
+			XRPLTxs: []rippledata.TransactionWithMetaData{
+				{
+					Transaction: &rippledata.Payment{
+						TxBase: rippledata.TxBase{
+							Hash: rippledata.Hash256{},
+						},
 					},
 				},
 			},
 		}, nil)
-	executeQueryCmd(t, cli.TraceCoreumToXRPLTransfer(mockBridgeClientProvider(bridgeClientMock)), args...)
-
-	// pending
-	bridgeClientMock.EXPECT().GetCoreumToXRPLTracingInfo(gomock.Any(), coreumTxHash).
-		Return(bridgeclient.CoreumToXRPLTracingInfo{}, nil)
-
 	executeQueryCmd(t, cli.TraceCoreumToXRPLTransfer(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
 

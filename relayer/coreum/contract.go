@@ -273,9 +273,9 @@ func (o Operation) GetOperationID() uint32 {
 
 // SendToXRPLRequest defines single request to send from coreum to XRPL.
 type SendToXRPLRequest struct {
-	Recipient     string
-	Amount        sdk.Coin
-	DeliverAmount *sdkmath.Int
+	Recipient     string       `json:"recipient"`
+	DeliverAmount *sdkmath.Int `json:"deliver_amount,omitempty"`
+	Amount        sdk.Coin     `json:"-"`
 }
 
 // SaveSignatureRequest defines single request to save relayer signature.
@@ -314,9 +314,9 @@ type XRPLToCoreumTracingInfo struct {
 //
 //nolint:revive //kept for the better naming convention.
 type CoreumToXRPLTracingInfo struct {
-	XRPLTxHash    *string
+	XRPLTxHashes  []string
 	CoreumTx      sdk.TxResponse
-	EvidenceToTxs []DataToTx[XRPLTransactionResultEvidence]
+	EvidenceToTxs [][]DataToTx[XRPLTransactionResultEvidence]
 }
 
 // SaveEvidenceRequest is save_evidence method request.
@@ -327,6 +327,7 @@ type SaveEvidenceRequest struct {
 // ExecutePayload aggregates execute contract payload.
 type ExecutePayload struct {
 	SaveEvidence *SaveEvidenceRequest `json:"save_evidence,omitempty"`
+	SendToXRPL   *SendToXRPLRequest   `json:"send_to_xrpl,omitempty"`
 }
 
 // ******************** Internal transport object  ********************
@@ -377,11 +378,6 @@ type saveSignatureRequest struct {
 	OperationID      uint32 `json:"operation_id"`
 	OperationVersion uint32 `json:"operation_version"`
 	Signature        string `json:"signature"`
-}
-
-type sendToXRPLRequest struct {
-	DeliverAmount *sdkmath.Int `json:"deliver_amount,omitempty"`
-	Recipient     string       `json:"recipient"`
 }
 
 type recoverXRPLTokenRegistrationRequest struct {
@@ -1009,11 +1005,8 @@ func (c *ContractClient) MultiSendToXRPL(
 	execRequests := make([]execRequest, 0, len(requests))
 	for _, req := range requests {
 		execRequests = append(execRequests, execRequest{
-			Body: map[ExecMethod]sendToXRPLRequest{
-				ExecSendToXRPL: {
-					DeliverAmount: req.DeliverAmount,
-					Recipient:     req.Recipient,
-				},
+			Body: map[ExecMethod]SendToXRPLRequest{
+				ExecSendToXRPL: req,
 			},
 			Funds: sdk.NewCoins(req.Amount),
 		})
@@ -1520,60 +1513,80 @@ func (c *ContractClient) GetCoreumToXRPLTracingInfo(
 	}
 	tx := txRes.TxResponse
 
-	// validate that tx is wasm tx
-	executePayload, err := c.decodeExecutePayload(tx)
+	executePayloads, err := c.decodeExecutePayload(tx)
 	if err != nil {
 		return CoreumToXRPLTracingInfo{}, err
 	}
-	if len(executePayload) == 0 {
-		return CoreumToXRPLTracingInfo{}, errors.Errorf("the tx is not the WASM execution tx")
+	if len(executePayloads) == 0 {
+		return CoreumToXRPLTracingInfo{}, errors.Errorf("the tx is not the WASM tx")
 	}
-
-	operationIDs, err := c.getUsedOperationIDsForTx(ctx, tx.Height)
-	if err != nil {
-		return CoreumToXRPLTracingInfo{}, err
-	}
-	if len(operationIDs) == 0 {
-		return CoreumToXRPLTracingInfo{}, errors.Errorf("the tx doesn't use XRPL tickets")
-	}
-	if len(operationIDs) > 1 {
-		return CoreumToXRPLTracingInfo{},
-			errors.Errorf("the tx/block uses multiple tickets unable find corresponding XRPL tx")
-	}
-
-	txs, err := c.getContractTransactionsByWasmEventAttributes(ctx,
-		map[string]string{
-			eventAttributeAction:      eventValueSaveAction,
-			eventAttributeOperationID: strconv.FormatUint(uint64(operationIDs[0]), 10),
-		},
-	)
 
 	coreumToXRPLTracingInfo := CoreumToXRPLTracingInfo{
-		EvidenceToTxs: make([]DataToTx[XRPLTransactionResultEvidence], 0),
+		CoreumTx:      *tx,
+		XRPLTxHashes:  make([]string, 0),
+		EvidenceToTxs: make([][]DataToTx[XRPLTransactionResultEvidence], 0),
 	}
-	for _, tx := range txs {
-		executePayloads, err := c.decodeExecutePayload(tx)
+
+	for _, payload := range executePayloads {
+		if payload.SendToXRPL == nil {
+			continue
+		}
+		operationIDs, err := c.getSendToXRPLOperationIDs(ctx, *payload.SendToXRPL, tx.Height)
 		if err != nil {
 			return CoreumToXRPLTracingInfo{}, err
 		}
-		for i, payload := range executePayloads {
-			if payload.SaveEvidence == nil ||
-				payload.SaveEvidence.Evidence.XRPLTransactionResult == nil {
-				continue
+		for _, operationID := range operationIDs {
+			evidenceToTxs, xrplTxHashes, err := c.getXRPLTxsFromSaveTxResultEvidenceForOperation(ctx, operationID)
+			if err != nil {
+				return CoreumToXRPLTracingInfo{}, err
 			}
-			coreumToXRPLTracingInfo.EvidenceToTxs = append(
-				coreumToXRPLTracingInfo.EvidenceToTxs,
-				DataToTx[XRPLTransactionResultEvidence]{
-					Evidence: payload.SaveEvidence.Evidence.XRPLTransactionResult.XRPLTransactionResultEvidence,
-					Tx:       tx,
-				})
-			if isEventValueEqual(tx.Logs[i].Events, wasmtypes.WasmModuleEventType, eventAttributeThresholdReached, "true") {
-				coreumToXRPLTracingInfo.XRPLTxHash = &payload.SaveEvidence.Evidence.XRPLTransactionResult.TxHash
-			}
+			coreumToXRPLTracingInfo.EvidenceToTxs = append(coreumToXRPLTracingInfo.EvidenceToTxs, evidenceToTxs)
+			coreumToXRPLTracingInfo.XRPLTxHashes = append(coreumToXRPLTracingInfo.XRPLTxHashes, xrplTxHashes...)
 		}
 	}
 
 	return coreumToXRPLTracingInfo, err
+}
+
+func (c *ContractClient) getXRPLTxsFromSaveTxResultEvidenceForOperation(
+	ctx context.Context,
+	operationID uint32,
+) ([]DataToTx[XRPLTransactionResultEvidence], []string, error) {
+	txs, err := c.getContractTransactionsByWasmEventAttributes(ctx,
+		map[string]string{
+			eventAttributeAction:      eventValueSaveAction,
+			eventAttributeOperationID: strconv.FormatUint(uint64(operationID), 10),
+		},
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	// find corresponding XRPL txs
+	evidenceToTxs := make([]DataToTx[XRPLTransactionResultEvidence], 0)
+	xrplTxHashes := make(map[string]struct{}, 0)
+	for _, tx := range txs {
+		executePayloads, err := c.decodeExecutePayload(tx)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, payload := range executePayloads {
+			if payload.SaveEvidence == nil ||
+				payload.SaveEvidence.Evidence.XRPLTransactionResult == nil {
+				continue
+			}
+			evidenceToTxs = append(
+				evidenceToTxs,
+				DataToTx[XRPLTransactionResultEvidence]{
+					Evidence: payload.SaveEvidence.Evidence.XRPLTransactionResult.XRPLTransactionResultEvidence,
+					Tx:       tx,
+				})
+			xrplTxHashes[payload.SaveEvidence.Evidence.XRPLTransactionResult.TxHash] = struct{}{}
+		}
+	}
+
+	return evidenceToTxs, lo.MapToSlice(xrplTxHashes, func(hash string, _ struct{}) string {
+		return hash
+	}), nil
 }
 
 func (c *ContractClient) getPaginatedXRPLTokens(
@@ -1879,33 +1892,41 @@ func isEventValueEqual(
 	return false
 }
 
-func (c *ContractClient) getUsedOperationIDsForTx(ctx context.Context, txHeight int64) ([]uint32, error) {
-	// use height-1 to get free tickets before the call
+func (c *ContractClient) getSendToXRPLOperationIDs(
+	ctx context.Context,
+	sendReq SendToXRPLRequest,
+	txHeight int64,
+) ([]uint32, error) {
 	beforeCtx := WithHeightRequestContext(ctx, txHeight-1)
-	ticketsBefore, err := c.GetAvailableTickets(beforeCtx)
+	operationsBefore, err := c.GetPendingOperations(beforeCtx)
 	if err != nil {
 		return nil, err
 	}
 
 	afterCtx := WithHeightRequestContext(ctx, txHeight)
-	ticketsAfter, err := c.GetAvailableTickets(afterCtx)
+	operationsAfter, err := c.GetPendingOperations(afterCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	ticketAfterMap := lo.SliceToMap(ticketsAfter, func(item uint32) (uint32, struct{}) {
-		return item, struct{}{}
+	operationsBeforeMap := lo.SliceToMap(operationsBefore, func(operation Operation) (uint32, Operation) {
+		return operation.GetOperationID(), operation
 	})
 
-	// find used tickets
-	usedTickets := make([]uint32, 0)
-	for _, ticket := range ticketsBefore {
-		if _, ok := ticketAfterMap[ticket]; !ok {
-			usedTickets = append(usedTickets, ticket)
+	operationIDs := make([]uint32, 0)
+	for _, operation := range operationsAfter {
+		if _, ok := operationsBeforeMap[operation.GetOperationID()]; !ok {
+			if operation.OperationType.CoreumToXRPLTransfer == nil {
+				continue
+			}
+			if operation.OperationType.CoreumToXRPLTransfer.Recipient != sendReq.Recipient {
+				continue
+			}
+			operationIDs = append(operationIDs, operation.GetOperationID())
 		}
 	}
 
-	return usedTickets, nil
+	return operationIDs, nil
 }
 
 // ******************** Context ********************
