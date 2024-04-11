@@ -27,6 +27,8 @@ import (
 
 const (
 	contractLabel = "coreumbridge-xrpl"
+	// RelayerCoreumMemoPrefix is memo prefix for the relayer transaction.
+	RelayerCoreumMemoPrefix = "Coreum XRPL bridge relayer version:"
 )
 
 // ExecMethod is contract exec method.
@@ -1631,7 +1633,7 @@ func (c *ContractClient) getTxFactory() client.Factory {
 		WithKeybase(c.clientCtx.Keyring()).
 		WithChainID(c.clientCtx.ChainID()).
 		WithTxConfig(c.clientCtx.TxConfig()).
-		WithMemo(fmt.Sprintf("Coreum XRPL bridge relayer version: %s", buildinfo.VersionTag)).
+		WithMemo(fmt.Sprintf("%s %s", RelayerCoreumMemoPrefix, buildinfo.VersionTag)).
 		WithSimulateAndExecute(true)
 }
 
