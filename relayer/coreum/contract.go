@@ -1883,10 +1883,8 @@ func isEventValueEqual(
 			if attr.Key != key {
 				continue
 			}
-			if attr.Value == value {
-				return true
-			}
-			return false
+
+			return attr.Value == value
 		}
 	}
 	return false
