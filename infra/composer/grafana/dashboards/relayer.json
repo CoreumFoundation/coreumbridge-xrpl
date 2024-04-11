@@ -1718,10 +1718,10 @@
         "current": {
           "selected": true,
           "text": [
-            "devcore1l9d79mawwv2lhel5eh9z0mp0fpff7pz7grm5tm"
+            "All"
           ],
           "value": [
-            "devcore1l9d79mawwv2lhel5eh9z0mp0fpff7pz7grm5tm"
+            "$__all"
           ]
         },
         "datasource": {
