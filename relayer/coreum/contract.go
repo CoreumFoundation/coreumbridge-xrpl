@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,8 +15,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	cosmoserrors "github.com/cosmos/cosmos-sdk/types/errors"
+	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
+	sdktxtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
 	"github.com/CoreumFoundation/coreum/v4/pkg/client"
@@ -27,6 +32,12 @@ import (
 
 const (
 	contractLabel = "coreumbridge-xrpl"
+
+	eventAttributeAction           = "action"
+	eventAttributeHash             = "hash"
+	eventAttributeThresholdReached = "threshold_reached"
+	eventAttributeOperationID      = "operation_id"
+	eventValueSaveAction           = "save_evidence"
 )
 
 // ExecMethod is contract exec method.
@@ -262,9 +273,9 @@ func (o Operation) GetOperationID() uint32 {
 
 // SendToXRPLRequest defines single request to send from coreum to XRPL.
 type SendToXRPLRequest struct {
-	Recipient     string
-	Amount        sdk.Coin
-	DeliverAmount *sdkmath.Int
+	Recipient     string       `json:"recipient"`
+	DeliverAmount *sdkmath.Int `json:"deliver_amount,omitempty"`
+	Amount        sdk.Coin     `json:"-"`
 }
 
 // SaveSignatureRequest defines single request to save relayer signature.
@@ -285,6 +296,38 @@ type PendingRefund struct {
 type TransactionEvidence struct {
 	Hash             string           `json:"hash"`
 	RelayerAddresses []sdk.AccAddress `json:"relayer_addresses"`
+}
+
+// DataToTx is data to tx mapping.
+type DataToTx[T any] struct {
+	Evidence T
+	Tx       *sdk.TxResponse
+}
+
+// XRPLToCoreumTracingInfo is XRPL to Coreum tracing info.
+type XRPLToCoreumTracingInfo struct {
+	CoreumTx      *sdk.TxResponse
+	EvidenceToTxs []DataToTx[XRPLToCoreumTransferEvidence]
+}
+
+// CoreumToXRPLTracingInfo is Coreum to XRPL tracing info.
+//
+//nolint:revive //kept for the better naming convention.
+type CoreumToXRPLTracingInfo struct {
+	XRPLTxHashes  []string
+	CoreumTx      sdk.TxResponse
+	EvidenceToTxs [][]DataToTx[XRPLTransactionResultEvidence]
+}
+
+// SaveEvidenceRequest is save_evidence method request.
+type SaveEvidenceRequest struct {
+	Evidence evidence `json:"evidence"`
+}
+
+// ExecutePayload aggregates execute contract payload.
+type ExecutePayload struct {
+	SaveEvidence *SaveEvidenceRequest `json:"save_evidence,omitempty"`
+	SendToXRPL   *SendToXRPLRequest   `json:"send_to_xrpl,omitempty"`
 }
 
 // ******************** Internal transport object  ********************
@@ -321,10 +364,6 @@ type registerXRPLTokenRequest struct {
 	BridgingFee      sdkmath.Int `json:"bridging_fee"`
 }
 
-type saveEvidenceRequest struct {
-	Evidence evidence `json:"evidence"`
-}
-
 type recoverTicketsRequest struct {
 	AccountSequence uint32  `json:"account_sequence"`
 	NumberOfTickets *uint32 `json:"number_of_tickets,omitempty"`
@@ -339,11 +378,6 @@ type saveSignatureRequest struct {
 	OperationID      uint32 `json:"operation_id"`
 	OperationVersion uint32 `json:"operation_version"`
 	Signature        string `json:"signature"`
-}
-
-type sendToXRPLRequest struct {
-	DeliverAmount *sdkmath.Int `json:"deliver_amount,omitempty"`
-	Recipient     string       `json:"recipient"`
 }
 
 type recoverXRPLTokenRegistrationRequest struct {
@@ -474,6 +508,7 @@ type ContractClientConfig struct {
 	PageLimit             uint32
 	OutOfGasRetryDelay    time.Duration
 	OutOfGasRetryAttempts uint32
+	TxsQueryPageLimit     uint32
 }
 
 // DefaultContractClientConfig returns default ContractClient config.
@@ -485,16 +520,18 @@ func DefaultContractClientConfig(contractAddress sdk.AccAddress) ContractClientC
 		PageLimit:             50,
 		OutOfGasRetryDelay:    500 * time.Millisecond,
 		OutOfGasRetryAttempts: 5,
+		TxsQueryPageLimit:     1000,
 	}
 }
 
 // ContractClient is the bridge contract client.
 type ContractClient struct {
-	cfg           ContractClientConfig
-	log           logger.Logger
-	clientCtx     client.Context
-	wasmClient    wasmtypes.QueryClient
-	assetftClient assetfttypes.QueryClient
+	cfg                ContractClientConfig
+	log                logger.Logger
+	clientCtx          client.Context
+	wasmClient         wasmtypes.QueryClient
+	assetftClient      assetfttypes.QueryClient
+	cometServiceClient sdktxtypes.ServiceClient
 
 	execMu sync.Mutex
 }
@@ -508,8 +545,9 @@ func NewContractClient(cfg ContractClientConfig, log logger.Logger, clientCtx cl
 			WithBroadcastMode(flags.BroadcastSync).
 			WithAwaitTx(true).WithGasPriceAdjustment(cfg.GasPriceAdjustment).
 			WithGasAdjustment(cfg.GasAdjustment),
-		wasmClient:    wasmtypes.NewQueryClient(clientCtx),
-		assetftClient: assetfttypes.NewQueryClient(clientCtx),
+		wasmClient:         wasmtypes.NewQueryClient(clientCtx),
+		assetftClient:      assetfttypes.NewQueryClient(clientCtx),
+		cometServiceClient: sdktxtypes.NewServiceClient(clientCtx),
 
 		execMu: sync.Mutex{},
 	}
@@ -751,13 +789,13 @@ func (c *ContractClient) SendXRPLToCoreumTransferEvidence(
 	sender sdk.AccAddress,
 	evd XRPLToCoreumTransferEvidence,
 ) (*sdk.TxResponse, error) {
-	req := saveEvidenceRequest{
+	req := SaveEvidenceRequest{
 		Evidence: evidence{
 			XRPLToCoreumTransfer: &evd,
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveEvidenceRequest{
+		Body: map[ExecMethod]SaveEvidenceRequest{
 			ExecMethodSaveEvidence: req,
 		},
 	})
@@ -775,7 +813,7 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(
 	sender sdk.AccAddress,
 	evd XRPLTransactionResultTicketsAllocationEvidence,
 ) (*sdk.TxResponse, error) {
-	req := saveEvidenceRequest{
+	req := SaveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
@@ -788,7 +826,7 @@ func (c *ContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveEvidenceRequest{
+		Body: map[ExecMethod]SaveEvidenceRequest{
 			ExecMethodSaveEvidence: req,
 		},
 	})
@@ -805,7 +843,7 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(
 	sender sdk.AccAddress,
 	evd XRPLTransactionResultTrustSetEvidence,
 ) (*sdk.TxResponse, error) {
-	req := saveEvidenceRequest{
+	req := SaveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
@@ -813,7 +851,7 @@ func (c *ContractClient) SendXRPLTrustSetTransactionResultEvidence(
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveEvidenceRequest{
+		Body: map[ExecMethod]SaveEvidenceRequest{
 			ExecMethodSaveEvidence: req,
 		},
 	})
@@ -831,7 +869,7 @@ func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(
 	sender sdk.AccAddress,
 	evd XRPLTransactionResultCoreumToXRPLTransferEvidence,
 ) (*sdk.TxResponse, error) {
-	req := saveEvidenceRequest{
+	req := SaveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
@@ -839,7 +877,7 @@ func (c *ContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveEvidenceRequest{
+		Body: map[ExecMethod]SaveEvidenceRequest{
 			ExecMethodSaveEvidence: req,
 		},
 	})
@@ -857,7 +895,7 @@ func (c *ContractClient) SendKeysRotationTransactionResultEvidence(
 	sender sdk.AccAddress,
 	evd XRPLTransactionResultKeysRotationEvidence,
 ) (*sdk.TxResponse, error) {
-	req := saveEvidenceRequest{
+	req := SaveEvidenceRequest{
 		Evidence: evidence{
 			XRPLTransactionResult: &xrplTransactionResultEvidence{
 				XRPLTransactionResultEvidence: evd.XRPLTransactionResultEvidence,
@@ -865,7 +903,7 @@ func (c *ContractClient) SendKeysRotationTransactionResultEvidence(
 		},
 	}
 	txRes, err := c.execute(ctx, sender, execRequest{
-		Body: map[ExecMethod]saveEvidenceRequest{
+		Body: map[ExecMethod]SaveEvidenceRequest{
 			ExecMethodSaveEvidence: req,
 		},
 	})
@@ -967,11 +1005,8 @@ func (c *ContractClient) MultiSendToXRPL(
 	execRequests := make([]execRequest, 0, len(requests))
 	for _, req := range requests {
 		execRequests = append(execRequests, execRequest{
-			Body: map[ExecMethod]sendToXRPLRequest{
-				ExecSendToXRPL: {
-					DeliverAmount: req.DeliverAmount,
-					Recipient:     req.Recipient,
-				},
+			Body: map[ExecMethod]SendToXRPLRequest{
+				ExecSendToXRPL: req,
 			},
 			Funds: sdk.NewCoins(req.Amount),
 		})
@@ -1420,6 +1455,140 @@ func (c *ContractClient) GetProhibitedXRPLAddresses(ctx context.Context) ([]stri
 	return response.ProhibitedXRPLAddresses, nil
 }
 
+// GetXRPLToCoreumTracingInfo returns XRPL to Coreum tracing info.
+func (c *ContractClient) GetXRPLToCoreumTracingInfo(
+	ctx context.Context,
+	xrplTxHash string,
+) (XRPLToCoreumTracingInfo, error) {
+	txs, err := c.getContractTransactionsByWasmEventAttributes(ctx,
+		map[string]string{
+			eventAttributeAction: eventValueSaveAction,
+			eventAttributeHash:   xrplTxHash,
+		},
+	)
+	if err != nil {
+		return XRPLToCoreumTracingInfo{}, err
+	}
+
+	xrplToCoreumTracingInfo := XRPLToCoreumTracingInfo{
+		EvidenceToTxs: make([]DataToTx[XRPLToCoreumTransferEvidence], 0),
+	}
+	for _, tx := range txs {
+		executePayloads, err := c.decodeExecutePayload(tx)
+		if err != nil {
+			return XRPLToCoreumTracingInfo{}, err
+		}
+		for i, payload := range executePayloads {
+			if payload.SaveEvidence == nil || payload.SaveEvidence.Evidence.XRPLToCoreumTransfer == nil {
+				continue
+			}
+			xrplToCoreumTracingInfo.EvidenceToTxs = append(
+				xrplToCoreumTracingInfo.EvidenceToTxs,
+				DataToTx[XRPLToCoreumTransferEvidence]{
+					Evidence: *payload.SaveEvidence.Evidence.XRPLToCoreumTransfer,
+					Tx:       tx,
+				})
+			if isEventValueEqual(tx.Logs[i].Events, wasmtypes.WasmModuleEventType, eventAttributeThresholdReached, "true") {
+				xrplToCoreumTracingInfo.CoreumTx = tx
+			}
+		}
+	}
+
+	return xrplToCoreumTracingInfo, nil
+}
+
+// GetCoreumToXRPLTracingInfo returns Coreum to XRPL tracing info.
+func (c *ContractClient) GetCoreumToXRPLTracingInfo(
+	ctx context.Context,
+	coreumTxHash string,
+) (CoreumToXRPLTracingInfo, error) {
+	txRes, err := c.cometServiceClient.GetTx(ctx, &sdktxtypes.GetTxRequest{
+		Hash: coreumTxHash,
+	})
+	if err != nil {
+		return CoreumToXRPLTracingInfo{}, err
+	}
+	if txRes == nil || txRes.TxResponse == nil {
+		return CoreumToXRPLTracingInfo{}, errors.Errorf("tx with hash %s not found", coreumTxHash)
+	}
+	tx := txRes.TxResponse
+
+	executePayloads, err := c.decodeExecutePayload(tx)
+	if err != nil {
+		return CoreumToXRPLTracingInfo{}, err
+	}
+	if len(executePayloads) == 0 {
+		return CoreumToXRPLTracingInfo{}, errors.Errorf("the tx is not the WASM tx")
+	}
+
+	coreumToXRPLTracingInfo := CoreumToXRPLTracingInfo{
+		CoreumTx:      *tx,
+		XRPLTxHashes:  make([]string, 0),
+		EvidenceToTxs: make([][]DataToTx[XRPLTransactionResultEvidence], 0),
+	}
+
+	for _, payload := range executePayloads {
+		if payload.SendToXRPL == nil {
+			continue
+		}
+		operationIDs, err := c.getSendToXRPLOperationIDs(ctx, *payload.SendToXRPL, tx.Height)
+		if err != nil {
+			return CoreumToXRPLTracingInfo{}, err
+		}
+		for _, operationID := range operationIDs {
+			evidenceToTxs, xrplTxHashes, err := c.getXRPLTxsFromSaveTxResultEvidenceForOperation(ctx, operationID)
+			if err != nil {
+				return CoreumToXRPLTracingInfo{}, err
+			}
+			coreumToXRPLTracingInfo.EvidenceToTxs = append(coreumToXRPLTracingInfo.EvidenceToTxs, evidenceToTxs)
+			coreumToXRPLTracingInfo.XRPLTxHashes = append(coreumToXRPLTracingInfo.XRPLTxHashes, xrplTxHashes...)
+		}
+	}
+
+	return coreumToXRPLTracingInfo, err
+}
+
+func (c *ContractClient) getXRPLTxsFromSaveTxResultEvidenceForOperation(
+	ctx context.Context,
+	operationID uint32,
+) ([]DataToTx[XRPLTransactionResultEvidence], []string, error) {
+	txs, err := c.getContractTransactionsByWasmEventAttributes(ctx,
+		map[string]string{
+			eventAttributeAction:      eventValueSaveAction,
+			eventAttributeOperationID: strconv.FormatUint(uint64(operationID), 10),
+		},
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	// find corresponding XRPL txs
+	evidenceToTxs := make([]DataToTx[XRPLTransactionResultEvidence], 0)
+	xrplTxHashes := make(map[string]struct{}, 0)
+	for _, tx := range txs {
+		executePayloads, err := c.decodeExecutePayload(tx)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, payload := range executePayloads {
+			if payload.SaveEvidence == nil ||
+				payload.SaveEvidence.Evidence.XRPLTransactionResult == nil {
+				continue
+			}
+			evidenceToTxs = append(
+				evidenceToTxs,
+				DataToTx[XRPLTransactionResultEvidence]{
+					Evidence: payload.SaveEvidence.Evidence.XRPLTransactionResult.XRPLTransactionResultEvidence,
+					Tx:       tx,
+				})
+			xrplTxHashes[payload.SaveEvidence.Evidence.XRPLTransactionResult.TxHash] = struct{}{}
+		}
+	}
+
+	return evidenceToTxs, lo.MapToSlice(xrplTxHashes, func(hash string, _ struct{}) string {
+		return hash
+	}), nil
+}
+
 func (c *ContractClient) getPaginatedXRPLTokens(
 	ctx context.Context,
 	startAfterKey string,
@@ -1633,6 +1802,140 @@ func (c *ContractClient) getTxFactory() client.Factory {
 		WithTxConfig(c.clientCtx.TxConfig()).
 		WithMemo(fmt.Sprintf("Coreum XRPL bridge relayer version: %s", buildinfo.VersionTag)).
 		WithSimulateAndExecute(true)
+}
+
+func (c *ContractClient) getContractTransactionsByWasmEventAttributes(
+	ctx context.Context,
+	attributes map[string]string,
+) ([]*sdk.TxResponse, error) {
+	page := uint64(0)
+	txResponses := make([]*sdk.TxResponse, 0)
+	events := []string{
+		fmt.Sprintf(
+			"%s.%s='%s'",
+			wasmtypes.WasmModuleEventType,
+			wasmtypes.AttributeKeyContractAddr,
+			c.GetContractAddress().String(),
+		),
+	}
+	for key, value := range attributes {
+		events = append(events, fmt.Sprintf(
+			"%s.%s='%s'",
+			wasmtypes.WasmModuleEventType,
+			key,
+			value,
+		))
+	}
+
+	attributes[wasmtypes.AttributeKeyContractAddr] = wasmtypes.WasmModuleEventType
+	for {
+		txEventsPage, err := c.cometServiceClient.GetTxsEvent(ctx, &sdktxtypes.GetTxsEventRequest{
+			Events:  events,
+			OrderBy: sdktxtypes.OrderBy_ORDER_BY_DESC,
+			Page:    page,
+			Limit:   uint64(c.cfg.TxsQueryPageLimit),
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get contrac txs by events")
+		}
+		txResponses = append(txResponses, txEventsPage.TxResponses...)
+		if len(txEventsPage.TxResponses) < int(c.cfg.TxsQueryPageLimit) {
+			break
+		}
+		page++
+	}
+
+	return txResponses, nil
+}
+
+func (c *ContractClient) decodeExecutePayload(txAny *sdk.TxResponse) ([]ExecutePayload, error) {
+	var tx sdk.Tx
+	if err := c.clientCtx.Codec().UnpackAny(txAny.Tx, &tx); err != nil {
+		return nil, errors.Errorf("failed to unpack sdk.Tx, tx:%v", tx)
+	}
+
+	executePayloads := make([]ExecutePayload, 0)
+	for _, msg := range tx.GetMsgs() {
+		executeContractMsg, ok := msg.(*wasmtypes.MsgExecuteContract)
+		if !ok {
+			continue
+		}
+		payload := executeContractMsg.Msg
+		var executePayload ExecutePayload
+		if err := json.Unmarshal(payload, &executePayload); err != nil {
+			return nil, errors.Wrapf(err, "failed to decode contract payload to map, raw payload:%s, tx:%v", string(payload), tx)
+		}
+		executePayloads = append(executePayloads, executePayload)
+	}
+
+	return executePayloads, nil
+}
+
+func isEventValueEqual(
+	events sdk.StringEvents,
+	etype, key, value string,
+) bool {
+	for _, ev := range events {
+		if ev.Type != etype {
+			continue
+		}
+		for _, attr := range ev.Attributes {
+			if attr.Key != key {
+				continue
+			}
+
+			return attr.Value == value
+		}
+	}
+	return false
+}
+
+func (c *ContractClient) getSendToXRPLOperationIDs(
+	ctx context.Context,
+	sendReq SendToXRPLRequest,
+	txHeight int64,
+) ([]uint32, error) {
+	beforeCtx := WithHeightRequestContext(ctx, txHeight-1)
+	operationsBefore, err := c.GetPendingOperations(beforeCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	afterCtx := WithHeightRequestContext(ctx, txHeight)
+	operationsAfter, err := c.GetPendingOperations(afterCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	operationsBeforeMap := lo.SliceToMap(operationsBefore, func(operation Operation) (uint32, Operation) {
+		return operation.GetOperationID(), operation
+	})
+
+	operationIDs := make([]uint32, 0)
+	for _, operation := range operationsAfter {
+		if _, ok := operationsBeforeMap[operation.GetOperationID()]; !ok {
+			if operation.OperationType.CoreumToXRPLTransfer == nil {
+				continue
+			}
+			if operation.OperationType.CoreumToXRPLTransfer.Recipient != sendReq.Recipient {
+				continue
+			}
+			operationIDs = append(operationIDs, operation.GetOperationID())
+		}
+	}
+
+	return operationIDs, nil
+}
+
+// ******************** Context ********************
+
+// WithHeightRequestContext adds the height to the context for queries.
+func WithHeightRequestContext(ctx context.Context, height int64) context.Context {
+	return metadata.AppendToOutgoingContext(
+		ctx,
+		grpctypes.GRPCBlockHeightHeader,
+		strconv.FormatInt(height, 10),
+	)
 }
 
 // ******************** Contract error ********************

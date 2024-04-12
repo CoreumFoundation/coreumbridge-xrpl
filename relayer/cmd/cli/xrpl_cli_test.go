@@ -3,11 +3,14 @@ package cli_test
 import (
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
+	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -56,4 +59,30 @@ func TestXRPBalancesCmd(t *testing.T) {
 	bridgeClientMock.EXPECT().GetXRPLBalances(gomock.Any(), account).Return([]rippledata.Amount{}, nil)
 	executeQueryCmd(t, cli.XRPLBalancesCmd(mockBridgeClientProvider(bridgeClientMock)),
 		append(initConfig(t), account.String())...)
+}
+
+func TestTraceXRPLToCoreumTransfer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	xrplTxHash := "hash"
+	args := append(initConfig(t), xrplTxHash)
+
+	// complete
+	bridgeClientMock.EXPECT().GetXRPLToCoreumTracingInfo(gomock.Any(), xrplTxHash).
+		Return(bridgeclient.XRPLToCoreumTracingInfo{
+			CoreumTx: &sdk.TxResponse{},
+		}, nil)
+	executeQueryCmd(t, cli.TraceXRPLToCoreumTransfer(mockBridgeClientProvider(bridgeClientMock)), args...)
+
+	// pending
+	bridgeClientMock.EXPECT().GetContractConfig(gomock.Any()).Return(coreum.ContractConfig{}, nil)
+	bridgeClientMock.EXPECT().GetXRPLToCoreumTracingInfo(gomock.Any(), xrplTxHash).
+		Return(bridgeclient.XRPLToCoreumTracingInfo{
+			CoreumTx: nil,
+		}, nil)
+
+	executeQueryCmd(t, cli.TraceXRPLToCoreumTransfer(mockBridgeClientProvider(bridgeClientMock)), args...)
 }
