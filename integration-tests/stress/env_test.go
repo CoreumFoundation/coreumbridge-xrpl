@@ -336,7 +336,7 @@ func (env *Env) AwaitContractCall(ctx context.Context, call func() error) error 
 	})
 }
 
-func (env *Env) callAdminAction(ctx context.Context, action func() error, rollbackAction func() error) error {
+func (env *Env) callAdminAction(ctx context.Context, action, rollbackAction func() error) error {
 	ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
 	defer cancel()
 	// use common BridgeClient to prevent sequence mismatch
