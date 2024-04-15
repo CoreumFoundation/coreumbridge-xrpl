@@ -1953,7 +1953,7 @@ func TestSendFromCoreumToXRPLProhibitedAddresses(t *testing.T) {
 		runnerEnv.BridgeClient.UpdateProhibitedXRPLAddresses(ctx, runnerEnv.ContractOwner, prohibitedXRPLAddresses),
 	)
 
-	err = runnerEnv.BridgeClient.SendFromCoreumToXRPL(
+	_, err = runnerEnv.BridgeClient.SendFromCoreumToXRPL(
 		ctx,
 		coreumSenderAddress,
 		xrplRecipientAddress,

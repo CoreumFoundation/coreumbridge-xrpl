@@ -72,6 +72,7 @@ func CoreumCmd(bcp BridgeClientProvider) (*cobra.Command, error) {
 	coreumQueryCmd.AddCommand(PendingOperationsCmd(bcp))
 	coreumQueryCmd.AddCommand(ProhibitedXRPLAddressesCmd(bcp))
 	coreumQueryCmd.AddCommand(TransactionEvidencesCmd(bcp))
+	coreumQueryCmd.AddCommand(TraceCoreumToXRPLTransfer(bcp))
 
 	AddHomeFlag(coreumQueryCmd)
 
@@ -676,7 +677,8 @@ $ send-from-coreum-to-xrpl 1000000ucore rrrrrrrrrrrrrrrrrrrrrhoLvTp --%s sender 
 					return errors.Wrapf(err, "failed to convert recipient string to rippledata.Account: %s", args[1])
 				}
 
-				return bridgeClient.SendFromCoreumToXRPL(ctx, sender, *recipient, amount, deliverAmount)
+				_, err = bridgeClient.SendFromCoreumToXRPL(ctx, sender, *recipient, amount, deliverAmount)
+				return err
 			}),
 	}
 
@@ -996,6 +998,42 @@ func TransactionEvidencesCmd(bcp BridgeClientProvider) *cobra.Command {
 				}
 				log.Info(ctx, "Got transaction evidences", zap.Any("evidences", transactionEvidences))
 
+				return nil
+			}),
+	}
+}
+
+// TraceCoreumToXRPLTransfer prints Coreum to XRPL transfer tracing info.
+func TraceCoreumToXRPLTransfer(bcp BridgeClientProvider) *cobra.Command {
+	return &cobra.Command{
+		Use:   "trace-coreum-to-xrpl-transfer [coreum tx hash]",
+		Short: "Coreum to XRPL transfer tracing info.",
+		Args:  cobra.ExactArgs(1),
+		RunE: runBridgeCmd(bcp,
+			func(cmd *cobra.Command, args []string, components runner.Components, bridgeClient BridgeClient) error {
+				ctx := cmd.Context()
+
+				xrplTxHash := args[0]
+				tracingInfo, err := bridgeClient.GetCoreumToXRPLTracingInfo(ctx, xrplTxHash)
+				if err != nil {
+					return err
+				}
+
+				if len(tracingInfo.XRPLTxs) == 0 {
+					components.Log.Info(
+						ctx,
+						"No XRPL transactions found. The transfer might be in-progress.",
+					)
+					return nil
+				}
+
+				components.Log.Info(
+					ctx,
+					"Transfer is complete for XRPL txs.",
+					zap.Strings("xrplTxHashes", lo.Map(tracingInfo.XRPLTxs, func(tx rippledata.TransactionWithMetaData, _ int) string {
+						return tx.GetHash().String()
+					})),
+				)
 				return nil
 			}),
 	}

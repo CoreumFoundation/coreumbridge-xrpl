@@ -3,6 +3,7 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,7 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
 	toolshttp "github.com/CoreumFoundation/coreum-tools/pkg/http"
@@ -260,7 +260,13 @@ func setConfigDefaults(ctx context.Context, log logger.Logger, config *Config) {
 	// Set default retry_delay if the value is not set because of an old config version which doesn't contain retry_delay.
 	if config.Processes.RetryDelay == 0 {
 		defaultRetryDelay := DefaultConfig().Processes.RetryDelay
-		log.Warn(ctx, "retry_delay is not set, using default value", zap.Duration("retryDelay", defaultRetryDelay))
+		log.Warn(
+			ctx,
+			fmt.Sprintf(
+				"processes.retry_delay is not set in %s, using default value: %s",
+				ConfigFileName, defaultRetryDelay,
+			),
+		)
 		config.Processes.RetryDelay = defaultRetryDelay
 	}
 }
