@@ -66,6 +66,7 @@ func NewXRPLChain(cfg XRPLChainConfig, log logger.Logger) (XRPLChain, error) {
 		xrpl.DefaultRPCClientConfig(cfg.RPCAddress),
 		log,
 		http.NewRetryableClient(http.DefaultClientConfig()),
+		nil,
 	)
 
 	signer := xrpl.NewKeyringTxSigner(kr)

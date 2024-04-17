@@ -90,3 +90,11 @@ groups:
         severity: "critical"
       annotations:
         description: "The bridge is halted"
+
+    - alert: XRPL RPC decoding error
+      expr: xrpl_rpc_decoding_errors_total > 0
+      for: 1s
+      labels:
+        severity: major
+      annotations:
+        description: "Found XRPL RPC decoding error"

@@ -18,6 +18,11 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
+//go:generate mockgen -destination=rpc_mocks_test.go -package=xrpl_test . HTTPClient,RPCMetricRegistry
+
+// UnknownTransactionResultErrorText error text for the unexpected tx code.
+const UnknownTransactionResultErrorText = "Unknown TransactionResult"
+
 // ******************** RPC command request objects ********************
 
 // RPCError is RPC error result.
@@ -137,6 +142,13 @@ type AccountTxResult struct {
 	Validated    bool                        `json:"validated"`
 }
 
+// AccountTxWithRawTxsResult is `account_tx` method result with json.RawMessage transactions.
+type AccountTxWithRawTxsResult struct {
+	Marker       map[string]any    `json:"marker,omitempty"`
+	Transactions []json.RawMessage `json:"transactions,omitempty"`
+	Validated    bool              `json:"validated"`
+}
+
 // ServerStateValidatedLedger is the latest validated ledger from the server state.
 type ServerStateValidatedLedger struct {
 	BaseFee     uint32 `json:"base_fee"`
@@ -194,12 +206,14 @@ type RipplePathFindResult struct {
 
 // ******************** RPC transport objects ********************
 
-type rpcRequest struct {
+// RPCRequest is general RPC request.
+type RPCRequest struct {
 	Method string `json:"method"`
 	Params []any  `json:"params,omitempty"`
 }
 
-type rpcResponse struct {
+// RPCResponse is general RPC response.
+type RPCResponse struct {
 	Result any `json:"result"`
 }
 
@@ -208,6 +222,11 @@ type rpcResponse struct {
 // HTTPClient is HTTP client interface.
 type HTTPClient interface {
 	DoJSON(ctx context.Context, method, url string, reqBody any, resDecoder func([]byte) error) error
+}
+
+// RPCMetricRegistry is rpc metric registry.
+type RPCMetricRegistry interface {
+	IncrementXRPLRPCDecodingErrorCounter()
 }
 
 // RPCClientConfig defines the config for the RPCClient.
@@ -226,17 +245,24 @@ func DefaultRPCClientConfig(url string) RPCClientConfig {
 
 // RPCClient implement the XRPL RPC client.
 type RPCClient struct {
-	cfg        RPCClientConfig
-	log        logger.Logger
-	httpClient HTTPClient
+	cfg            RPCClientConfig
+	log            logger.Logger
+	httpClient     HTTPClient
+	metricRegistry RPCMetricRegistry
 }
 
 // NewRPCClient returns new instance of the RPCClient.
-func NewRPCClient(cfg RPCClientConfig, log logger.Logger, httpClient HTTPClient) *RPCClient {
+func NewRPCClient(
+	cfg RPCClientConfig,
+	log logger.Logger,
+	httpClient HTTPClient,
+	metricRegistry RPCMetricRegistry,
+) *RPCClient {
 	return &RPCClient{
-		cfg:        cfg,
-		log:        log,
-		httpClient: httpClient,
+		cfg:            cfg,
+		log:            log,
+		httpClient:     httpClient,
+		metricRegistry: metricRegistry,
 	}
 }
 
@@ -353,6 +379,11 @@ func (c *RPCClient) Submit(ctx context.Context, tx rippledata.Transaction) (Subm
 	}
 	var result SubmitResult
 	if err := c.callRPC(ctx, "submit", params, &result); err != nil {
+		if strings.Contains(err.Error(), UnknownTransactionResultErrorText) {
+			c.log.Error(ctx, "Failed to decode XRPL transaction result", zap.Error(err))
+			c.metricRegistry.IncrementXRPLRPCDecodingErrorCounter()
+		}
+
 		return SubmitResult{}, err
 	}
 
@@ -400,12 +431,37 @@ func (c *RPCClient) AccountTx(
 		Limit:     c.cfg.PageLimit,
 		Marker:    marker,
 	}
-	var result AccountTxResult
+	var result AccountTxWithRawTxsResult
 	if err := c.callRPC(ctx, "account_tx", params, &result); err != nil {
 		return AccountTxResult{}, err
 	}
 
-	return result, nil
+	txs := make(rippledata.TransactionSlice, 0)
+	for i, rawTx := range result.Transactions {
+		var tx rippledata.TransactionWithMetaData
+		if err := json.Unmarshal(rawTx, &tx); err != nil {
+			c.log.Error(
+				ctx,
+				"Failed to decode json tx to rippledata.TransactionWithMetaData",
+				zap.Error(err),
+				zap.String("tx", string(rawTx)),
+				zap.Int("txIndex", i),
+				zap.String("account", account.String()),
+				zap.Int64("minLedger", minLedger),
+				zap.Int64("maxLedger", maxLedger),
+				zap.Any("marker", marker),
+			)
+			c.metricRegistry.IncrementXRPLRPCDecodingErrorCounter()
+			continue
+		}
+		txs = append(txs, &tx)
+	}
+
+	return AccountTxResult{
+		Marker:       result.Marker,
+		Transactions: txs,
+		Validated:    result.Validated,
+	}, nil
 }
 
 // ServerState returns the server state information.
@@ -455,7 +511,7 @@ func (c *RPCClient) RipplePathFind(
 }
 
 func (c *RPCClient) callRPC(ctx context.Context, method string, params, result any) error {
-	request := rpcRequest{
+	request := RPCRequest{
 		Method: method,
 		Params: []any{
 			params,
@@ -465,7 +521,7 @@ func (c *RPCClient) callRPC(ctx context.Context, method string, params, result a
 
 	err := c.httpClient.DoJSON(ctx, http.MethodPost, c.cfg.URL, request, func(resBytes []byte) error {
 		c.log.Debug(ctx, "Received XRPL RPC result", zap.String("result", string(resBytes)))
-		errResponse := rpcResponse{
+		errResponse := RPCResponse{
 			Result: &RPCError{},
 		}
 		if err := json.Unmarshal(resBytes, &errResponse); err != nil {
@@ -478,7 +534,7 @@ func (c *RPCClient) callRPC(ctx context.Context, method string, params, result a
 		if errResult.Code != 0 || strings.TrimSpace(errResult.Name) != "" {
 			return errResult
 		}
-		response := rpcResponse{
+		response := RPCResponse{
 			Result: result,
 		}
 		if err := json.Unmarshal(resBytes, &response); err != nil {

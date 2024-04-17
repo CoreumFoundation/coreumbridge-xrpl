@@ -43,6 +43,7 @@ func TestFullHistoryScanAccountTx(t *testing.T) {
 		rpcClientConfig,
 		chains.Log,
 		http.NewRetryableClient(http.DefaultClientConfig()),
+		nil,
 	)
 
 	// enable just historical scan
@@ -97,6 +98,7 @@ func TestRecentHistoryScanAccountTx(t *testing.T) {
 		rpcClientConfig,
 		chains.Log,
 		http.NewRetryableClient(http.DefaultClientConfig()),
+		nil,
 	)
 
 	// update config to use recent scan only
