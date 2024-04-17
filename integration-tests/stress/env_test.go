@@ -133,9 +133,8 @@ func (env *Env) FundCoreumAccountsWithXRP(
 
 	coreumFaucetAccount := env.Chains.Coreum.GenAccount()
 
-	require.NoError(
-		t, env.BridgeClient.SendFromXRPLToCoreum(ctx, xrplFaucetAccount.String(), xrpAmount, coreumFaucetAccount),
-	)
+	_, err = env.BridgeClient.SendFromXRPLToCoreum(ctx, xrplFaucetAccount.String(), xrpAmount, coreumFaucetAccount)
+	require.NoError(t, err)
 
 	require.NoError(t, env.AwaitCoreumBalance(
 		ctx,
@@ -336,7 +335,7 @@ func (env *Env) AwaitContractCall(ctx context.Context, call func() error) error 
 	})
 }
 
-func (env *Env) callAdminAction(ctx context.Context, action func() error, rollbackAction func() error) error {
+func (env *Env) callAdminAction(ctx context.Context, action, rollbackAction func() error) error {
 	ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
 	defer cancel()
 	// use common BridgeClient to prevent sequence mismatch

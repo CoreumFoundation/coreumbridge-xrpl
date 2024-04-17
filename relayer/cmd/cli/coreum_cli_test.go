@@ -1247,6 +1247,30 @@ func TestTransactionEvidencesCmd(t *testing.T) {
 	executeQueryCmd(t, cli.TransactionEvidencesCmd(mockBridgeClientProvider(bridgeClientMock)), initConfig(t)...)
 }
 
+func TestTraceCoreumToXRPLTransfer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bridgeClientMock := NewMockBridgeClient(ctrl)
+
+	coreumTxHash := "hash"
+	args := append(initConfig(t), coreumTxHash)
+
+	bridgeClientMock.EXPECT().GetCoreumToXRPLTracingInfo(gomock.Any(), coreumTxHash).
+		Return(bridgeclient.CoreumToXRPLTracingInfo{
+			XRPLTxs: []rippledata.TransactionWithMetaData{
+				{
+					Transaction: &rippledata.Payment{
+						TxBase: rippledata.TxBase{
+							Hash: rippledata.Hash256{},
+						},
+					},
+				},
+			},
+		}, nil)
+	executeQueryCmd(t, cli.TraceCoreumToXRPLTransfer(mockBridgeClientProvider(bridgeClientMock)), args...)
+}
+
 func executeCoreumTxCmd(t *testing.T, bcp cli.BridgeClientProvider, cmd *cobra.Command, args ...string) {
 	cli.AddCoreumTxFlags(cmd)
 	cmd.PreRunE = cli.CoreumTxPreRun(bcp)

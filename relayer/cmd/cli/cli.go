@@ -142,13 +142,13 @@ type BridgeClient interface {
 		recipient rippledata.Account,
 		amount sdk.Coin,
 		deliverAmount *sdkmath.Int,
-	) error
+	) (string, error)
 	SendFromXRPLToCoreum(
 		ctx context.Context,
 		senderKeyName string,
 		amount rippledata.Amount,
 		recipient sdk.AccAddress,
-	) error
+	) (string, error)
 	SetXRPLTrustSet(
 		ctx context.Context,
 		senderKeyName string,
@@ -219,6 +219,11 @@ type BridgeClient interface {
 		sender sdk.AccAddress,
 		contractByteCodePath string,
 	) (*sdk.TxResponse, uint64, error)
+	GetXRPLToCoreumTracingInfo(ctx context.Context, xrplTxHash string) (bridgeclient.XRPLToCoreumTracingInfo, error)
+	GetCoreumToXRPLTracingInfo(
+		ctx context.Context,
+		coreumTxHash string,
+	) (bridgeclient.CoreumToXRPLTracingInfo, error)
 }
 
 // BridgeClientProvider is function which returns the BridgeClient from the input cmd.
