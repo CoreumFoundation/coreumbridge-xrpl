@@ -24,6 +24,7 @@ const (
 	xrplTokensCoreumSupplyMetricName                  = "xrpl_tokens_coreum_supply"
 	xrplBridgeAccountReservesMetricName               = "xrpl_bridge_account_reserves"
 	relayerVersionMetricName                          = "relayer_version"
+	xrplRPCDecodingErrorCounterMetricName             = "xrpl_rpc_decoding_errors_total"
 
 	// XRPLCurrencyIssuerLabel is XRPL currency issuer label.
 	XRPLCurrencyIssuerLabel = "xrpl_currency_issuer"
@@ -63,6 +64,7 @@ type Registry struct {
 	RelayerVersion                               *prometheus.GaugeVec
 	XRPLTokensCoreumSupplyGaugeVec               *prometheus.GaugeVec
 	XRPLBridgeAccountReservesGauge               prometheus.Gauge
+	XRPLRPCDecodingErrorCounter                  prometheus.Counter
 }
 
 // NewRegistry returns new metric registry.
@@ -180,6 +182,10 @@ func NewRegistry() *Registry {
 			Name: xrplBridgeAccountReservesMetricName,
 			Help: "XRPL bridge account reserves",
 		}),
+		XRPLRPCDecodingErrorCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: xrplRPCDecodingErrorCounterMetricName,
+			Help: "XRPL RPC decoding error counter",
+		}),
 	}
 }
 
@@ -204,6 +210,7 @@ func (m *Registry) Register(registry prometheus.Registerer) error {
 		m.RelayerVersion,
 		m.XRPLTokensCoreumSupplyGaugeVec,
 		m.XRPLBridgeAccountReservesGauge,
+		m.XRPLRPCDecodingErrorCounter,
 	}
 
 	for _, c := range collectors {
@@ -234,4 +241,9 @@ func (m *Registry) SetXRPLAccountFullHistoryScanLedgerIndex(index float64) {
 // provided key.
 func (m *Registry) SetMaliciousBehaviourKey(key string) {
 	m.MaliciousBehaviourGaugeVec.WithLabelValues(key).Set(1)
+}
+
+// IncrementXRPLRPCDecodingErrorCounter increments XRPLRPCDecodingErrorCounter.
+func (m *Registry) IncrementXRPLRPCDecodingErrorCounter() {
+	m.XRPLRPCDecodingErrorCounter.Inc()
 }

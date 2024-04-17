@@ -247,7 +247,7 @@ func NewComponents(
 	retryableXRPLRPCHTTPClient := toolshttp.NewRetryableClient(toolshttp.RetryableClientConfig(cfg.XRPL.HTTPClient))
 
 	xrplRPCClientCfg := xrpl.RPCClientConfig(cfg.XRPL.RPC)
-	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, log, retryableXRPLRPCHTTPClient)
+	xrplRPCClient := xrpl.NewRPCClient(xrplRPCClientCfg, log, retryableXRPLRPCHTTPClient, metricsRegistry)
 
 	coreumClientContextCfg := coreumchainclient.DefaultContextConfig()
 	coreumClientContextCfg.TimeoutConfig.RequestTimeout = cfg.Coreum.Contract.RequestTimeout
@@ -287,14 +287,12 @@ func NewComponents(
 			)
 		}
 	}
-	contractClientCfg := coreum.ContractClientConfig{
-		ContractAddress:       contractAddress,
-		GasAdjustment:         cfg.Coreum.Contract.GasAdjustment,
-		GasPriceAdjustment:    sdk.MustNewDecFromStr(fmt.Sprintf("%f", cfg.Coreum.Contract.GasPriceAdjustment)),
-		PageLimit:             cfg.Coreum.Contract.PageLimit,
-		OutOfGasRetryDelay:    cfg.Coreum.Contract.OutOfGasRetryDelay,
-		OutOfGasRetryAttempts: cfg.Coreum.Contract.OutOfGasRetryAttempts,
-	}
+	contractClientCfg := coreum.DefaultContractClientConfig(contractAddress)
+	contractClientCfg.GasAdjustment = cfg.Coreum.Contract.GasAdjustment
+	contractClientCfg.GasPriceAdjustment = sdk.MustNewDecFromStr(fmt.Sprintf("%f", cfg.Coreum.Contract.GasPriceAdjustment))
+	contractClientCfg.PageLimit = cfg.Coreum.Contract.PageLimit
+	contractClientCfg.OutOfGasRetryDelay = cfg.Coreum.Contract.OutOfGasRetryDelay
+	contractClientCfg.OutOfGasRetryAttempts = cfg.Coreum.Contract.OutOfGasRetryAttempts
 
 	if cfg.Coreum.GRPC.URL != "" {
 		grpcClient, err := getGRPCClientConn(cfg.Coreum.GRPC.URL)

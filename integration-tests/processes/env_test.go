@@ -114,7 +114,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 
 	// fund to cover the fees
 	chains.Coreum.FundAccountWithOptions(ctx, t, contractOwner, coreumintegration.BalancesOptions{
-		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.AddRaw(1_000_000),
+		Amount: chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee.Amount.AddRaw(10_000_000),
 	})
 
 	contractClient := coreum.NewContractClient(
@@ -418,7 +418,8 @@ func (r *RunnerEnv) SendFromCoreumToXRPL(
 	amount sdk.Coin,
 	deliverAmount *sdkmath.Int,
 ) {
-	require.NoError(t, r.BridgeClient.SendFromCoreumToXRPL(ctx, sender, recipient, amount, deliverAmount))
+	_, err := r.BridgeClient.SendFromCoreumToXRPL(ctx, sender, recipient, amount, deliverAmount)
+	require.NoError(t, err)
 }
 
 // SendFromXRPLToCoreum sends tokens form XRPL to Coreum.
@@ -429,7 +430,8 @@ func (r *RunnerEnv) SendFromXRPLToCoreum(
 	amount rippledata.Amount,
 	recipient sdk.AccAddress,
 ) {
-	require.NoError(t, r.BridgeClient.SendFromXRPLToCoreum(ctx, senderKeyName, amount, recipient))
+	_, err := r.BridgeClient.SendFromXRPLToCoreum(ctx, senderKeyName, amount, recipient)
+	require.NoError(t, err)
 }
 
 // SendXRPLPaymentTx sends Payment transaction.

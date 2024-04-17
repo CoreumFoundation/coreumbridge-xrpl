@@ -133,9 +133,8 @@ func (env *Env) FundCoreumAccountsWithXRP(
 
 	coreumFaucetAccount := env.Chains.Coreum.GenAccount()
 
-	require.NoError(
-		t, env.BridgeClient.SendFromXRPLToCoreum(ctx, xrplFaucetAccount.String(), xrpAmount, coreumFaucetAccount),
-	)
+	_, err = env.BridgeClient.SendFromXRPLToCoreum(ctx, xrplFaucetAccount.String(), xrpAmount, coreumFaucetAccount)
+	require.NoError(t, err)
 
 	require.NoError(t, env.AwaitCoreumBalance(
 		ctx,
