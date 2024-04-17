@@ -23,6 +23,7 @@ const (
 	relayerActivityMetricName                         = "relayer_activity"
 	xrplTokensCoreumSupplyMetricName                  = "xrpl_tokens_coreum_supply"
 	xrplBridgeAccountReservesMetricName               = "xrpl_bridge_account_reserves"
+	relayerVersionMetricName                          = "relayer_version"
 	xrplRPCDecodingErrorCounterMetricName             = "xrpl_rpc_decoding_errors_total"
 
 	// XRPLCurrencyIssuerLabel is XRPL currency issuer label.
@@ -37,8 +38,10 @@ const (
 	RelayerCoremAddressLabel = "relayer_coreum_address"
 	// MaliciousBehaviourKeyLabel malicious behaviour key label.
 	MaliciousBehaviourKeyLabel = "malicious_behaviour_key"
-	// ContractActionLabel is contract action label.
-	ContractActionLabel = "action"
+	// ActionLabel is action label.
+	ActionLabel = "action"
+	// VersionLabel is version label.
+	VersionLabel = "version"
 )
 
 // Registry contains metrics.
@@ -58,6 +61,7 @@ type Registry struct {
 	BridgeStateGauge                             prometheus.Gauge
 	MaliciousBehaviourGaugeVec                   *prometheus.GaugeVec
 	RelayerActivityGaugeVec                      *prometheus.GaugeVec
+	RelayerVersion                               *prometheus.GaugeVec
 	XRPLTokensCoreumSupplyGaugeVec               *prometheus.GaugeVec
 	XRPLBridgeAccountReservesGauge               prometheus.Gauge
 	XRPLRPCDecodingErrorCounter                  prometheus.Counter
@@ -153,7 +157,16 @@ func NewRegistry() *Registry {
 		},
 			[]string{
 				RelayerCoremAddressLabel,
-				ContractActionLabel,
+				ActionLabel,
+			},
+		),
+		RelayerVersion: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: relayerVersionMetricName,
+			Help: "Relayer version",
+		},
+			[]string{
+				RelayerCoremAddressLabel,
+				VersionLabel,
 			},
 		),
 		XRPLTokensCoreumSupplyGaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -194,6 +207,7 @@ func (m *Registry) Register(registry prometheus.Registerer) error {
 		m.BridgeStateGauge,
 		m.MaliciousBehaviourGaugeVec,
 		m.RelayerActivityGaugeVec,
+		m.RelayerVersion,
 		m.XRPLTokensCoreumSupplyGaugeVec,
 		m.XRPLBridgeAccountReservesGauge,
 		m.XRPLRPCDecodingErrorCounter,
