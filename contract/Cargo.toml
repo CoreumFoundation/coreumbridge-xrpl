@@ -36,7 +36,6 @@ hex = "0.4.3"
 serde_json = "1.0.113"
 sha2 = "0.10.8"
 thiserror = "1.0.56"
-libsecp256k1 = "0.5.0"
 mio = "0.8.11"
 webpki = "0.22.2"
 h2 = "0.3.26"
@@ -45,7 +44,9 @@ h2 = "0.3.26"
 coreum-test-tube = "3.0.1"
 ripple-keypairs = "0.1.0"
 rand = "0.8.5"
-libsecp256k1 = "0.5.0"
 mio = "0.8.11"
 webpki = "0.22.2"
 h2 = "0.3.26"
+
+[patch.crates-io]
+ripple-keypairs = {git = 'https://github.com/CoreumFoundation/ripple-keypairs-rust.git'}
