@@ -342,9 +342,7 @@ dependencies = [
  "cw-storage-plus",
  "cw-utils",
  "cw2",
- "h2",
  "hex",
- "mio",
  "rand",
  "ripple-keypairs",
  "serde_json",
@@ -1395,7 +1393,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4a650543ca06a924e8b371db273b2756685faae30f8487da1b56505a8f78b0c"
 dependencies = [
  "libc",
- "log",
  "wasi",
  "windows-sys 0.48.0",
 ]
