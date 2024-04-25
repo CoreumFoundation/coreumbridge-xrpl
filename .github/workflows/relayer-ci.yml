@@ -111,6 +111,11 @@ jobs:
           path: ${{ github.workspace }}/coreumbridge-xrpl/contract/target/
           key: ${{ runner.os }}-wasm-cache-${{ hashFiles('**/Cargo.lock') }}
         if: ${{ matrix.build-contract }}
+      - name: Set up Clang
+        uses: egor-tensin/setup-clang@v1
+        with:
+          version: latest
+          platform: x64
       - name: Set up docker cache
         uses: satackey/action-docker-layer-caching@v0.0.11
         if: ${{ matrix.docker-cache }}
