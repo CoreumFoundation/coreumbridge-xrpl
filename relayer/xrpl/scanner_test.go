@@ -221,7 +221,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 			logMock.EXPECT().Error(gomock.Any(), gomock.Any(), gomock.Any())
 			rpcTxProvider := tt.rpcTxProvider(ctrl)
 
-			metricRegistryMock := NewMockMetricRegistry(ctrl)
+			metricRegistryMock := NewMockScannerMetricRegistry(ctrl)
 			metricRegistryMock.EXPECT().SetXRPLAccountRecentHistoryScanLedgerIndex(gomock.Any()).AnyTimes()
 			metricRegistryMock.EXPECT().SetXRPLAccountFullHistoryScanLedgerIndex(gomock.Any()).AnyTimes()
 

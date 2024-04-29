@@ -82,6 +82,7 @@ type PeriodicCollector struct {
 	registry           *Registry
 	xrplRPCClient      XRPLRPCClient
 	contractClient     ContractClient
+	clientContext      client.Context
 	feemodelClient     feemodeltypes.QueryClient
 	coreumBankClient   banktypes.QueryClient
 	cometServiceClient sdktxtypes.ServiceClient
@@ -90,6 +91,7 @@ type PeriodicCollector struct {
 	transactionEvidencesCachedKeys map[string]struct{}
 	relayersBalancesCachedKeys     map[string]struct{}
 	relayerActivityCachedKeys      map[string]struct{}
+	relayerVersionCachedKeys       map[string]struct{}
 	cacheMu                        sync.Mutex
 }
 
@@ -113,6 +115,7 @@ func NewPeriodicCollector(
 		registry:           registry,
 		xrplRPCClient:      xrplRPCClient,
 		contractClient:     contractClient,
+		clientContext:      clientContext,
 		feemodelClient:     feemodeltypes.NewQueryClient(clientContext),
 		coreumBankClient:   banktypes.NewQueryClient(clientContext),
 		cometServiceClient: sdktxtypes.NewServiceClient(clientContext),
@@ -121,6 +124,7 @@ func NewPeriodicCollector(
 		transactionEvidencesCachedKeys: make(map[string]struct{}),
 		relayersBalancesCachedKeys:     make(map[string]struct{}),
 		relayerActivityCachedKeys:      make(map[string]struct{}),
+		relayerVersionCachedKeys:       make(map[string]struct{}),
 		cacheMu:                        sync.Mutex{},
 	}
 }
@@ -136,10 +140,10 @@ func (c *PeriodicCollector) Start(ctx context.Context) error {
 		transactionEvidencesMetricName:      c.collectTransactionEvidences,
 		relayerBalancesMetricName:           c.collectRelayerBalances,
 		fmt.Sprintf("%s/%s", freeContractTicketsMetricName, freeXRPLTicketsMetricName): c.collectFreeTickets,
-		bridgeStateMetricName:               c.collectBridgeState,
-		relayerActivityMetricName:           c.collectRelayerActivity,
-		xrplTokensCoreumSupplyMetricName:    c.collectXRPLTokensCoreumSupply,
-		xrplBridgeAccountReservesMetricName: c.collectXRPLBridgeAccountReserves,
+		bridgeStateMetricName: c.collectBridgeState,
+		fmt.Sprintf("%s/%s", relayerActivityMetricName, relayerVersionMetricName): c.collectRelayerActivityAndVersion,
+		xrplTokensCoreumSupplyMetricName:                                          c.collectXRPLTokensCoreumSupply,
+		xrplBridgeAccountReservesMetricName:                                       c.collectXRPLBridgeAccountReserves,
 	}
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		for name, collector := range periodicCollectors {
@@ -411,12 +415,13 @@ func (c *PeriodicCollector) collectBridgeState(ctx context.Context) error {
 	return nil
 }
 
-func (c *PeriodicCollector) collectRelayerActivity(ctx context.Context) error {
+func (c *PeriodicCollector) collectRelayerActivityAndVersion(ctx context.Context) error {
 	contractCfg, err := c.contractClient.GetContractConfig(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get contract config")
 	}
-	currentValues := make(map[string]gaugeVecValue, 0)
+	currentRelayerActivityValues := make(map[string]gaugeVecValue, 0)
+	currentRelayerVersionValues := make(map[string]gaugeVecValue, 0)
 	// get sequentially to prevent rate limit
 	for _, relayer := range contractCfg.Relayers {
 		relayerAddress := relayer.CoreumAddress
@@ -438,14 +443,48 @@ func (c *PeriodicCollector) collectRelayerActivity(ctx context.Context) error {
 		}
 		// fill the metric with the data
 		for action, count := range actionCount {
-			currentValues[strings.Join([]string{relayerAddress.String(), action}, "-")] = gaugeVecValue{
+			currentRelayerActivityValues[strings.Join([]string{relayerAddress.String(), action}, "-")] = gaugeVecValue{
 				keys:  []string{relayerAddress.String(), action},
 				value: float64(count),
 			}
 		}
+
+		// fill relayer version
+		for _, txRes := range txResponses {
+			var sdkTx sdk.Tx
+			if err := c.clientContext.Codec().UnpackAny(txRes.Tx, &sdkTx); err != nil {
+				return errors.Errorf("failed to unpack sdk.Tx, tx:%v", sdkTx)
+			}
+			tx, ok := sdkTx.(*sdktxtypes.Tx)
+			if !ok {
+				continue
+			}
+			if !strings.HasPrefix(tx.Body.Memo, coreum.RelayerCoreumMemoPrefix) {
+				continue
+			}
+			version := strings.TrimSpace(strings.TrimPrefix(tx.Body.Memo, coreum.RelayerCoreumMemoPrefix))
+			if version == "" {
+				continue
+			}
+
+			currentRelayerVersionValues[strings.Join([]string{relayerAddress.String(), version}, "-")] = gaugeVecValue{
+				keys:  []string{relayerAddress.String(), version},
+				value: float64(1),
+			}
+			break
+		}
 	}
 
-	c.updateGaugeVecAndCachedValues(currentValues, c.relayerActivityCachedKeys, c.registry.RelayerActivityGaugeVec)
+	c.updateGaugeVecAndCachedValues(
+		currentRelayerActivityValues,
+		c.relayerActivityCachedKeys,
+		c.registry.RelayerActivityGaugeVec,
+	)
+	c.updateGaugeVecAndCachedValues(
+		currentRelayerVersionValues,
+		c.relayerVersionCachedKeys,
+		c.registry.RelayerVersion,
+	)
 
 	return nil
 }

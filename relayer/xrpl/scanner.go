@@ -12,10 +12,10 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
-//go:generate mockgen -destination=scanner_mocks_test.go -package=xrpl_test . RPCTxProvider,MetricRegistry
+//go:generate mockgen -destination=scanner_mocks_test.go -package=xrpl_test . RPCTxProvider,ScannerMetricRegistry
 
-// MetricRegistry is metric registry.
-type MetricRegistry interface {
+// ScannerMetricRegistry is scanner metric registry.
+type ScannerMetricRegistry interface {
 	SetXRPLAccountRecentHistoryScanLedgerIndex(index float64)
 	SetXRPLAccountFullHistoryScanLedgerIndex(index float64)
 }
@@ -65,7 +65,7 @@ type AccountScanner struct {
 	cfg            AccountScannerConfig
 	log            logger.Logger
 	rpcTxProvider  RPCTxProvider
-	metricRegistry MetricRegistry
+	metricRegistry ScannerMetricRegistry
 }
 
 // NewAccountScanner returns a nw instance of the AccountScanner.
@@ -73,7 +73,7 @@ func NewAccountScanner(
 	cfg AccountScannerConfig,
 	log logger.Logger,
 	rpcTxProvider RPCTxProvider,
-	metricRegistry MetricRegistry,
+	metricRegistry ScannerMetricRegistry,
 ) *AccountScanner {
 	return &AccountScanner{
 		cfg:            cfg,

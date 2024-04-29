@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -85,7 +86,8 @@ func IsExpectedEvidenceSubmissionError(err error) bool {
 		coreum.IsProhibitedAddressError(err) ||
 		coreum.IsBridgeHaltedError(err) ||
 		coreum.IsAmountSentIsZeroAfterTruncationError(err) ||
-		coreum.IsCannotCoverBridgingFeesError(err)
+		coreum.IsCannotCoverBridgingFeesError(err) ||
+		sdkerrors.ErrWrongSequence.Is(err)
 }
 
 // IsUnexpectedEvidenceSubmissionError returns true is the error is related to potential malicious behaviour.
