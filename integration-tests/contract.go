@@ -13,12 +13,6 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 )
 
-// CompiledContractFilePath is bridge contract file path.
-const (
-	ContractFilePathV110     = "../../build/coreumbridge_xrpl_v1.1.0.wasm"
-	CompiledContractFilePath = "../../build/coreumbridge_xrpl.wasm"
-)
-
 // DeployInstantiateAndMigrateContract deploys and instantiates the mainnet version of the contract and applies
 // migration.
 func DeployInstantiateAndMigrateContract(
@@ -46,16 +40,22 @@ func DeployInstantiateAndMigrateContract(
 		xrplBaseFee,
 	)
 
-	MigrateContract(ctx, t, contractClient, owner)
+	MigrateContract(ctx, t, chains, contractClient, owner)
 
 	return owner, contractClient
 }
 
 // MigrateContract migrates the contract to the compiled version.
-func MigrateContract(ctx context.Context, t *testing.T, contractClient *coreum.ContractClient, owner sdk.AccAddress) {
+func MigrateContract(
+	ctx context.Context,
+	t *testing.T,
+	chains Chains,
+	contractClient *coreum.ContractClient,
+	owner sdk.AccAddress,
+) {
 	t.Helper()
 
-	_, codeID, err := contractClient.DeployContract(ctx, owner, readBuiltContract(t, CompiledContractFilePath))
+	_, codeID, err := contractClient.DeployContract(ctx, owner, readBuiltContract(t, chains.Coreum.Config().ContractPath))
 	require.NoError(t, err)
 	_, err = contractClient.MigrateContract(ctx, owner, codeID)
 	require.NoError(t, err)
@@ -108,7 +108,7 @@ func DeployAndInstantiateContractV110(
 		XRPLBaseFee:                 xrplBaseFee,
 	}
 	contractAddress, err := contractClient.DeployAndInstantiate(
-		ctx, owner, readBuiltContract(t, ContractFilePathV110), instantiationCfg,
+		ctx, owner, readBuiltContract(t, chains.Coreum.Config().PreviousContractPath), instantiationCfg,
 	)
 	require.NoError(t, err)
 

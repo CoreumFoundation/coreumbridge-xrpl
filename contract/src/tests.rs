@@ -83,7 +83,7 @@ mod tests {
         bridge_xrpl_address: String,
         xrpl_base_fee: u64,
     ) -> String {
-        let wasm_byte_code = std::fs::read("../build/coreumbridge_xrpl.wasm").unwrap();
+        let wasm_byte_code = std::fs::read("../contract/artifacts/coreumbridge_xrpl.wasm").unwrap();
         let code_id = wasm
             .store_code(&wasm_byte_code, None, &signer)
             .unwrap()

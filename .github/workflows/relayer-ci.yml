@@ -14,46 +14,52 @@ jobs:
         ci_step: [
           "lint",
           "test",
-          "fuzz-test",
           "integration tests contract",
           "integration tests processes",
           "integration tests xrpl",
         ]
         include:
           - ci_step: "lint"
-            command: "make lint-go"
+            command: "coreumbridge-xrpl-builder lint"
+            wasm-cache: false
             linter-cache: true
             docker-cache: false
-            build-contract: false
           - ci_step: "test"
-            command: "make test-relayer"
+            command: "coreumbridge-xrpl-builder test fuzz-test"
+            wasm-cache: false
             linter-cache: false
             docker-cache: false
-            build-contract: false
-          - ci_step: "fuzz-test"
-            command: "make test-fuzz"
-            linter-cache: false
-            docker-cache: false
-            build-contract: false
           - ci_step: "integration tests contract"
-            command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/contract"
+            command: |
+              coreumbridge-xrpl-builder build/contract images
+              coreum-builder build images
+              crust znet start --profiles=1cored,xrpl --timeout-commit 0.5s
+              coreumbridge-xrpl-builder integration-tests/contract
+            wasm-cache: true
             linter-cache: false
             docker-cache: true
-            build-contract: true
           - ci_step: "integration tests processes"
-            command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/processes"
+            command: |
+              coreumbridge-xrpl-builder build/contract images
+              coreum-builder build images
+              crust znet start --profiles=1cored,xrpl --timeout-commit 0.5s
+              coreumbridge-xrpl-builder integration-tests/processes
+            wasm-cache: true
             linter-cache: false
             docker-cache: true
-            build-contract: true
           - ci_step: "integration tests xrpl"
-            command: "make restart-dev-env && make test-single-integration TESTS_DIR=integration-tests/xrpl"
+            command: |
+              coreumbridge-xrpl-builder build/contract images
+              coreum-builder build images
+              crust znet start --profiles=1cored,xrpl --timeout-commit 0.5s
+              coreumbridge-xrpl-builder integration-tests/xrpl
+            wasm-cache: true
             linter-cache: false
             docker-cache: true
-            build-contract: true
 
     runs-on: ubuntu-22.04
     steps:
-      - name: Go version used to build crust tool
+      - name: Go version used to build builder
         run: go version
       - name: Checkout coreumbridge-xrpl
         uses: actions/checkout@v4
@@ -72,62 +78,70 @@ jobs:
           repository: CoreumFoundation/coreum
           path: coreum
           ref: 4695973601fb222a90677c645e975f6a264238b6
-      - name: Get crust-coreum cache key
-        id: crust-coreum-cache-key
+      - name: Set up build system
         run: |
-          cd ${{ github.workspace }}/crust
-          CRUST_HASH=$(git rev-parse HEAD)
-          cd ${{ github.workspace }}/coreum
-          COREM_HASH=$(git rev-parse HEAD)
-          echo "key=$CRUST_HASH-$COREM_HASH" >> $GITHUB_OUTPUT
-        shell: bash
-      - name: Set up crust binaries
-        run: echo "$(pwd)/crust/bin" >> $GITHUB_PATH
-      - name: Set up crust cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/crust/
-            ${{ github.workspace }}/crust/bin/.cache
-          key: ${{ runner.os }}-crust-cache-${{ steps.crust-coreum-cache-key.outputs.key }}
-      - name: Set up coreum binaries
-        run: echo "$(pwd)/coreum/bin" >> $GITHUB_PATH
-      - name: Set up go cache
-        uses: actions/cache@v4
+          echo "$(pwd)/coreumbridge-xrpl/bin" >> $GITHUB_PATH
+          echo "$(pwd)/coreum/bin" >> $GITHUB_PATH
+          echo "$(pwd)/crust/bin" >> $GITHUB_PATH
+          coreumbridge-xrpl/bin/coreumbridge-xrpl-builder build/me
+      - name: Retrieve go version
+        id: goversion
+        run: echo "GO_VERSION=$(coreumbridge-xrpl/bin/go version)" >> $GITHUB_OUTPUT
+      - name: Print go version
+        run: echo ${{ steps.goversion.outputs.GO_VERSION }}
+      - name: Setup go cache
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.sum') }}
-      - name: Set up linter cache
-        uses: actions/cache@v4
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ steps.goversion.outputs.GO_VERSION }}
+      - name: Setup WASM cache
+        uses: actions/cache@v3
+        if: ${{ matrix.wasm-cache }}
+        with:
+          # we need to exclude code-hashes.json from the rest, since the invalidation condition for it is not
+          # same as WASM cache, but it is same as smart contract artifacts.
+          path: |
+            ~/.cache/crust/wasm
+            !/.cache/crust/wasm/code-hashes.json
+          key: ${{ runner.os }}-wasm-cache-${{ hashFiles('~/.cache/crust/wasm/**/*.rs') }}
+      - name: Setup linter cache
+        uses: actions/cache@v3
         if: ${{ matrix.linter-cache }}
         with:
           path: ~/.cache/golangci-lint
-          key: ${{ runner.os }}-linter-cache
-      - name: Set up wasm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/coreumbridge-xrpl/contract/target/
-          key: ${{ runner.os }}-wasm-cache-${{ hashFiles('**/Cargo.lock') }}
-        if: ${{ matrix.build-contract }}
-      - name: Set up docker cache
+          key: ${{ runner.os }}-linter-cache-2-${{ steps.goversion.outputs.GO_VERSION }}
+      - name: Get Date
+        id: get-year-week
+        run: |
+          echo "date=$(/bin/date -u "+%Y-%U")" >> $GITHUB_OUTPUT
+        shell: bash
+      - name: Set docker cache
         uses: satackey/action-docker-layer-caching@v0.0.11
         if: ${{ matrix.docker-cache }}
         continue-on-error: true
         with:
-          key: ${{ runner.os }}-docker-cache-${{ steps.crust-coreum-cache-key.outputs.key }}
-      - name: Build contract
-        run: make build-contract
-        working-directory: ./coreumbridge-xrpl
-        if: ${{ matrix.build-contract }}
-      - name: Download released wasm contract
-        run: make download-released-contract
-        if: ${{ matrix.build-contract }}
-        working-directory: ./coreumbridge-xrpl
-      - name: Build dev environment
-        run: make build-dev-env
-        working-directory: ./coreumbridge-xrpl
+          key: ${{ runner.os }}-docker-v3-${{ steps.get-year-week.outputs.date }} # year-week key
+      - name: Setup smart contract build cache
+        uses: actions/cache@v3
+        with:
+          # we need to cache code-hashes.json under the same key as the artifacts, since the invalidation condition
+          # for both of them are the same.
+          path: |
+            ${{ github.workspace }}/coreumbridge-xrpl/contract/artifacts/* 
+            ~/.cache/crust/wasm/code-hashes.json
+          key: ${{ runner.os }}-cache-smart-contracts-${{ hashFiles('./coreumbridge-xrpl/contract/**/*.rs') }}
+        if: ${{ matrix.wasm-cache }}
+      - name: Prepare dependencies
+        # FIXME (wojciech): Execute `download` commands for crust and coreum builders once available
+        run: |
+          crust build/me
+          crust build
+          crust znet remove
+          coreum-builder build/me
+          coreumbridge-xrpl-builder build/me
+          coreumbridge-xrpl-builder download
       - name: Run ${{ matrix.ci_step }}
         working-directory: ./coreumbridge-xrpl
         run: ${{ matrix.command }}

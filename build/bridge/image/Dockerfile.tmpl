@@ -1,0 +1,6 @@
+FROM --platform=$TARGETPLATFORM {{ .From }}
+
+ARG TARGETARCH
+COPY docker.linux.$TARGETARCH/{{ .Binary }} /{{ .Binary }}
+
+ENTRYPOINT ["/{{ .Binary }}"]

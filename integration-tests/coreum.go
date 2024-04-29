@@ -16,8 +16,10 @@ import (
 
 // CoreumChainConfig represents coreum chain config.
 type CoreumChainConfig struct {
-	GRPCAddress     string
-	FundingMnemonic string
+	GRPCAddress          string
+	FundingMnemonic      string
+	ContractPath         string
+	PreviousContractPath string
 }
 
 // CoreumChain is configured coreum chain.
