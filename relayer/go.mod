@@ -21,8 +21,7 @@ replace (
 require (
 	cosmossdk.io/math v1.3.0
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240306133015-8a9ec4eb1bf0
-	// FIXME: Change the hash after merging the PR on coerum
-	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240426123753-28a0d7d58964
+	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240429143357-7dea7428b1a7
 	github.com/CosmWasm/wasmd v0.44.0
 	github.com/cosmos/cosmos-sdk v0.47.11
 	github.com/golang/mock v1.6.0
