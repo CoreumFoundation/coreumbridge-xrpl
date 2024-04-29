@@ -13,12 +13,11 @@ import (
 )
 
 const (
-	repoPath         = "."
-	binaryName       = "coreumbridge-xrpl"
-	binaryPath       = "bin/" + binaryName
-	testsDir         = repoPath + "/integration-tests"
-	goCoverFlag      = "-cover"
-	binaryOutputFlag = "-o"
+	repoPath    = "."
+	binaryName  = "coreumbridge-xrpl"
+	binaryPath  = "bin/" + binaryName
+	testsDir    = repoPath + "/integration-tests"
+	goCoverFlag = "-cover"
 )
 
 // BuildRelayer builds all the versions of relayer binary.
