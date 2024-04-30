@@ -27,7 +27,7 @@ replace (
 
 require (
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240306133015-8a9ec4eb1bf0
-	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240429143357-7dea7428b1a7
+	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240430164528-92d83ae5b61f
 	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
@@ -39,6 +39,7 @@ require (
 require (
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/moby/sys/user v0.1.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.46.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1 // indirect

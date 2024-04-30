@@ -21,7 +21,7 @@ replace (
 require (
 	cosmossdk.io/math v1.3.0
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240306133015-8a9ec4eb1bf0
-	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240429143357-7dea7428b1a7
+	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240430164528-92d83ae5b61f
 	github.com/CosmWasm/wasmd v0.44.0
 	github.com/cosmos/cosmos-sdk v0.47.11
 	github.com/golang/mock v1.6.0
@@ -39,6 +39,7 @@ require (
 require (
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/moby/sys/user v0.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
