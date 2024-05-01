@@ -13,12 +13,11 @@ import (
 )
 
 const (
-	repoPath         = "."
-	binaryName       = "coreumbridge-xrpl"
-	binaryPath       = "bin/" + binaryName
-	testsDir         = repoPath + "/integration-tests"
-	goCoverFlag      = "-cover"
-	binaryOutputFlag = "-o"
+	repoPath    = "."
+	binaryName  = "coreumbridge-xrpl"
+	binaryPath  = "bin/" + binaryName
+	testsDir    = repoPath + "/integration-tests"
+	goCoverFlag = "-cover"
 )
 
 // BuildRelayer builds all the versions of relayer binary.
@@ -37,9 +36,9 @@ func BuildRelayerLocally(ctx context.Context, deps build.DepsFunc) error {
 	return golang.Build(ctx, deps, golang.BinaryBuildConfig{
 		TargetPlatform: tools.TargetPlatformLocal,
 		PackagePath:    filepath.Join(repoPath, "relayer/cmd"),
+		BinOutputPath:  binaryPath,
 		Flags: []string{
 			versionFlags,
-			binaryOutputFlag + "=" + binaryPath,
 		},
 	})
 }
@@ -63,10 +62,10 @@ func buildRelayerInDocker(
 	return golang.Build(ctx, deps, golang.BinaryBuildConfig{
 		TargetPlatform: targetPlatform,
 		PackagePath:    filepath.Join(repoPath, "relayer/cmd"),
+		BinOutputPath:  filepath.Join("bin", ".cache", binaryName, targetPlatform.String(), "bin", binaryName),
 		Flags: append(extraFlags,
 			versionFlags,
-			binaryOutputFlag+"="+
-				filepath.Join("bin", ".cache", binaryName, targetPlatform.String(), "bin", binaryName)),
+		),
 	})
 }
 
