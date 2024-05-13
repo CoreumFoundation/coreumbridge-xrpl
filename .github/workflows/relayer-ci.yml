@@ -112,11 +112,10 @@ jobs:
           key: ${{ runner.os }}-wasm-cache-${{ hashFiles('**/Cargo.lock') }}
         if: ${{ matrix.build-contract }}
       - name: Set up docker cache
-        uses: satackey/action-docker-layer-caching@v0.0.11
+        uses: ScribeMD/docker-cache@0.5.0
         if: ${{ matrix.docker-cache }}
-        continue-on-error: true
         with:
-          key: ${{ runner.os }}-docker-cache-${{ steps.crust-coreum-cache-key.outputs.key }}
+          key: ${{ runner.os }}-docker-cache-scribemd-${{ steps.crust-coreum-cache-key.outputs.key }}
       - name: Build contract
         run: make build-contract
         working-directory: ./coreumbridge-xrpl
