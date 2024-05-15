@@ -77,7 +77,7 @@ jobs:
         with:
           repository: CoreumFoundation/coreum
           path: coreum
-          ref: 4695973601fb222a90677c645e975f6a264238b6
+          ref: 4e06879add40dc0a64c48a87f4b293c08b88f4d9
       - name: Set up build system
         run: |
           echo "$(pwd)/coreumbridge-xrpl/bin" >> $GITHUB_PATH
