@@ -47,7 +47,6 @@ func init() {
 	flag.Parse()
 
 	logCfg := logger.DefaultZapLoggerConfig()
-	logCfg.Level = "error"
 	// set correct skip caller since we don't use the err counter wrapper here
 	logCfg.CallerSkip = 1
 	log, err := logger.NewZapLogger(logCfg)

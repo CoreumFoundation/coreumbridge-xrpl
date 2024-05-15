@@ -192,9 +192,9 @@ func (c XRPLChain) FundAccount(ctx context.Context, t *testing.T, acc rippledata
 	c.AutoFillTx(ctx, t, &fundXrpTx, fundingAcc)
 	require.NoError(t, c.signer.Sign(&fundXrpTx, faucetKeyringKeyName))
 
-	//t.Logf("Funding account, account address: %s, amount: %f", acc, amount)
+	t.Logf("Funding account, account address: %s, amount: %f", acc, amount)
 	require.NoError(t, c.RPCClient().SubmitAndAwaitSuccess(ctx, &fundXrpTx))
-	//t.Logf("The account %s is funded", acc)
+	t.Logf("The account %s is funded", acc)
 }
 
 // AutoFillSignAndSubmitTx autofills the transaction and submits it.
