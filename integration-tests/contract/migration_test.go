@@ -40,7 +40,7 @@ func TestContractMigration(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	integrationtests.MigrateContract(ctx, t, contractClient, owner)
+	integrationtests.MigrateContract(ctx, t, chains, contractClient, owner)
 
 	contractInfoAfterMigration, err := wasmClient.ContractInfo(ctx, &wasmtypes.QueryContractInfoRequest{
 		Address: contractClient.GetContractAddress().String(),
