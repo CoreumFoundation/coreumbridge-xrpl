@@ -71,13 +71,13 @@ jobs:
         with:
           repository: CoreumFoundation/crust
           path: crust
-          ref: 9e29fa9e7f52a0e8db70c1a1d43404de432bdac3
+          ref: 66e0a14ecac37fe053780b6d814231bd98eb2240
       - name: Checkout coreum
         uses: actions/checkout@v4
         with:
           repository: CoreumFoundation/coreum
           path: coreum
-          ref: 4695973601fb222a90677c645e975f6a264238b6
+          ref: 4e06879add40dc0a64c48a87f4b293c08b88f4d9
       - name: Set up build system
         run: |
           echo "$(pwd)/coreumbridge-xrpl/bin" >> $GITHUB_PATH
@@ -118,11 +118,10 @@ jobs:
           echo "date=$(/bin/date -u "+%Y-%U")" >> $GITHUB_OUTPUT
         shell: bash
       - name: Set docker cache
-        uses: satackey/action-docker-layer-caching@v0.0.11
+        uses: ScribeMD/docker-cache@0.5.0
         if: ${{ matrix.docker-cache }}
-        continue-on-error: true
         with:
-          key: ${{ runner.os }}-docker-v3-${{ steps.get-year-week.outputs.date }} # year-week key
+          key: ${{ runner.os }}-docker-v3-scribemd-${{ steps.get-year-week.outputs.date }} # year-week key
       - name: Setup smart contract build cache
         uses: actions/cache@v3
         with:
