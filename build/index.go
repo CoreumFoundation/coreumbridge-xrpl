@@ -3,15 +3,17 @@ package build
 import (
 	"context"
 
-	"github.com/CoreumFoundation/coreum-tools/pkg/build"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/build/bridge"
 	"github.com/CoreumFoundation/crust/build/crust"
+	"github.com/CoreumFoundation/crust/build/golang"
+	"github.com/CoreumFoundation/crust/build/types"
 )
 
 // Commands is a definition of commands available in build system.
-var Commands = map[string]build.Command{
-	"build/me": {Fn: crust.BuildBuilder, Description: "Builds the builder"},
-	"build": {Fn: func(ctx context.Context, deps build.DepsFunc) error {
+var Commands = map[string]types.Command{
+	"build/me":   {Fn: crust.BuildBuilder, Description: "Builds the builder"},
+	"build/znet": {Fn: crust.BuildZNet, Description: "Builds znet binary"},
+	"build": {Fn: func(ctx context.Context, deps types.DepsFunc) error {
 		deps(
 			bridge.BuildRelayer,
 			bridge.BuildSmartContract,
@@ -31,9 +33,11 @@ var Commands = map[string]build.Command{
 		Description: "Runs processes integration tests"},
 	"integration-tests/contract": {Fn: bridge.RunIntegrationTests(bridge.TestContract),
 		Description: "Runs smart contract integration tests"},
+	"integration-tests/stress": {Fn: bridge.RunIntegrationTests(bridge.TestStress),
+		Description: "Runs stress integration tests"},
 	"lint":           {Fn: bridge.Lint, Description: "lints code"},
 	"release":        {Fn: bridge.ReleaseRelayer, Description: "Releases relayer binary"},
 	"release/images": {Fn: bridge.ReleaseRelayerImage, Description: "Releases relayer docker image"},
-	"test":           {Fn: bridge.Test, Description: "Runs unit tests"},
-	"tidy":           {Fn: bridge.Tidy, Description: "Runs go mod tidy"},
+	"test":           {Fn: golang.Test, Description: "Runs unit tests"},
+	"tidy":           {Fn: golang.Tidy, Description: "Runs go mod tidy"},
 }

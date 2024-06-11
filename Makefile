@@ -1,3 +1,5 @@
+BUILDER = ./bin/coreumbridge-xrpl-builder
+
 GO_IMPORT_PREFIX=github.com/CoreumFoundation
 GO_SCAN_FILES := $(shell find . -type f -name '*.go' -not -name '*mock.go' -not -name '*_gen.go' -not -path "*/vendor/*")
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
@@ -20,42 +22,69 @@ GOARCH?=
 BINARY_NAME?=coreumbridge-xrpl-relayer
 RELEASE_VERSION=v1.1.0
 
-###############################################################################
-###                                  Build                                  ###
-###############################################################################
+.PHONY: znet-start
+znet-start:
+	$(BUILDER) znet start --profiles=bridge-xrpl
+
+.PHONY: znet-remove
+znet-remove:
+	$(BUILDER) znet remove
+
+.PHONY: lint
+lint:
+	$(BUILDER) lint
+
+.PHONY: test
+test:
+	$(BUILDER) test
+
+.PHONY: fuzz-test
+fuzz-test:
+	$(BUILDER) fuzz-test
 
 .PHONY: build-relayer
 build-relayer:
-	cd $(RELAYER_DIR) && CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build --trimpath -mod=readonly -ldflags $(LD_FLAGS)  -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd
-
-.PHONY: release-relayer
-release-relayer:
-	@$(MAKE) build-relayer-in-docker GOOS=linux GOARCH=amd64 BINARY_NAME=relayer-linux-amd64
-	@$(MAKE) build-relayer-in-docker GOOS=linux GOARCH=arm64 BINARY_NAME=relayer-linux-arm64
-	@$(MAKE) build-relayer-in-docker GOOS=darwin GOARCH=amd64 BINARY_NAME=relayer-darwin-amd64
-	@$(MAKE) build-relayer-in-docker GOOS=darwin GOARCH=arm64 BINARY_NAME=relayer-darwin-arm64
-
-.PHONY: build-relayer-docker
-build-relayer-docker:
-	docker buildx build --build-arg GOOS=$(GOOS) --build-arg GOARCH=$(GOARCH) -f $(RELAYER_DIR)/Dockerfile . -t coreumbridge-xrpl-relayer:local
-
-.PHONY: push-relayer-docker
-push-relayer-docker: build-relayer-docker
-	docker image tag coreumbridge-xrpl-relayer:local coreumfoundation/coreumbridge-xrpl-relayer:$(DOCKER_PUSH_TAG)
-	docker image push coreumfoundation/coreumbridge-xrpl-relayer:$(DOCKER_PUSH_TAG)
-
-.PHONY: build-relayer-in-docker
-build-relayer-in-docker:
-	make build-relayer-docker
-	mkdir -p $(BUILD_DIR)
-	docker run --rm --entrypoint cat coreumbridge-xrpl-relayer:local /bin/coreumbridge-xrpl-relayer > $(BUILD_DIR)/$(BINARY_NAME)
+	$(BUILDER) build/relayer
 
 .PHONY: build-contract
 build-contract:
-	docker run --user $(id -u):$(id -g) --rm -v $(CONTRACT_DIR):/code \
-      -v $(CONTRACT_DIR)/target:/target \
-      -v $(CONTRACT_DIR)/target:/usr/local/cargo/registry \
-      cosmwasm/optimizer:0.15.0
+	$(BUILDER) build/contract
+
+.PHONY: images
+images:
+	$(BUILDER) images
+
+.PHONY: release
+release:
+	$(BUILDER) release
+
+.PHONY: release-images
+release-images:
+	$(BUILDER) release/images
+
+.PHONY: dependencies
+dependencies:
+	$(BUILDER) download
+
+.PHONY: integration-tests-xrpl
+integration-tests-xrpl:
+	$(BUILDER) integration-tests/xrpl
+
+.PHONY: integration-tests-processes
+integration-tests-processes:
+	$(BUILDER) integration-tests/processes
+
+.PHONY: integration-tests-contract
+integration-tests-contract:
+	$(BUILDER) integration-tests/contract
+
+.PHONY: integration-tests-stress
+integration-tests-stress:
+	$(BUILDER) integration-tests/stress
+
+###############################################################################
+###                                  Build                                  ###
+###############################################################################
 
 .PHONY: build-dev-contract
 build-dev-contract:
@@ -85,75 +114,18 @@ mockgen-go:
 	cd $(RELAYER_DIR) && go generate ./...
 	make fmt-go
 
-.PHONY: lint-go
-lint-go:
-	crust lint/current-dir
-
 .PHONY: lint-contract
 lint-contract:
 	cd $(CONTRACT_DIR) && cargo clippy --verbose -- -D warnings || exit 1;
-
-.PHONY: test-integration
-test-integration:
-	# test each directory separately to prevent faucet concurrent access
-	for d in $(INTEGRATION_TESTS_DIR)/*/; \
-	 do make test-single-integration TESTS_DIR="$$d" || exit 1; \
-	done
-
-.PHONY: test-single-integration
-test-single-integration:
-	cd $(TESTS_DIR) && go test -v --tags=integrationtests -mod=readonly -parallel=20 -timeout 10m ./... || exit 1;
-
-.PHONY: test-relayer
-test-relayer:
-	cd $(RELAYER_DIR) && go clean -testcache && go test -v -mod=readonly -parallel=20 -timeout 30m -race ./...
 
 .PHONY: test-contract
 test-contract:
 	cd $(CONTRACT_DIR) && cargo test --verbose
 
-.PHONY: test-fuzz
-test-fuzz:
-	cd $(RELAYER_DIR)/processes && go test -v -mod=readonly -run ^FuzzAmountConversionCoreumToXRPLAndBack$$  -fuzz ^FuzzAmountConversionCoreumToXRPLAndBack$$ -fuzztime 20s
-	cd $(RELAYER_DIR)/processes && go test -v -mod=readonly -run ^FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber$$  -fuzz  ^FuzzAmountConversionCoreumToXRPLAndBack_ExceedingSignificantNumber$$ -fuzztime 20s
-
-.PHONY: restart-dev-env
-restart-dev-env:
-	crust znet remove && crust znet start --profiles=1cored,xrpl --timeout-commit 0.3s
-
-.PHONY: build-dev-env
-build-dev-env:
-	crust build
-	crust images
-	coreum-builder images
-
-.PHONY: build-bridge-znet-env
-build-bridge-znet-env:
-	make build-dev-env
-	make build-relayer-docker
-
 .PHONY: restart-bridge-znet-env
 restart-bridge-znet-env:
 	docker compose -p bridge-znet -f ./infra/composer/docker-compose.yaml stop
-	crust znet remove
+	$(BUILDER) znet remove
 	docker compose -p bridge-znet -f ./infra/composer/docker-compose.yaml down
-	crust znet start --profiles=bridge-xrpl
+	$(BUILDER)znet start --profiles=bridge-xrpl
 	docker compose -p bridge-znet -f ./infra/composer/docker-compose.yaml up -d
-
-.PHONY: download-released-contract
-download-released-contract:
-	mkdir -p $(BUILD_DIR)
-	curl --fail -LJ -o $(BUILD_DIR)/coreumbridge_xrpl_$(RELEASE_VERSION).wasm https://github.com/CoreumFoundation/coreumbridge-xrpl/releases/download/$(RELEASE_VERSION)/coreumbridge_xrpl.wasm
-
-.PHONY: smoke
-smoke:
-	make lint-contract
-	make build-dev-contract
-	make test-contract
-	make mockgen-go
-	make fmt-go
-	make test-relayer
-	make restart-dev-env
-	make test-integration
-	# last since checks the committed files
-	make lint-go
