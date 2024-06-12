@@ -71,8 +71,8 @@ func buildRelayerInDocker(
 
 // Lint lints bridge repo.
 func Lint(ctx context.Context, deps types.DepsFunc) error {
-	deps(Generate)
-	return golang.Lint(ctx, deps)
+	deps(Generate, golang.Lint)
+	return nil
 }
 
 // DownloadDependencies downloads go dependencies.
