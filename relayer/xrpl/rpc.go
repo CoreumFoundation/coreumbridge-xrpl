@@ -18,7 +18,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
-//go:generate ./bin/mockgen -destination=rpc_mocks_test.go -package=xrpl_test . HTTPClient,RPCMetricRegistry
+//go:generate ../../bin/mockgen -destination=rpc_mocks_test.go -package=xrpl_test . HTTPClient,RPCMetricRegistry
 
 // UnknownTransactionResultErrorText error text for the unexpected tx code.
 const UnknownTransactionResultErrorText = "Unknown TransactionResult"
