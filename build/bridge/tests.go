@@ -16,6 +16,7 @@ import (
 	"github.com/CoreumFoundation/crust/build/golang"
 	"github.com/CoreumFoundation/crust/build/types"
 	"github.com/CoreumFoundation/crust/infra"
+	"github.com/CoreumFoundation/crust/infra/apps"
 	"github.com/CoreumFoundation/crust/pkg/znet"
 )
 
@@ -53,6 +54,7 @@ func RunIntegrationTests(name string) types.CommandFunc {
 			coreum.BuildCoredLocally, coreum.BuildCoredDockerImage)
 
 		znetConfig := &infra.ConfigFactory{
+			Profiles:      []string{apps.ProfileXRPLBridge},
 			EnvName:       "znet",
 			TimeoutCommit: 500 * time.Millisecond,
 			HomeDir:       filepath.Join(lo.Must(os.UserHomeDir()), ".crust", "znet"),
