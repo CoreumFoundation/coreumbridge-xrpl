@@ -27,7 +27,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 )
 
-//go:generate mockgen -destination=cli_mocks_test.go -package=cli_test . BridgeClient,Runner
+//go:generate ./bin/mockgen -destination=cli_mocks_test.go -package=cli_test . BridgeClient,Runner
 
 func init() {
 	userHomeDir, err := os.UserHomeDir()

@@ -12,7 +12,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
 
-//go:generate mockgen -destination=scanner_mocks_test.go -package=xrpl_test . RPCTxProvider,ScannerMetricRegistry
+//go:generate ./bin/mockgen -destination=scanner_mocks_test.go -package=xrpl_test . RPCTxProvider,ScannerMetricRegistry
 
 // ScannerMetricRegistry is scanner metric registry.
 type ScannerMetricRegistry interface {

@@ -6,7 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockgen -destination=mock.go -package=logger . Logger
+//go:generate ./bin/mockgen -destination=mock.go -package=logger . Logger
 
 // Logger is a logger interface.
 type Logger interface {
