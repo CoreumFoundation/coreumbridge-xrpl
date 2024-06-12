@@ -14,7 +14,7 @@ import (
 
 const (
 	repoPath    = "."
-	binaryName  = "coreumbridge-xrpl"
+	binaryName  = "coreumbridge-xrpl-relayer"
 	binaryPath  = "bin/" + binaryName
 	testsDir    = repoPath + "/integration-tests"
 	goCoverFlag = "-cover"
