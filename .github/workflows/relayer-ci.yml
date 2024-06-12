@@ -86,14 +86,13 @@ jobs:
           # we need to cache code-hashes.json under the same key as the artifacts, since the invalidation condition
           # for both of them are the same.
           path: |
-            ${{ github.workspace }}/coreumbridge-xrpl/contract/artifacts/* 
+            ${{ github.workspace }}/contract/artifacts/* 
             ~/.cache/crust/wasm/code-hashes.json
-          key: ${{ runner.os }}-cache-smart-contracts-${{ hashFiles('./coreumbridge-xrpl/contract/**/*.rs') }}
+          key: ${{ runner.os }}-cache-smart-contracts-${{ hashFiles('./contract/**/*.rs') }}
         if: ${{ matrix.wasm-cache }}
       - name: Prepare dependencies
         run: make dependencies
       - name: Run ${{ matrix.ci_step }}
-        working-directory: ./coreumbridge-xrpl
         run: ${{ matrix.command }}
       - name: Dump docker logs on failure
         if: failure()
