@@ -58,7 +58,7 @@ func RunIntegrationTests(name string) types.CommandFunc {
 			EnvName:       "znet",
 			TimeoutCommit: 500 * time.Millisecond,
 			HomeDir:       filepath.Join(lo.Must(os.UserHomeDir()), ".crust", "znet"),
-			RootDir:       "../",
+			RootDir:       ".",
 		}
 
 		if err := znet.Remove(ctx, znetConfig); err != nil {
