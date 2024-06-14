@@ -297,8 +297,7 @@ checksum = "06ea2b9bc92be3c2baa9334a323ebca2d6f074ff852cd1d7b11064035cd3868f"
 [[package]]
 name = "coreum-test-tube"
 version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd605c41b1d0d05b54039747b87723345c20779be7c125f8746d83f19a4accb7"
+source = "git+https://github.com/CoreumFoundation/test-tube.git#4e39936cbd0517d6823401c87352cf34367041ef"
 dependencies = [
  "base64 0.20.0",
  "bindgen",
@@ -2334,8 +2333,7 @@ dependencies = [
 [[package]]
 name = "test-tube-coreum"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cc49eb439d2569d9cbd870492438af085312e0e57be1105b64b4da43b7c36ac"
+source = "git+https://github.com/CoreumFoundation/test-tube.git#4e39936cbd0517d6823401c87352cf34367041ef"
 dependencies = [
  "base64 0.20.0",
  "cosmrs",

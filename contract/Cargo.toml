@@ -38,7 +38,7 @@ sha2 = "0.10.8"
 thiserror = "1.0.56"
 
 [dev-dependencies]
-coreum-test-tube = "3.0.1"
+coreum-test-tube = {git = 'https://github.com/CoreumFoundation/test-tube.git'}
 ripple-keypairs = "0.1.0"
 rand = "0.8.5"
 
