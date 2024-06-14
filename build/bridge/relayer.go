@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/CoreumFoundation/crust/build/git"
 	"github.com/CoreumFoundation/crust/build/golang"
@@ -37,9 +36,7 @@ func BuildRelayerLocally(ctx context.Context, deps types.DepsFunc) error {
 		TargetPlatform: tools.TargetPlatformLocal,
 		PackagePath:    filepath.Join(repoPath, "relayer/cmd"),
 		BinOutputPath:  binaryPath,
-		Flags: []string{
-			versionFlags,
-		},
+		LDFlags:        versionFlags,
 	})
 }
 
@@ -63,9 +60,7 @@ func buildRelayerInDocker(
 		TargetPlatform: targetPlatform,
 		PackagePath:    filepath.Join(repoPath, "relayer/cmd"),
 		BinOutputPath:  filepath.Join("bin", ".cache", binaryName, targetPlatform.String(), "bin", binaryName),
-		Flags: append(extraFlags,
-			versionFlags,
-		),
+		LDFlags:        versionFlags,
 	})
 }
 
@@ -80,15 +75,15 @@ func DownloadDependencies(ctx context.Context, deps types.DepsFunc) error {
 	return golang.DownloadDependencies(ctx, deps, repoPath)
 }
 
-func relayerVersionLDFlags(ctx context.Context) (string, error) {
+func relayerVersionLDFlags(ctx context.Context) ([]string, error) {
 	hash, err := git.DirtyHeadHash(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	version, err := git.VersionFromTag(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if version == "" {
 		version = hash
@@ -104,5 +99,5 @@ func relayerVersionLDFlags(ctx context.Context) (string, error) {
 		ldFlags = append(ldFlags, fmt.Sprintf("-X %s=%s", k, v))
 	}
 
-	return "-ldflags=" + strings.Join(ldFlags, " "), nil
+	return ldFlags, nil
 }
