@@ -61,6 +61,7 @@ func buildRelayerInDocker(
 		PackagePath:    filepath.Join(repoPath, "relayer/cmd"),
 		BinOutputPath:  filepath.Join("bin", ".cache", binaryName, targetPlatform.String(), "bin", binaryName),
 		LDFlags:        versionFlags,
+		Flags:          extraFlags,
 	})
 }
 
