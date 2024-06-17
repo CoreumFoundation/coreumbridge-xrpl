@@ -31,7 +31,7 @@ replace (
 )
 
 require (
-	github.com/CoreumFoundation/coreum/build v0.0.0-20240612092619-8d09603e839d
+	github.com/CoreumFoundation/coreum/build v0.0.0-20240617083016-5a1fbce5d2bc
 	github.com/CoreumFoundation/crust v0.0.0-20240614105548-ab2803089438
 	github.com/pkg/errors v0.9.1
 )
@@ -55,8 +55,8 @@ require (
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240321120602-0a9c50facc68 // indirect
 	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240213123712-d7d6a45ddb8f // indirect
-	github.com/CosmWasm/wasmd v0.44.0 // indirect
-	github.com/CosmWasm/wasmvm v1.5.1 // indirect
+	github.com/CosmWasm/wasmd v0.45.0 // indirect
+	github.com/CosmWasm/wasmvm v1.5.2 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/aws/aws-sdk-go v1.44.203 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
