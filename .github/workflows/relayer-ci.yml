@@ -21,31 +21,16 @@ jobs:
         include:
           - ci_step: "lint"
             command: make lint
-            wasm-cache: false
-            linter-cache: true
-            docker-cache: false
           - ci_step: "test"
             command: make test fuzz-test
-            wasm-cache: false
-            linter-cache: false
-            docker-cache: false
           - ci_step: "integration tests contract"
             command: make integration-tests-contract
-            wasm-cache: true
-            linter-cache: false
-            docker-cache: true
           - ci_step: "integration tests processes"
             command: make integration-tests-processes
-            wasm-cache: true
-            linter-cache: false
-            docker-cache: true
           - ci_step: "integration tests xrpl"
             command: make integration-tests-xrpl
-            wasm-cache: true
-            linter-cache: false
-            docker-cache: true
 
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted
     steps:
       - name: Go version used to build builder
         run: go version
@@ -53,45 +38,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Setup go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-      - name: Setup WASM cache
-        uses: actions/cache@v3
-        if: ${{ matrix.wasm-cache }}
-        with:
-          # we need to exclude code-hashes.json from the rest, since the invalidation condition for it is not
-          # same as WASM cache, but it is same as smart contract artifacts.
-          path: |
-            ~/.cache/crust/wasm
-            !/.cache/crust/wasm/code-hashes.json
-          key: ${{ runner.os }}-wasm-cache-${{ hashFiles('~/.cache/crust/wasm/**/*.rs') }}
-      - name: Setup linter cache
-        uses: actions/cache@v4
-        if: ${{ matrix.linter-cache }}
-        with:
-          path: ~/.cache/golangci-lint
-          key: ${{ runner.os }}-go-linter
-      - name: Set docker cache
-        uses: ScribeMD/docker-cache@0.5.0
-        with:
-          key: ${{ runner.os }}-docker-${{ hashFiles('build/go.sum') }}
-      - name: Setup smart contract build cache
-        uses: actions/cache@v3
-        with:
-          # we need to cache code-hashes.json under the same key as the artifacts, since the invalidation condition
-          # for both of them are the same.
-          path: |
-            ${{ github.workspace }}/contract/artifacts/* 
-            ~/.cache/crust/wasm/code-hashes.json
-          key: ${{ runner.os }}-cache-smart-contracts-${{ hashFiles('./contract/**/*.rs') }}
-        if: ${{ matrix.wasm-cache }}
-      - name: Prepare dependencies
-        run: make dependencies
       - name: Run ${{ matrix.ci_step }}
         run: ${{ matrix.command }}
       - name: Dump docker logs on failure

@@ -22,7 +22,6 @@ var Commands = map[string]types.Command{
 	}, Description: "Builds relayer and smart contract"},
 	"build/relayer":     {Fn: bridge.BuildRelayer, Description: "Builds relayer"},
 	"build/contract":    {Fn: bridge.BuildSmartContract, Description: "Builds smart contract"},
-	"download":          {Fn: bridge.DownloadDependencies, Description: "Downloads go dependencies"},
 	"fuzz-test":         {Fn: bridge.RunFuzzTests, Description: "Runs fuzz tests"},
 	"generate":          {Fn: bridge.Generate, Description: "Generates artifacts"},
 	"images":            {Fn: bridge.BuildRelayerDockerImage, Description: "Builds relayer docker image"},
