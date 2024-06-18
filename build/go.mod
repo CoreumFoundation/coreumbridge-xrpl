@@ -33,7 +33,7 @@ replace (
 // XRPL replacements
 
 // The original repository uses bzr VCS which is a complete disaster.
-replace launchpad.net/gocheck => github.com/go-check/check v0.0.0-20140225173054-000000000087
+replace launchpad.net/gocheck => github.com/go-check/check v0.0.0-20201130134442-10cb98267c6c
 
 require (
 	github.com/CoreumFoundation/coreum/build v0.0.0-20240617083016-5a1fbce5d2bc
