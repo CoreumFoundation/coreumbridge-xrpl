@@ -30,6 +30,11 @@ replace (
 	golang.org/x/exp => golang.org/x/exp v0.0.0-20230711153332-06a737ee72cb
 )
 
+// XRPL replacements
+
+// The original repository uses bzr VCS which is a complete disaster.
+replace launchpad.net/gocheck => github.com/go-check/check v0.0.0-20140225173054-000000000087
+
 require (
 	github.com/CoreumFoundation/coreum/build v0.0.0-20240617083016-5a1fbce5d2bc
 	github.com/CoreumFoundation/crust v0.0.0-20240618072929-2f1dbe86e20b
