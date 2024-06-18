@@ -13,7 +13,7 @@ if [ ! -f "$BUILD_BIN" ]; then
   rm -f ./bin/.cache/build-*
 
   pushd build > /dev/null
-  go build -trimpath -o "$BUILD_BIN" ./cmd/builder
+  GOVCS='public:git|hg|bzr' go build -trimpath -o "$BUILD_BIN" ./cmd/builder
   popd > /dev/null
 
   "$BUILD_BIN" build/me
