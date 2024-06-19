@@ -5,16 +5,16 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/CoreumFoundation/coreum-tools/pkg/build"
 	"github.com/CoreumFoundation/crust/build/config"
 	"github.com/CoreumFoundation/crust/build/docker"
 	"github.com/CoreumFoundation/crust/build/git"
 	"github.com/CoreumFoundation/crust/build/tools"
+	"github.com/CoreumFoundation/crust/build/types"
 )
 
 // ReleaseRelayer releases relayer binary for amd64 and arm64 to be published inside the release.
-func ReleaseRelayer(ctx context.Context, deps build.DepsFunc) error {
-	clean, _, err := git.StatusClean(ctx, repoPath)
+func ReleaseRelayer(ctx context.Context, deps types.DepsFunc) error {
+	clean, _, err := git.StatusClean(ctx)
 	if err != nil {
 		return err
 	}
@@ -22,7 +22,7 @@ func ReleaseRelayer(ctx context.Context, deps build.DepsFunc) error {
 		return errors.New("released commit contains uncommitted changes")
 	}
 
-	version, err := git.VersionFromTag(ctx, repoPath)
+	version, err := git.VersionFromTag(ctx)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func ReleaseRelayer(ctx context.Context, deps build.DepsFunc) error {
 }
 
 // ReleaseRelayerImage releases relayer docker images for amd64 and arm64.
-func ReleaseRelayerImage(ctx context.Context, deps build.DepsFunc) error {
+func ReleaseRelayerImage(ctx context.Context, deps types.DepsFunc) error {
 	deps(ReleaseRelayer)
 
 	return buildRelayerDockerImage(ctx, imageConfig{

@@ -4,30 +4,29 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 
-	"github.com/CoreumFoundation/coreum-tools/pkg/build"
 	"github.com/CoreumFoundation/crust/build/git"
 	"github.com/CoreumFoundation/crust/build/golang"
 	"github.com/CoreumFoundation/crust/build/tools"
+	"github.com/CoreumFoundation/crust/build/types"
 )
 
 const (
 	repoPath    = "."
-	binaryName  = "coreumbridge-xrpl"
+	binaryName  = "coreumbridge-xrpl-relayer"
 	binaryPath  = "bin/" + binaryName
 	testsDir    = repoPath + "/integration-tests"
 	goCoverFlag = "-cover"
 )
 
 // BuildRelayer builds all the versions of relayer binary.
-func BuildRelayer(ctx context.Context, deps build.DepsFunc) error {
+func BuildRelayer(ctx context.Context, deps types.DepsFunc) error {
 	deps(BuildRelayerLocally, BuildRelayerInDocker)
 	return nil
 }
 
 // BuildRelayerLocally builds relayer locally.
-func BuildRelayerLocally(ctx context.Context, deps build.DepsFunc) error {
+func BuildRelayerLocally(ctx context.Context, deps types.DepsFunc) error {
 	versionFlags, err := relayerVersionLDFlags(ctx)
 	if err != nil {
 		return err
@@ -37,20 +36,18 @@ func BuildRelayerLocally(ctx context.Context, deps build.DepsFunc) error {
 		TargetPlatform: tools.TargetPlatformLocal,
 		PackagePath:    filepath.Join(repoPath, "relayer/cmd"),
 		BinOutputPath:  binaryPath,
-		Flags: []string{
-			versionFlags,
-		},
+		LDFlags:        versionFlags,
 	})
 }
 
 // BuildRelayerInDocker builds relayer in docker.
-func BuildRelayerInDocker(ctx context.Context, deps build.DepsFunc) error {
+func BuildRelayerInDocker(ctx context.Context, deps types.DepsFunc) error {
 	return buildRelayerInDocker(ctx, deps, tools.TargetPlatformLinuxLocalArchInDocker, []string{goCoverFlag})
 }
 
 func buildRelayerInDocker(
 	ctx context.Context,
-	deps build.DepsFunc,
+	deps types.DepsFunc,
 	targetPlatform tools.TargetPlatform,
 	extraFlags []string,
 ) error {
@@ -63,42 +60,26 @@ func buildRelayerInDocker(
 		TargetPlatform: targetPlatform,
 		PackagePath:    filepath.Join(repoPath, "relayer/cmd"),
 		BinOutputPath:  filepath.Join("bin", ".cache", binaryName, targetPlatform.String(), "bin", binaryName),
-		Flags: append(extraFlags,
-			versionFlags,
-		),
+		LDFlags:        versionFlags,
+		Flags:          extraFlags,
 	})
 }
 
-// Tidy runs `go mod tidy` for bridge repo.
-func Tidy(ctx context.Context, deps build.DepsFunc) error {
-	return golang.Tidy(ctx, repoPath, deps)
-}
-
 // Lint lints bridge repo.
-func Lint(ctx context.Context, deps build.DepsFunc) error {
-	deps(Generate)
-	return golang.Lint(ctx, repoPath, deps)
+func Lint(ctx context.Context, deps types.DepsFunc) error {
+	deps(Generate, golang.Lint)
+	return nil
 }
 
-// Test run unit tests in bridge repo.
-func Test(ctx context.Context, deps build.DepsFunc) error {
-	return golang.Test(ctx, repoPath, deps)
-}
-
-// DownloadDependencies downloads go dependencies.
-func DownloadDependencies(ctx context.Context, deps build.DepsFunc) error {
-	return golang.DownloadDependencies(ctx, repoPath, deps)
-}
-
-func relayerVersionLDFlags(ctx context.Context) (string, error) {
-	hash, err := git.DirtyHeadHash(ctx, repoPath)
+func relayerVersionLDFlags(ctx context.Context) ([]string, error) {
+	hash, err := git.DirtyHeadHash(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	version, err := git.VersionFromTag(ctx, repoPath)
+	version, err := git.VersionFromTag(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if version == "" {
 		version = hash
@@ -114,5 +95,5 @@ func relayerVersionLDFlags(ctx context.Context) (string, error) {
 		ldFlags = append(ldFlags, fmt.Sprintf("-X %s=%s", k, v))
 	}
 
-	return "-ldflags=" + strings.Join(ldFlags, " "), nil
+	return ldFlags, nil
 }

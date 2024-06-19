@@ -3,8 +3,8 @@ package tools
 import (
 	"context"
 
-	"github.com/CoreumFoundation/coreum-tools/pkg/build"
 	"github.com/CoreumFoundation/crust/build/tools"
+	"github.com/CoreumFoundation/crust/build/types"
 )
 
 // CoreumBridgeXRPLWASMV110 is the previous version of bridge smart contract.
@@ -30,6 +30,6 @@ var Tools = []tools.Tool{
 }
 
 // EnsureBridgeXRPLWASM ensures bridge smart contract is available.
-func EnsureBridgeXRPLWASM(ctx context.Context, _ build.DepsFunc) error {
+func EnsureBridgeXRPLWASM(ctx context.Context, _ types.DepsFunc) error {
 	return tools.Ensure(ctx, CoreumBridgeXRPLWASMV110, tools.TargetPlatformLocal)
 }
