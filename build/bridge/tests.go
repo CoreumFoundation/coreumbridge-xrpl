@@ -49,7 +49,7 @@ func RunAllIntegrationTests(ctx context.Context, deps types.DepsFunc) error {
 
 // RunIntegrationTests returns function running integration tests.
 func RunIntegrationTests(name string) types.CommandFunc {
-	return func(ctx context.Context, deps types.DepsFunc) error {
+	return func(ctx context.Context, deps types.DepsFunc) (retErr error) {
 		deps(BuildRelayerDockerImage, BuildSmartContract, tools.EnsureBridgeXRPLWASM,
 			coreum.BuildCoredLocally, coreum.BuildCoredDockerImage)
 
@@ -64,20 +64,23 @@ func RunIntegrationTests(name string) types.CommandFunc {
 		if err := znet.Remove(ctx, znetConfig); err != nil {
 			return err
 		}
+		defer func() {
+			if err := znet.Remove(ctx, znetConfig); retErr == nil {
+				retErr = err
+			}
+		}()
+
 		if err := znet.Start(ctx, znetConfig); err != nil {
 			return err
 		}
-		if err := golang.RunTests(ctx, deps, golang.TestConfig{
+		return golang.RunTests(ctx, deps, golang.TestConfig{
 			PackagePath: filepath.Join(testsDir, name),
 			Flags: []string{
 				"-timeout=30m",
 				"-tags=integrationtests",
 				fmt.Sprintf("-parallel=%d", 2*runtime.NumCPU()),
 			},
-		}); err != nil {
-			return err
-		}
-		return znet.Remove(ctx, znetConfig)
+		})
 	}
 }
 
