@@ -11,6 +11,10 @@ znet-start:
 znet-remove:
 	$(BUILDER) znet remove
 
+.PHONY: setup
+setup:
+	$(BUILDER) setup
+
 .PHONY: lint
 lint:
 	$(BUILDER) lint

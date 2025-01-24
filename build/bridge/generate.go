@@ -3,8 +3,8 @@ package bridge
 import (
 	"context"
 
+	"github.com/CoreumFoundation/coreumbridge-xrpl/build/tools"
 	"github.com/CoreumFoundation/crust/build/golang"
-	"github.com/CoreumFoundation/crust/build/tools"
 	"github.com/CoreumFoundation/crust/build/types"
 )
 

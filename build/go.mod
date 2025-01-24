@@ -1,6 +1,6 @@
 module github.com/CoreumFoundation/coreumbridge-xrpl/build
 
-go 1.21
+go 1.23.3
 
 // Crust replacements
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
@@ -32,7 +32,7 @@ replace (
 
 require (
 	github.com/CoreumFoundation/coreum/build v0.0.0-20240617083016-5a1fbce5d2bc
-	github.com/CoreumFoundation/crust v0.0.0-20240618072929-2f1dbe86e20b
+	github.com/CoreumFoundation/crust v0.0.0-20250122103008-8aa8b7b7214e
 	github.com/pkg/errors v0.9.1
 )
 
