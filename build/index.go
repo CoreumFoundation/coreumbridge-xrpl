@@ -6,6 +6,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/build/bridge"
 	"github.com/CoreumFoundation/crust/build/crust"
 	"github.com/CoreumFoundation/crust/build/golang"
+	"github.com/CoreumFoundation/crust/build/tools"
 	"github.com/CoreumFoundation/crust/build/types"
 )
 
@@ -24,6 +25,7 @@ var Commands = map[string]types.Command{
 	"build/contract":    {Fn: bridge.BuildSmartContract, Description: "Builds smart contract"},
 	"fuzz-test":         {Fn: bridge.RunFuzzTests, Description: "Runs fuzz tests"},
 	"generate":          {Fn: bridge.Generate, Description: "Generates artifacts"},
+	"setup":             {Fn: tools.InstallAll, Description: "Installs all the required tools"},
 	"images":            {Fn: bridge.BuildRelayerDockerImage, Description: "Builds relayer docker image"},
 	"integration-tests": {Fn: bridge.RunAllIntegrationTests, Description: "Runs integration tests"},
 	"integration-tests/xrpl": {Fn: bridge.RunIntegrationTests(bridge.TestXRPL),

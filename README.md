@@ -8,6 +8,14 @@ The specification is described [here](spec/spec.md).
 
 ## Relayer
 
+## Prerequisites
+
+You may need to install required binaries and docker images.
+
+```bash 
+make setup
+```
+
 ### Build relayer binary
 
 ```bash 
