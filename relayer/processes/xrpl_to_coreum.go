@@ -14,6 +14,7 @@ import (
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
+	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/tracing"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -211,7 +212,9 @@ func (p *XRPLToCoreumProcess) processOutgoingTx(ctx context.Context, tx rippleda
 		p.log.Debug(ctx, "Skipped expected tx type", zap.String("txType", txType), zap.Any("tx", tx))
 		return nil
 	default:
-		p.metricRegistry.SetMaliciousBehaviourKey(fmt.Sprintf("unexpected_xrpl_tx_type_tx_hash_%s", tx.GetHash().String()))
+		p.metricRegistry.SetMaliciousBehaviourKey(
+			fmt.Sprintf("%s%s", metrics.UnexpectedXRPLTxTypeTxHash, tx.GetHash().String()),
+		)
 		p.log.Error(ctx, "Found unexpected transaction type", zap.Any("tx", tx))
 		return nil
 	}
@@ -343,7 +346,11 @@ func (p *XRPLToCoreumProcess) handleOperationEvidenceSubmissionError(
 	tx rippledata.TransactionWithMetaData,
 	evidence any,
 ) error {
+	potentialMaliciousXRPLBehaviourKey := fmt.Sprintf(
+		"%s%s", metrics.PotentialMaliciousXRPLBehaviourTxHashPrefix, tx.GetHash(),
+	)
 	if err == nil {
+		p.metricRegistry.DeleteMaliciousBehaviourKey(potentialMaliciousXRPLBehaviourKey)
 		p.log.Info(
 			ctx,
 			"Successfully sent operation evidence",
@@ -353,11 +360,15 @@ func (p *XRPLToCoreumProcess) handleOperationEvidenceSubmissionError(
 		return nil
 	}
 	if IsExpectedEvidenceSubmissionError(err) {
+		p.metricRegistry.DeleteMaliciousBehaviourKey(potentialMaliciousXRPLBehaviourKey)
 		p.log.Debug(ctx, "Received expected evidence submission error", zap.String("errText", err.Error()))
 		return nil
 	}
+
 	if IsUnexpectedEvidenceSubmissionError(err) {
-		p.metricRegistry.SetMaliciousBehaviourKey(fmt.Sprintf("potential_malicious_xrpl_behaviour_tx_hash_%s", tx.GetHash()))
+		// the situation might be false positive, in case the Coreum node is not in-sync, that's why when we get
+		// expected error or no error we call `metricRegistry.DeleteMaliciousBehaviourKey` to reset the metric.
+		p.metricRegistry.SetMaliciousBehaviourKey(potentialMaliciousXRPLBehaviourKey)
 	}
 
 	return err

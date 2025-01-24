@@ -1,6 +1,6 @@
 package logger
 
-import "go.uber.org/mock/gomock"
+import "github.com/golang/mock/gomock"
 
 // NewAnyLogMock mocks all log levels a part from error and allow any times' execution.
 func NewAnyLogMock(ctrl *gomock.Controller) *MockLogger {

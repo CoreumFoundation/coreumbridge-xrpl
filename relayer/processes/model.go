@@ -71,6 +71,7 @@ type XRPLTxSigner interface {
 // MetricRegistry is metric registry.
 type MetricRegistry interface {
 	SetMaliciousBehaviourKey(key string)
+	DeleteMaliciousBehaviourKey(key string)
 }
 
 // IsExpectedEvidenceSubmissionError returns true is error is a part of expected business logic e.g:

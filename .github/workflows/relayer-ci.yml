@@ -30,7 +30,7 @@ jobs:
           - ci_step: "integration tests xrpl"
             command: make integration-tests-xrpl
 
-    runs-on: self-hosted
+    runs-on: ubuntu-24.04
     steps:
       - name: Go version used to build builder
         run: go version

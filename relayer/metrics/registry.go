@@ -42,6 +42,10 @@ const (
 	ActionLabel = "action"
 	// VersionLabel is version label.
 	VersionLabel = "version"
+	// PotentialMaliciousXRPLBehaviourTxHashPrefix is potential malicious XRPL behaviour tx hash prefix.
+	PotentialMaliciousXRPLBehaviourTxHashPrefix = "potential_malicious_xrpl_behaviour_tx_hash_"
+	// UnexpectedXRPLTxTypeTxHash is unexpected transaction type tx hash prefix.
+	UnexpectedXRPLTxTypeTxHash = "unexpected_xrpl_tx_type_tx_hash_"
 )
 
 // Registry contains metrics.
@@ -241,6 +245,11 @@ func (m *Registry) SetXRPLAccountFullHistoryScanLedgerIndex(index float64) {
 // provided key.
 func (m *Registry) SetMaliciousBehaviourKey(key string) {
 	m.MaliciousBehaviourGaugeVec.WithLabelValues(key).Set(1)
+}
+
+// DeleteMaliciousBehaviourKey removes the MaliciousBehaviourGaugeVec with the provided key.
+func (m *Registry) DeleteMaliciousBehaviourKey(key string) {
+	m.MaliciousBehaviourGaugeVec.DeleteLabelValues(key)
 }
 
 // IncrementXRPLRPCDecodingErrorCounter increments XRPLRPCDecodingErrorCounter.

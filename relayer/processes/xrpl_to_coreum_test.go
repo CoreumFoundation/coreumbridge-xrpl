@@ -5,10 +5,10 @@ import (
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
+	"github.com/golang/mock/gomock"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
@@ -729,6 +729,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 			if tt.unexpectedTxCount > 0 {
 				metricRegistryMock.EXPECT().SetMaliciousBehaviourKey(gomock.Any()).Times(tt.unexpectedTxCount)
 			}
+			metricRegistryMock.EXPECT().DeleteMaliciousBehaviourKey(gomock.Any()).AnyTimes()
 			o, err := processes.NewXRPLToCoreumProcess(
 				processes.XRPLToCoreumProcessConfig{
 					BridgeXRPLAddress:    bridgeXRPLAddress,
