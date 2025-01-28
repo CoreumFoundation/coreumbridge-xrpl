@@ -286,6 +286,7 @@ github.com/CloudyKit/jet/v6 v6.2.0/go.mod h1:d3ypHeIRNo2+XyqnGA8s+aphtcVpjP5hPwP
 github.com/CoreumFoundation/coreum-tools v0.4.1-0.20230627094203-821c6a4eebab/go.mod h1:VD93vCHkxYaT/RhOesXTFgd/GQDW54tr0BqGi5JU1c0=
 github.com/CoreumFoundation/coreum/build v0.0.0-20240612092619-8d09603e839d h1:/n0Mw0BjsipOn8dkMJsx4YurrPmFLp8vZzWhugUWL2c=
 github.com/CoreumFoundation/coreum/build v0.0.0-20240612092619-8d09603e839d/go.mod h1:OTX5LdcocDzWHklOuMJKGn9xNkPn0WB9UPXIBVyOIJo=
+github.com/CoreumFoundation/crust v0.0.0-20250128110620-54d733b60040/go.mod h1:+tc+D5f9K7oNNtv8UazzNy8LheAhBG7UDc25JwY803Y=
 github.com/CosmWasm/wasmvm v1.5.0/go.mod h1:fXB+m2gyh4v9839zlIXdMZGeLAxqUdYdFQqYsTha2hc=
 github.com/DATA-DOG/go-sqlmock v1.5.0 h1:Shsta01QNfFxHCfpW6YH2STWB0MudeXXEWMr20OEh60=
 github.com/DATA-DOG/go-sqlmock v1.5.0/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=

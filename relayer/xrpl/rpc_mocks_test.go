@@ -48,7 +48,7 @@ func (m *MockHTTPClient) DoJSON(arg0 context.Context, arg1, arg2 string, arg3 an
 }
 
 // DoJSON indicates an expected call of DoJSON.
-func (mr *MockHTTPClientMockRecorder) DoJSON(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockHTTPClientMockRecorder) DoJSON(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoJSON", reflect.TypeOf((*MockHTTPClient)(nil).DoJSON), arg0, arg1, arg2, arg3, arg4)
 }

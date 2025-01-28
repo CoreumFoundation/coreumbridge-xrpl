@@ -1,5 +1,7 @@
 BUILDER = ./bin/coreumbridge-xrpl-builder
 
+export GOTOOLCHAIN = go1.21.4
+
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 CONTRACT_DIR:=$(ROOT_DIR)/contract
 

@@ -42,7 +42,7 @@ func (m *MockRPCTxProvider) EXPECT() *MockRPCTxProviderMockRecorder {
 }
 
 // AccountTx mocks base method.
-func (m *MockRPCTxProvider) AccountTx(arg0 context.Context, arg1 data.Account, arg2, arg3 int64, arg4 map[string]interface{}) (xrpl.AccountTxResult, error) {
+func (m *MockRPCTxProvider) AccountTx(arg0 context.Context, arg1 data.Account, arg2, arg3 int64, arg4 map[string]any) (xrpl.AccountTxResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AccountTx", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(xrpl.AccountTxResult)
@@ -51,7 +51,7 @@ func (m *MockRPCTxProvider) AccountTx(arg0 context.Context, arg1 data.Account, a
 }
 
 // AccountTx indicates an expected call of AccountTx.
-func (mr *MockRPCTxProviderMockRecorder) AccountTx(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockRPCTxProviderMockRecorder) AccountTx(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountTx", reflect.TypeOf((*MockRPCTxProvider)(nil).AccountTx), arg0, arg1, arg2, arg3, arg4)
 }
@@ -66,7 +66,7 @@ func (m *MockRPCTxProvider) LedgerCurrent(arg0 context.Context) (xrpl.LedgerCurr
 }
 
 // LedgerCurrent indicates an expected call of LedgerCurrent.
-func (mr *MockRPCTxProviderMockRecorder) LedgerCurrent(arg0 interface{}) *gomock.Call {
+func (mr *MockRPCTxProviderMockRecorder) LedgerCurrent(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LedgerCurrent", reflect.TypeOf((*MockRPCTxProvider)(nil).LedgerCurrent), arg0)
 }
@@ -101,7 +101,7 @@ func (m *MockScannerMetricRegistry) SetXRPLAccountFullHistoryScanLedgerIndex(arg
 }
 
 // SetXRPLAccountFullHistoryScanLedgerIndex indicates an expected call of SetXRPLAccountFullHistoryScanLedgerIndex.
-func (mr *MockScannerMetricRegistryMockRecorder) SetXRPLAccountFullHistoryScanLedgerIndex(arg0 interface{}) *gomock.Call {
+func (mr *MockScannerMetricRegistryMockRecorder) SetXRPLAccountFullHistoryScanLedgerIndex(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXRPLAccountFullHistoryScanLedgerIndex", reflect.TypeOf((*MockScannerMetricRegistry)(nil).SetXRPLAccountFullHistoryScanLedgerIndex), arg0)
 }
@@ -113,7 +113,7 @@ func (m *MockScannerMetricRegistry) SetXRPLAccountRecentHistoryScanLedgerIndex(a
 }
 
 // SetXRPLAccountRecentHistoryScanLedgerIndex indicates an expected call of SetXRPLAccountRecentHistoryScanLedgerIndex.
-func (mr *MockScannerMetricRegistryMockRecorder) SetXRPLAccountRecentHistoryScanLedgerIndex(arg0 interface{}) *gomock.Call {
+func (mr *MockScannerMetricRegistryMockRecorder) SetXRPLAccountRecentHistoryScanLedgerIndex(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXRPLAccountRecentHistoryScanLedgerIndex", reflect.TypeOf((*MockScannerMetricRegistry)(nil).SetXRPLAccountRecentHistoryScanLedgerIndex), arg0)
 }
