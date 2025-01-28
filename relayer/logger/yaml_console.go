@@ -182,7 +182,7 @@ func (c *yamlConsoleEncoder) AddUintptr(key string, value uintptr) {
 	c.buffer.AppendByte('\n')
 }
 
-func (c *yamlConsoleEncoder) AddReflected(key string, value interface{}) error {
+func (c *yamlConsoleEncoder) AddReflected(key string, value any) error {
 	c.addKey(key)
 	return c.AppendReflected(value)
 }
@@ -393,7 +393,7 @@ func (c *yamlConsoleEncoder) AppendObject(marshaller zapcore.ObjectMarshaler) er
 	return nil
 }
 
-func (c *yamlConsoleEncoder) AppendReflected(value interface{}) error {
+func (c *yamlConsoleEncoder) AppendReflected(value any) error {
 	if appended := c.appendCustomTypes(value); appended {
 		return nil
 	}
@@ -446,7 +446,7 @@ func (c *yamlConsoleEncoder) AppendReflected(value interface{}) error {
 	return nil
 }
 
-func (c *yamlConsoleEncoder) appendCustomTypes(value interface{}) bool {
+func (c *yamlConsoleEncoder) appendCustomTypes(value any) bool {
 	switch v := value.(type) {
 	case sdk.AccAddress:
 		c.AppendString(v.String())

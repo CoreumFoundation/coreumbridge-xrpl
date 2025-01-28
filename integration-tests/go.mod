@@ -2,8 +2,6 @@ module github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests
 
 go 1.21
 
-toolchain go1.21.4
-
 // same replacements as in coreum
 replace (
 	// cosmos keyring
