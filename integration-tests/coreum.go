@@ -57,7 +57,7 @@ func NewCoreumChain(cfg CoreumChainConfig) (CoreumChain, error) {
 	coreum.SetSDKConfig(coreumSettings.AddressPrefix)
 
 	return CoreumChain{
-		cfg: coreumCfg,
+		cfg: cfg,
 		CoreumChain: integration.NewCoreumChain(integration.NewChain(
 			coreumGRPCClient,
 			nil,
