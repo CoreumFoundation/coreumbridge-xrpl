@@ -1764,7 +1764,7 @@ func (c *ContractClient) execute(
 	return res, nil
 }
 
-func (c *ContractClient) query(ctx context.Context, request, response any) error {
+func (c *ContractClient) query(ctx context.Context, request, response interface{}) error {
 	if c.cfg.ContractAddress == nil {
 		return errors.New("failed to execute with empty contract address")
 	}

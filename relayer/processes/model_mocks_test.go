@@ -53,7 +53,7 @@ func (m *MockContractClient) GetContractConfig(arg0 context.Context) (coreum.Con
 }
 
 // GetContractConfig indicates an expected call of GetContractConfig.
-func (mr *MockContractClientMockRecorder) GetContractConfig(arg0 any) *gomock.Call {
+func (mr *MockContractClientMockRecorder) GetContractConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractConfig", reflect.TypeOf((*MockContractClient)(nil).GetContractConfig), arg0)
 }
@@ -68,7 +68,7 @@ func (m *MockContractClient) GetPendingOperations(arg0 context.Context) ([]coreu
 }
 
 // GetPendingOperations indicates an expected call of GetPendingOperations.
-func (mr *MockContractClientMockRecorder) GetPendingOperations(arg0 any) *gomock.Call {
+func (mr *MockContractClientMockRecorder) GetPendingOperations(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingOperations", reflect.TypeOf((*MockContractClient)(nil).GetPendingOperations), arg0)
 }
@@ -97,7 +97,7 @@ func (m *MockContractClient) SaveSignature(arg0 context.Context, arg1 types.AccA
 }
 
 // SaveSignature indicates an expected call of SaveSignature.
-func (mr *MockContractClientMockRecorder) SaveSignature(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+func (mr *MockContractClientMockRecorder) SaveSignature(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSignature", reflect.TypeOf((*MockContractClient)(nil).SaveSignature), arg0, arg1, arg2, arg3, arg4)
 }
@@ -112,7 +112,7 @@ func (m *MockContractClient) SendCoreumToXRPLTransferTransactionResultEvidence(a
 }
 
 // SendCoreumToXRPLTransferTransactionResultEvidence indicates an expected call of SendCoreumToXRPLTransferTransactionResultEvidence.
-func (mr *MockContractClientMockRecorder) SendCoreumToXRPLTransferTransactionResultEvidence(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockContractClientMockRecorder) SendCoreumToXRPLTransferTransactionResultEvidence(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoreumToXRPLTransferTransactionResultEvidence", reflect.TypeOf((*MockContractClient)(nil).SendCoreumToXRPLTransferTransactionResultEvidence), arg0, arg1, arg2)
 }
@@ -127,7 +127,7 @@ func (m *MockContractClient) SendKeysRotationTransactionResultEvidence(arg0 cont
 }
 
 // SendKeysRotationTransactionResultEvidence indicates an expected call of SendKeysRotationTransactionResultEvidence.
-func (mr *MockContractClientMockRecorder) SendKeysRotationTransactionResultEvidence(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockContractClientMockRecorder) SendKeysRotationTransactionResultEvidence(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendKeysRotationTransactionResultEvidence", reflect.TypeOf((*MockContractClient)(nil).SendKeysRotationTransactionResultEvidence), arg0, arg1, arg2)
 }
@@ -142,7 +142,7 @@ func (m *MockContractClient) SendXRPLTicketsAllocationTransactionResultEvidence(
 }
 
 // SendXRPLTicketsAllocationTransactionResultEvidence indicates an expected call of SendXRPLTicketsAllocationTransactionResultEvidence.
-func (mr *MockContractClientMockRecorder) SendXRPLTicketsAllocationTransactionResultEvidence(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockContractClientMockRecorder) SendXRPLTicketsAllocationTransactionResultEvidence(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendXRPLTicketsAllocationTransactionResultEvidence", reflect.TypeOf((*MockContractClient)(nil).SendXRPLTicketsAllocationTransactionResultEvidence), arg0, arg1, arg2)
 }
@@ -157,7 +157,7 @@ func (m *MockContractClient) SendXRPLToCoreumTransferEvidence(arg0 context.Conte
 }
 
 // SendXRPLToCoreumTransferEvidence indicates an expected call of SendXRPLToCoreumTransferEvidence.
-func (mr *MockContractClientMockRecorder) SendXRPLToCoreumTransferEvidence(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockContractClientMockRecorder) SendXRPLToCoreumTransferEvidence(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendXRPLToCoreumTransferEvidence", reflect.TypeOf((*MockContractClient)(nil).SendXRPLToCoreumTransferEvidence), arg0, arg1, arg2)
 }
@@ -172,7 +172,7 @@ func (m *MockContractClient) SendXRPLTrustSetTransactionResultEvidence(arg0 cont
 }
 
 // SendXRPLTrustSetTransactionResultEvidence indicates an expected call of SendXRPLTrustSetTransactionResultEvidence.
-func (mr *MockContractClientMockRecorder) SendXRPLTrustSetTransactionResultEvidence(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockContractClientMockRecorder) SendXRPLTrustSetTransactionResultEvidence(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendXRPLTrustSetTransactionResultEvidence", reflect.TypeOf((*MockContractClient)(nil).SendXRPLTrustSetTransactionResultEvidence), arg0, arg1, arg2)
 }
@@ -209,7 +209,7 @@ func (m *MockXRPLAccountTxScanner) ScanTxs(arg0 context.Context, arg1 chan<- dat
 }
 
 // ScanTxs indicates an expected call of ScanTxs.
-func (mr *MockXRPLAccountTxScannerMockRecorder) ScanTxs(arg0, arg1 any) *gomock.Call {
+func (mr *MockXRPLAccountTxScannerMockRecorder) ScanTxs(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScanTxs", reflect.TypeOf((*MockXRPLAccountTxScanner)(nil).ScanTxs), arg0, arg1)
 }
@@ -247,7 +247,7 @@ func (m *MockXRPLRPCClient) AccountInfo(arg0 context.Context, arg1 data.Account)
 }
 
 // AccountInfo indicates an expected call of AccountInfo.
-func (mr *MockXRPLRPCClientMockRecorder) AccountInfo(arg0, arg1 any) *gomock.Call {
+func (mr *MockXRPLRPCClientMockRecorder) AccountInfo(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountInfo", reflect.TypeOf((*MockXRPLRPCClient)(nil).AccountInfo), arg0, arg1)
 }
@@ -262,7 +262,7 @@ func (m *MockXRPLRPCClient) Submit(arg0 context.Context, arg1 data.Transaction) 
 }
 
 // Submit indicates an expected call of Submit.
-func (mr *MockXRPLRPCClientMockRecorder) Submit(arg0, arg1 any) *gomock.Call {
+func (mr *MockXRPLRPCClientMockRecorder) Submit(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Submit", reflect.TypeOf((*MockXRPLRPCClient)(nil).Submit), arg0, arg1)
 }
@@ -300,7 +300,7 @@ func (m *MockXRPLTxSigner) MultiSign(arg0 data.MultiSignable, arg1 string) (data
 }
 
 // MultiSign indicates an expected call of MultiSign.
-func (mr *MockXRPLTxSignerMockRecorder) MultiSign(arg0, arg1 any) *gomock.Call {
+func (mr *MockXRPLTxSignerMockRecorder) MultiSign(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MultiSign", reflect.TypeOf((*MockXRPLTxSigner)(nil).MultiSign), arg0, arg1)
 }
@@ -335,7 +335,7 @@ func (m *MockMetricRegistry) DeleteMaliciousBehaviourKey(arg0 string) {
 }
 
 // DeleteMaliciousBehaviourKey indicates an expected call of DeleteMaliciousBehaviourKey.
-func (mr *MockMetricRegistryMockRecorder) DeleteMaliciousBehaviourKey(arg0 any) *gomock.Call {
+func (mr *MockMetricRegistryMockRecorder) DeleteMaliciousBehaviourKey(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMaliciousBehaviourKey", reflect.TypeOf((*MockMetricRegistry)(nil).DeleteMaliciousBehaviourKey), arg0)
 }
@@ -347,7 +347,7 @@ func (m *MockMetricRegistry) SetMaliciousBehaviourKey(arg0 string) {
 }
 
 // SetMaliciousBehaviourKey indicates an expected call of SetMaliciousBehaviourKey.
-func (mr *MockMetricRegistryMockRecorder) SetMaliciousBehaviourKey(arg0 any) *gomock.Call {
+func (mr *MockMetricRegistryMockRecorder) SetMaliciousBehaviourKey(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMaliciousBehaviourKey", reflect.TypeOf((*MockMetricRegistry)(nil).SetMaliciousBehaviourKey), arg0)
 }

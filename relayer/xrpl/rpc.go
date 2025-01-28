@@ -510,7 +510,7 @@ func (c *RPCClient) RipplePathFind(
 	return result, nil
 }
 
-func (c *RPCClient) callRPC(ctx context.Context, method string, params, result any) error {
+func (c *RPCClient) callRPC(ctx context.Context, method string, params, result interface{}) error {
 	request := RPCRequest{
 		Method: method,
 		Params: []any{
