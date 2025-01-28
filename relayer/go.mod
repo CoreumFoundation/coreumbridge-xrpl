@@ -24,7 +24,6 @@ require (
 	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240430164528-92d83ae5b61f
 	github.com/CosmWasm/wasmd v0.44.0
 	github.com/cosmos/cosmos-sdk v0.47.11
-	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
 	github.com/samber/lo v1.39.0
@@ -40,6 +39,7 @@ require (
 require (
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/moby/sys/user v0.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
