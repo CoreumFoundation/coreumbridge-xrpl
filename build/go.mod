@@ -32,7 +32,7 @@ replace (
 
 require (
 	github.com/CoreumFoundation/coreum/build v0.0.0-20241226122636-d94c10aed210
-	github.com/CoreumFoundation/crust v0.0.0-20241225103102-0cb70152a971
+	github.com/CoreumFoundation/crust v0.0.0-20250128110620-54d733b60040
 	github.com/pkg/errors v0.9.1
 )
 
