@@ -683,7 +683,7 @@ func TestMaliciousBehaviourMetric(t *testing.T) {
 		runnerEnv.RunnerComponents[0].MetricsRegistry.MaliciousBehaviourGaugeVec,
 		map[string]string{
 			metrics.MaliciousBehaviourKeyLabel: fmt.Sprintf(
-				"unexpected_xrpl_tx_type_tx_hash_%s", txHash.String(),
+				"%s%s", metrics.UnexpectedXRPLTxTypeTxHash, txHash.String(),
 			),
 		},
 		1,
@@ -709,7 +709,7 @@ func TestMaliciousBehaviourMetric(t *testing.T) {
 		runnerEnv.RunnerComponents[0].MetricsRegistry.MaliciousBehaviourGaugeVec,
 		map[string]string{
 			metrics.MaliciousBehaviourKeyLabel: fmt.Sprintf(
-				"potential_malicious_xrpl_behaviour_tx_hash_%s", txHash.String(),
+				"%s%s", metrics.PotentialMaliciousXRPLBehaviourTxHashPrefix, txHash.String(),
 			),
 		},
 		1,

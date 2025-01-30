@@ -729,6 +729,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 			if tt.unexpectedTxCount > 0 {
 				metricRegistryMock.EXPECT().SetMaliciousBehaviourKey(gomock.Any()).Times(tt.unexpectedTxCount)
 			}
+			metricRegistryMock.EXPECT().DeleteMaliciousBehaviourKey(gomock.Any()).AnyTimes()
 			o, err := processes.NewXRPLToCoreumProcess(
 				processes.XRPLToCoreumProcessConfig{
 					BridgeXRPLAddress:    bridgeXRPLAddress,

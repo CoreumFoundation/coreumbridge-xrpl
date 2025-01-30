@@ -1392,7 +1392,7 @@ func (c *ContractClient) GetAvailableTickets(ctx context.Context) ([]uint32, err
 // GetFeesCollected returns collected fees for an account.
 func (c *ContractClient) GetFeesCollected(ctx context.Context, address sdk.Address) (sdk.Coins, error) {
 	var res feesCollectedResponse
-	err := c.query(ctx, map[QueryMethod]interface{}{
+	err := c.query(ctx, map[QueryMethod]any{
 		QueryMethodFeesCollected: struct {
 			RelayerAddress string `json:"relayer_address"`
 		}{
@@ -1447,7 +1447,7 @@ func (c *ContractClient) GetTransactionEvidences(ctx context.Context) ([]Transac
 // GetProhibitedXRPLAddresses returns the list prohibited XRPL addresses.
 func (c *ContractClient) GetProhibitedXRPLAddresses(ctx context.Context) ([]string, error) {
 	var response prohibitedXRPLAddressesResponse
-	err := c.query(ctx, map[QueryMethod]interface{}{
+	err := c.query(ctx, map[QueryMethod]any{
 		QueryMethodProhibitedXRPLAddresses: struct{}{},
 	}, &response)
 	if err != nil {

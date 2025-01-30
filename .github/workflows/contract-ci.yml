@@ -9,7 +9,7 @@ env:
   CARGO_TERM_COLOR: always
 jobs:
   ci:
-    runs-on: self-hosted
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Lint contract

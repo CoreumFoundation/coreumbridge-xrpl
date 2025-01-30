@@ -29,7 +29,7 @@ pub enum TopKey {
 
 impl TopKey {
     const fn as_str(&self) -> &str {
-        let array_ref = unsafe { std::mem::transmute::<_, &[u8; 1]>(self) };
+        let array_ref = unsafe { std::mem::transmute::<&Self, &[u8; 1]>(self) };
         match core::str::from_utf8(array_ref) {
             Ok(a) => a,
             Err(_) => panic!("Non-utf8 enum value found. Use a-z, A-Z and 0-9"),
@@ -108,7 +108,7 @@ pub struct XRPLTokensIndexes<'a> {
     pub coreum_denom: UniqueIndex<'a, String, XRPLToken, String>,
 }
 
-impl<'a> IndexList<XRPLToken> for XRPLTokensIndexes<'a> {
+impl IndexList<XRPLToken> for XRPLTokensIndexes<'_> {
     fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<XRPLToken>> + '_> {
         let v: Vec<&dyn Index<XRPLToken>> = vec![&self.coreum_denom];
         Box::new(v.into_iter())
@@ -130,7 +130,7 @@ pub struct CoreumTokensIndexes<'a> {
     pub xrpl_currency: UniqueIndex<'a, String, CoreumToken, String>,
 }
 
-impl<'a> IndexList<CoreumToken> for CoreumTokensIndexes<'a> {
+impl IndexList<CoreumToken> for CoreumTokensIndexes<'_> {
     fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<CoreumToken>> + '_> {
         let v: Vec<&dyn Index<CoreumToken>> = vec![&self.xrpl_currency];
         Box::new(v.into_iter())
@@ -171,7 +171,7 @@ pub struct PendingRefundsIndexes<'a> {
     pub address: MultiIndex<'a, Addr, PendingRefund, (Addr, String)>,
 }
 
-impl<'a> IndexList<PendingRefund> for PendingRefundsIndexes<'a> {
+impl IndexList<PendingRefund> for PendingRefundsIndexes<'_> {
     fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<PendingRefund>> + '_> {
         let v: Vec<&dyn Index<PendingRefund>> = vec![&self.address];
         Box::new(v.into_iter())

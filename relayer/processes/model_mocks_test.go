@@ -328,6 +328,18 @@ func (m *MockMetricRegistry) EXPECT() *MockMetricRegistryMockRecorder {
 	return m.recorder
 }
 
+// DeleteMaliciousBehaviourKey mocks base method.
+func (m *MockMetricRegistry) DeleteMaliciousBehaviourKey(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "DeleteMaliciousBehaviourKey", arg0)
+}
+
+// DeleteMaliciousBehaviourKey indicates an expected call of DeleteMaliciousBehaviourKey.
+func (mr *MockMetricRegistryMockRecorder) DeleteMaliciousBehaviourKey(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMaliciousBehaviourKey", reflect.TypeOf((*MockMetricRegistry)(nil).DeleteMaliciousBehaviourKey), arg0)
+}
+
 // SetMaliciousBehaviourKey mocks base method.
 func (m *MockMetricRegistry) SetMaliciousBehaviourKey(arg0 string) {
 	m.ctrl.T.Helper()
