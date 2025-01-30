@@ -633,8 +633,8 @@ github.com/CoreumFoundation/coreum/build v0.0.0-20241226122636-d94c10aed210 h1:b
 github.com/CoreumFoundation/coreum/build v0.0.0-20241226122636-d94c10aed210/go.mod h1:s+ys9/oHbB96g/UuLfzCUrULf7EMQikReCSK6NmqXiU=
 github.com/CoreumFoundation/coreum/v4 v4.0.0-20240213123712-d7d6a45ddb8f h1:a+lBcN3rWvoa/5mvdOQMaUU604/J3h/0rumGnISRglo=
 github.com/CoreumFoundation/coreum/v4 v4.0.0-20240213123712-d7d6a45ddb8f/go.mod h1:m17GEOObKO0uMNRSeitPFjjne55MSbzFeTlAONaMGkI=
-github.com/CoreumFoundation/crust v0.0.0-20250129144554-073e975dcc19 h1:1dpOGvSzAbOf8RJyb9Cay24NXJulYUyR6n6K0CLUS6k=
-github.com/CoreumFoundation/crust v0.0.0-20250129144554-073e975dcc19/go.mod h1:+tc+D5f9K7oNNtv8UazzNy8LheAhBG7UDc25JwY803Y=
+github.com/CoreumFoundation/crust v0.0.0-20250130080025-fcd3df66ed33 h1:AiAC8n6VdPqOefO0eXUk6c3tDGT8MmFvjIKaqh1xbWQ=
+github.com/CoreumFoundation/crust v0.0.0-20250130080025-fcd3df66ed33/go.mod h1:+tc+D5f9K7oNNtv8UazzNy8LheAhBG7UDc25JwY803Y=
 github.com/CosmWasm/wasmd v0.46.0 h1:78kmiobbVE8JWBcM+ssxiFV2cS+4l9lmZQqPAQ0mA04=
 github.com/CosmWasm/wasmd v0.46.0/go.mod h1:BZFz+CFGdLNGomshb3IeccFyD4R+XbnS/mXpytOUyTA=
 github.com/CosmWasm/wasmvm v1.5.4 h1:Opqy65ubJ8bMsT08dn85VjRdsLJVPIAgIXif92qOMGc=
