@@ -500,6 +500,7 @@ cloud.google.com/go/workflows v1.12.8 h1:n5SOGamA/HtlpWAIXxKXpuGq1ta3wDpyOftDgjI
 cloud.google.com/go/workflows v1.12.8/go.mod h1:b7akG38W6lHmyPc+WYJxIYl1rEv79bBMYVwEZmp3aJQ=
 cosmossdk.io/api v0.7.0/go.mod h1:kJFAEMLN57y0viszHDPLMmieF0471o5QAwwApa+270M=
 cosmossdk.io/core v0.5.1/go.mod h1:KZtwHCLjcFuo0nmDc24Xy6CRNEL9Vl/MeimQ2aC7NLE=
+cosmossdk.io/core v0.11.0/go.mod h1:LaTtayWBSoacF5xNzoF8tmLhehqlA9z1SWiPuNC6X1w=
 cosmossdk.io/core v0.11.1/go.mod h1:OJzxcdC+RPrgGF8NJZR2uoQr56tc7gfBKhiKeDO7hH0=
 cosmossdk.io/depinject v1.0.0-alpha.3/go.mod h1:eRbcdQ7MRpIPEM5YUJh8k97nxHpYbc3sMUnEtt8HPWU=
 cosmossdk.io/errors v1.0.0/go.mod h1:+hJZLuhdDE0pYN8HkOrVNwrIOYvUGnn6+4fjnJs/oV0=

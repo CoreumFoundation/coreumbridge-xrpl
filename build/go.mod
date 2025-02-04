@@ -7,6 +7,9 @@ replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alp
 
 // CosmosSDK replacements
 replace (
+	// TODO(https://github.com/cosmos/rosetta/issues/76): Rosetta requires cosmossdk.io/core v0.12.0 erroneously but
+	// should use v0.11.0. The Cosmos build fails with types/context.go:65:29: undefined: comet.BlockInfo otherwise.
+	cosmossdk.io/core => cosmossdk.io/core v0.11.0
 	// cosmos keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
 	// We need this replacement because github.com/coinbase/rosetta-sdk-go/types was part of
