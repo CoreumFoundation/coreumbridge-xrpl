@@ -132,7 +132,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	)
 
 	bootstrappingRelayers := make([]bridgeclient.RelayerConfig, 0)
-	for i := 0; i < int(cfg.RelayersCount); i++ {
+	for i := range int(cfg.RelayersCount) {
 		relayerCoreumAddress := relayerCoreumAddresses[i]
 		relayerXRPLAddress := relayerXRPLAddresses[i]
 		relayerXRPLPubKey := relayerXRPLPubKeys[i]
@@ -173,7 +173,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	runners := make([]*runner.Runner, 0, cfg.RelayersCount)
 	runnerComponents := make([]runner.Components, 0, cfg.RelayersCount)
 	// add correct relayers
-	for i := 0; i < int(cfg.RelayersCount-cfg.MaliciousRelayerNumber); i++ {
+	for i := range int(cfg.RelayersCount - cfg.MaliciousRelayerNumber) {
 		rnrComponents, rnr := createDevRunner(
 			ctx,
 			t,
@@ -564,7 +564,7 @@ func genCoreumRelayers(
 	t.Helper()
 
 	addresses := make([]sdk.AccAddress, 0, relayersCount)
-	for i := 0; i < int(relayersCount); i++ {
+	for i := range int(relayersCount) {
 		relayerAddress := coreumChain.GenAccount()
 		coreumChain.FundAccountWithOptions(ctx, t, relayerAddress, coreumintegration.BalancesOptions{
 			Amount: sdkmath.NewIntFromUint64(1_000_000),
@@ -588,7 +588,7 @@ func genBridgeXRPLAccountWithRelayers(
 	t.Logf("Bridge account is generated, address:%s", bridgeXRPLAddress.String())
 	signerAccounts := make([]rippledata.Account, 0, signersCount)
 	signerPubKeys := make([]rippledata.PublicKey, 0, signersCount)
-	for i := 0; i < int(signersCount); i++ {
+	for i := range int(signersCount) {
 		signerAcc := xrplChain.GenAccount(ctx, t, 0)
 		signerAccounts = append(signerAccounts, signerAcc)
 		t.Logf("Signer %d is generated, address:%s", i+1, signerAcc.String())

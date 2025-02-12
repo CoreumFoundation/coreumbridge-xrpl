@@ -160,7 +160,7 @@ func sendMultipleTxs(
 	senderAcc, recipientAcc rippledata.Account,
 ) map[string]struct{} {
 	writtenTxHashes := make(map[string]struct{})
-	for i := 0; i < count; i++ {
+	for i := range count {
 		xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 		require.NoError(t, err)
 		xrpPaymentTx := rippledata.Payment{

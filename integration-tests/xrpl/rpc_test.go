@@ -482,7 +482,7 @@ func TestMultisigSignerSetWithMaxSigners(t *testing.T) {
 	signerCount := xrpl.MaxAllowedXRPLSigners
 	chains.XRPL.FundAccountForSignerListSet(ctx, t, multiSigAcc)
 	signerSignerEntries := make([]rippledata.SignerEntry, 0)
-	for i := 0; i < int(signerCount); i++ {
+	for i := range int(signerCount) {
 		signer := chains.XRPL.GenAccount(ctx, t, 0)
 		signerSignerEntries = append(signerSignerEntries, rippledata.SignerEntry{
 			SignerEntry: rippledata.SignerEntryItem{
@@ -687,7 +687,7 @@ func TestLedgerCurrent(t *testing.T) {
 	ctx, chains := integrationtests.NewTestingContext(t)
 	currentLedger, err := chains.XRPL.RPCClient().LedgerCurrent(ctx)
 	require.NoError(t, err)
-	require.Greater(t, currentLedger.LedgerCurrentIndex, int64(0))
+	require.Positive(t, currentLedger.LedgerCurrentIndex)
 }
 
 func TestServerState(t *testing.T) {
@@ -714,7 +714,7 @@ func TestAccountTx(t *testing.T) {
 	t.Logf("Recipient account: %s", recipientAcc)
 
 	// send 4 txs from is the sender to the recipient
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 		require.NoError(t, err)
 		xrpPaymentTx := rippledata.Payment{
@@ -811,7 +811,6 @@ func TestXRPLHighLowAmountsPayments(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 

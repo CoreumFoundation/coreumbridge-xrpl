@@ -142,7 +142,7 @@ func TestBridgeHalting(t *testing.T) {
 
 	// use all available tickets and fail the tickets reallocation to test the recovery when the bridge is halted
 	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0)
-	for i := 0; i < len(tickets)-1; i++ {
+	for i := range len(tickets) - 1 {
 		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
 			Recipient:     xrplRecipientAddress.String(),
 			Amount:        sdk.NewInt64Coin(registeredCoreumOriginatedToken.Denom, 1),

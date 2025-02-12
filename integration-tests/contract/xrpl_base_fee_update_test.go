@@ -115,7 +115,7 @@ func TestUpdateXRPLBaseFee(t *testing.T) {
 
 	operationCountToGenerate := 5
 	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0, operationCountToGenerate)
-	for i := 0; i < operationCountToGenerate; i++ {
+	for i := range operationCountToGenerate {
 		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
 			Recipient:     xrplRecipientAddress.String(),
 			Amount:        sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(10)),
@@ -203,7 +203,7 @@ func TestUpdateXRPLBaseFeeForMaxOperationCount(t *testing.T) {
 	operationCountToGenerate := int(xrpl.MaxTicketsToAllocate - 1)
 	t.Logf("Sending %d SendToXRPL transactions", operationCountToGenerate)
 	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0, operationCountToGenerate)
-	for i := 0; i < operationCountToGenerate; i++ {
+	for i := range operationCountToGenerate {
 		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
 			Recipient:     xrplRecipientAddress.String(),
 			Amount:        sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(10)),
@@ -248,7 +248,7 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 			relayerCopy := relayer
 			spawn(fmt.Sprintf("relayer-%d", i), parallel.Continue, func(ctx context.Context) error {
 				signatures := make([]coreum.SaveSignatureRequest, 0)
-				for j := 0; j < len(pendingOperations); j++ {
+				for j := range len(pendingOperations) {
 					operation := pendingOperations[j]
 					if initialOperationVersion != operation.Version {
 						return errors.Errorf(
@@ -295,7 +295,7 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 	t.Logf("Saving signatures for first relayer with different operation version")
 	relayer := relayers[0]
 	signatures := make([]coreum.SaveSignatureRequest, 0)
-	for i := 0; i < len(pendingOperations); i++ {
+	for i := range len(pendingOperations) {
 		operation := pendingOperations[i]
 		require.Equal(t, nextOperationVersion, operation.Version)
 		require.Equal(t, newXRPLBase, operation.XRPLBaseFee)

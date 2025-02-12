@@ -557,7 +557,6 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund owner to cover registration fee
 			chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
@@ -943,7 +942,6 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			coreumSender := chains.Coreum.GenAccount()
 			issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
@@ -1179,7 +1177,6 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund sender to cover registration fee and some coins on top for the contract calls
 			coreumSenderAddress := chains.Coreum.GenAccount()
@@ -1400,7 +1397,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	// use all available tickets
 	tickets, err := contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
-	for i := 0; i < len(tickets)-1; i++ {
+	for i := range len(tickets) - 1 {
 		_, err = contractClient.SendToXRPL(
 			ctx,
 			coreumSenderAddress,
@@ -1525,7 +1522,6 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund owner to cover registration fee
 			chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
@@ -2189,7 +2185,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 
 	tickets, err := contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
-	for i := 0; i < len(tickets)-1; i++ {
+	for i := range len(tickets) - 1 {
 		_, err = contractClient.SendToXRPL(
 			ctx,
 			coreumSenderAddress,
@@ -2438,7 +2434,6 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund sender to cover registration fee and some coins on top for the contract calls
 			coreumSenderAddress := chains.Coreum.GenAccount()
@@ -2775,7 +2770,6 @@ func TestBridgingFeeForCoreumOriginatedTokens(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund sender to cover registration fee and some coins on top for the contract calls
 			coreumSenderAddress := chains.Coreum.GenAccount()
@@ -3251,7 +3245,6 @@ func TestBridgingFeeForXRPLOrginatedTokens(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund owner to cover registration fee
 			chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{

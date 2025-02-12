@@ -156,7 +156,6 @@ func (env *Env) FundCoreumAccountsWithXRP(
 		Outputs: []banktypes.Output{},
 	}
 	for _, acc := range coreumAccounts {
-		acc := acc
 		msg.Outputs = append(msg.Outputs, banktypes.Output{
 			Address: acc.String(),
 			Coins:   sdk.NewCoins(sdk.NewCoin(registeredXRPToken.CoreumDenom, amount)),
@@ -206,7 +205,7 @@ func (env *Env) GenCoreumAndXRPLAccounts(
 // GenCoreumAccounts generates coreum accounts with the provided amount.
 func (env *Env) GenCoreumAccounts(ctx context.Context, t *testing.T, count int, amount sdkmath.Int) []sdk.AccAddress {
 	coreumAccounts := make([]sdk.AccAddress, 0, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		acc := env.Chains.Coreum.GenAccount()
 		env.Chains.Coreum.FundAccountWithOptions(ctx, t, acc, coreumintegration.BalancesOptions{
 			Amount: amount,
@@ -220,7 +219,7 @@ func (env *Env) GenCoreumAccounts(ctx context.Context, t *testing.T, count int, 
 // GenXRPLAccounts generates XRPL accounts.
 func (env *Env) GenXRPLAccounts(ctx context.Context, t *testing.T, count int, amount float64) []rippledata.Account {
 	xrplAccounts := make([]rippledata.Account, 0, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		acc := env.Chains.XRPL.GenAccount(ctx, t, amount)
 		xrplAccounts = append(xrplAccounts, acc)
 	}
@@ -310,7 +309,7 @@ func (env *Env) AwaitState(ctx context.Context, stateChecker func() error) error
 
 // RepeatOwnerActionWithDelay calls the action, waits for some time and call the actionCompensation.
 func (env *Env) RepeatOwnerActionWithDelay(ctx context.Context, action, rollbackAction func() error) error {
-	for j := 0; j < env.Cfg.RepeatOwnerActionCount; j++ {
+	for j := range env.Cfg.RepeatOwnerActionCount {
 		if err := env.callAdminAction(ctx, action, rollbackAction); err != nil {
 			return err
 		}
