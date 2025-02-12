@@ -1397,7 +1397,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	// use all available tickets
 	tickets, err := contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
-	for i := range len(tickets) - 1 {
+	for range len(tickets) - 1 {
 		_, err = contractClient.SendToXRPL(
 			ctx,
 			coreumSenderAddress,
@@ -2185,7 +2185,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 
 	tickets, err := contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
-	for i := range len(tickets) - 1 {
+	for range len(tickets) - 1 {
 		_, err = contractClient.SendToXRPL(
 			ctx,
 			coreumSenderAddress,

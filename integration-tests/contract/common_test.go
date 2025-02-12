@@ -207,7 +207,7 @@ func genRelayers(
 ) []coreum.Relayer {
 	relayers := make([]coreum.Relayer, 0)
 
-	for i := range relayersCount {
+	for range relayersCount {
 		relayerXRPLSigner := chains.XRPL.GenAccount(ctx, t, 0)
 		relayerCoreumAddress := chains.Coreum.GenAccount()
 		chains.Coreum.FundAccountWithOptions(ctx, t, relayerCoreumAddress, coreumintegration.BalancesOptions{

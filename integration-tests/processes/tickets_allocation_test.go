@@ -209,7 +209,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 			MulRaw(int64(numberOfXRPLTokensToRegister)).MulRaw(2),
 	})
 
-	for i := range int(numberOfXRPLTokensToRegister) {
+	for range int(numberOfXRPLTokensToRegister) {
 		registeredXRPLCurrency := integrationtests.GenerateXRPLCurrency(t)
 		runnerEnv.RegisterXRPLOriginatedToken(
 			ctx,
@@ -230,7 +230,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	require.NotEqualValues(t, initialAvailableTickets, availableTicketsAfterReallocation)
 
 	// use re-allocated tickets
-	for i := range int(numberOfXRPLTokensToRegister) {
+	for range int(numberOfXRPLTokensToRegister) {
 		registeredXRPLCurrency := integrationtests.GenerateXRPLCurrency(t)
 		runnerEnv.RegisterXRPLOriginatedToken(
 			ctx,
@@ -312,7 +312,7 @@ func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithTicketsReallocation(t *testi
 
 	totalSent := sdkmath.ZeroInt()
 	amountToSend := integrationtests.ConvertStringWithDecimalsToSDKInt(t, "10", xrpl.XRPLIssuedTokenDecimals)
-	for i := range sendingCount {
+	for range sendingCount {
 		retryCtx, retryCtxCancel := context.WithTimeout(ctx, 15*time.Second)
 		require.NoError(t, retry.Do(retryCtx, 500*time.Millisecond, func() error {
 			_, err = runnerEnv.ContractClient.SendToXRPL(

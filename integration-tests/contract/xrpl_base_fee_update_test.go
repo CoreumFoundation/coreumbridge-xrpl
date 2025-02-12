@@ -115,7 +115,7 @@ func TestUpdateXRPLBaseFee(t *testing.T) {
 
 	operationCountToGenerate := 5
 	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0, operationCountToGenerate)
-	for i := range operationCountToGenerate {
+	for range operationCountToGenerate {
 		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
 			Recipient:     xrplRecipientAddress.String(),
 			Amount:        sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(10)),
@@ -203,7 +203,7 @@ func TestUpdateXRPLBaseFeeForMaxOperationCount(t *testing.T) {
 	operationCountToGenerate := int(xrpl.MaxTicketsToAllocate - 1)
 	t.Logf("Sending %d SendToXRPL transactions", operationCountToGenerate)
 	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0, operationCountToGenerate)
-	for i := range operationCountToGenerate {
+	for range operationCountToGenerate {
 		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
 			Recipient:     xrplRecipientAddress.String(),
 			Amount:        sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(10)),
@@ -295,7 +295,7 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 	t.Logf("Saving signatures for first relayer with different operation version")
 	relayer := relayers[0]
 	signatures := make([]coreum.SaveSignatureRequest, 0)
-	for i := range len(pendingOperations) {
+	for range len(pendingOperations) {
 		operation := pendingOperations[i]
 		require.Equal(t, nextOperationVersion, operation.Version)
 		require.Equal(t, newXRPLBase, operation.XRPLBaseFee)

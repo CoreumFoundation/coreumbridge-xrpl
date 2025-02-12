@@ -132,7 +132,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	)
 
 	bootstrappingRelayers := make([]bridgeclient.RelayerConfig, 0)
-	for i := range int(cfg.RelayersCount) {
+	for range int(cfg.RelayersCount) {
 		relayerCoreumAddress := relayerCoreumAddresses[i]
 		relayerXRPLAddress := relayerXRPLAddresses[i]
 		relayerXRPLPubKey := relayerXRPLPubKeys[i]
@@ -564,7 +564,7 @@ func genCoreumRelayers(
 	t.Helper()
 
 	addresses := make([]sdk.AccAddress, 0, relayersCount)
-	for i := range int(relayersCount) {
+	for range int(relayersCount) {
 		relayerAddress := coreumChain.GenAccount()
 		coreumChain.FundAccountWithOptions(ctx, t, relayerAddress, coreumintegration.BalancesOptions{
 			Amount: sdkmath.NewIntFromUint64(1_000_000),
