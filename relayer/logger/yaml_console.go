@@ -506,7 +506,7 @@ func (c *yamlConsoleEncoder) appendError(field zapcore.Field) bool {
 		return false
 	}
 
-	errStack, ok := err.(stackTracer) //nolint:errorlint // we check interface, not error here
+	errStack, ok := err.(stackTracer)
 	if !ok {
 		return false
 	}

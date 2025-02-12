@@ -937,7 +937,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 				require.NoError(t, err)
 			},
 			checkAssetFTError: func(t *testing.T, err error) {
-				require.True(t, coreum.IsAssetFTWhitelistedLimitExceededError(err), err)
+				require.True(t, coreum.IsAssetFTInsufficientFundsError(err), err)
 			},
 		},
 	}

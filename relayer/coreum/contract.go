@@ -2119,7 +2119,7 @@ func IsInvalidTicketAllocationEvidenceError(err error) bool {
 func IsAssetFTStateError(err error) bool {
 	return IsAssetFTFreezingError(err) ||
 		IsAssetFTGlobalFreezingError(err) ||
-		IsAssetFTWhitelistedLimitExceededError(err)
+		IsAssetFTInsufficientFundsError(err)
 }
 
 // IsAssetFTFreezingError returns true if error is cause of the lack of freezing amount.
@@ -2132,9 +2132,9 @@ func IsAssetFTGlobalFreezingError(err error) bool {
 	return isError(err, "token is globally frozen")
 }
 
-// IsAssetFTWhitelistedLimitExceededError returns true if error is whitelisted limit exceeded.
-func IsAssetFTWhitelistedLimitExceededError(err error) bool {
-	return isError(err, "whitelisted limit exceeded")
+// IsAssetFTInsufficientFundsError returns true if error is insufficient funds.
+func IsAssetFTInsufficientFundsError(err error) bool {
+	return isError(err, "insufficient funds")
 }
 
 // IsRecipientBlockedError returns true if error is the recipient is blocked.
