@@ -482,7 +482,7 @@ func TestMultisigSignerSetWithMaxSigners(t *testing.T) {
 	signerCount := xrpl.MaxAllowedXRPLSigners
 	chains.XRPL.FundAccountForSignerListSet(ctx, t, multiSigAcc)
 	signerSignerEntries := make([]rippledata.SignerEntry, 0)
-	for i := range int(signerCount) {
+	for range int(signerCount) {
 		signer := chains.XRPL.GenAccount(ctx, t, 0)
 		signerSignerEntries = append(signerSignerEntries, rippledata.SignerEntry{
 			SignerEntry: rippledata.SignerEntryItem{
@@ -714,7 +714,7 @@ func TestAccountTx(t *testing.T) {
 	t.Logf("Recipient account: %s", recipientAcc)
 
 	// send 4 txs from is the sender to the recipient
-	for i := range 4 {
+	for range 4 {
 		xrpAmount, err := rippledata.NewAmount("100000") // 0.1 XRP tokens
 		require.NoError(t, err)
 		xrpPaymentTx := rippledata.Payment{

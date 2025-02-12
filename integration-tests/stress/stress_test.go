@@ -109,7 +109,7 @@ func sendXRPFromXRPLAndBack(ctx context.Context, t *testing.T, env *Env) {
 			spawn(strconv.Itoa(i), parallel.Continue, func(ctx context.Context) error {
 				// get new instance of the bridge client to allow parallel execution for each account
 				bridgeClient := env.NewBridgeClient()
-				for j := range env.Cfg.RepeatTestCaseCount {
+				for range env.Cfg.RepeatTestCaseCount {
 					if err := func() error {
 						ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
 						defer cancel()
@@ -203,7 +203,7 @@ func sendWithFailureAndClaimRefund(ctx context.Context, t *testing.T, env *Env) 
 			spawn(strconv.Itoa(i), parallel.Continue, func(ctx context.Context) error {
 				// get new instance of the bridge client to allow parallel execution for each account
 				bridgeClient := env.NewBridgeClient()
-				for j := range env.Cfg.RepeatTestCaseCount {
+				for range env.Cfg.RepeatTestCaseCount {
 					if err := func() error {
 						ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
 						defer cancel()
