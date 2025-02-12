@@ -132,7 +132,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	)
 
 	bootstrappingRelayers := make([]bridgeclient.RelayerConfig, 0)
-	for range int(cfg.RelayersCount) {
+	for i := range int(cfg.RelayersCount) {
 		relayerCoreumAddress := relayerCoreumAddresses[i]
 		relayerXRPLAddress := relayerXRPLAddresses[i]
 		relayerXRPLPubKey := relayerXRPLPubKeys[i]

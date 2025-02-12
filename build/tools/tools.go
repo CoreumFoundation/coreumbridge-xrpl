@@ -11,6 +11,7 @@ import (
 const (
 	CoreumBridgeXRPLWASMV110 tools.Name = "coreumbridge-xrpl-wasm-v1.1.0"
 	Mockgen                  tools.Name = "mockgen"
+	MuslCC                   tools.Name = "muslcc"
 	LibWASM                  tools.Name = "libwasmvm"
 )
 
@@ -37,6 +38,29 @@ var Tools = []tools.Tool{
 		Name:    Mockgen,
 		Version: "v0.4.0",
 		Package: "go.uber.org/mock/mockgen",
+	},
+
+	// http://musl.cc/#binaries
+	tools.BinaryTool{
+		Name: MuslCC,
+		// update GCP bin source when update the version
+		Version: "11.2.1",
+		Sources: tools.Sources{
+			tools.TargetPlatformLinuxAMD64InDocker: {
+				URL:  "https://storage.googleapis.com/cored-build-process-binaries/muslcc/11.2.1/x86_64-linux-musl-cross.tgz", //nolint:lll // breaking down urls is not beneficial
+				Hash: "sha256:c5d410d9f82a4f24c549fe5d24f988f85b2679b452413a9f7e5f7b956f2fe7ea",
+				Binaries: map[string]string{
+					"bin/x86_64-linux-musl-gcc": "x86_64-linux-musl-cross/bin/x86_64-linux-musl-gcc",
+				},
+			},
+			tools.TargetPlatformLinuxARM64InDocker: {
+				URL:  "https://storage.googleapis.com/cored-build-process-binaries/muslcc/11.2.1/aarch64-linux-musl-cross.tgz", //nolint:lll // breaking down urls is not beneficial
+				Hash: "sha256:c909817856d6ceda86aa510894fa3527eac7989f0ef6e87b5721c58737a06c38",
+				Binaries: map[string]string{
+					"bin/aarch64-linux-musl-gcc": "aarch64-linux-musl-cross/bin/aarch64-linux-musl-gcc",
+				},
+			},
+		},
 	},
 
 	// https://github.com/CosmWasm/wasmvm/releases

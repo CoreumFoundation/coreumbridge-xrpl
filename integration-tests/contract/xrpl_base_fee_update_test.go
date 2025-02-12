@@ -295,7 +295,7 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 	t.Logf("Saving signatures for first relayer with different operation version")
 	relayer := relayers[0]
 	signatures := make([]coreum.SaveSignatureRequest, 0)
-	for range len(pendingOperations) {
+	for i := range len(pendingOperations) {
 		operation := pendingOperations[i]
 		require.Equal(t, nextOperationVersion, operation.Version)
 		require.Equal(t, newXRPLBase, operation.XRPLBaseFee)
