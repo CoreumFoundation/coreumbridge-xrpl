@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -190,7 +189,7 @@ func testKeyringFlags(keyringDir string) []string {
 }
 
 func flagWithPrefix(f string) string {
-	return fmt.Sprintf("--%s", f)
+	return "--" + f
 }
 
 func mockBridgeClientProvider(bridgeClientMock *MockBridgeClient) cli.BridgeClientProvider {

@@ -142,15 +142,15 @@ func runShowCmd(cmd *cobra.Command, args []string) (err error) {
 
 	if isShowDevice {
 		if isShowPubKey {
-			return fmt.Errorf("the device flag (-d) can only be used for addresses not pubkeys")
+			return errors.New("the device flag (-d) can only be used for addresses not pubkeys")
 		}
 		if bechPrefix != "acc" {
-			return fmt.Errorf("the device flag (-d) can only be used for accounts")
+			return errors.New("the device flag (-d) can only be used for accounts")
 		}
 
 		// Override and show in the device
 		if k.GetType() != keyring.TypeLedger {
-			return fmt.Errorf("the device flag (-d) can only be used for accounts stored in devices")
+			return errors.New("the device flag (-d) can only be used for accounts stored in devices")
 		}
 
 		ledgerItem := k.GetLedger()
@@ -190,7 +190,7 @@ func fetchKey(kb keyring.Keyring, keyref string) (*keyring.Record, error) {
 
 func validateMultisigThreshold(k, nKeys int) error {
 	if k <= 0 {
-		return fmt.Errorf("threshold must be a positive integer")
+		return errors.New("threshold must be a positive integer")
 	}
 	if nKeys < k {
 		return fmt.Errorf(

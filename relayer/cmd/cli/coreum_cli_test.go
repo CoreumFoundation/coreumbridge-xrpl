@@ -96,7 +96,6 @@ func TestCoreumTxFlags(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// no additional args
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
@@ -430,7 +429,6 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// no additional args
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
@@ -772,7 +770,6 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// no additional args
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)

@@ -185,7 +185,6 @@ func Test_runAddCmdDryRun(t *testing.T) {
 		},
 	}
 	for _, tt := range testData {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := AddKeyCommand()
 			cmd.Flags().AddFlagSet(Commands("home").PersistentFlags())
@@ -249,7 +248,7 @@ func TestAddRecoverFileBackend(t *testing.T) {
 		fmt.Sprintf("--%s=%s", cli.OutputFlag, OutputFormatText),
 		fmt.Sprintf("--%s=%s", flags.FlagKeyType, hd.Secp256k1Type),
 		fmt.Sprintf("--%s=%s", flags.FlagKeyringBackend, keyring.BackendFile),
-		fmt.Sprintf("--%s", flagRecover),
+		"--" + flagRecover,
 	})
 
 	keyringPassword := "12345678"

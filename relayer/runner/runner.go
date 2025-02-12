@@ -163,8 +163,6 @@ func (r *Runner) Start(ctx context.Context) error {
 	}
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		for name, start := range runnerProcesses {
-			name := name
-			start := start
 			spawn(name, parallel.Continue, func(ctx context.Context) error {
 				ctx = tracing.WithTracingProcess(ctx, name)
 				return start(ctx)

@@ -11,6 +11,7 @@ import (
 const (
 	CoreumBridgeXRPLWASMV110 tools.Name = "coreumbridge-xrpl-wasm-v1.1.0"
 	Mockgen                  tools.Name = "mockgen"
+	Cosmovisor               tools.Name = "cosmovisor"
 	MuslCC                   tools.Name = "muslcc"
 	LibWASM                  tools.Name = "libwasmvm"
 	CoredV401                tools.Name = "cored-v4.0.1"
@@ -39,6 +40,25 @@ var Tools = []tools.Tool{
 		Name:    Mockgen,
 		Version: "v0.4.0",
 		Package: "go.uber.org/mock/mockgen",
+	},
+
+	// https://github.com/cosmos/cosmos-sdk/releases
+	tools.BinaryTool{
+		Name:    Cosmovisor,
+		Version: "1.6.0",
+		Sources: tools.Sources{
+			tools.TargetPlatformLinuxAMD64InDocker: {
+				URL:  "https://github.com/cosmos/cosmos-sdk/releases/download/cosmovisor%2Fv1.6.0/cosmovisor-v1.6.0-linux-amd64.tar.gz", //nolint:lll // breaking down urls is not beneficial
+				Hash: "sha256:844ac6de7aeccb9a05e46fbb5a6c107e5ba896a488ec19e59febb959d6f6a43e",
+			},
+			tools.TargetPlatformLinuxARM64InDocker: {
+				URL:  "https://github.com/cosmos/cosmos-sdk/releases/download/cosmovisor%2Fv1.6.0/cosmovisor-v1.6.0-linux-arm64.tar.gz", //nolint:lll // breaking down urls is not beneficial
+				Hash: "sha256:b425ef02ea22f10753b293270ced49d1f158c5f6a8707a51eb20788570a65d63",
+			},
+		},
+		Binaries: map[string]string{
+			"bin/cosmovisor": "cosmovisor",
+		},
 	},
 
 	// http://musl.cc/#binaries

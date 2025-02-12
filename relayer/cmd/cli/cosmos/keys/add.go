@@ -138,7 +138,7 @@ func runAddCmd(ctx client.Context, cmd *cobra.Command, args []string, inBuf *buf
 		_, err = kb.Key(name)
 		if err == nil {
 			// account exists, ask for user confirmation
-			response, err2 := input.GetConfirmation(fmt.Sprintf("override the existing name %s", name), inBuf, cmd.ErrOrStderr())
+			response, err2 := input.GetConfirmation("override the existing name "+name, inBuf, cmd.ErrOrStderr())
 			if err2 != nil {
 				return err2
 			}
