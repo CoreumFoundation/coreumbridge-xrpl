@@ -248,8 +248,7 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 			relayerCopy := relayer
 			spawn(fmt.Sprintf("relayer-%d", i), parallel.Continue, func(ctx context.Context) error {
 				signatures := make([]coreum.SaveSignatureRequest, 0)
-				for j := range len(pendingOperations) {
-					operation := pendingOperations[j]
+				for operation := range pendingOperations {
 					if initialOperationVersion != operation.Version {
 						return errors.Errorf(
 							"versions mismatch, expected: %d, got: %d", initialOperationVersion, operation.Version)
@@ -295,8 +294,7 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 	t.Logf("Saving signatures for first relayer with different operation version")
 	relayer := relayers[0]
 	signatures := make([]coreum.SaveSignatureRequest, 0)
-	for i := range len(pendingOperations) {
-		operation := pendingOperations[i]
+	for operation := range pendingOperations {
 		require.Equal(t, nextOperationVersion, operation.Version)
 		require.Equal(t, newXRPLBase, operation.XRPLBaseFee)
 		require.Empty(t, operation.Signatures)
