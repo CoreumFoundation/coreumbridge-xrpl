@@ -13,6 +13,7 @@ const (
 	Mockgen                  tools.Name = "mockgen"
 	MuslCC                   tools.Name = "muslcc"
 	LibWASM                  tools.Name = "libwasmvm"
+	CoredV401                tools.Name = "cored-v4.0.1"
 )
 
 // Tools is a list of tools required by the bridge builder.
@@ -95,6 +96,56 @@ var Tools = []tools.Tool{
 				Hash: "sha256:7d732a0728b2a13b27f93cafc8c13ac5386f5b1d51e49400cddc477644fa4e47",
 				Binaries: map[string]string{
 					"lib/libwasmvmstatic_darwin.a": "libwasmvmstatic_darwin.a",
+				},
+			},
+		},
+	},
+
+	// https://github.com/CoreumFoundation/coreum/releases
+	tools.BinaryTool{
+		Name:    CoredV401,
+		Version: "v4.0.1",
+		Sources: tools.Sources{
+			tools.TargetPlatformLinuxAMD64InDocker: {
+				URL:  "https://github.com/CoreumFoundation/coreum/releases/download/v4.0.1/cored-linux-amd64",
+				Hash: "sha256:fdbb6a0c393f1cad0d03c6357b6af2e840508ef3be7ab186f2caeee10d13ae73",
+				Binaries: map[string]string{
+					"bin/cored-v4.0.1": "cored-linux-amd64",
+				},
+			},
+			tools.TargetPlatformLinuxARM64InDocker: {
+				URL:  "https://github.com/CoreumFoundation/coreum/releases/download/v4.0.1/cored-linux-arm64",
+				Hash: "sha256:ade147bf5a63259dae1b69762e3295600b5acd9f748b3cfba4d885dfaff15f1e",
+				Binaries: map[string]string{
+					"bin/cored-v4.0.1": "cored-linux-arm64",
+				},
+			},
+			tools.TargetPlatformLinuxAMD64: {
+				URL:  "https://github.com/CoreumFoundation/coreum/releases/download/v4.0.1/cored-linux-amd64",
+				Hash: "sha256:fdbb6a0c393f1cad0d03c6357b6af2e840508ef3be7ab186f2caeee10d13ae73",
+				Binaries: map[string]string{
+					"bin/cored-v4.0.1": "cored-linux-amd64",
+				},
+			},
+			tools.TargetPlatformLinuxARM64: {
+				URL:  "https://github.com/CoreumFoundation/coreum/releases/download/v4.0.1/cored-linux-arm64",
+				Hash: "sha256:ade147bf5a63259dae1b69762e3295600b5acd9f748b3cfba4d885dfaff15f1e",
+				Binaries: map[string]string{
+					"bin/cored-v4.0.1": "cored-linux-arm64",
+				},
+			},
+			tools.TargetPlatformDarwinAMD64: {
+				URL:  "https://github.com/CoreumFoundation/coreum/releases/download/v4.0.1/cored-darwin-amd64",
+				Hash: "sha256:939ded112db693a3d929eaaec0814b8d318f0eed686491c1a9ddd07a09d82f44",
+				Binaries: map[string]string{
+					"bin/cored-v4.0.1": "cored-darwin-amd64",
+				},
+			},
+			tools.TargetPlatformDarwinARM64: {
+				URL:  "https://github.com/CoreumFoundation/coreum/releases/download/v4.0.1/cored-darwin-arm64",
+				Hash: "sha256:3e90d12dafdb5d03c68d4e99d3da0f1d8d1b9bafb9cc42648efb24656de6e7bd",
+				Binaries: map[string]string{
+					"bin/cored-v4.0.1": "cored-darwin-arm64",
 				},
 			},
 		},

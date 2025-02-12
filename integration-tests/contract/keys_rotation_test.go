@@ -327,7 +327,7 @@ func TestKeysRotationWithProhibitedAddresses(t *testing.T) {
 	require.NoError(t, err)
 
 	// keys rotation
-	for prohibitedXRPLAddress := range prohibitedXRPLAddresses {
+	for _, prohibitedXRPLAddress := range prohibitedXRPLAddresses {
 		newRelayers := genRelayers(ctx, t, chains, 2)
 		// set one address from prohibited list
 		newRelayers[0].XRPLAddress = prohibitedXRPLAddress
