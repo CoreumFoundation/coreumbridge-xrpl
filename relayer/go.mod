@@ -22,8 +22,8 @@ require (
 	cosmossdk.io/math v1.4.0
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240306133015-8a9ec4eb1bf0
 	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240430164528-92d83ae5b61f
-	github.com/CosmWasm/wasmd v0.45.0
-	github.com/cosmos/cosmos-sdk v0.47.15
+	github.com/CosmWasm/wasmd v0.44.0
+	github.com/cosmos/cosmos-sdk v0.47.11
 	github.com/google/uuid v1.6.0
 	github.com/rubblelabs/ripple v0.0.0-20230908201244-7f73b1fe5e22
 	github.com/samber/lo v1.39.0
