@@ -307,7 +307,6 @@ func TestRegisterAndUpdateXRPLToken(t *testing.T) {
 		BurnRate:           sdk.ZeroDec(),
 		SendCommissionRate: sdk.ZeroDec(),
 		Version:            assetfttypes.CurrentTokenVersion,
-		Admin:              contractAddress.String(),
 	}, tokenRes.Token)
 
 	// go through the trust set evidence use cases
