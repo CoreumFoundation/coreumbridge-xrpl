@@ -21,7 +21,7 @@ replace (
 require (
 	cosmossdk.io/math v1.4.0
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20240306133015-8a9ec4eb1bf0
-	github.com/CoreumFoundation/coreum/v4 v4.0.0-20241226122636-d94c10aed210
+	github.com/CoreumFoundation/coreum/v4 v4.0.0-20240430164528-92d83ae5b61f
 	github.com/CosmWasm/wasmd v0.45.0
 	github.com/cosmos/cosmos-sdk v0.47.15
 	github.com/google/uuid v1.6.0
@@ -37,12 +37,9 @@ require (
 )
 
 require (
-	github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v7 v7.1.3 // indirect
-	github.com/cosmos/ibc-apps/modules/ibc-hooks/v7 v7.0.0-20230803181732-7c8f814d3b79 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/mock v1.6.0 // indirect
-	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/moby/sys/user v0.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
