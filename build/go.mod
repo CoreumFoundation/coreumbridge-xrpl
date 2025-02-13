@@ -255,6 +255,6 @@ require (
 	// Make sure to not bump x/exp dependency without cosmos-sdk updated because their breaking change is not compatible
 	// with cosmos-sdk v0.47.
 	// Details: https://github.com/cosmos/cosmos-sdk/issues/18415
-	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect
+	golang.org/x/exp v0.0.0-20241204233417-43b7b7cde48d // indirect
 	golang.org/x/mod v0.23.0 // indirect
 )
