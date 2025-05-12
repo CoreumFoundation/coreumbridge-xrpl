@@ -15,7 +15,7 @@ use crate::{
         TransactionEvidence, TransactionEvidencesResponse, XRPLTokensResponse,
     },
     operation::{
-        self, check_operation_exists, create_pending_operation, handle_operation,
+        check_operation_exists, create_pending_operation, handle_operation,
         remove_pending_refund, Operation, OperationType,
     },
     relayer::{is_relayer, validate_relayers, Relayer},
