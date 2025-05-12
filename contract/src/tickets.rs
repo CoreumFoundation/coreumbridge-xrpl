@@ -31,11 +31,13 @@ pub fn allocate_ticket(storage: &mut dyn Storage) -> Result<u64, ContractError> 
 pub fn register_used_ticket(
     storage: &mut dyn Storage,
     timestamp: u64,
-) -> Result<bool, ContractError> {
+) -> Result<(Option<String>, bool), ContractError> {
     let used_tickets = USED_TICKETS_COUNTER.load(storage)?;
     let config = CONFIG.load(storage)?;
 
     USED_TICKETS_COUNTER.save(storage, &(used_tickets + 1))?;
+
+    let mut operation_unique_id: Option<String> = None;
 
     // If we reach the max allowed tickets to be used, we need to create an operation to allocate new ones
     if used_tickets + 1 >= config.used_ticket_sequence_threshold
@@ -45,7 +47,7 @@ pub fn register_used_ticket(
         // this so that we are aware that we need to allocate new tickets because we've run out of them
         match reserve_ticket(storage) {
             Ok(ticket_to_update) => {
-                create_pending_operation(
+                operation_unique_id = Some(create_pending_operation(
                     storage,
                     timestamp,
                     Some(ticket_to_update),
@@ -53,14 +55,14 @@ pub fn register_used_ticket(
                     OperationType::AllocateTickets {
                         number: config.used_ticket_sequence_threshold,
                     },
-                )?;
+                )?);
                 PENDING_TICKET_UPDATE.save(storage, &true)?;
             }
-            Err(ContractError::NoAvailableTickets {}) => return Ok(false),
+            Err(ContractError::NoAvailableTickets {}) => return Ok((operation_unique_id, false)),
             Err(e) => return Err(e),
         }
     }
-    Ok(true)
+    Ok((operation_unique_id, true))
 }
 
 pub fn handle_ticket_allocation_confirmation(

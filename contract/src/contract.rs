@@ -15,8 +15,8 @@ use crate::{
         TransactionEvidence, TransactionEvidencesResponse, XRPLTokensResponse,
     },
     operation::{
-        check_operation_exists, create_pending_operation, handle_operation, remove_pending_refund,
-        Operation, OperationType,
+        self, check_operation_exists, create_pending_operation, handle_operation,
+        remove_pending_refund, Operation, OperationType,
     },
     relayer::{is_relayer, validate_relayers, Relayer},
     signatures::add_signature,
@@ -506,7 +506,7 @@ fn register_xrpl_token(
 
     // We create the TrustSet operation. If this operation is accepted, the token will be enabled, if not, it will be in Inactive state
     // waiting for owner to recover this operation
-    create_pending_operation(
+    let operation_unique_id = create_pending_operation(
         deps.storage,
         env.block.time.seconds(),
         Some(ticket),
@@ -524,7 +524,8 @@ fn register_xrpl_token(
         .add_attribute("sender", info.sender)
         .add_attribute("issuer", issuer)
         .add_attribute("currency", currency)
-        .add_attribute("denom", denom))
+        .add_attribute("denom", denom)
+        .add_attribute("operation_unique_id", operation_unique_id.to_string()))
 }
 
 fn save_evidence(
@@ -727,10 +728,18 @@ fn save_evidence(
                     // we don't have available tickets left and we will notify with an attribute.
                     // NOTE: This will only happen in the particular case of a rejected ticket allocation
                     // operation.
-                    if !register_used_ticket(deps.storage, env.block.time.seconds())? {
+                    let (reserve_ticket_unique_operation_id, tickets_available) = register_used_ticket(deps.storage, env.block.time.seconds())?;
+                    if !tickets_available {
                         response = response.add_attribute(
                             "adding_ticket_allocation_operation_success",
                             false.to_string(),
+                        );
+                    }
+                    // if the operation created a new ticket allocation operation we will add the unique id of the operation to the list of event attributes
+                    if reserve_ticket_unique_operation_id.is_some() {
+                        response = response.add_attribute(
+                            "reserve_ticket_unique_operation_id",
+                            reserve_ticket_unique_operation_id.unwrap().to_string(),
                         );
                     }
                 }
@@ -793,7 +802,7 @@ fn recover_tickets(
         return Err(ContractError::InvalidTicketSequenceToAllocate {});
     }
 
-    create_pending_operation(
+    let operation_unique_id = create_pending_operation(
         deps.storage,
         timestamp,
         None,
@@ -806,7 +815,8 @@ fn recover_tickets(
     Ok(Response::new()
         .add_attribute("action", ContractActions::RecoverTickets.as_str())
         .add_attribute("sender", sender)
-        .add_attribute("account_sequence", account_sequence.to_string()))
+        .add_attribute("account_sequence", account_sequence.to_string())
+        .add_attribute("operation_unique_id", operation_unique_id.to_string()))
 }
 
 fn recover_xrpl_token_registration(
@@ -842,7 +852,7 @@ fn recover_xrpl_token_registration(
     let config = CONFIG.load(deps.storage)?;
     let ticket = allocate_ticket(deps.storage)?;
 
-    create_pending_operation(
+    let operation_unique_id = create_pending_operation(
         deps.storage,
         timestamp,
         Some(ticket),
@@ -861,7 +871,8 @@ fn recover_xrpl_token_registration(
         )
         .add_attribute("sender", sender)
         .add_attribute("issuer", issuer)
-        .add_attribute("currency", currency))
+        .add_attribute("currency", currency)
+        .add_attribute("operation_unique_id", operation_unique_id.to_string()))
 }
 
 fn save_signature(
@@ -1041,7 +1052,7 @@ fn send_to_xrpl(
 
     // Get a ticket and store the pending operation
     let ticket = allocate_ticket(deps.storage)?;
-    create_pending_operation(
+    let operation_unique_id = create_pending_operation(
         deps.storage,
         env.block.time.seconds(),
         Some(ticket),
@@ -1060,7 +1071,8 @@ fn send_to_xrpl(
         .add_attribute("action", ContractActions::SendToXRPL.as_str())
         .add_attribute("sender", info.sender)
         .add_attribute("recipient", recipient)
-        .add_attribute("coin", funds.to_string()))
+        .add_attribute("coin", funds.to_string())
+        .add_attribute("operation_unique_id", operation_unique_id.to_string()))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1314,7 +1326,7 @@ fn rotate_keys(
 
     let ticket = allocate_ticket(deps.storage)?;
 
-    create_pending_operation(
+    let operation_unique_id = create_pending_operation(
         deps.storage,
         env.block.time.seconds(),
         Some(ticket),
@@ -1327,7 +1339,8 @@ fn rotate_keys(
 
     Ok(Response::new()
         .add_attribute("action", ContractActions::RotateKeys.as_str())
-        .add_attribute("sender", sender))
+        .add_attribute("sender", sender)
+        .add_attribute("operation_unique_id", operation_unique_id.to_string()))
 }
 
 fn update_prohibited_xrpl_addresses(

@@ -85,17 +85,19 @@ pub fn create_pending_operation(
     ticket_sequence: Option<u64>,
     account_sequence: Option<u64>,
     operation_type: OperationType,
-) -> Result<(), ContractError> {
+) -> Result<String, ContractError> {
     let config = CONFIG.load(storage)?;
 
     // If bridge is halted we prohibit all operation creations except allowed ones
     check_valid_operation_if_halt(storage, &config, &operation_type)?;
 
     let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
+
     // We use a unique ID for operations that will also be used for refunding failed operations
     // We need to use both timestamp and operation_id to ensure uniqueness of IDs, since operation_id can be reused in case of invalid transactions
+    let operation_unique_id = format!("{timestamp}-{operation_id}");
     let operation = Operation {
-        id: format!("{timestamp}-{operation_id}"),
+        id: operation_unique_id.clone(),
         // Operations are initially created with version 1
         version: 1,
         ticket_sequence,
@@ -110,7 +112,7 @@ pub fn create_pending_operation(
     }
     PENDING_OPERATIONS.save(storage, operation_id, &operation)?;
 
-    Ok(())
+    Ok(operation_unique_id)
 }
 
 #[allow(clippy::too_many_arguments)]
