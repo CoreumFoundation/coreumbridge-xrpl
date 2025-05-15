@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
@@ -177,21 +178,23 @@ func (ck *cacheKeyring) SaveMultisig(uid string, pubkey types.PubKey) (*keyring.
 }
 
 // Sign signs byte message with a user key.
-func (ck *cacheKeyring) Sign(uid string, msg []byte) ([]byte, types.PubKey, error) {
+func (ck *cacheKeyring) Sign(uid string, msg []byte, signMode signing.SignMode) ([]byte, types.PubKey, error) {
 	if _, err := ck.Key(uid); err != nil {
 		return nil, nil, err
 	}
 
-	return ck.cacheKeyring.Sign(uid, msg)
+	return ck.cacheKeyring.Sign(uid, msg, signMode)
 }
 
 // SignByAddress signs byte message with a user key providing the address.
-func (ck *cacheKeyring) SignByAddress(address sdk.Address, msg []byte) ([]byte, types.PubKey, error) {
+func (ck *cacheKeyring) SignByAddress(
+	address sdk.Address, msg []byte, signMode signing.SignMode,
+) ([]byte, types.PubKey, error) {
 	if _, err := ck.KeyByAddress(address); err != nil {
 		return nil, nil, err
 	}
 
-	return ck.cacheKeyring.SignByAddress(address, msg)
+	return ck.cacheKeyring.SignByAddress(address, msg, signMode)
 }
 
 // ImportPrivKey imports ASCII armored passphrase-encrypted private keys.

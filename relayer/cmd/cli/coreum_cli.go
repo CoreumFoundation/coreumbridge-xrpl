@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
+	"github.com/CoreumFoundation/coreum/v5/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	overridecryptokeyring "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/override/crypto/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -1054,6 +1054,13 @@ func CoreumTxPreRun(bcp BridgeClientProvider) func(cmd *cobra.Command, args []st
 				return err
 			}
 			coreumSDKClientCtx = coreumSDKClientCtx.WithGenerateOnly(generateOnly)
+
+			// FIXME
+			// generateOnly, err := cmd.Flags().GetBool(flags.FlagGenerateOnly)
+			// if err != nil {
+			// 	return err
+			// }
+			// coreumSDKClientCtx = coreumSDKClientCtx.WithGenerateOnly(generateOnly)
 
 			if err := client.SetCmdClientContext(cmd, coreumSDKClientCtx); err != nil {
 				return errors.WithStack(err)

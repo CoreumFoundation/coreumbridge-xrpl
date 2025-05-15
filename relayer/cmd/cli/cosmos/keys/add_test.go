@@ -11,7 +11,6 @@ import (
 	"github.com/cometbft/cometbft/libs/cli"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	clienttestutil "github.com/cosmos/cosmos-sdk/client/testutil"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/testutil"
@@ -19,6 +18,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/go-bip39"
 	"github.com/stretchr/testify/require"
+
+	"github.com/CoreumFoundation/coreum/v5/pkg/config"
 )
 
 func Test_runAddCmdBasic(t *testing.T) {
@@ -28,7 +29,7 @@ func Test_runAddCmdBasic(t *testing.T) {
 	mockIn := testutil.ApplyMockIODiscardOutErr(cmd)
 	kbHome := t.TempDir()
 
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := config.NewEncodingConfig().Codec
 
 	kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, kbHome, mockIn, cdc)
 	require.NoError(t, err)
@@ -124,7 +125,7 @@ func Test_runAddCmdBasic(t *testing.T) {
 func Test_runAddCmdDryRun(t *testing.T) {
 	pubkey1 := `{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"AtObiFVE4s+9+RX5SP8TN9r2mxpoaT4eGj9CJfK7VRzN"}`
 	pubkey2 := `{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"A/se1vkqgdQ7VJQCM4mxN+L+ciGhnnJ4XYsQCRBMrdRi"}`
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := config.NewEncodingConfig().Codec
 
 	testData := []struct {
 		name  string
@@ -185,7 +186,6 @@ func Test_runAddCmdDryRun(t *testing.T) {
 		},
 	}
 	for _, tt := range testData {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := AddKeyCommand()
 			cmd.Flags().AddFlagSet(Commands("home").PersistentFlags())
@@ -235,7 +235,7 @@ func Test_runAddCmdDryRun(t *testing.T) {
 func TestAddRecoverFileBackend(t *testing.T) {
 	cmd := AddKeyCommand()
 	cmd.Flags().AddFlagSet(Commands("home").PersistentFlags())
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := config.NewEncodingConfig().Codec
 
 	mockIn := testutil.ApplyMockIODiscardOutErr(cmd)
 	kbHome := t.TempDir()
@@ -249,7 +249,7 @@ func TestAddRecoverFileBackend(t *testing.T) {
 		fmt.Sprintf("--%s=%s", cli.OutputFlag, OutputFormatText),
 		fmt.Sprintf("--%s=%s", flags.FlagKeyType, hd.Secp256k1Type),
 		fmt.Sprintf("--%s=%s", flags.FlagKeyringBackend, keyring.BackendFile),
-		fmt.Sprintf("--%s", flagRecover),
+		"--" + flagRecover,
 	})
 
 	keyringPassword := "12345678"

@@ -20,8 +20,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/CoreumFoundation/coreum/v4/pkg/client"
-	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
+	"github.com/CoreumFoundation/coreum/v5/pkg/client"
+	coreumintegration "github.com/CoreumFoundation/coreum/v5/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -1353,7 +1353,7 @@ func TestSendFromXRPLToCoreumModuleAccountAndContractAddress(t *testing.T) {
 		registeredXRPLCurrency,
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
-		sdk.ZeroInt(),
+		sdkmath.ZeroInt(),
 	)
 
 	valueToSendFromXRPLtoCoreum, err := rippledata.NewValue("1e10", false)
@@ -1612,7 +1612,7 @@ func TestSendCoreumOriginatedTokenFromCoreumToXRPLAndBackWithMaliciousRelayer(t 
 		ctx,
 		t,
 		coreumRecipientAddress,
-		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdk.NewInt(9000000)),
+		sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(9000000)),
 	)
 }
 
@@ -1878,7 +1878,7 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 		runnerEnv.ContractClient.GetContractAddress(),
 		sdk.NewCoin(
 			registeredCoreumOriginatedToken.Denom,
-			sdk.ZeroInt(),
+			sdkmath.ZeroInt(),
 		),
 	)
 }
