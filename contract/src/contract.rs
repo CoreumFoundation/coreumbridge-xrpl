@@ -748,6 +748,7 @@ fn save_evidence(
             response = response
                 .add_attribute("operation_type", operation.operation_type.as_str())
                 .add_attribute("operation_id", operation_id.to_string())
+                .add_attribute("operation_unique_id", operation.id.to_string())
                 .add_attribute("transaction_result", transaction_result.as_str())
                 .add_attribute("threshold_reached", threshold_reached.to_string());
 
