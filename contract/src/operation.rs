@@ -70,10 +70,10 @@ impl OperationType {
 
 pub fn check_operation_exists(
     storage: &mut dyn Storage,
-    operation_id: u64,
+    operation_sequence: u64,
 ) -> Result<Operation, ContractError> {
     let operation = PENDING_OPERATIONS
-        .load(storage, operation_id)
+        .load(storage, operation_sequence)
         .map_err(|_| ContractError::PendingOperationNotFound {})?;
 
     Ok(operation)
@@ -91,11 +91,11 @@ pub fn create_pending_operation(
     // If bridge is halted we prohibit all operation creations except allowed ones
     check_valid_operation_if_halt(storage, &config, &operation_type)?;
 
-    let operation_id = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
+    let operation_sequence = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
 
     // We use a unique ID for operations that will also be used for refunding failed operations
-    // We need to use both timestamp and operation_id to ensure uniqueness of IDs, since operation_id can be reused in case of invalid transactions
-    let operation_unique_id = format!("{timestamp}-{operation_id}");
+    // We need to use both timestamp and operation_sequence to ensure uniqueness of IDs, since operation_sequence can be reused in case of invalid transactions
+    let operation_unique_id = format!("{timestamp}-{operation_sequence}");
     let operation = Operation {
         id: operation_unique_id.clone(),
         // Operations are initially created with version 1
@@ -107,10 +107,10 @@ pub fn create_pending_operation(
         xrpl_base_fee: config.xrpl_base_fee,
     };
 
-    if PENDING_OPERATIONS.has(storage, operation_id) {
+    if PENDING_OPERATIONS.has(storage, operation_sequence) {
         return Err(ContractError::PendingOperationAlreadyExists {});
     }
-    PENDING_OPERATIONS.save(storage, operation_id, &operation)?;
+    PENDING_OPERATIONS.save(storage, operation_sequence, &operation)?;
 
     Ok(operation_unique_id)
 }
@@ -122,7 +122,7 @@ pub fn handle_operation(
     operation_result: &Option<OperationResult>,
     transaction_result: &TransactionResult,
     tx_hash: &Option<String>,
-    operation_id: u64,
+    operation_sequence: u64,
     ticket_sequence: Option<u64>,
     response: &mut Response<CoreumMsg>,
 ) -> Result<(), ContractError> {
@@ -159,13 +159,13 @@ pub fn handle_operation(
                 storage,
                 transaction_result,
                 tx_hash.clone(),
-                operation_id,
+                operation_sequence,
                 response,
             )?;
         }
     }
     // Operation is removed because it was confirmed
-    PENDING_OPERATIONS.remove(storage, operation_id);
+    PENDING_OPERATIONS.remove(storage, operation_sequence);
 
     // If an operation was invalid, the ticket was never consumed, so we must return it to the ticket array.
     if transaction_result.eq(&TransactionResult::Invalid) && ticket_sequence.is_some() {
@@ -202,11 +202,11 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
     storage: &mut dyn Storage,
     transaction_result: &TransactionResult,
     tx_hash: Option<String>,
-    operation_id: u64,
+    operation_sequence: u64,
     response: &mut Response<CoreumMsg>,
 ) -> Result<(), ContractError> {
     let pending_operation = PENDING_OPERATIONS
-        .load(storage, operation_id)
+        .load(storage, operation_sequence)
         .map_err(|_| ContractError::PendingOperationNotFound {})?;
 
     match pending_operation.operation_type {
@@ -285,20 +285,24 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
 
 pub fn store_pending_refund(
     storage: &mut dyn Storage,
-    pending_operation_id: String,
+    pending_operation_sequence: String,
     xrpl_tx_hash: Option<String>,
     receiver: Addr,
     coin: Coin,
 ) -> Result<(), ContractError> {
-    // We store the pending refund for this user and this pending_operation_id
+    // We store the pending refund for this user and this pending_operation_sequence
     let pending_refund = PendingRefund {
         address: receiver.clone(),
         xrpl_tx_hash,
-        id: pending_operation_id.clone(),
+        id: pending_operation_sequence.clone(),
         coin,
     };
 
-    PENDING_REFUNDS.save(storage, (receiver, pending_operation_id), &pending_refund)?;
+    PENDING_REFUNDS.save(
+        storage,
+        (receiver, pending_operation_sequence),
+        &pending_refund,
+    )?;
 
     Ok(())
 }

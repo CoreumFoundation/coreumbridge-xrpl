@@ -1118,10 +1118,10 @@ func (b *BridgeClient) HaltBridge(
 func (b *BridgeClient) CancelPendingOperation(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	operationID uint32,
+	operationSequence uint32,
 ) error {
-	b.log.Info(ctx, "Cancelling pending operation", zap.Uint32("operationID", operationID))
-	txRes, err := b.contractClient.CancelPendingOperation(ctx, sender, operationID)
+	b.log.Info(ctx, "Cancelling pending operation", zap.Uint32("operationID", operationSequence))
+	txRes, err := b.contractClient.CancelPendingOperation(ctx, sender, operationSequence)
 	if err != nil {
 		return err
 	}

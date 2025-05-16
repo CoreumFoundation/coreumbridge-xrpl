@@ -2429,7 +2429,7 @@ mod tests {
             )
         );
 
-        // Trying to claim a refund with an invalid pending refund operation id should fail
+        // Trying to claim a refund with an invalid pending refund operation sequence should fail
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -2445,7 +2445,7 @@ mod tests {
             .to_string()
             .contains(ContractError::PendingRefundNotFound {}.to_string().as_str()));
 
-        // Try to claim a pending refund with a valid pending refund operation id but not as a different user, should also fail
+        // Try to claim a pending refund with a valid pending refund operation sequence but not as a different user, should also fail
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
@@ -10657,21 +10657,21 @@ mod tests {
         assert_eq!(evidence_map.len(), xrpl_to_coreum_transfer_evidences.len());
 
         let hash = Some(generate_hash());
-        let operation_id = Some(1);
+        let operation_sequence = Some(1);
         let transaction_result = TransactionResult::Accepted;
         let operation_result = None;
         // Create multiple evidences changing only 1 field to verify that all of them have different hashes
         let xrpl_transaction_result_evidences = vec![
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.clone(),
-                account_sequence: operation_id,
+                account_sequence: operation_sequence,
                 ticket_sequence: None,
                 transaction_result: transaction_result.clone(),
                 operation_result: operation_result.clone(),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: Some(generate_hash()),
-                account_sequence: operation_id,
+                account_sequence: operation_sequence,
                 ticket_sequence: None,
                 transaction_result: transaction_result.clone(),
                 operation_result: operation_result.clone(),
@@ -10686,7 +10686,7 @@ mod tests {
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.clone(),
                 account_sequence: None,
-                ticket_sequence: operation_id,
+                ticket_sequence: operation_sequence,
                 transaction_result: transaction_result.clone(),
                 operation_result: operation_result.clone(),
             },
@@ -10699,21 +10699,21 @@ mod tests {
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.clone(),
-                account_sequence: operation_id,
+                account_sequence: operation_sequence,
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Rejected,
                 operation_result: operation_result.clone(),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.clone(),
-                account_sequence: operation_id,
+                account_sequence: operation_sequence,
                 ticket_sequence: None,
                 transaction_result: transaction_result.clone(),
                 operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.clone(),
-                account_sequence: operation_id,
+                account_sequence: operation_sequence,
                 ticket_sequence: None,
                 transaction_result: transaction_result.clone(),
                 operation_result: Some(OperationResult::TicketsAllocation {
