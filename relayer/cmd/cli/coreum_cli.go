@@ -1055,13 +1055,6 @@ func CoreumTxPreRun(bcp BridgeClientProvider) func(cmd *cobra.Command, args []st
 			}
 			coreumSDKClientCtx = coreumSDKClientCtx.WithGenerateOnly(generateOnly)
 
-			// FIXME
-			// generateOnly, err := cmd.Flags().GetBool(flags.FlagGenerateOnly)
-			// if err != nil {
-			// 	return err
-			// }
-			// coreumSDKClientCtx = coreumSDKClientCtx.WithGenerateOnly(generateOnly)
-
 			if err := client.SetCmdClientContext(cmd, coreumSDKClientCtx); err != nil {
 				return errors.WithStack(err)
 			}
