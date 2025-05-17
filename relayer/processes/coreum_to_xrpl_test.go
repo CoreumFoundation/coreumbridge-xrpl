@@ -439,7 +439,6 @@ func TestCoreumToXRPLProcess_Start(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			t.Cleanup(cancel)
@@ -483,7 +482,7 @@ func TestCoreumToXRPLProcess_Start(t *testing.T) {
 func genContractRelayers(relayersCount int) ([]coreum.Relayer, []*xrpl.PrivKeyTxSigner, xrpl.AccountInfoResult) {
 	contractRelayers := make([]coreum.Relayer, 0)
 	xrplTxSigners := make([]*xrpl.PrivKeyTxSigner, 0)
-	for i := 0; i < relayersCount; i++ {
+	for range relayersCount {
 		xrplRelayerSigner := xrpl.GenPrivKeyTxSigner()
 		xrplTxSigners = append(xrplTxSigners, xrplRelayerSigner)
 
@@ -688,7 +687,7 @@ func multiSignOperationFromMultipleSignersWithLastInvalidSignature(
 	operationWithSignatures := operation
 
 	validSigners := make([]rippledata.Signer, 0)
-	for i := 0; i < len(xrplTxSigners); i++ {
+	for i := range xrplTxSigners {
 		signer := signingFunc(
 			t,
 			xrplTxSigners[i],

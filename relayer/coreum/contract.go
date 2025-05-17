@@ -23,9 +23,9 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
-	"github.com/CoreumFoundation/coreum/v4/pkg/client"
-	"github.com/CoreumFoundation/coreum/v4/testutil/event"
-	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
+	"github.com/CoreumFoundation/coreum/v5/pkg/client"
+	"github.com/CoreumFoundation/coreum/v5/testutil/event"
+	assetfttypes "github.com/CoreumFoundation/coreum/v5/x/asset/ft/types"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
@@ -506,7 +506,7 @@ type execRequest struct {
 type ContractClientConfig struct {
 	ContractAddress       sdk.AccAddress
 	GasAdjustment         float64
-	GasPriceAdjustment    sdk.Dec
+	GasPriceAdjustment    sdkmath.LegacyDec
 	PageLimit             uint32
 	OutOfGasRetryDelay    time.Duration
 	OutOfGasRetryAttempts uint32
@@ -518,7 +518,7 @@ func DefaultContractClientConfig(contractAddress sdk.AccAddress) ContractClientC
 	return ContractClientConfig{
 		ContractAddress:       contractAddress,
 		GasAdjustment:         1.4,
-		GasPriceAdjustment:    sdk.MustNewDecFromStr("1.2"),
+		GasPriceAdjustment:    sdkmath.LegacyMustNewDecFromStr("1.2"),
 		PageLimit:             50,
 		OutOfGasRetryDelay:    500 * time.Millisecond,
 		OutOfGasRetryAttempts: 5,

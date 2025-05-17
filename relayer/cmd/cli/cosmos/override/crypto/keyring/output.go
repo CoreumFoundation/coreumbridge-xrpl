@@ -3,6 +3,7 @@ package keyring
 import (
 	"fmt"
 
+	"github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -63,19 +64,19 @@ func (a xrplAddress) Format(s fmt.State, verb rune) {
 // MkAccKeyOutput create a KeyOutput in with "acc" Bech32 prefixes. If the
 // public key is a multisig public key, then the threshold and constituent
 // public keys will be added.
-func MkAccKeyOutput(k *keyring.Record) (keyring.KeyOutput, error) {
+func MkAccKeyOutput(k *keyring.Record) (keys.KeyOutput, error) {
 	pk, err := k.GetPubKey()
 	if err != nil {
-		return keyring.KeyOutput{}, err
+		return keys.KeyOutput{}, err
 	}
-	return keyring.NewKeyOutput(k.Name, k.GetType(), SelectedAddressFormatter(pk), pk)
+	return keys.NewKeyOutput(k.Name, k.GetType(), SelectedAddressFormatter(pk), pk)
 }
 
 // MkAccKeysOutput returns a slice of KeyOutput objects, each with the "acc"
 // Bech32 prefixes, given a slice of Record objects. It returns an error if any
 // call to MkKeyOutput fails.
-func MkAccKeysOutput(records []*keyring.Record) ([]keyring.KeyOutput, error) {
-	kos := make([]keyring.KeyOutput, len(records))
+func MkAccKeysOutput(records []*keyring.Record) ([]keys.KeyOutput, error) {
+	kos := make([]keys.KeyOutput, len(records))
 	var err error
 	for i, r := range records {
 		kos[i], err = MkAccKeyOutput(r)

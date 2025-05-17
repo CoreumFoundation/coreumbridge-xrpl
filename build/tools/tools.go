@@ -7,8 +7,13 @@ import (
 	"github.com/CoreumFoundation/crust/build/types"
 )
 
-// CoreumBridgeXRPLWASMV110 is the previous version of bridge smart contract.
-const CoreumBridgeXRPLWASMV110 tools.Name = "coreumbridge-xrpl-wasm-v1.1.0"
+const (
+	// CoreumBridgeXRPLWASMV110 is the previous version of bridge smart contract.
+	CoreumBridgeXRPLWASMV110 tools.Name = "coreumbridge-xrpl-wasm-v1.1.0"
+
+	// Mockgen is used to generate mock files.
+	Mockgen tools.Name = "mockgen"
+)
 
 // Tools is a list of tools required by the bridge builder.
 var Tools = []tools.Tool{
@@ -27,9 +32,21 @@ var Tools = []tools.Tool{
 			},
 		},
 	},
+
+	// https://github.com/uber-go/mock/releases
+	tools.GoPackageTool{
+		Name:    Mockgen,
+		Version: "v0.4.0",
+		Package: "go.uber.org/mock/mockgen",
+	},
 }
 
 // EnsureBridgeXRPLWASM ensures bridge smart contract is available.
 func EnsureBridgeXRPLWASM(ctx context.Context, _ types.DepsFunc) error {
 	return tools.Ensure(ctx, CoreumBridgeXRPLWASMV110, tools.TargetPlatformLocal)
+}
+
+// EnsureMockgen ensures that mockgen is available.
+func EnsureMockgen(ctx context.Context, deps types.DepsFunc) error {
+	return tools.Ensure(ctx, Mockgen, tools.TargetPlatformLocal)
 }

@@ -9,7 +9,6 @@ import (
 	design99keyring "github.com/99designs/keyring"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	clienttestutil "github.com/cosmos/cosmos-sdk/client/testutil"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/multisig"
@@ -17,6 +16,8 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/CoreumFoundation/coreum/v5/pkg/config"
 )
 
 type setter interface {
@@ -35,7 +36,7 @@ type MigrateTestSuite struct {
 
 func (s *MigrateTestSuite) SetupSuite() {
 	s.dir = s.T().TempDir()
-	s.cdc = clienttestutil.MakeTestCodec(s.T())
+	s.cdc = config.NewEncodingConfig().Codec
 	s.appName = "cosmos"
 	s.priv = cryptotypes.PrivKey(secp256k1.GenPrivKey())
 	s.pub = s.priv.PubKey()

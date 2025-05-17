@@ -5,11 +5,11 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/x/auth"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
-	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
-	coreumconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
+	coreumconfig "github.com/CoreumFoundation/coreum/v5/pkg/config"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
@@ -17,7 +17,7 @@ import (
 func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	t.Parallel()
 
-	encodingConfig := coreumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
+	encodingConfig := coreumconfig.NewEncodingConfig(auth.AppModuleBasic{})
 	kr := keyring.NewInMemory(encodingConfig.Codec)
 	const keyName = "xrpl"
 	_, err := kr.NewAccount(

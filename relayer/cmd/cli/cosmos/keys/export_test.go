@@ -9,17 +9,18 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	clienttestutil "github.com/cosmos/cosmos-sdk/client/testutil"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
+
+	"github.com/CoreumFoundation/coreum/v5/pkg/config"
 )
 
 func Test_runExportCmd(t *testing.T) {
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := config.NewEncodingConfig().Codec
 	testCases := []struct {
 		name           string
 		keyringBackend string

@@ -20,10 +20,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/CoreumFoundation/coreum/v4/pkg/client"
-	"github.com/CoreumFoundation/coreum/v4/testutil/event"
-	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
-	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
+	"github.com/CoreumFoundation/coreum/v5/pkg/client"
+	"github.com/CoreumFoundation/coreum/v5/testutil/event"
+	coreumintegration "github.com/CoreumFoundation/coreum/v5/testutil/integration"
+	assetfttypes "github.com/CoreumFoundation/coreum/v5/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -207,7 +207,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedToken(t *testing.T) {
 		bankClient,
 		relayers,
 		bridgingFee,
-		sdk.ZeroInt(),
+		sdkmath.ZeroInt(),
 		registeredToken.CoreumDenom,
 	)
 }
@@ -390,14 +390,14 @@ func TestSendFromXRPLToCoreumModuleAccount(t *testing.T) {
 	issuer := issuerAcc.String()
 	currency := xrpl.ConvertCurrencyToString(integrationtests.GenerateXRPLCurrency(t))
 	sendingPrecision := int32(15)
-	maxHoldingAmount := sdk.NewIntFromUint64(10000)
+	maxHoldingAmount := sdkmath.NewIntFromUint64(10000)
 
 	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 100)
 
 	// register from the owner
 	_, err := contractClient.RegisterXRPLToken(
-		ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount, sdk.ZeroInt(),
+		ctx, owner, issuer, currency, sendingPrecision, maxHoldingAmount, sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -557,7 +557,6 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund owner to cover registration fee
 			chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
@@ -943,7 +942,6 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			coreumSender := chains.Coreum.GenAccount()
 			issueFee := chains.Coreum.QueryAssetFTParams(ctx, t).IssueFee
@@ -1179,7 +1177,6 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithDifferentSendingPrecision(
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund sender to cover registration fee and some coins on top for the contract calls
 			coreumSenderAddress := chains.Coreum.GenAccount()
@@ -1400,7 +1397,7 @@ func TestSendFromCoreumToXRPLXRPLOriginatedToken(t *testing.T) {
 	// use all available tickets
 	tickets, err := contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
-	for i := 0; i < len(tickets)-1; i++ {
+	for range len(tickets) - 1 {
 		_, err = contractClient.SendToXRPL(
 			ctx,
 			coreumSenderAddress,
@@ -1525,7 +1522,6 @@ func TestSendFromCoreumToXRPLXRPLOriginatedTokenWithDifferentSendingPrecision(t 
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund owner to cover registration fee
 			chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
@@ -2100,7 +2096,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 	require.Equal(t, operationType.Issuer, bridgeXRPLAddress)
 	require.Equal(t, operationType.Currency, registeredCoreumOriginatedToken1.XRPLCurrency)
 	// XRPL DECIMALS (15) - TOKEN DECIMALS (5) = 10
-	require.Equal(t, operationType.Amount, amountToSendOfToken1.Mul(sdk.NewInt(10_000_000_000)))
+	require.Equal(t, operationType.Amount, amountToSendOfToken1.Mul(sdkmath.NewInt(10_000_000_000)))
 	require.Equal(t, operationType.Recipient, xrplRecipientAddress.String())
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
@@ -2189,7 +2185,7 @@ func TestSendFromCoreumToXRPLCoreumOriginatedToken(t *testing.T) {
 
 	tickets, err := contractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
-	for i := 0; i < len(tickets)-1; i++ {
+	for range len(tickets) - 1 {
 		_, err = contractClient.SendToXRPL(
 			ctx,
 			coreumSenderAddress,
@@ -2438,7 +2434,6 @@ func TestSendFromCoreumToXRPLCoreumOriginatedTokenWithDifferentSendingPrecisionA
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund sender to cover registration fee and some coins on top for the contract calls
 			coreumSenderAddress := chains.Coreum.GenAccount()
@@ -2541,8 +2536,8 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 		Subunit:            "subunit",
 		Precision:          tokenDecimals,
 		InitialAmount:      maxHoldingAmount,
-		BurnRate:           sdk.MustNewDecFromStr("0.1"),
-		SendCommissionRate: sdk.MustNewDecFromStr("0.2"),
+		BurnRate:           sdkmath.LegacyMustNewDecFromStr("0.1"),
+		SendCommissionRate: sdkmath.LegacyMustNewDecFromStr("0.2"),
 	}
 	_, err := client.BroadcastTx(
 		ctx,
@@ -2613,7 +2608,7 @@ func TestSendCoreumOriginatedTokenWithBurningRateAndSendingCommissionFromCoreumT
 	operation := pendingOperations[0]
 	operationType := operation.OperationType.CoreumToXRPLTransfer
 	// XRPL DECIMALS (15) - TOKEN DECIMALS (5) = 10
-	require.Equal(t, operationType.Amount, amountToSend.Mul(sdk.NewInt(10_000_000_000)))
+	require.Equal(t, operationType.Amount, amountToSend.Mul(sdkmath.NewInt(10_000_000_000)))
 	require.Equal(t, operationType.Recipient, xrplRecipientAddress.String())
 
 	acceptedTxEvidence := coreum.XRPLTransactionResultCoreumToXRPLTransferEvidence{
@@ -2775,7 +2770,6 @@ func TestBridgingFeeForCoreumOriginatedTokens(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund sender to cover registration fee and some coins on top for the contract calls
 			coreumSenderAddress := chains.Coreum.GenAccount()
@@ -2829,7 +2823,7 @@ func TestBridgingFeeForCoreumOriginatedTokens(t *testing.T) {
 				bankClient,
 				relayers,
 				stringToSDKInt(tt.collectedFee),
-				sdk.ZeroInt(),
+				sdkmath.ZeroInt(),
 				registeredCoreumOriginatedToken.Denom,
 			)
 		})
@@ -2948,7 +2942,7 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 			for _, asset := range assets {
 				if asset.registeredToken.CoreumDenom == fee.Denom {
 					found = true
-					assert.EqualValues(t, fee.Amount.String(), asset.bridgingFee.Quo(sdk.NewInt(int64(len(relayers)))).String())
+					assert.EqualValues(t, fee.Amount.String(), asset.bridgingFee.Quo(sdkmath.NewInt(int64(len(relayers)))).String())
 					break
 				}
 			}
@@ -2963,7 +2957,7 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 		require.NoError(t, err)
 
 		// claim one third of the fees
-		oneThirdOfFees := initialFees.QuoInt(sdk.NewInt(3))
+		oneThirdOfFees := initialFees.QuoInt(sdkmath.NewInt(3))
 		_, err = contractClient.ClaimRelayerFees(ctx, relayer.CoreumAddress, oneThirdOfFees)
 		require.NoError(t, err)
 		allBalances, err := bankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
@@ -3251,7 +3245,6 @@ func TestBridgingFeeForXRPLOrginatedTokens(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// fund owner to cover registration fee
 			chains.Coreum.FundAccountWithOptions(ctx, t, owner, coreumintegration.BalancesOptions{
@@ -3314,13 +3307,13 @@ func TestBridgingFeeForXRPLOrginatedTokens(t *testing.T) {
 				bankClient,
 				relayers,
 				stringToSDKInt(tt.collectedFeeFromXRPL),
-				sdk.ZeroInt(),
+				sdkmath.ZeroInt(),
 				registeredXRPLToken.CoreumDenom,
 			)
 
 			// send back to xrpl
 			chains.Coreum.FundAccountWithOptions(ctx, t, coreumRecipient, coreumintegration.BalancesOptions{
-				Amount: sdk.NewInt(1_000_000),
+				Amount: sdkmath.NewInt(1_000_000),
 			})
 			xrplRecipient := xrpl.GenPrivKeyTxSigner().Account()
 			_, err = contractClient.SendToXRPL(
@@ -3362,7 +3355,7 @@ func TestBridgingFeeForXRPLOrginatedTokens(t *testing.T) {
 				bankClient,
 				relayers,
 				stringToSDKInt(tt.collectedFeeFromCoreum),
-				sdk.ZeroInt(),
+				sdkmath.ZeroInt(),
 				registeredXRPLToken.CoreumDenom,
 			)
 		})
@@ -3379,7 +3372,7 @@ func claimFeesAndMakeAssertions(
 	remainderAmount sdkmath.Int,
 	denom string,
 ) {
-	expectedFeeAmount := bridgingFeeAmount.Quo(sdk.NewInt(int64(len(relayers))))
+	expectedFeeAmount := bridgingFeeAmount.Quo(sdkmath.NewInt(int64(len(relayers))))
 	expectedFee := sdk.NewCoins(sdk.NewCoin(denom, expectedFeeAmount))
 	for _, relayer := range relayers {
 		// assert fees are calculated correctly

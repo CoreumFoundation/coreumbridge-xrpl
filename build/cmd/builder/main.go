@@ -1,6 +1,7 @@
 package main
 
 import (
+	coreumTools "github.com/CoreumFoundation/coreum/build/tools"
 	selfBuild "github.com/CoreumFoundation/coreumbridge-xrpl/build"
 	selfTools "github.com/CoreumFoundation/coreumbridge-xrpl/build/tools"
 	"github.com/CoreumFoundation/crust/build"
@@ -8,6 +9,7 @@ import (
 )
 
 func init() {
+	tools.AddTools(coreumTools.Tools...)
 	tools.AddTools(selfTools.Tools...)
 }
 
