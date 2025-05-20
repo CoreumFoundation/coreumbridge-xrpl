@@ -230,7 +230,7 @@ $ resume-bridge --%s owner
 // CancelPendingOperationCmd cancels pending operation.
 func CancelPendingOperationCmd(bcp BridgeClientProvider) *cobra.Command {
 	return &cobra.Command{
-		Use:   "cancel-pending-operation [operation-id]",
+		Use:   "cancel-pending-operation [operation-sequence]",
 		Short: "Cancel pending operation.",
 		Long: strings.TrimSpace(
 			fmt.Sprintf(`Cancel pending operation.
@@ -247,15 +247,15 @@ $ cancel-pending-operation 123 --%s owner
 					return err
 				}
 
-				operationID, err := strconv.ParseUint(args[0], 10, 32)
+				operationSequence, err := strconv.ParseUint(args[0], 10, 32)
 				if err != nil {
-					return errors.Wrapf(err, "invalid operation ID: %s", args[0])
+					return errors.Wrapf(err, "invalid operation Sequence: %s", args[0])
 				}
 
 				return bridgeClient.CancelPendingOperation(
 					ctx,
 					sender,
-					uint32(operationID),
+					uint32(operationSequence),
 				)
 			}),
 	}

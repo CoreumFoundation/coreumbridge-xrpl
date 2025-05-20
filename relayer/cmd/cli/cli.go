@@ -210,7 +210,7 @@ type BridgeClient interface {
 	CancelPendingOperation(
 		ctx context.Context,
 		sender sdk.AccAddress,
-		operationID uint32,
+		operationSequence uint32,
 	) error
 	GetPendingOperations(ctx context.Context) ([]coreum.Operation, error)
 	GetTransactionEvidences(ctx context.Context) ([]coreum.TransactionEvidence, error)

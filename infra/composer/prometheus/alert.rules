@@ -38,7 +38,7 @@ groups:
       expr: pending_operations > 0
       for: 30m
       annotations:
-        title: "Exceeded expected pending Coreum to XRPL operation lifetime, operation ID: {{ $labels.operation_id }}"
+        title: "Exceeded expected pending Coreum to XRPL operation lifetime, operation Sequence: {{ $labels.operation_sequence }}"
       labels:
         severity: "major"
 

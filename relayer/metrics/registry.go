@@ -30,8 +30,8 @@ const (
 	XRPLCurrencyIssuerLabel = "xrpl_currency_issuer"
 	// CoreumDenomLabel is Coreum denom label.
 	CoreumDenomLabel = "coreum_denom"
-	// OperationIDLabel is operation ID label.
-	OperationIDLabel = "operation_id"
+	// OperationSequenceLabel is operation sequence label.
+	OperationSequenceLabel = "operation_sequence"
 	// EvidenceHashLabel is evidence hash label.
 	EvidenceHashLabel = "evidence_hash"
 	// RelayerCoremAddressLabel is address label.
@@ -108,7 +108,7 @@ func NewRegistry() *Registry {
 			Help: "Pending operations",
 		},
 			[]string{
-				OperationIDLabel,
+				OperationSequenceLabel,
 			},
 		),
 		TransactionEvidencesGaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{

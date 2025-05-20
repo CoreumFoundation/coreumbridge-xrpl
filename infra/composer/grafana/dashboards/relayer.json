@@ -847,7 +847,7 @@
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{operation_id}}",
+          "legendFormat": "{{operation_sequence}}",
           "range": true,
           "refId": "A",
           "useBackend": false

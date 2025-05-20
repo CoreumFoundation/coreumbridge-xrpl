@@ -99,7 +99,7 @@ pub enum ContractError {
     PendingOperationNotFound {},
 
     #[error(
-    "PendingOperationAlreadyExists: There is already a pending operation with this operation id"
+    "PendingOperationAlreadyExists: There is already a pending operation with this operation sequence"
     )]
     PendingOperationAlreadyExists {},
 
@@ -151,7 +151,7 @@ pub enum ContractError {
     InvalidTargetMaxHoldingAmount {},
 
     #[error(
-        "PendingRefundNotFound: There is no pending refund for this user and pending operation id"
+        "PendingRefundNotFound: There is no pending refund for this user and pending operation sequence"
     )]
     PendingRefundNotFound {},
 

@@ -2429,7 +2429,7 @@ mod tests {
             )
         );
 
-        // Trying to claim a refund with an invalid pending refund operation id should fail
+        // Trying to claim a refund with an invalid pending refund operation sequence should fail
         let claim_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
@@ -2445,7 +2445,7 @@ mod tests {
             .to_string()
             .contains(ContractError::PendingRefundNotFound {}.to_string().as_str()));
 
-        // Try to claim a pending refund with a valid pending refund operation id but not as a different user, should also fail
+        // Try to claim a pending refund with a valid pending refund operation sequence but not as a different user, should also fail
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::ClaimRefund {
@@ -6513,7 +6513,7 @@ mod tests {
         let signature_error = wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: account_sequence,
+                operation_sequence: account_sequence,
                 operation_version: 1,
                 signature: "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA13045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string(),
             },
@@ -6532,7 +6532,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: account_sequence,
+                operation_sequence: account_sequence,
                 operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
@@ -6546,7 +6546,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
-                    operation_id: account_sequence,
+                    operation_sequence: account_sequence,
                     operation_version: 1,
                     signature: correct_signature_example.clone(),
                 },
@@ -6566,7 +6566,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
-                    operation_id: account_sequence + 1,
+                    operation_sequence: account_sequence + 1,
                     operation_version: 1,
                     signature: correct_signature_example.clone(),
                 },
@@ -6586,7 +6586,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
-                    operation_id: account_sequence,
+                    operation_sequence: account_sequence,
                     operation_version: 2,
                     signature: correct_signature_example.clone(),
                 },
@@ -6604,7 +6604,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: account_sequence,
+                operation_sequence: account_sequence,
                 operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
@@ -6719,7 +6719,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: account_sequence,
+                operation_sequence: account_sequence,
                 operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
@@ -6731,7 +6731,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: account_sequence,
+                operation_sequence: account_sequence,
                 operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
@@ -9510,7 +9510,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: 1,
+                operation_sequence: 1,
                 operation_version: 1,
                 signature: "signature".to_string(),
             },
@@ -9791,7 +9791,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
-                    operation_id: query_pending_operations.operations[0]
+                    operation_sequence: query_pending_operations.operations[0]
                         .ticket_sequence
                         .unwrap(),
                     operation_version: 1,
@@ -9821,7 +9821,7 @@ mod tests {
                 wasm.execute::<ExecuteMsg>(
                     &contract_addr,
                     &ExecuteMsg::SaveSignature {
-                        operation_id: pending_operation.ticket_sequence.unwrap(),
+                        operation_sequence: pending_operation.ticket_sequence.unwrap(),
                         operation_version: 1,
                         signature: correct_signature_example.clone(),
                     },
@@ -9864,7 +9864,7 @@ mod tests {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
-                    operation_id: query_pending_operations.operations[248]
+                    operation_sequence: query_pending_operations.operations[248]
                         .ticket_sequence
                         .unwrap(),
                     operation_version: 1,
@@ -10023,7 +10023,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::CancelPendingOperation {
-                operation_id: query_pending_operations.operations[0]
+                operation_sequence: query_pending_operations.operations[0]
                     .account_sequence
                     .unwrap(),
             },
@@ -10154,7 +10154,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::CancelPendingOperation {
-                    operation_id: query_pending_operations.operations[0]
+                    operation_sequence: query_pending_operations.operations[0]
                         .ticket_sequence
                         .unwrap(),
                 },
@@ -10171,7 +10171,9 @@ mod tests {
         let cancel_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::CancelPendingOperation { operation_id: 50 },
+                &ExecuteMsg::CancelPendingOperation {
+                    operation_sequence: 50,
+                },
                 &vec![],
                 &signer,
             )
@@ -10187,7 +10189,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::CancelPendingOperation {
-                operation_id: query_pending_operations.operations[0]
+                operation_sequence: query_pending_operations.operations[0]
                     .ticket_sequence
                     .unwrap(),
             },
@@ -10241,7 +10243,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::CancelPendingOperation {
-                operation_id: query_pending_operations.operations[0]
+                operation_sequence: query_pending_operations.operations[0]
                     .ticket_sequence
                     .unwrap(),
             },
@@ -10294,7 +10296,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::CancelPendingOperation {
-                operation_id: query_pending_operations.operations[0]
+                operation_sequence: query_pending_operations.operations[0]
                     .ticket_sequence
                     .unwrap(),
             },
@@ -10657,21 +10659,21 @@ mod tests {
         assert_eq!(evidence_map.len(), xrpl_to_coreum_transfer_evidences.len());
 
         let hash = Some(generate_hash());
-        let operation_id = Some(1);
+        let operation_sequence = Some(1);
         let transaction_result = TransactionResult::Accepted;
         let operation_result = None;
         // Create multiple evidences changing only 1 field to verify that all of them have different hashes
         let xrpl_transaction_result_evidences = vec![
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.clone(),
-                account_sequence: operation_id,
+                account_sequence: operation_sequence,
                 ticket_sequence: None,
                 transaction_result: transaction_result.clone(),
                 operation_result: operation_result.clone(),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: Some(generate_hash()),
-                account_sequence: operation_id,
+                account_sequence: operation_sequence,
                 ticket_sequence: None,
                 transaction_result: transaction_result.clone(),
                 operation_result: operation_result.clone(),
@@ -10686,7 +10688,7 @@ mod tests {
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.clone(),
                 account_sequence: None,
-                ticket_sequence: operation_id,
+                ticket_sequence: operation_sequence,
                 transaction_result: transaction_result.clone(),
                 operation_result: operation_result.clone(),
             },
@@ -10699,21 +10701,21 @@ mod tests {
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.clone(),
-                account_sequence: operation_id,
+                account_sequence: operation_sequence,
                 ticket_sequence: None,
                 transaction_result: TransactionResult::Rejected,
                 operation_result: operation_result.clone(),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.clone(),
-                account_sequence: operation_id,
+                account_sequence: operation_sequence,
                 ticket_sequence: None,
                 transaction_result: transaction_result.clone(),
                 operation_result: Some(OperationResult::TicketsAllocation { tickets: None }),
             },
             Evidence::XRPLTransactionResult {
                 tx_hash: hash.clone(),
-                account_sequence: operation_id,
+                account_sequence: operation_sequence,
                 ticket_sequence: None,
                 transaction_result: transaction_result.clone(),
                 operation_result: Some(OperationResult::TicketsAllocation {
