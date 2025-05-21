@@ -6513,7 +6513,7 @@ mod tests {
         let signature_error = wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: account_sequence,
+                operation_sequence: account_sequence,
                 operation_version: 1,
                 signature: "3045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA13045022100DFA01DA5D6C9877F9DAA59A06032247F3D7ED6444EAD5C90A3AC33CCB7F19B3F02204D8D50E4D085BB1BC9DFB8281B8F35BDAEB7C74AE4B825F8CAE1217CFBDF4EA1".to_string(),
             },
@@ -6532,7 +6532,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: account_sequence,
+                operation_sequence: account_sequence,
                 operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
@@ -6546,7 +6546,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
-                    operation_id: account_sequence,
+                    operation_sequence: account_sequence,
                     operation_version: 1,
                     signature: correct_signature_example.clone(),
                 },
@@ -6566,7 +6566,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
-                    operation_id: account_sequence + 1,
+                    operation_sequence: account_sequence + 1,
                     operation_version: 1,
                     signature: correct_signature_example.clone(),
                 },
@@ -6586,7 +6586,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
-                    operation_id: account_sequence,
+                    operation_sequence: account_sequence,
                     operation_version: 2,
                     signature: correct_signature_example.clone(),
                 },
@@ -6604,7 +6604,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: account_sequence,
+                operation_sequence: account_sequence,
                 operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
@@ -6719,7 +6719,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: account_sequence,
+                operation_sequence: account_sequence,
                 operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
@@ -6731,7 +6731,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: account_sequence,
+                operation_sequence: account_sequence,
                 operation_version: 1,
                 signature: correct_signature_example.clone(),
             },
@@ -9510,7 +9510,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::SaveSignature {
-                operation_id: 1,
+                operation_sequence: 1,
                 operation_version: 1,
                 signature: "signature".to_string(),
             },
@@ -9791,7 +9791,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
-                    operation_id: query_pending_operations.operations[0]
+                    operation_sequence: query_pending_operations.operations[0]
                         .ticket_sequence
                         .unwrap(),
                     operation_version: 1,
@@ -9821,7 +9821,7 @@ mod tests {
                 wasm.execute::<ExecuteMsg>(
                     &contract_addr,
                     &ExecuteMsg::SaveSignature {
-                        operation_id: pending_operation.ticket_sequence.unwrap(),
+                        operation_sequence: pending_operation.ticket_sequence.unwrap(),
                         operation_version: 1,
                         signature: correct_signature_example.clone(),
                     },
@@ -9864,7 +9864,7 @@ mod tests {
             wasm.execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::SaveSignature {
-                    operation_id: query_pending_operations.operations[248]
+                    operation_sequence: query_pending_operations.operations[248]
                         .ticket_sequence
                         .unwrap(),
                     operation_version: 1,

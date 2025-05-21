@@ -262,13 +262,13 @@ pub fn execute(
             )
         }
         ExecuteMsg::SaveSignature {
-            operation_id,
+            operation_sequence,
             operation_version,
             signature,
         } => save_signature(
             deps.into_empty(),
             info.sender,
-            operation_id,
+            operation_sequence,
             operation_version,
             &signature,
         ),
@@ -748,6 +748,9 @@ fn save_evidence(
 
             response = response
                 .add_attribute("operation_type", operation.operation_type.as_str())
+                // operation_sequence is emitted as operation_id for backwards compatibility with legacy events attributes
+                // which is the sequence number of the operation in the pending operations list and
+                // it is unique among pending operations
                 .add_attribute("operation_id", operation_sequence.to_string())
                 .add_attribute("operation_unique_id", operation.id.to_string())
                 .add_attribute("transaction_result", transaction_result.as_str())
