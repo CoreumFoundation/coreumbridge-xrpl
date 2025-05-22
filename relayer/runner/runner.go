@@ -44,6 +44,7 @@ const (
 
 type key int
 
+// UnsignedSimulationKey context key of unsigned simulation.
 var UnsignedSimulationKey key
 
 // Runner is relayer runner which aggregates all relayer components.

@@ -25,6 +25,7 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
+// FlagUnsignedSimulation unsigned simulation flag.
 const FlagUnsignedSimulation = "unsigned-simulation"
 
 // CoreumCmd returns aggregated Coreum commands.

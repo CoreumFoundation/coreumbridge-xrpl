@@ -538,10 +538,14 @@ type ContractClient struct {
 	execMu sync.Mutex
 }
 
+var wamRegistration sync.Once
+
 // NewContractClient returns a new instance of the ContractClient.
 func NewContractClient(cfg ContractClientConfig, log logger.Logger, clientCtx client.Context) *ContractClient {
 	ir := clientCtx.InterfaceRegistry()
-	wasmtypes.RegisterInterfaces(ir)
+	wamRegistration.Do(func() {
+		wasmtypes.RegisterInterfaces(ir)
+	})
 	return &ContractClient{
 		cfg: cfg,
 		log: log,
