@@ -19,7 +19,7 @@ replace (
 require (
 	cosmossdk.io/math v1.5.0
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a
-	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250414180032-219788281a9a
+	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250522144034-30c48595e08f
 	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
 	github.com/CosmWasm/wasmd v0.54.0
 	github.com/cosmos/cosmos-sdk v0.50.13

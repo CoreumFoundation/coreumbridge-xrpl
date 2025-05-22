@@ -94,6 +94,7 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 		BurnRate:           sdkmath.LegacyZeroDec(),
 		SendCommissionRate: sdkmath.LegacyZeroDec(),
 		Version:            assetfttypes.CurrentTokenVersion,
+		Admin:              contractAddress.String(),
 	}, tokensRes.Tokens[0])
 
 	// query all tokens

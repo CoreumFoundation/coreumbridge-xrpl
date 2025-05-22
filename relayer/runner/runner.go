@@ -42,6 +42,10 @@ const (
 	DefaultCoreumChainID = coreumchainconstant.ChainIDMain
 )
 
+type key int
+
+var UnsignedSimulationKey key
+
 // Runner is relayer runner which aggregates all relayer components.
 type Runner struct {
 	cfg           Config
@@ -257,6 +261,10 @@ func NewComponents(
 		WithKeyring(coreumSDKClientCtx.Keyring).
 		WithGenerateOnly(coreumSDKClientCtx.GenerateOnly).
 		WithFromAddress(coreumSDKClientCtx.FromAddress)
+
+	if unsignedSimulation, ok := coreumSDKClientCtx.CmdContext.Value(UnsignedSimulationKey).(bool); ok {
+		coreumClientCtx = coreumClientCtx.WithUnsignedSimulation(unsignedSimulation)
+	}
 
 	if cfg.Coreum.Network.ChainID != "" {
 		coreumChainNetworkConfig, err := coreumchainconfig.NetworkConfigByChainID(

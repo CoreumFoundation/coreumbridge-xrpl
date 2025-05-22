@@ -994,7 +994,7 @@ func TestSendFromXRPLToCoreumCoreumOriginatedTokenWithFreezingAndWhitelisting(t 
 			require.Equal(t, coinToSend.String(), contractBalanceRes.Balance.String())
 
 			// The amount is the converted amount that was sent in XRPL and is the equivalent of 10_000 in Coreum
-			amountToSendBack := sdkmath.NewIntWithDecimal(1, 15)
+			amountToSendBack := sdkmath.NewIntWithDecimal(1, 14)
 
 			// create an evidence of transfer tokens from XRPL to Coreum
 			xrplToCoreumTransferEvidence := coreum.XRPLToCoreumTransferEvidence{

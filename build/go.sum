@@ -241,8 +241,8 @@ github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a h1
 github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a/go.mod h1:VD93vCHkxYaT/RhOesXTFgd/GQDW54tr0BqGi5JU1c0=
 github.com/CoreumFoundation/coreum/build v0.0.0-20250417103402-9a7f9035f445 h1:bK3mk6AfdpLeTg1ECdeMoOaKn+4JSphRVre3lVQ7qMQ=
 github.com/CoreumFoundation/coreum/build v0.0.0-20250417103402-9a7f9035f445/go.mod h1:9LO1Sy+zjLtcPw6p0p12/ExWpUeZs8oa/v9rGst+NVI=
-github.com/CoreumFoundation/coreum/v5 v5.0.0-20250414180032-219788281a9a h1:Vlj88d6MrwunZIqR/q1k0jerWi1MJojBUGXgSZkI6Oc=
-github.com/CoreumFoundation/coreum/v5 v5.0.0-20250414180032-219788281a9a/go.mod h1:yYMKci1gJ3M/IA2qeg6ek0tske0xe7eMlOasFt6Zxvk=
+github.com/CoreumFoundation/coreum/v5 v5.0.0-20250522144034-30c48595e08f h1:NxccWSN260gB7c9ba637K3QFO3qXp9ky9N4Qo22ewx8=
+github.com/CoreumFoundation/coreum/v5 v5.0.0-20250522144034-30c48595e08f/go.mod h1:yYMKci1gJ3M/IA2qeg6ek0tske0xe7eMlOasFt6Zxvk=
 github.com/CoreumFoundation/crust v0.0.0-20250404130536-23de310e6eb8 h1:Hed06EDU5Lt6P89Sgfs/gKt0SIGJOpqt7NCKyGDsiiM=
 github.com/CoreumFoundation/crust v0.0.0-20250404130536-23de310e6eb8/go.mod h1:6upahk1765UAryMA55OskmSDVoP98MMEAF4A+TFDyJI=
 github.com/CoreumFoundation/crust/znet v0.0.0-20250404130536-23de310e6eb8 h1:0tWqlNkHNzb2TrZEBa3RjWknVVWoHahQDVPNRIVBlCs=

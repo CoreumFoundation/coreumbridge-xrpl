@@ -540,13 +540,15 @@ type ContractClient struct {
 
 // NewContractClient returns a new instance of the ContractClient.
 func NewContractClient(cfg ContractClientConfig, log logger.Logger, clientCtx client.Context) *ContractClient {
+	ir := clientCtx.InterfaceRegistry()
+	wasmtypes.RegisterInterfaces(ir)
 	return &ContractClient{
 		cfg: cfg,
 		log: log,
 		clientCtx: clientCtx.
 			WithBroadcastMode(flags.BroadcastSync).
 			WithAwaitTx(true).WithGasPriceAdjustment(cfg.GasPriceAdjustment).
-			WithGasAdjustment(cfg.GasAdjustment),
+			WithGasAdjustment(cfg.GasAdjustment).WithInterfaceRegistry(ir),
 		wasmClient:         wasmtypes.NewQueryClient(clientCtx),
 		assetftClient:      assetfttypes.NewQueryClient(clientCtx),
 		cometServiceClient: sdktxtypes.NewServiceClient(clientCtx),

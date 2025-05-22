@@ -243,7 +243,7 @@ require (
 )
 
 require (
-	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250414180032-219788281a9a //indirect
+	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250522144034-30c48595e08f //indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/samber/lo v1.49.1
 	github.com/spf13/pflag v1.0.6 // indirect
