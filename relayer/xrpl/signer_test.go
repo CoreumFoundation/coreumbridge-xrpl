@@ -3,6 +3,7 @@ package xrpl_test
 import (
 	"testing"
 
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -17,7 +18,7 @@ import (
 func TestKeyringTxSigner_MultiSignWithSignatureVerification(t *testing.T) {
 	t.Parallel()
 
-	encodingConfig := coreumconfig.NewEncodingConfig(auth.AppModuleBasic{})
+	encodingConfig := coreumconfig.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	kr := keyring.NewInMemory(encodingConfig.Codec)
 	const keyName = "xrpl"
 	_, err := kr.NewAccount(

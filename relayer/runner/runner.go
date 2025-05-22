@@ -9,6 +9,7 @@ import (
 	"time"
 
 	sdkmath "cosmossdk.io/math"
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -256,7 +257,9 @@ func NewComponents(
 	coreumClientContextCfg.TimeoutConfig.TxTimeout = cfg.Coreum.Contract.TxTimeout
 	coreumClientContextCfg.TimeoutConfig.TxStatusPollInterval = cfg.Coreum.Contract.TxStatusPollInterval
 
-	coreumClientCtx := coreumchainclient.NewContext(coreumClientContextCfg, auth.AppModuleBasic{}).
+	coreumClientCtx := coreumchainclient.NewContext(
+		coreumClientContextCfg, auth.AppModuleBasic{}, wasm.AppModuleBasic{},
+	).
 		WithKeyring(coreumSDKClientCtx.Keyring).
 		WithGenerateOnly(coreumSDKClientCtx.GenerateOnly).
 		WithFromAddress(coreumSDKClientCtx.FromAddress)
@@ -358,7 +361,7 @@ func getGRPCClientConn(grpcURL string) (*grpc.ClientConn, error) {
 		return nil, errors.Wrap(err, "failed to parse grpc URL")
 	}
 
-	encodingConfig := coreumchainconfig.NewEncodingConfig(auth.AppModuleBasic{})
+	encodingConfig := coreumchainconfig.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	pc, ok := encodingConfig.Codec.(codec.GRPCCodecProvider)
 	if !ok {
 		return nil, errors.New("failed to cast codec to codec.GRPCCodecProvider)")

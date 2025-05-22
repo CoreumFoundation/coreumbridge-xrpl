@@ -538,21 +538,15 @@ type ContractClient struct {
 	execMu sync.Mutex
 }
 
-var wamRegistration sync.Once
-
 // NewContractClient returns a new instance of the ContractClient.
 func NewContractClient(cfg ContractClientConfig, log logger.Logger, clientCtx client.Context) *ContractClient {
-	ir := clientCtx.InterfaceRegistry()
-	wamRegistration.Do(func() {
-		wasmtypes.RegisterInterfaces(ir)
-	})
 	return &ContractClient{
 		cfg: cfg,
 		log: log,
 		clientCtx: clientCtx.
 			WithBroadcastMode(flags.BroadcastSync).
 			WithAwaitTx(true).WithGasPriceAdjustment(cfg.GasPriceAdjustment).
-			WithGasAdjustment(cfg.GasAdjustment).WithInterfaceRegistry(ir),
+			WithGasAdjustment(cfg.GasAdjustment),
 		wasmClient:         wasmtypes.NewQueryClient(clientCtx),
 		assetftClient:      assetfttypes.NewQueryClient(clientCtx),
 		cometServiceClient: sdktxtypes.NewServiceClient(clientCtx),

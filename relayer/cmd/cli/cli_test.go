@@ -8,6 +8,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/client"
 	krflags "github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
@@ -132,7 +133,7 @@ func executeCmdWithOutputOption(t *testing.T, cmd *cobra.Command, outOpt string,
 	cmd.SetOut(buf)
 	cmd.SetArgs(args)
 
-	encodingConfig := config.NewEncodingConfig(auth.AppModuleBasic{})
+	encodingConfig := config.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	clientCtx := client.Context{}.
 		WithCodec(encodingConfig.Codec).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
@@ -153,7 +154,7 @@ func executeCmdWithOutputOption(t *testing.T, cmd *cobra.Command, outOpt string,
 
 func addKeyToTestKeyring(t *testing.T, keyringDir, keyName, suffix, hdPath string) sdk.AccAddress {
 	keyringDir += "-" + suffix
-	encodingConfig := config.NewEncodingConfig(auth.AppModuleBasic{})
+	encodingConfig := config.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	clientCtx := client.Context{}.
 		WithCodec(encodingConfig.Codec).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).

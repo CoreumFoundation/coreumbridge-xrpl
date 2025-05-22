@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/pkg/errors"
@@ -34,7 +35,7 @@ func main() {
 //
 //nolint:contextcheck // the context is passed in the command
 func RootCmd(ctx context.Context) (*cobra.Command, error) {
-	encodingConfig := config.NewEncodingConfig(auth.AppModuleBasic{})
+	encodingConfig := config.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	clientCtx := client.Context{}.
 		WithCodec(encodingConfig.Codec).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).

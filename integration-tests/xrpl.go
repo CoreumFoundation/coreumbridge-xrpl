@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -305,7 +306,7 @@ func extractPrivateKeyFromSeed(seedPhrase string) (string, error) {
 }
 
 func createInMemoryKeyring() keyring.Keyring {
-	encodingConfig := coreumconfig.NewEncodingConfig(auth.AppModuleBasic{})
+	encodingConfig := coreumconfig.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	return coreumkeyring.NewConcurrentSafeKeyring(keyring.NewInMemory(encodingConfig.Codec))
 }
 

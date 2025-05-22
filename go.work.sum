@@ -125,6 +125,7 @@ cloud.google.com/go/compute v1.19.3/go.mod h1:qxvISKp/gYnXkSAD1ppcSOveRAmzxicEv/
 cloud.google.com/go/compute v1.20.1/go.mod h1:4tCnrn48xsqlwSAiLf1HXMQk8CONslYbdiEZc9FEIbM=
 cloud.google.com/go/compute v1.23.0/go.mod h1:4tCnrn48xsqlwSAiLf1HXMQk8CONslYbdiEZc9FEIbM=
 cloud.google.com/go/compute v1.23.1/go.mod h1:CqB3xpmPKKt3OJpW2ndFIXnA9A4xAy/F3Xp1ixncW78=
+cloud.google.com/go/compute v1.29.0 h1:Lph6d8oPi38NHkOr6S55Nus/Pbbcp37m/J0ohgKAefs=
 cloud.google.com/go/compute v1.29.0/go.mod h1:HFlsDurE5DpQZClAGf/cYh+gxssMhBxBovZDYkEn/Og=
 cloud.google.com/go/compute/metadata v0.3.0/go.mod h1:zFmK7XCadkQkj6TtorcaGlCW1hT1fIilQDwofLpJ20k=
 cloud.google.com/go/compute/metadata v0.5.0/go.mod h1:aHnloV2TPI38yx4s9+wAZhHykWvVCfu7hQbF+9CWoiY=
@@ -584,8 +585,6 @@ github.com/CoreumFoundation/coreum/build v0.0.0-20240612092619-8d09603e839d/go.m
 github.com/CoreumFoundation/coreum/build v0.0.0-20241226122636-d94c10aed210/go.mod h1:s+ys9/oHbB96g/UuLfzCUrULf7EMQikReCSK6NmqXiU=
 github.com/CoreumFoundation/coreum/v4 v4.0.0-20240213123712-d7d6a45ddb8f h1:a+lBcN3rWvoa/5mvdOQMaUU604/J3h/0rumGnISRglo=
 github.com/CoreumFoundation/coreum/v4 v4.0.0-20240213123712-d7d6a45ddb8f/go.mod h1:m17GEOObKO0uMNRSeitPFjjne55MSbzFeTlAONaMGkI=
-github.com/CoreumFoundation/coreum/v5 v5.0.0-20250522144034-30c48595e08f h1:NxccWSN260gB7c9ba637K3QFO3qXp9ky9N4Qo22ewx8=
-github.com/CoreumFoundation/coreum/v5 v5.0.0-20250522144034-30c48595e08f/go.mod h1:yYMKci1gJ3M/IA2qeg6ek0tske0xe7eMlOasFt6Zxvk=
 github.com/CoreumFoundation/crust v0.0.0-20250128110620-54d733b60040/go.mod h1:+tc+D5f9K7oNNtv8UazzNy8LheAhBG7UDc25JwY803Y=
 github.com/CoreumFoundation/crust v0.0.0-20250130080025-fcd3df66ed33/go.mod h1:+tc+D5f9K7oNNtv8UazzNy8LheAhBG7UDc25JwY803Y=
 github.com/CosmWasm/wasmvm v1.5.0/go.mod h1:fXB+m2gyh4v9839zlIXdMZGeLAxqUdYdFQqYsTha2hc=

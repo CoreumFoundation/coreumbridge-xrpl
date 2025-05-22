@@ -11,6 +11,7 @@ import (
 	"time"
 
 	sdkmath "cosmossdk.io/math"
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -609,7 +610,7 @@ func createDevRunner(
 ) (runner.Components, *runner.Runner) {
 	t.Helper()
 
-	encodingConfig := coreumconfig.NewEncodingConfig(auth.AppModuleBasic{})
+	encodingConfig := coreumconfig.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	xrplKeyring := keyring.NewInMemory(encodingConfig.Codec)
 	coreumKeyring := keyring.NewInMemory(encodingConfig.Codec)
 

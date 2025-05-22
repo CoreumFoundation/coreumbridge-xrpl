@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/pkg/errors"
 
@@ -44,7 +45,7 @@ func NewCoreumChain(cfg CoreumChainConfig) (CoreumChain, error) {
 	}
 	coreumSettings := integration.QueryChainSettings(queryCtx, coreumGRPCClient)
 
-	coreumClientCtx := client.NewContext(getTestContextConfig(), auth.AppModuleBasic{}).
+	coreumClientCtx := client.NewContext(getTestContextConfig(), auth.AppModuleBasic{}, wasm.AppModuleBasic{}).
 		WithGRPCClient(coreumGRPCClient)
 
 	coreumFeemodelParamsRes, err := feemodeltypes.

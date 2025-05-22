@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -119,7 +120,7 @@ HbP+c6JmeJy9JXe2rbbF1QtCX1gLqGcDQPBXiCtFvP7/8wTZtVOPj8vREzhZ9ElO
 }
 
 func Test_runImportHexCmd(t *testing.T) {
-	cdc := config.NewEncodingConfig(auth.AppModuleBasic{}).Codec
+	cdc := config.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{}).Codec
 	testCases := []struct {
 		name           string
 		keyringBackend string
