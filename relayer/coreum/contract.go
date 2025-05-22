@@ -1838,7 +1838,7 @@ func (c *ContractClient) getContractTransactionsByWasmEventAttributes(
 	attributes[wasmtypes.AttributeKeyContractAddr] = wasmtypes.WasmModuleEventType
 	for {
 		txEventsPage, err := c.cometServiceClient.GetTxsEvent(ctx, &sdktxtypes.GetTxsEventRequest{
-			Events:  events,
+			Query:   strings.Join(events, " AND "),
 			OrderBy: sdktxtypes.OrderBy_ORDER_BY_DESC,
 			Page:    page,
 			Limit:   uint64(c.cfg.TxsQueryPageLimit),

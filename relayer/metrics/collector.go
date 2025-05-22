@@ -615,7 +615,7 @@ func (c *PeriodicCollector) getRelayerCallsWithinTimeFrame(
 	maxTxTime := time.Now().Add(-1 * c.cfg.RelayerActivityCheckFrame)
 	for {
 		txEventsPage, err := c.cometServiceClient.GetTxsEvent(ctx, &sdktxtypes.GetTxsEventRequest{
-			Events: []string{
+			Query: strings.Join([]string{
 				fmt.Sprintf(
 					"%s.%s='%s'",
 					wasmtypes.WasmModuleEventType,
@@ -628,7 +628,7 @@ func (c *PeriodicCollector) getRelayerCallsWithinTimeFrame(
 					senderEventType,
 					relayerAddress.String(),
 				),
-			},
+			}, " AND "),
 			OrderBy: sdktxtypes.OrderBy_ORDER_BY_DESC,
 			Page:    page,
 			Limit:   c.cfg.CoreumQueryPageLimit,
