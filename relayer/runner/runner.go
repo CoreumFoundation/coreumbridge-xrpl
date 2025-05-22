@@ -238,9 +238,7 @@ type Components struct {
 
 // NewComponents creates components required by runner and other CLI commands.
 func NewComponents(
-	cfg Config,
-	xrplSDKClientCtx, coreumSDKClientCtx client.Context,
-	log logger.Logger,
+	cfg Config, xrplSDKClientCtx, coreumSDKClientCtx client.Context, log logger.Logger,
 ) (Components, error) {
 	metricsRegistry := metrics.NewRegistry()
 	log, err := logger.WithMetrics(log, metricsRegistry)
@@ -263,8 +261,10 @@ func NewComponents(
 		WithGenerateOnly(coreumSDKClientCtx.GenerateOnly).
 		WithFromAddress(coreumSDKClientCtx.FromAddress)
 
-	if unsignedSimulation, ok := coreumSDKClientCtx.CmdContext.Value(UnsignedSimulationKey).(bool); ok {
-		coreumClientCtx = coreumClientCtx.WithUnsignedSimulation(unsignedSimulation)
+	if coreumSDKClientCtx.CmdContext != nil {
+		if unsignedSimulation, ok := coreumSDKClientCtx.CmdContext.Value(UnsignedSimulationKey).(bool); ok {
+			coreumClientCtx = coreumClientCtx.WithUnsignedSimulation(unsignedSimulation)
+		}
 	}
 
 	if cfg.Coreum.Network.ChainID != "" {
@@ -273,13 +273,11 @@ func NewComponents(
 		)
 		if err != nil {
 			return Components{}, errors.Wrapf(
-				err,
-				"failed to set get correum network config for the chainID, chainID:%s",
+				err, "failed to set get correum network config for the chainID, chainID:%s",
 				cfg.Coreum.Network.ChainID,
 			)
 		}
 		coreumClientCtx = coreumClientCtx.WithChainID(cfg.Coreum.Network.ChainID)
-
 		coreum.SetSDKConfig(coreumChainNetworkConfig.Provider.GetAddressPrefix())
 	}
 
@@ -289,8 +287,7 @@ func NewComponents(
 		contractAddress, err = sdk.AccAddressFromBech32(cfg.Coreum.Contract.ContractAddress)
 		if err != nil {
 			return Components{}, errors.Wrapf(
-				err,
-				"failed to decode contract address to sdk.AccAddress, address:%s",
+				err, "failed to decode contract address to sdk.AccAddress, address:%s",
 				cfg.Coreum.Contract.ContractAddress,
 			)
 		}
@@ -317,12 +314,7 @@ func NewComponents(
 	metricsPeriodicCollectorCfg := metrics.DefaultPeriodicCollectorConfig()
 	metricsPeriodicCollectorCfg.RepeatDelay = cfg.Metrics.PeriodicCollector.RepeatDelay
 	metricsPeriodicCollector := metrics.NewPeriodicCollector(
-		metricsPeriodicCollectorCfg,
-		log,
-		metricsRegistry,
-		xrplRPCClient,
-		contractClient,
-		coreumClientCtx,
+		metricsPeriodicCollectorCfg, log, metricsRegistry, xrplRPCClient, contractClient, coreumClientCtx,
 	)
 
 	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
