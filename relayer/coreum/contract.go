@@ -1851,7 +1851,7 @@ func (c *ContractClient) getContractTransactionsByWasmEventAttributes(
 }
 
 func (c *ContractClient) decodeExecutePayload(txAny *sdk.TxResponse) ([]ExecutePayload, error) {
-	var tx sdk.Tx
+	var tx sdk.HasMsgs
 	if err := c.clientCtx.Codec().UnpackAny(txAny.Tx, &tx); err != nil {
 		return nil, errors.Errorf("failed to unpack sdk.Tx, tx:%v", tx)
 	}
