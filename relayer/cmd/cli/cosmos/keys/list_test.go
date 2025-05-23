@@ -8,7 +8,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	clienttestutil "github.com/cosmos/cosmos-sdk/client/testutil"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/testutil"
@@ -16,6 +15,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"gotest.tools/v3/assert"
+
+	"github.com/CoreumFoundation/coreum/v5/pkg/config"
 )
 
 func cleanupKeys(t *testing.T, kb keyring.Keyring, keys ...string) func() {
@@ -36,7 +37,7 @@ func Test_runListCmd(t *testing.T) {
 	kbHome2 := t.TempDir()
 
 	mockIn := testutil.ApplyMockIODiscardOutErr(cmd)
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := config.NewEncodingConfig().Codec
 	kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, kbHome2, mockIn, cdc)
 	assert.NilError(t, err)
 
@@ -58,7 +59,6 @@ func Test_runListCmd(t *testing.T) {
 		{"keybase: w/key", kbHome2, false},
 	}
 	for _, tt := range testData {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			cmd.SetArgs([]string{
 				fmt.Sprintf("--%s=%s", flags.FlagHome, tt.kbDir),
@@ -84,7 +84,7 @@ func Test_runListCmd(t *testing.T) {
 func Test_runListKeyTypeCmd(t *testing.T) {
 	cmd := ListKeyTypesCmd()
 
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := config.NewEncodingConfig().Codec
 	kbHome := t.TempDir()
 	mockIn := testutil.ApplyMockIODiscardOutErr(cmd)
 

@@ -11,7 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
-	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
+	assetfttypes "github.com/CoreumFoundation/coreum/v5/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -91,9 +91,10 @@ func TestDeployAndInstantiateContract(t *testing.T) {
 			assetfttypes.Feature_minting,
 			assetfttypes.Feature_ibc,
 		},
-		BurnRate:           sdk.ZeroDec(),
-		SendCommissionRate: sdk.ZeroDec(),
+		BurnRate:           sdkmath.LegacyZeroDec(),
+		SendCommissionRate: sdkmath.LegacyZeroDec(),
 		Version:            assetfttypes.CurrentTokenVersion,
+		Admin:              contractAddress.String(),
 	}, tokensRes.Tokens[0])
 
 	// query all tokens

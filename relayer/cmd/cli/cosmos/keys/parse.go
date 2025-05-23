@@ -64,10 +64,10 @@ func (bo bech32Output) String() string {
 	out := make([]string, len(bo.Formats))
 
 	for i, format := range bo.Formats {
-		out[i] = fmt.Sprintf("  - %s", format)
+		out[i] = "  - " + format
 	}
 
-	return fmt.Sprintf("Bech32 Formats:\n%s", strings.Join(out, "\n"))
+	return "Bech32 Formats:\n" + strings.Join(out, "\n")
 }
 
 // ParseKeyStringCommand parses an address from hex to bech32 and vice versa.

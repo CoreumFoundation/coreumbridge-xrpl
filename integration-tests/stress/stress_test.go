@@ -60,7 +60,6 @@ func TestStress(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -104,13 +103,13 @@ func sendXRPFromXRPLAndBack(ctx context.Context, t *testing.T, env *Env) {
 		))
 
 	require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-		for i := 0; i < env.Cfg.ParallelExecutionNumber; i++ {
+		for i := range env.Cfg.ParallelExecutionNumber {
 			coreumAccount := coreumAccounts[i]
 			xrplAccount := xrplAccounts[i]
 			spawn(strconv.Itoa(i), parallel.Continue, func(ctx context.Context) error {
 				// get new instance of the bridge client to allow parallel execution for each account
 				bridgeClient := env.NewBridgeClient()
-				for j := 0; j < env.Cfg.RepeatTestCaseCount; j++ {
+				for range env.Cfg.RepeatTestCaseCount {
 					if err := func() error {
 						ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
 						defer cancel()
@@ -199,12 +198,12 @@ func sendWithFailureAndClaimRefund(ctx context.Context, t *testing.T, env *Env) 
 	bankClient := banktypes.NewQueryClient(env.Chains.Coreum.ClientContext)
 
 	require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
-		for i := 0; i < env.Cfg.ParallelExecutionNumber; i++ {
+		for i := range env.Cfg.ParallelExecutionNumber {
 			coreumAccount := coreumAccounts[i]
 			spawn(strconv.Itoa(i), parallel.Continue, func(ctx context.Context) error {
 				// get new instance of the bridge client to allow parallel execution for each account
 				bridgeClient := env.NewBridgeClient()
-				for j := 0; j < env.Cfg.RepeatTestCaseCount; j++ {
+				for range env.Cfg.RepeatTestCaseCount {
 					if err := func() error {
 						ctx, cancel := context.WithTimeout(ctx, env.Cfg.TestCaseTimeout)
 						defer cancel()

@@ -4,13 +4,14 @@ import (
 	"context"
 	"os"
 
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/run"
-	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
-	"github.com/CoreumFoundation/coreum/v4/pkg/config"
+	"github.com/CoreumFoundation/coreum/v5/pkg/config"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
@@ -34,7 +35,7 @@ func main() {
 //
 //nolint:contextcheck // the context is passed in the command
 func RootCmd(ctx context.Context) (*cobra.Command, error) {
-	encodingConfig := config.NewEncodingConfig(coreumapp.ModuleBasics)
+	encodingConfig := config.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	clientCtx := client.Context{}.
 		WithCodec(encodingConfig.Codec).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).

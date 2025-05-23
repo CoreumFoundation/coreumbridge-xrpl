@@ -8,7 +8,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	clienttestutil "github.com/cosmos/cosmos-sdk/client/testutil"
+	"github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/multisig"
@@ -19,6 +19,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/CoreumFoundation/coreum/v5/pkg/config"
 	overridekeyring "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/override/crypto/keyring"
 )
 
@@ -55,7 +56,7 @@ func Test_runShowCmd(t *testing.T) {
 	mockIn := testutil.ApplyMockIODiscardOutErr(cmd)
 
 	kbHome := t.TempDir()
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := config.NewEncodingConfig().Codec
 	kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, kbHome, mockIn, cdc)
 	require.NoError(t, err)
 
@@ -188,7 +189,6 @@ func Test_validateMultisigThreshold(t *testing.T) {
 		{"1-2", args{2, 1}, true},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if err := validateMultisigThreshold(tt.args.k, tt.args.nKeys); (err != nil) != tt.wantErr {
 				t.Errorf("validateMultisigThreshold() error = %v, wantErr %v", err, tt.wantErr)
@@ -210,11 +210,10 @@ func Test_getBechKeyOut(t *testing.T) {
 		{"empty", args{""}, nil, true},
 		{"wrong", args{"???"}, nil, true},
 		{"acc", args{sdk.PrefixAccount}, overridekeyring.MkAccKeyOutput, false},
-		{"val", args{sdk.PrefixValidator}, keyring.MkValKeyOutput, false},
-		{"cons", args{sdk.PrefixConsensus}, keyring.MkConsKeyOutput, false},
+		{"val", args{sdk.PrefixValidator}, keys.MkValKeyOutput, false},
+		{"cons", args{sdk.PrefixConsensus}, keys.MkConsKeyOutput, false},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := getBechKeyOut(tt.args.bechPrefix)
 			if tt.wantErr {

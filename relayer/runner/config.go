@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	toolshttp "github.com/CoreumFoundation/coreum-tools/pkg/http"
-	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
+	coreumchainclient "github.com/CoreumFoundation/coreum/v5/pkg/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"

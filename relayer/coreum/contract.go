@@ -23,9 +23,9 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
-	"github.com/CoreumFoundation/coreum/v4/pkg/client"
-	"github.com/CoreumFoundation/coreum/v4/testutil/event"
-	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
+	"github.com/CoreumFoundation/coreum/v5/pkg/client"
+	"github.com/CoreumFoundation/coreum/v5/testutil/event"
+	assetfttypes "github.com/CoreumFoundation/coreum/v5/x/asset/ft/types"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/buildinfo"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 )
@@ -506,7 +506,7 @@ type execRequest struct {
 type ContractClientConfig struct {
 	ContractAddress       sdk.AccAddress
 	GasAdjustment         float64
-	GasPriceAdjustment    sdk.Dec
+	GasPriceAdjustment    sdkmath.LegacyDec
 	PageLimit             uint32
 	OutOfGasRetryDelay    time.Duration
 	OutOfGasRetryAttempts uint32
@@ -518,7 +518,7 @@ func DefaultContractClientConfig(contractAddress sdk.AccAddress) ContractClientC
 	return ContractClientConfig{
 		ContractAddress:       contractAddress,
 		GasAdjustment:         1.4,
-		GasPriceAdjustment:    sdk.MustNewDecFromStr("1.2"),
+		GasPriceAdjustment:    sdkmath.LegacyMustNewDecFromStr("1.2"),
 		PageLimit:             50,
 		OutOfGasRetryDelay:    500 * time.Millisecond,
 		OutOfGasRetryAttempts: 5,
@@ -1480,7 +1480,7 @@ func (c *ContractClient) GetXRPLToCoreumTracingInfo(
 		if err != nil {
 			return XRPLToCoreumTracingInfo{}, err
 		}
-		for i, payload := range executePayloads {
+		for _, payload := range executePayloads {
 			if payload.SaveEvidence == nil || payload.SaveEvidence.Evidence.XRPLToCoreumTransfer == nil {
 				continue
 			}
@@ -1490,7 +1490,9 @@ func (c *ContractClient) GetXRPLToCoreumTracingInfo(
 					Evidence: *payload.SaveEvidence.Evidence.XRPLToCoreumTransfer,
 					Tx:       tx,
 				})
-			if isEventValueEqual(tx.Logs[i].Events, wasmtypes.WasmModuleEventType, eventAttributeThresholdReached, "true") {
+			if val, err := event.FindStringEventAttribute(
+				tx.Events, wasmtypes.WasmModuleEventType, eventAttributeThresholdReached,
+			); err == nil && val == "true" {
 				xrplToCoreumTracingInfo.CoreumTx = tx
 			}
 		}
@@ -1832,7 +1834,7 @@ func (c *ContractClient) getContractTransactionsByWasmEventAttributes(
 	attributes[wasmtypes.AttributeKeyContractAddr] = wasmtypes.WasmModuleEventType
 	for {
 		txEventsPage, err := c.cometServiceClient.GetTxsEvent(ctx, &sdktxtypes.GetTxsEventRequest{
-			Events:  events,
+			Query:   strings.Join(events, " AND "),
 			OrderBy: sdktxtypes.OrderBy_ORDER_BY_DESC,
 			Page:    page,
 			Limit:   uint64(c.cfg.TxsQueryPageLimit),
@@ -1851,7 +1853,7 @@ func (c *ContractClient) getContractTransactionsByWasmEventAttributes(
 }
 
 func (c *ContractClient) decodeExecutePayload(txAny *sdk.TxResponse) ([]ExecutePayload, error) {
-	var tx sdk.Tx
+	var tx sdk.HasMsgs
 	if err := c.clientCtx.Codec().UnpackAny(txAny.Tx, &tx); err != nil {
 		return nil, errors.Errorf("failed to unpack sdk.Tx, tx:%v", tx)
 	}
@@ -1871,25 +1873,6 @@ func (c *ContractClient) decodeExecutePayload(txAny *sdk.TxResponse) ([]ExecuteP
 	}
 
 	return executePayloads, nil
-}
-
-func isEventValueEqual(
-	events sdk.StringEvents,
-	etype, key, value string,
-) bool {
-	for _, ev := range events {
-		if ev.Type != etype {
-			continue
-		}
-		for _, attr := range ev.Attributes {
-			if attr.Key != key {
-				continue
-			}
-
-			return attr.Value == value
-		}
-	}
-	return false
 }
 
 func (c *ContractClient) getSendToXRPLOperationIDs(

@@ -17,13 +17,16 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
+	"github.com/CoreumFoundation/coreum/v5/pkg/config/constant"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	overridecryptokeyring "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/cmd/cli/cosmos/override/crypto/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/runner"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
+
+// FlagUnsignedSimulation unsigned simulation flag.
+const FlagUnsignedSimulation = "unsigned-simulation"
 
 // CoreumCmd returns aggregated Coreum commands.
 func CoreumCmd(bcp BridgeClientProvider) (*cobra.Command, error) {
@@ -1071,6 +1074,9 @@ func AddCoreumTxFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().Bool(flags.FlagGenerateOnly, false, "Generate unsigned transaction")
 	cmd.PersistentFlags().Bool(
 		FlagFromOwner, false, "Sets message sender to owner address specified in contract config",
+	)
+	cmd.PersistentFlags().Bool(
+		FlagUnsignedSimulation, false, "Do not require keys to generate transaction",
 	)
 }
 

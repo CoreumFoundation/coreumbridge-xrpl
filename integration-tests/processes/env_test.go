@@ -11,8 +11,10 @@ import (
 	"time"
 
 	sdkmath "cosmossdk.io/math"
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
@@ -21,11 +23,10 @@ import (
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
-	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
-	"github.com/CoreumFoundation/coreum/v4/pkg/client"
-	coreumconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
-	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
-	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
+	"github.com/CoreumFoundation/coreum/v5/pkg/client"
+	coreumconfig "github.com/CoreumFoundation/coreum/v5/pkg/config"
+	coreumintegration "github.com/CoreumFoundation/coreum/v5/testutil/integration"
+	assetfttypes "github.com/CoreumFoundation/coreum/v5/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	bridgeclient "github.com/CoreumFoundation/coreumbridge-xrpl/relayer/client"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
@@ -132,7 +133,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	)
 
 	bootstrappingRelayers := make([]bridgeclient.RelayerConfig, 0)
-	for i := 0; i < int(cfg.RelayersCount); i++ {
+	for i := range cfg.RelayersCount {
 		relayerCoreumAddress := relayerCoreumAddresses[i]
 		relayerXRPLAddress := relayerXRPLAddresses[i]
 		relayerXRPLPubKey := relayerXRPLPubKeys[i]
@@ -173,7 +174,7 @@ func NewRunnerEnv(ctx context.Context, t *testing.T, cfg RunnerEnvConfig, chains
 	runners := make([]*runner.Runner, 0, cfg.RelayersCount)
 	runnerComponents := make([]runner.Components, 0, cfg.RelayersCount)
 	// add correct relayers
-	for i := 0; i < int(cfg.RelayersCount-cfg.MaliciousRelayerNumber); i++ {
+	for i := range cfg.RelayersCount - cfg.MaliciousRelayerNumber {
 		rnrComponents, rnr := createDevRunner(
 			ctx,
 			t,
@@ -564,7 +565,7 @@ func genCoreumRelayers(
 	t.Helper()
 
 	addresses := make([]sdk.AccAddress, 0, relayersCount)
-	for i := 0; i < int(relayersCount); i++ {
+	for range relayersCount {
 		relayerAddress := coreumChain.GenAccount()
 		coreumChain.FundAccountWithOptions(ctx, t, relayerAddress, coreumintegration.BalancesOptions{
 			Amount: sdkmath.NewIntFromUint64(1_000_000),
@@ -588,7 +589,7 @@ func genBridgeXRPLAccountWithRelayers(
 	t.Logf("Bridge account is generated, address:%s", bridgeXRPLAddress.String())
 	signerAccounts := make([]rippledata.Account, 0, signersCount)
 	signerPubKeys := make([]rippledata.PublicKey, 0, signersCount)
-	for i := 0; i < int(signersCount); i++ {
+	for i := range signersCount {
 		signerAcc := xrplChain.GenAccount(ctx, t, 0)
 		signerAccounts = append(signerAccounts, signerAcc)
 		t.Logf("Signer %d is generated, address:%s", i+1, signerAcc.String())
@@ -609,7 +610,7 @@ func createDevRunner(
 ) (runner.Components, *runner.Runner) {
 	t.Helper()
 
-	encodingConfig := coreumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
+	encodingConfig := coreumconfig.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	xrplKeyring := keyring.NewInMemory(encodingConfig.Codec)
 	coreumKeyring := keyring.NewInMemory(encodingConfig.Codec)
 

@@ -25,7 +25,7 @@ func TestInitAndReadConfig(t *testing.T) {
 	defaultCfg := runner.DefaultConfig()
 	yamlStringConfig, err := yaml.Marshal(defaultCfg)
 	require.NoError(t, err)
-	require.Equal(t, getDefaultConfigString(), string(yamlStringConfig))
+	require.YAMLEq(t, getDefaultConfigString(), string(yamlStringConfig))
 
 	tests := []struct {
 		name                  string
@@ -59,7 +59,6 @@ func TestInitAndReadConfig(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(tt *testing.T) {
 			// not parallel intentionally top prevent race
 

@@ -96,7 +96,6 @@ func TestCoreumTxFlags(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// no additional args
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
@@ -430,7 +429,6 @@ func TestUpdateCoreumTokenCmd(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// no additional args
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
@@ -772,7 +770,6 @@ func TestUpdateXRPLTokenCmd(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// no additional args
 			tt.args = append(tt.args, testKeyringFlags(keyringDir)...)
@@ -952,7 +949,7 @@ func TestClaimPendingRefundCmd(t *testing.T) {
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
 	refundID := "sample-1"
-	pendingRefunds := []coreum.PendingRefund{{ID: refundID, Coin: sdk.NewCoin("coin1", sdk.NewInt(10))}}
+	pendingRefunds := []coreum.PendingRefund{{ID: refundID, Coin: sdk.NewCoin("coin1", sdkmath.NewInt(10))}}
 	bridgeClientMock.EXPECT().GetPendingRefunds(
 		gomock.Any(),
 		address,
@@ -981,7 +978,7 @@ func TestClaimRelayerFees_WithSpecificAmount(t *testing.T) {
 	address := addKeyToTestKeyring(t, keyringDir, keyName, cli.CoreumKeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
 	bridgeClientMock := NewMockBridgeClient(ctrl)
-	amount := sdk.NewCoins(sdk.NewCoin("ucore", sdk.NewInt(100)))
+	amount := sdk.NewCoins(sdk.NewCoin("ucore", sdkmath.NewInt(100)))
 	bridgeClientMock.EXPECT().ClaimRelayerFees(
 		gomock.Any(),
 		address,

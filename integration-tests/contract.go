@@ -9,7 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
-	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
+	coreumintegration "github.com/CoreumFoundation/coreum/v5/testutil/integration"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 )
 
@@ -90,7 +90,7 @@ func DeployAndInstantiateContractV110(
 	// with default gas adjustments, the tests might fail because of estimation delay and feemodel gas price change
 	// the custom gas adjustment config prevents the failure
 	contactCfg.GasAdjustment = 1.5
-	contactCfg.GasPriceAdjustment = sdk.MustNewDecFromStr("1.5")
+	contactCfg.GasPriceAdjustment = sdkmath.LegacyMustNewDecFromStr("1.5")
 
 	contractClient := coreum.NewContractClient(
 		contactCfg,

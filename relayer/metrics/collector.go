@@ -24,8 +24,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
-	"github.com/CoreumFoundation/coreum/v4/pkg/client"
-	feemodeltypes "github.com/CoreumFoundation/coreum/v4/x/feemodel/types"
+	"github.com/CoreumFoundation/coreum/v5/pkg/client"
+	feemodeltypes "github.com/CoreumFoundation/coreum/v5/x/feemodel/types"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -261,7 +261,7 @@ func (c *PeriodicCollector) collectContractBalances(ctx context.Context) error {
 
 	contractBalancesRes, err := c.coreumBankClient.AllBalances(ctx, &banktypes.QueryAllBalancesRequest{
 		Address:    c.contractClient.GetContractAddress().String(),
-		Pagination: &query.PageRequest{Limit: query.MaxLimit},
+		Pagination: &query.PageRequest{Limit: query.PaginationMaxLimit},
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to contract Coreum balances")
@@ -451,7 +451,7 @@ func (c *PeriodicCollector) collectRelayerActivityAndVersion(ctx context.Context
 
 		// fill relayer version
 		for _, txRes := range txResponses {
-			var sdkTx sdk.Tx
+			var sdkTx sdk.HasMsgs
 			if err := c.clientContext.Codec().UnpackAny(txRes.Tx, &sdkTx); err != nil {
 				return errors.Errorf("failed to unpack sdk.Tx, tx:%v", sdkTx)
 			}
@@ -556,7 +556,7 @@ func (c *PeriodicCollector) collectXRPLBridgeAccountReserves(ctx context.Context
 		(serverState.State.ValidatedLedger.ReserveInc * int64(*ownerCount)) + xrpl.MultiSigningReserveDrops
 
 	c.registry.XRPLBridgeAccountReservesGauge.
-		Set(truncateAmountWithDecimals(xrpl.XRPCurrencyDecimals, sdk.NewInt(reserve)))
+		Set(truncateAmountWithDecimals(xrpl.XRPCurrencyDecimals, sdkmath.NewInt(reserve)))
 
 	return nil
 }
@@ -615,7 +615,7 @@ func (c *PeriodicCollector) getRelayerCallsWithinTimeFrame(
 	maxTxTime := time.Now().Add(-1 * c.cfg.RelayerActivityCheckFrame)
 	for {
 		txEventsPage, err := c.cometServiceClient.GetTxsEvent(ctx, &sdktxtypes.GetTxsEventRequest{
-			Events: []string{
+			Query: strings.Join([]string{
 				fmt.Sprintf(
 					"%s.%s='%s'",
 					wasmtypes.WasmModuleEventType,
@@ -628,7 +628,7 @@ func (c *PeriodicCollector) getRelayerCallsWithinTimeFrame(
 					senderEventType,
 					relayerAddress.String(),
 				),
-			},
+			}, " AND "),
 			OrderBy: sdktxtypes.OrderBy_ORDER_BY_DESC,
 			Page:    page,
 			Limit:   c.cfg.CoreumQueryPageLimit,

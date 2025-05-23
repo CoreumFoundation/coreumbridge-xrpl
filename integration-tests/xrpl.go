@@ -11,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/samber/lo"
@@ -20,9 +22,8 @@ import (
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/http"
 	"github.com/CoreumFoundation/coreum-tools/pkg/retry"
-	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
-	coreumconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
-	coreumkeyring "github.com/CoreumFoundation/coreum/v4/pkg/keyring"
+	coreumconfig "github.com/CoreumFoundation/coreum/v5/pkg/config"
+	coreumkeyring "github.com/CoreumFoundation/coreum/v5/pkg/keyring"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
@@ -305,7 +306,7 @@ func extractPrivateKeyFromSeed(seedPhrase string) (string, error) {
 }
 
 func createInMemoryKeyring() keyring.Keyring {
-	encodingConfig := coreumconfig.NewEncodingConfig(coreumapp.ModuleBasics)
+	encodingConfig := coreumconfig.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	return coreumkeyring.NewConcurrentSafeKeyring(keyring.NewInMemory(encodingConfig.Codec))
 }
 

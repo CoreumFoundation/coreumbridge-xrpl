@@ -16,10 +16,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/CoreumFoundation/coreum/v4/pkg/client"
-	"github.com/CoreumFoundation/coreum/v4/testutil/event"
-	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
-	assetfttypes "github.com/CoreumFoundation/coreum/v4/x/asset/ft/types"
+	"github.com/CoreumFoundation/coreum/v5/pkg/client"
+	"github.com/CoreumFoundation/coreum/v5/testutil/event"
+	coreumintegration "github.com/CoreumFoundation/coreum/v5/testutil/integration"
+	assetfttypes "github.com/CoreumFoundation/coreum/v5/x/asset/ft/types"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 )
@@ -207,7 +207,7 @@ func genRelayers(
 ) []coreum.Relayer {
 	relayers := make([]coreum.Relayer, 0)
 
-	for i := 0; i < relayersCount; i++ {
+	for range relayersCount {
 		relayerXRPLSigner := chains.XRPL.GenAccount(ctx, t, 0)
 		relayerCoreumAddress := chains.Coreum.GenAccount()
 		chains.Coreum.FundAccountWithOptions(ctx, t, relayerCoreumAddress, coreumintegration.BalancesOptions{

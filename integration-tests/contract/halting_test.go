@@ -10,7 +10,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
-	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
+	coreumintegration "github.com/CoreumFoundation/coreum/v5/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -54,7 +54,7 @@ func TestBridgeHalting(t *testing.T) {
 	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, relayers, 10)
 
-	maxHoldingAmount := sdk.NewIntFromUint64(1_000_000_000)
+	maxHoldingAmount := sdkmath.NewIntFromUint64(1_000_000_000)
 	sendingPrecision := int32(15)
 
 	xrplRecipientAddress := chains.XRPL.GenAccount(ctx, t, 0)
@@ -142,7 +142,7 @@ func TestBridgeHalting(t *testing.T) {
 
 	// use all available tickets and fail the tickets reallocation to test the recovery when the bridge is halted
 	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0)
-	for i := 0; i < len(tickets)-1; i++ {
+	for range len(tickets) - 1 {
 		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
 			Recipient:     xrplRecipientAddress.String(),
 			Amount:        sdk.NewInt64Coin(registeredCoreumOriginatedToken.Denom, 1),
