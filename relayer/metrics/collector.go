@@ -292,9 +292,9 @@ func (c *PeriodicCollector) collectPendingOperations(ctx context.Context) error 
 	}
 
 	currentValues := lo.SliceToMap(pendingOperations, func(operation coreum.Operation) (string, gaugeVecValue) {
-		operationID := strconv.Itoa(int(operation.GetOperationID()))
-		return operationID, gaugeVecValue{
-			keys:  []string{operationID},
+		operationSequence := strconv.Itoa(int(operation.GetOperationSequence()))
+		return operationSequence, gaugeVecValue{
+			keys:  []string{operationSequence},
 			value: float64(len(operation.Signatures)),
 		}
 	})

@@ -69,7 +69,8 @@ pub enum ExecuteMsg {
     // Save a signature for a specific Pending Operation
     // Only relayers can do this
     SaveSignature {
-        operation_id: u64,
+        #[serde(rename = "operation_id")]
+        operation_sequence: u64,
         // Version is used in case the XRPL base fee is updated, so that relayers can specify which version of the operation they are signing
         operation_version: u64,
         signature: String,
@@ -153,7 +154,8 @@ pub enum ExecuteMsg {
     // This will almost NEVER be used, unless there is some expected operation that causes an error on relayers
     // Only owner can do this
     CancelPendingOperation {
-        operation_id: u64,
+        #[serde(rename = "operation_id")]
+        operation_sequence: u64,
     },
 }
 

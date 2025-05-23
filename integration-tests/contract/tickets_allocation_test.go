@@ -107,7 +107,7 @@ func TestRecoverTickets(t *testing.T) {
 	)
 	require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
-	// try to send with incorrect operation ID
+	// try to send with incorrect operation sequence
 	_, err = contractClient.SaveSignature(
 		ctx, relayers[0].CoreumAddress, uint32(999), ticketsAllocationOperation.Version, signerItem1.TxnSignature.String(),
 	)

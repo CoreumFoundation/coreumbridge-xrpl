@@ -322,7 +322,7 @@ func (p *CoreumToXRPLProcess) buildSubmittableTransaction(
 		}
 		var txSignature rippledata.VariableLength
 		if err := txSignature.UnmarshalText([]byte(signature.Signature)); err != nil {
-			p.registerInvalidSignatureMetric(operation.GetOperationID(), signature)
+			p.registerInvalidSignatureMetric(operation.GetOperationSequence(), signature)
 			p.log.Error(
 				ctx,
 				"Failed to unmarshal tx signature",
@@ -347,7 +347,7 @@ func (p *CoreumToXRPLProcess) buildSubmittableTransaction(
 		}
 		isValid, _, err := rippledata.CheckMultiSignature(tx)
 		if err != nil {
-			p.registerInvalidSignatureMetric(operation.GetOperationID(), signature)
+			p.registerInvalidSignatureMetric(operation.GetOperationSequence(), signature)
 			p.log.Error(
 				ctx,
 				"failed to check transaction signature, err:%s, signer:%+v",
@@ -358,7 +358,7 @@ func (p *CoreumToXRPLProcess) buildSubmittableTransaction(
 			continue
 		}
 		if !isValid {
-			p.registerInvalidSignatureMetric(operation.GetOperationID(), signature)
+			p.registerInvalidSignatureMetric(operation.GetOperationSequence(), signature)
 			p.log.Error(
 				ctx,
 				"Invalid tx signature",
@@ -446,11 +446,11 @@ func (p *CoreumToXRPLProcess) preValidateOperation(ctx context.Context, operatio
 	return false, nil
 }
 
-func (p *CoreumToXRPLProcess) registerInvalidSignatureMetric(operationID uint32, signature coreum.Signature) {
+func (p *CoreumToXRPLProcess) registerInvalidSignatureMetric(operationSequence uint32, signature coreum.Signature) {
 	p.metricRegistry.SetMaliciousBehaviourKey(
 		fmt.Sprintf(
 			"invalid_signature_for_operation_%d_relayer_%s",
-			operationID, signature.RelayerCoreumAddress.String(),
+			operationSequence, signature.RelayerCoreumAddress.String(),
 		),
 	)
 }
@@ -467,7 +467,7 @@ func (p *CoreumToXRPLProcess) registerTxSignature(ctx context.Context, operation
 	_, err = p.contractClient.SaveSignature(
 		ctx,
 		p.cfg.RelayerCoreumAddress,
-		operation.GetOperationID(),
+		operation.GetOperationSequence(),
 		operation.Version,
 		signer.Signer.TxnSignature.String(),
 	)

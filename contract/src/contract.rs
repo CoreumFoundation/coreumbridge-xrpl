@@ -15,8 +15,8 @@ use crate::{
         TransactionEvidence, TransactionEvidencesResponse, XRPLTokensResponse,
     },
     operation::{
-        check_operation_exists, create_pending_operation, handle_operation,
-        remove_pending_refund, Operation, OperationType,
+        check_operation_exists, create_pending_operation, handle_operation, remove_pending_refund,
+        Operation, OperationType,
     },
     relayer::{is_relayer, validate_relayers, Relayer},
     signatures::add_signature,
@@ -262,13 +262,13 @@ pub fn execute(
             )
         }
         ExecuteMsg::SaveSignature {
-            operation_id,
+            operation_sequence,
             operation_version,
             signature,
         } => save_signature(
             deps.into_empty(),
             info.sender,
-            operation_id,
+            operation_sequence,
             operation_version,
             &signature,
         ),
@@ -337,8 +337,8 @@ pub fn execute(
             info.sender,
             prohibited_xrpl_addresses,
         ),
-        ExecuteMsg::CancelPendingOperation { operation_id } => {
-            cancel_pending_operation(deps.into_empty(), info.sender, operation_id)
+        ExecuteMsg::CancelPendingOperation { operation_sequence } => {
+            cancel_pending_operation(deps.into_empty(), info.sender, operation_sequence)
         }
     }
 }
@@ -693,8 +693,8 @@ fn save_evidence(
             operation_result,
         } => {
             // An XRPL transaction uses an account sequence or a ticket sequence, but not both
-            let operation_id = account_sequence.unwrap_or_else(|| ticket_sequence.unwrap());
-            let operation = check_operation_exists(deps.storage, operation_id)?;
+            let operation_sequence = ticket_sequence.unwrap_or_else(|| account_sequence.unwrap());
+            let operation = check_operation_exists(deps.storage, operation_sequence)?;
 
             // Validation for certain operation types that can't have account sequences
             match &operation.operation_type {
@@ -716,7 +716,7 @@ fn save_evidence(
                     &operation_result,
                     &transaction_result,
                     &tx_hash,
-                    operation_id,
+                    operation_sequence,
                     ticket_sequence,
                     &mut response,
                 )?;
@@ -728,7 +728,8 @@ fn save_evidence(
                     // we don't have available tickets left and we will notify with an attribute.
                     // NOTE: This will only happen in the particular case of a rejected ticket allocation
                     // operation.
-                    let (reserve_ticket_unique_operation_id, tickets_available) = register_used_ticket(deps.storage, env.block.time.seconds())?;
+                    let (reserve_ticket_unique_operation_id, tickets_available) =
+                        register_used_ticket(deps.storage, env.block.time.seconds())?;
                     if !tickets_available {
                         response = response.add_attribute(
                             "adding_ticket_allocation_operation_success",
@@ -747,7 +748,11 @@ fn save_evidence(
 
             response = response
                 .add_attribute("operation_type", operation.operation_type.as_str())
-                .add_attribute("operation_id", operation_id.to_string())
+                // operation_sequence is emitted as operation_id for backwards compatibility with legacy events attributes
+                // which is the sequence number of the operation in the pending operations list and
+                // it is unique among pending operations
+                .add_attribute("operation_id", operation_sequence.to_string())
+                .add_attribute("operation_unique_id", operation.id.to_string())
                 .add_attribute("transaction_result", transaction_result.as_str())
                 .add_attribute("threshold_reached", threshold_reached.to_string());
 
@@ -878,7 +883,7 @@ fn recover_xrpl_token_registration(
 fn save_signature(
     deps: DepsMut,
     sender: Addr,
-    operation_id: u64,
+    operation_sequence: u64,
     operation_version: u64,
     signature: &str,
 ) -> CoreumResult<ContractError> {
@@ -890,7 +895,7 @@ fn save_signature(
 
     add_signature(
         deps,
-        operation_id,
+        operation_sequence,
         operation_version,
         sender.clone(),
         signature.to_string(),
@@ -899,7 +904,7 @@ fn save_signature(
     Ok(Response::new()
         .add_attribute("action", ContractActions::SaveSignature.as_str())
         .add_attribute("sender", sender)
-        .add_attribute("operation_id", operation_id.to_string())
+        .add_attribute("operation_id", operation_sequence.to_string())
         .add_attribute("signature", signature))
 }
 
@@ -1379,7 +1384,7 @@ fn update_prohibited_xrpl_addresses(
 fn cancel_pending_operation(
     deps: DepsMut,
     sender: Addr,
-    operation_id: u64,
+    operation_sequence: u64,
 ) -> CoreumResult<ContractError> {
     check_authorization(
         deps.as_ref().storage,
@@ -1387,7 +1392,7 @@ fn cancel_pending_operation(
         &ContractActions::CancelPendingOperation,
     )?;
 
-    let operation = check_operation_exists(deps.storage, operation_id)?;
+    let operation = check_operation_exists(deps.storage, operation_sequence)?;
     // We'll provide a TransactionResult::Invalid evidence to the handlers so that they perform the right action
     let transaction_result = &TransactionResult::Invalid;
     let operation_result = match operation.operation_type {
@@ -1403,7 +1408,7 @@ fn cancel_pending_operation(
         &operation_result,
         transaction_result,
         &None,
-        operation_id,
+        operation_sequence,
         operation.ticket_sequence,
         &mut response,
     )?;

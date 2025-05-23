@@ -116,13 +116,13 @@ func TestCancelPendingOperation(t *testing.T) {
 	require.Len(t, pendingOperations, 3)
 
 	for _, operation := range pendingOperations {
-		_, err := contractClient.CancelPendingOperation(ctx, randomCoreumAddress, operation.GetOperationID())
+		_, err := contractClient.CancelPendingOperation(ctx, randomCoreumAddress, operation.GetOperationSequence())
 		require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
-		_, err = contractClient.CancelPendingOperation(ctx, relayers[0].CoreumAddress, operation.GetOperationID())
+		_, err = contractClient.CancelPendingOperation(ctx, relayers[0].CoreumAddress, operation.GetOperationSequence())
 		require.True(t, coreum.IsUnauthorizedSenderError(err), err)
 
-		_, err = contractClient.CancelPendingOperation(ctx, owner, operation.GetOperationID())
+		_, err = contractClient.CancelPendingOperation(ctx, owner, operation.GetOperationSequence())
 		require.NoError(t, err)
 	}
 

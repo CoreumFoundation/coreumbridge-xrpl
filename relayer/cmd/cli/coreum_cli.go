@@ -247,7 +247,7 @@ $ cancel-pending-operation 123 --%s owner
 					return err
 				}
 
-				operationID, err := strconv.ParseUint(args[0], 10, 32)
+				operationSequence, err := strconv.ParseUint(args[0], 10, 32)
 				if err != nil {
 					return errors.Wrapf(err, "invalid operation ID: %s", args[0])
 				}
@@ -255,7 +255,7 @@ $ cancel-pending-operation 123 --%s owner
 				return bridgeClient.CancelPendingOperation(
 					ctx,
 					sender,
-					uint32(operationID),
+					uint32(operationSequence),
 				)
 			}),
 	}

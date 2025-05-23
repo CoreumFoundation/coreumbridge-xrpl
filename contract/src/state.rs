@@ -93,7 +93,7 @@ pub struct CoreumToken {
 #[cw_serde]
 pub struct PendingRefund {
     pub address: Addr,
-    // We will use a unique id (block timestamp - operation_id) for users to claim their funds back per operation id
+    // We will use a unique id (block timestamp - operation_sequence) for users to claim their funds back per operation sequence
     pub id: String,
     // Transaction hash in XRPL that failed to be able to track it and find reason for failure
     // Optional because Invalid transactions don't have a transaction hash because they are never executed

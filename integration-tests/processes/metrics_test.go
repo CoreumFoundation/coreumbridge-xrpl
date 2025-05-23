@@ -332,7 +332,7 @@ func TestPendingOperationsMetric(t *testing.T) {
 	_, err = runnerEnv.ContractClient.SaveSignature(
 		ctx,
 		relayerCoreumAddress,
-		pendingOperation.GetOperationID(),
+		pendingOperation.GetOperationSequence(),
 		pendingOperation.Version,
 		xrplTxSignature,
 	)
@@ -344,7 +344,7 @@ func TestPendingOperationsMetric(t *testing.T) {
 		runnerEnv,
 		runnerEnv.RunnerComponents[0].MetricsRegistry.PendingOperationsGaugeVec,
 		map[string]string{
-			metrics.OperationIDLabel: strconv.Itoa(int(pendingOperation.GetOperationID())),
+			metrics.OperationSequenceLabel: strconv.Itoa(int(pendingOperation.GetOperationSequence())),
 		},
 		1,
 	)
@@ -359,7 +359,7 @@ func TestPendingOperationsMetric(t *testing.T) {
 		runnerEnv,
 		runnerEnv.RunnerComponents[0].MetricsRegistry.PendingOperationsGaugeVec,
 		map[string]string{
-			metrics.OperationIDLabel: strconv.Itoa(int(pendingOperation.GetOperationID())),
+			metrics.OperationSequenceLabel: strconv.Itoa(int(pendingOperation.GetOperationSequence())),
 		},
 		0,
 	)
@@ -642,7 +642,7 @@ func TestMaliciousBehaviourMetric(t *testing.T) {
 	_, err = runnerEnv.ContractClient.SaveSignature(
 		ctx,
 		maliciousCoreumAddress,
-		pendingOperation.GetOperationID(),
+		pendingOperation.GetOperationSequence(),
 		pendingOperation.Version,
 		xrplTxSignature,
 	)
@@ -659,7 +659,7 @@ func TestMaliciousBehaviourMetric(t *testing.T) {
 		map[string]string{
 			metrics.MaliciousBehaviourKeyLabel: fmt.Sprintf(
 				"invalid_signature_for_operation_%d_relayer_%s",
-				pendingOperation.GetOperationID(), maliciousCoreumAddress.String(),
+				pendingOperation.GetOperationSequence(), maliciousCoreumAddress.String(),
 			),
 		},
 		1,

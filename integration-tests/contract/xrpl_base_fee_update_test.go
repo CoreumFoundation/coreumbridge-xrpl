@@ -259,9 +259,9 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 							"base fee mismatch, expected: %d, got: %d", oldXRPLBaseFee, operation.XRPLBaseFee)
 					}
 					signatures = append(signatures, coreum.SaveSignatureRequest{
-						OperationID:      operation.TicketSequence,
-						OperationVersion: operation.Version,
-						Signature:        xrplTxSignature,
+						OperationSequence: operation.TicketSequence,
+						OperationVersion:  operation.Version,
+						Signature:         xrplTxSignature,
 					})
 				}
 				for _, saveSignatureRequestsChunk := range lo.Chunk(signatures, chunkSize) {
@@ -301,9 +301,9 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 		require.Equal(t, newXRPLBase, operation.XRPLBaseFee)
 		require.Empty(t, operation.Signatures)
 		signatures = append(signatures, coreum.SaveSignatureRequest{
-			OperationID:      operation.TicketSequence,
-			OperationVersion: operation.Version,
-			Signature:        xrplTxSignature,
+			OperationSequence: operation.TicketSequence,
+			OperationVersion:  operation.Version,
+			Signature:         xrplTxSignature,
 		})
 	}
 	for _, saveSignatureRequestsChunk := range lo.Chunk(signatures, chunkSize) {
