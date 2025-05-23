@@ -1480,7 +1480,7 @@ func (c *ContractClient) GetXRPLToCoreumTracingInfo(
 		if err != nil {
 			return XRPLToCoreumTracingInfo{}, err
 		}
-		for i, payload := range executePayloads {
+		for _, payload := range executePayloads {
 			if payload.SaveEvidence == nil || payload.SaveEvidence.Evidence.XRPLToCoreumTransfer == nil {
 				continue
 			}
@@ -1490,7 +1490,9 @@ func (c *ContractClient) GetXRPLToCoreumTracingInfo(
 					Evidence: *payload.SaveEvidence.Evidence.XRPLToCoreumTransfer,
 					Tx:       tx,
 				})
-			if isEventValueEqual(tx.Logs[i].Events, wasmtypes.WasmModuleEventType, eventAttributeThresholdReached, "true") {
+			if val, err := event.FindStringEventAttribute(
+				tx.Events, wasmtypes.WasmModuleEventType, eventAttributeThresholdReached,
+			); err == nil && val == "true" {
 				xrplToCoreumTracingInfo.CoreumTx = tx
 			}
 		}
@@ -1871,25 +1873,6 @@ func (c *ContractClient) decodeExecutePayload(txAny *sdk.TxResponse) ([]ExecuteP
 	}
 
 	return executePayloads, nil
-}
-
-func isEventValueEqual(
-	events sdk.StringEvents,
-	etype, key, value string,
-) bool {
-	for _, ev := range events {
-		if ev.Type != etype {
-			continue
-		}
-		for _, attr := range ev.Attributes {
-			if attr.Key != key {
-				continue
-			}
-
-			return attr.Value == value
-		}
-	}
-	return false
 }
 
 func (c *ContractClient) getSendToXRPLOperationIDs(
