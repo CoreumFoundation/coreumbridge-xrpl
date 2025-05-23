@@ -10023,7 +10023,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::CancelPendingOperation {
-                operation_id: query_pending_operations.operations[0]
+                operation_sequence: query_pending_operations.operations[0]
                     .account_sequence
                     .unwrap(),
             },
@@ -10154,7 +10154,7 @@ mod tests {
             .execute::<ExecuteMsg>(
                 &contract_addr,
                 &ExecuteMsg::CancelPendingOperation {
-                    operation_id: query_pending_operations.operations[0]
+                    operation_sequence: query_pending_operations.operations[0]
                         .ticket_sequence
                         .unwrap(),
                 },
@@ -10171,7 +10171,7 @@ mod tests {
         let cancel_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::CancelPendingOperation { operation_id: 50 },
+                &ExecuteMsg::CancelPendingOperation { operation_sequence: 50 },
                 &vec![],
                 &signer,
             )
@@ -10187,7 +10187,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::CancelPendingOperation {
-                operation_id: query_pending_operations.operations[0]
+                operation_sequence: query_pending_operations.operations[0]
                     .ticket_sequence
                     .unwrap(),
             },
@@ -10241,7 +10241,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::CancelPendingOperation {
-                operation_id: query_pending_operations.operations[0]
+                operation_sequence: query_pending_operations.operations[0]
                     .ticket_sequence
                     .unwrap(),
             },
@@ -10294,7 +10294,7 @@ mod tests {
         wasm.execute::<ExecuteMsg>(
             &contract_addr,
             &ExecuteMsg::CancelPendingOperation {
-                operation_id: query_pending_operations.operations[0]
+                operation_sequence: query_pending_operations.operations[0]
                     .ticket_sequence
                     .unwrap(),
             },

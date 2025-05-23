@@ -154,7 +154,8 @@ pub enum ExecuteMsg {
     // This will almost NEVER be used, unless there is some expected operation that causes an error on relayers
     // Only owner can do this
     CancelPendingOperation {
-        operation_id: u64,
+        #[serde(rename = "operation_id")]
+        operation_sequence: u64,
     },
 }
 

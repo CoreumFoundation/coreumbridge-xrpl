@@ -337,8 +337,8 @@ pub fn execute(
             info.sender,
             prohibited_xrpl_addresses,
         ),
-        ExecuteMsg::CancelPendingOperation { operation_id } => {
-            cancel_pending_operation(deps.into_empty(), info.sender, operation_id)
+        ExecuteMsg::CancelPendingOperation { operation_sequence } => {
+            cancel_pending_operation(deps.into_empty(), info.sender, operation_sequence)
         }
     }
 }
