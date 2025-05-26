@@ -22,7 +22,7 @@ require (
 	cosmossdk.io/math v1.5.0
 	github.com/99designs/keyring v1.2.2
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a
-	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250522144034-30c48595e08f
+	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250526103302-5a3f05b11008
 	github.com/CosmWasm/wasmd v0.54.0
 	github.com/cometbft/cometbft v0.38.17
 	github.com/cosmos/cosmos-sdk v0.50.13
