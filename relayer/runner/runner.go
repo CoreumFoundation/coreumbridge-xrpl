@@ -8,10 +8,13 @@ import (
 	"runtime/debug"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/pkg/errors"
 	rippledata "github.com/rubblelabs/ripple/data"
 	"go.uber.org/zap"
@@ -21,10 +24,9 @@ import (
 
 	toolshttp "github.com/CoreumFoundation/coreum-tools/pkg/http"
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
-	coreumapp "github.com/CoreumFoundation/coreum/v4/app"
-	coreumchainclient "github.com/CoreumFoundation/coreum/v4/pkg/client"
-	coreumchainconfig "github.com/CoreumFoundation/coreum/v4/pkg/config"
-	coreumchainconstant "github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
+	coreumchainclient "github.com/CoreumFoundation/coreum/v5/pkg/client"
+	coreumchainconfig "github.com/CoreumFoundation/coreum/v5/pkg/config"
+	coreumchainconstant "github.com/CoreumFoundation/coreum/v5/pkg/config/constant"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/logger"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/metrics"
@@ -163,8 +165,6 @@ func (r *Runner) Start(ctx context.Context) error {
 	}
 	return parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 		for name, start := range runnerProcesses {
-			name := name
-			start := start
 			spawn(name, parallel.Continue, func(ctx context.Context) error {
 				ctx = tracing.WithTracingProcess(ctx, name)
 				return start(ctx)
@@ -234,9 +234,7 @@ type Components struct {
 
 // NewComponents creates components required by runner and other CLI commands.
 func NewComponents(
-	cfg Config,
-	xrplSDKClientCtx, coreumSDKClientCtx client.Context,
-	log logger.Logger,
+	cfg Config, xrplSDKClientCtx, coreumSDKClientCtx client.Context, log logger.Logger,
 ) (Components, error) {
 	metricsRegistry := metrics.NewRegistry()
 	log, err := logger.WithMetrics(log, metricsRegistry)
@@ -254,10 +252,13 @@ func NewComponents(
 	coreumClientContextCfg.TimeoutConfig.TxTimeout = cfg.Coreum.Contract.TxTimeout
 	coreumClientContextCfg.TimeoutConfig.TxStatusPollInterval = cfg.Coreum.Contract.TxStatusPollInterval
 
-	coreumClientCtx := coreumchainclient.NewContext(coreumClientContextCfg, coreumapp.ModuleBasics).
+	coreumClientCtx := coreumchainclient.NewContext(
+		coreumClientContextCfg, auth.AppModuleBasic{}, wasm.AppModuleBasic{},
+	).
 		WithKeyring(coreumSDKClientCtx.Keyring).
 		WithGenerateOnly(coreumSDKClientCtx.GenerateOnly).
-		WithFromAddress(coreumSDKClientCtx.FromAddress)
+		WithFromAddress(coreumSDKClientCtx.FromAddress).
+		WithUnsignedSimulation(true)
 
 	if cfg.Coreum.Network.ChainID != "" {
 		coreumChainNetworkConfig, err := coreumchainconfig.NetworkConfigByChainID(
@@ -265,13 +266,11 @@ func NewComponents(
 		)
 		if err != nil {
 			return Components{}, errors.Wrapf(
-				err,
-				"failed to set get correum network config for the chainID, chainID:%s",
+				err, "failed to set get correum network config for the chainID, chainID:%s",
 				cfg.Coreum.Network.ChainID,
 			)
 		}
 		coreumClientCtx = coreumClientCtx.WithChainID(cfg.Coreum.Network.ChainID)
-
 		coreum.SetSDKConfig(coreumChainNetworkConfig.Provider.GetAddressPrefix())
 	}
 
@@ -281,15 +280,16 @@ func NewComponents(
 		contractAddress, err = sdk.AccAddressFromBech32(cfg.Coreum.Contract.ContractAddress)
 		if err != nil {
 			return Components{}, errors.Wrapf(
-				err,
-				"failed to decode contract address to sdk.AccAddress, address:%s",
+				err, "failed to decode contract address to sdk.AccAddress, address:%s",
 				cfg.Coreum.Contract.ContractAddress,
 			)
 		}
 	}
 	contractClientCfg := coreum.DefaultContractClientConfig(contractAddress)
 	contractClientCfg.GasAdjustment = cfg.Coreum.Contract.GasAdjustment
-	contractClientCfg.GasPriceAdjustment = sdk.MustNewDecFromStr(fmt.Sprintf("%f", cfg.Coreum.Contract.GasPriceAdjustment))
+	contractClientCfg.GasPriceAdjustment = sdkmath.LegacyMustNewDecFromStr(
+		fmt.Sprintf("%f", cfg.Coreum.Contract.GasPriceAdjustment),
+	)
 	contractClientCfg.PageLimit = cfg.Coreum.Contract.PageLimit
 	contractClientCfg.OutOfGasRetryDelay = cfg.Coreum.Contract.OutOfGasRetryDelay
 	contractClientCfg.OutOfGasRetryAttempts = cfg.Coreum.Contract.OutOfGasRetryAttempts
@@ -307,12 +307,7 @@ func NewComponents(
 	metricsPeriodicCollectorCfg := metrics.DefaultPeriodicCollectorConfig()
 	metricsPeriodicCollectorCfg.RepeatDelay = cfg.Metrics.PeriodicCollector.RepeatDelay
 	metricsPeriodicCollector := metrics.NewPeriodicCollector(
-		metricsPeriodicCollectorCfg,
-		log,
-		metricsRegistry,
-		xrplRPCClient,
-		contractClient,
-		coreumClientCtx,
+		metricsPeriodicCollectorCfg, log, metricsRegistry, xrplRPCClient, contractClient, coreumClientCtx,
 	)
 
 	var xrplKeyringTxSigner *xrpl.KeyringTxSigner
@@ -356,7 +351,7 @@ func getGRPCClientConn(grpcURL string) (*grpc.ClientConn, error) {
 		return nil, errors.Wrap(err, "failed to parse grpc URL")
 	}
 
-	encodingConfig := coreumchainconfig.NewEncodingConfig(coreumapp.ModuleBasics)
+	encodingConfig := coreumchainconfig.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{})
 	pc, ok := encodingConfig.Codec.(codec.GRPCCodecProvider)
 	if !ok {
 		return nil, errors.New("failed to cast codec to codec.GRPCCodecProvider)")
@@ -366,7 +361,7 @@ func getGRPCClientConn(grpcURL string) (*grpc.ClientConn, error) {
 
 	// https - tls grpc
 	if parsedURL.Scheme == "https" {
-		grpcClient, err := grpc.Dial(
+		grpcClient, err := grpc.NewClient(
 			host,
 			grpc.WithDefaultCallOptions(grpc.ForceCodec(pc.GRPCCodec())),
 			grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})),
@@ -382,7 +377,7 @@ func getGRPCClientConn(grpcURL string) (*grpc.ClientConn, error) {
 		host = fmt.Sprintf("%s:%s", parsedURL.Scheme, parsedURL.Opaque)
 	}
 	// http - insecure
-	grpcClient, err := grpc.Dial(
+	grpcClient, err := grpc.NewClient(
 		host,
 		grpc.WithDefaultCallOptions(grpc.ForceCodec(pc.GRPCCodec())),
 		grpc.WithTransportCredentials(insecure.NewCredentials()))

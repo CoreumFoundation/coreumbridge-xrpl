@@ -7,11 +7,10 @@ import (
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/stretchr/testify/require"
 
-	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
+	coreumintegration "github.com/CoreumFoundation/coreum/v5/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -53,7 +52,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 	// recover tickets to be able to create operations from coreum to XRPL
 	recoverTickets(ctx, t, contractClient, owner, initialRelayers, 100)
 
-	maxHoldingAmount := sdk.NewIntFromUint64(1_000_000_000)
+	maxHoldingAmount := sdkmath.NewIntFromUint64(1_000_000_000)
 	sendingPrecision := int32(15)
 
 	xrplIssuerAcc := chains.XRPL.GenAccount(ctx, t, 0)
@@ -88,7 +87,7 @@ func TestKeysRotationWithRecovery(t *testing.T) {
 		coreumTokenDecimals,
 		sendingPrecision,
 		maxHoldingAmount,
-		sdk.ZeroInt(),
+		sdkmath.ZeroInt(),
 	)
 	require.NoError(t, err)
 
@@ -327,10 +326,10 @@ func TestKeysRotationWithProhibitedAddresses(t *testing.T) {
 	require.NoError(t, err)
 
 	// keys rotation
-	for i := 0; i < len(prohibitedXRPLAddresses); i++ {
+	for _, prohibitedXRPLAddress := range prohibitedXRPLAddresses {
 		newRelayers := genRelayers(ctx, t, chains, 2)
 		// set one address from prohibited list
-		newRelayers[0].XRPLAddress = prohibitedXRPLAddresses[i]
+		newRelayers[0].XRPLAddress = prohibitedXRPLAddress
 		_, err = contractClient.RotateKeys(ctx,
 			owner,
 			newRelayers,

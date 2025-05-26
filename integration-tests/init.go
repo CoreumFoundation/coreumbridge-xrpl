@@ -61,6 +61,7 @@ func init() {
 	if err != nil {
 		panic(errors.Wrapf(err, "failed to init coreum chain"))
 	}
+	coreumChain.Chain.ClientContext = coreumChain.Chain.ClientContext.WithCodec(coreumChain.Chain.EncodingConfig.Codec)
 	chains.Coreum = coreumChain
 
 	xrplChain, err := NewXRPLChain(xrplCfg, chains.Log)

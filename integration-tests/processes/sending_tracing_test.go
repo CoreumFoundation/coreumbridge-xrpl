@@ -11,7 +11,7 @@ import (
 	rippledata "github.com/rubblelabs/ripple/data"
 	"github.com/stretchr/testify/require"
 
-	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
+	coreumintegration "github.com/CoreumFoundation/coreum/v5/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -42,7 +42,7 @@ func TestTraceXRPLToCoreumTransfer(t *testing.T) {
 		registeredXRPLCurrency,
 		int32(6),
 		integrationtests.ConvertStringWithDecimalsToSDKInt(t, "1", 30),
-		sdk.ZeroInt(),
+		sdkmath.ZeroInt(),
 	)
 
 	valueSentToCoreum, err := rippledata.NewValue("1.0", false)

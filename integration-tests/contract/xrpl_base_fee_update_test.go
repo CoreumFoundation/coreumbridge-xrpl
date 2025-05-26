@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/parallel"
-	coreumintegration "github.com/CoreumFoundation/coreum/v4/testutil/integration"
+	coreumintegration "github.com/CoreumFoundation/coreum/v5/testutil/integration"
 	integrationtests "github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
@@ -115,7 +115,7 @@ func TestUpdateXRPLBaseFee(t *testing.T) {
 
 	operationCountToGenerate := 5
 	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0, operationCountToGenerate)
-	for i := 0; i < operationCountToGenerate; i++ {
+	for range operationCountToGenerate {
 		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
 			Recipient:     xrplRecipientAddress.String(),
 			Amount:        sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(10)),
@@ -203,7 +203,7 @@ func TestUpdateXRPLBaseFeeForMaxOperationCount(t *testing.T) {
 	operationCountToGenerate := int(xrpl.MaxTicketsToAllocate - 1)
 	t.Logf("Sending %d SendToXRPL transactions", operationCountToGenerate)
 	sendToXRPLRequests := make([]coreum.SendToXRPLRequest, 0, operationCountToGenerate)
-	for i := 0; i < operationCountToGenerate; i++ {
+	for range operationCountToGenerate {
 		sendToXRPLRequests = append(sendToXRPLRequests, coreum.SendToXRPLRequest{
 			Recipient:     xrplRecipientAddress.String(),
 			Amount:        sdk.NewCoin(registeredCoreumOriginatedToken.Denom, sdkmath.NewInt(10)),
@@ -248,8 +248,7 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 			relayerCopy := relayer
 			spawn(fmt.Sprintf("relayer-%d", i), parallel.Continue, func(ctx context.Context) error {
 				signatures := make([]coreum.SaveSignatureRequest, 0)
-				for j := 0; j < len(pendingOperations); j++ {
-					operation := pendingOperations[j]
+				for _, operation := range pendingOperations {
 					if initialOperationVersion != operation.Version {
 						return errors.Errorf(
 							"versions mismatch, expected: %d, got: %d", initialOperationVersion, operation.Version)
@@ -295,8 +294,7 @@ func assertOperationsUpdateAfterXRPLBaseFeeUpdate(
 	t.Logf("Saving signatures for first relayer with different operation version")
 	relayer := relayers[0]
 	signatures := make([]coreum.SaveSignatureRequest, 0)
-	for i := 0; i < len(pendingOperations); i++ {
-		operation := pendingOperations[i]
+	for _, operation := range pendingOperations {
 		require.Equal(t, nextOperationVersion, operation.Version)
 		require.Equal(t, newXRPLBase, operation.XRPLBaseFee)
 		require.Empty(t, operation.Signatures)

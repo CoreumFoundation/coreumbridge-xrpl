@@ -284,7 +284,6 @@ func NewComponents(cmd *cobra.Command, log logger.Logger) (runner.Components, er
 	if err != nil {
 		return runner.Components{}, errors.Wrap(err, "failed to configure coreum keyring")
 	}
-
 	components, err := runner.NewComponents(cfg, xrplClientCtx, coreumClientCtx, log)
 	if err != nil {
 		return runner.Components{}, err
