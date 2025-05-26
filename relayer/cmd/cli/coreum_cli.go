@@ -25,9 +25,6 @@ import (
 	"github.com/CoreumFoundation/coreumbridge-xrpl/relayer/xrpl"
 )
 
-// FlagUnsignedSimulation unsigned simulation flag.
-const FlagUnsignedSimulation = "unsigned-simulation"
-
 // CoreumCmd returns aggregated Coreum commands.
 func CoreumCmd(bcp BridgeClientProvider) (*cobra.Command, error) {
 	coreumCmd := &cobra.Command{
@@ -1074,9 +1071,6 @@ func AddCoreumTxFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().Bool(flags.FlagGenerateOnly, false, "Generate unsigned transaction")
 	cmd.PersistentFlags().Bool(
 		FlagFromOwner, false, "Sets message sender to owner address specified in contract config",
-	)
-	cmd.PersistentFlags().Bool(
-		FlagUnsignedSimulation, false, "Do not require keys to generate transaction",
 	)
 }
 

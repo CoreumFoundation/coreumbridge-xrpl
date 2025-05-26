@@ -284,17 +284,6 @@ func NewComponents(cmd *cobra.Command, log logger.Logger) (runner.Components, er
 	if err != nil {
 		return runner.Components{}, errors.Wrap(err, "failed to configure coreum keyring")
 	}
-
-	if coreumClientCtx.CmdContext == nil {
-		coreumClientCtx.CmdContext = context.Background()
-	}
-
-	if unsignedSimulation, err := cmd.Flags().GetBool(FlagUnsignedSimulation); err == nil {
-		coreumClientCtx = coreumClientCtx.WithCmdContext(
-			context.WithValue(coreumClientCtx.CmdContext, runner.UnsignedSimulationKey, unsignedSimulation),
-		)
-	}
-
 	components, err := runner.NewComponents(cfg, xrplClientCtx, coreumClientCtx, log)
 	if err != nil {
 		return runner.Components{}, err
