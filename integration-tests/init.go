@@ -61,7 +61,7 @@ func init() {
 	if err != nil {
 		panic(errors.Wrapf(err, "failed to init coreum chain"))
 	}
-	coreumChain.Chain.ClientContext = coreumChain.Chain.ClientContext.WithCodec(coreumChain.Chain.EncodingConfig.Codec)
+	coreumChain.ClientContext = coreumChain.ClientContext.WithCodec(coreumChain.EncodingConfig.Codec)
 	chains.Coreum = coreumChain
 
 	xrplChain, err := NewXRPLChain(xrplCfg, chains.Log)
@@ -73,7 +73,7 @@ func init() {
 
 // NewTestingContext returns the configured coreum and xrpl chains and new context for the integration tests.
 func NewTestingContext(t *testing.T) (context.Context, Chains) {
-	testCtx, testCtxCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	testCtx, testCtxCancel := context.WithTimeout(t.Context(), 30*time.Minute)
 	t.Cleanup(func() {
 		require.NoError(t, testCtx.Err())
 		testCtxCancel()

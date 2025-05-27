@@ -26,7 +26,7 @@ func ConvertXRPLAmountToCoreumAmount(xrplAmount rippledata.Amount) (sdkmath.Int,
 	if xrplAmount.Value == nil {
 		return sdkmath.ZeroInt(), nil
 	}
-	xrplRatAmount := xrplAmount.Value.Rat()
+	xrplRatAmount := xrplAmount.Rat()
 	// native amount is represented as int value
 	if xrplAmount.IsNative() {
 		return sdkmath.NewIntFromBigInt(xrplRatAmount.Num()), nil
@@ -69,7 +69,7 @@ func ConvertCoreumAmountToXRPLAmount(
 }
 
 func convertXRPLAmountToCoreumAmountWithDecimals(xrplAmount rippledata.Amount, decimals uint32) (sdkmath.Int, error) {
-	xrplRatAmount := xrplAmount.Value.Rat()
+	xrplRatAmount := xrplAmount.Rat()
 	// not XRP value is repressed as value multiplied by 1e15
 	tenPowerDec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
 	binIntAmount := big.NewInt(0).Quo(big.NewInt(0).Mul(tenPowerDec, xrplRatAmount.Num()), xrplRatAmount.Denom())
