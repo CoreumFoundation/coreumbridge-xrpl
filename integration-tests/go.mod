@@ -19,8 +19,8 @@ replace (
 require (
 	cosmossdk.io/math v1.5.0
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a
-	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250526103302-5a3f05b11008
-	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
+	github.com/CoreumFoundation/coreum/v5 v5.0.1
+	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v0.0.0-20250527143644-cbcab8dddcfd
 	github.com/CosmWasm/wasmd v0.54.0
 	github.com/cosmos/cosmos-sdk v0.50.13
 	github.com/google/uuid v1.6.0
@@ -220,7 +220,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/mock v0.4.0 // indirect
+	go.uber.org/mock v0.5.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
@@ -246,5 +246,3 @@ require (
 	pgregory.net/rapid v1.1.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace github.com/CoreumFoundation/coreumbridge-xrpl/relayer => ../relayer
