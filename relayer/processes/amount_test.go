@@ -89,7 +89,6 @@ func TestConvertXRPLAmountToCoreumAmount(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := processes.ConvertXRPLAmountToCoreumAmount(tt.xrplAmount)
@@ -184,7 +183,6 @@ func TestConvertCoreumAmountToXRPLAmount(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := processes.ConvertCoreumAmountToXRPLAmount(tt.coreumAmount, tt.issuer, tt.currency)

@@ -461,7 +461,7 @@ func (c *yamlConsoleEncoder) appendCustomTypes(value any) bool {
 
 func (c *yamlConsoleEncoder) indentation() string {
 	var res string
-	for i := 0; i < c.nested; i++ {
+	for range c.nested {
 		res += "  "
 	}
 	return res
@@ -506,7 +506,7 @@ func (c *yamlConsoleEncoder) appendError(field zapcore.Field) bool {
 		return false
 	}
 
-	errStack, ok := err.(stackTracer) //nolint:errorlint // we check interface, not error here
+	errStack, ok := err.(stackTracer)
 	if !ok {
 		return false
 	}
@@ -545,7 +545,7 @@ func (c *yamlConsoleEncoder) appendComplex128(value complex128) {
 func (c *yamlConsoleEncoder) appendReflectedSequence(v reflect.Value) error {
 	return c.AppendArray(zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
 		n := v.Len()
-		for i := 0; i < n; i++ {
+		for i := range n {
 			if err := enc.AppendReflected(v.Index(i).Interface()); err != nil {
 				return err
 			}
@@ -570,7 +570,7 @@ func (c *yamlConsoleEncoder) appendReflectedStruct(v reflect.Value) error {
 	return c.AppendObject(zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		t := v.Type()
 		n := t.NumField()
-		for i := 0; i < n; i++ {
+		for i := range n {
 			f := t.Field(i)
 			if !f.IsExported() {
 				continue

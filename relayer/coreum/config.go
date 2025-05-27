@@ -3,7 +3,7 @@ package coreum
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/CoreumFoundation/coreum/v4/pkg/config/constant"
+	"github.com/CoreumFoundation/coreum/v5/pkg/config/constant"
 )
 
 // SetSDKConfig sets global Cosmos SDK config.

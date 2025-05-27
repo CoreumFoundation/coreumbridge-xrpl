@@ -8,17 +8,20 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	clienttestutil "github.com/cosmos/cosmos-sdk/client/testutil"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/stretchr/testify/require"
+
+	"github.com/CoreumFoundation/coreum/v5/pkg/config"
 )
 
 func Test_runImportCmd(t *testing.T) {
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := config.NewEncodingConfig().Codec
 	testCases := []struct {
 		name           string
 		keyringBackend string
@@ -117,7 +120,7 @@ HbP+c6JmeJy9JXe2rbbF1QtCX1gLqGcDQPBXiCtFvP7/8wTZtVOPj8vREzhZ9ElO
 }
 
 func Test_runImportHexCmd(t *testing.T) {
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := config.NewEncodingConfig(auth.AppModuleBasic{}, wasm.AppModuleBasic{}).Codec
 	testCases := []struct {
 		name           string
 		keyringBackend string

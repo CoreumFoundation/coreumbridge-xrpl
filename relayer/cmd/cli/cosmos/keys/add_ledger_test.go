@@ -14,12 +14,13 @@ import (
 	"github.com/cometbft/cometbft/libs/cli"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	clienttestutil "github.com/cosmos/cosmos-sdk/client/testutil"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
+
+	coreumconfig "github.com/CoreumFoundation/coreum/v5/pkg/config"
 )
 
 func Test_runAddCmdLedgerWithCustomCoinType(t *testing.T) {
@@ -44,7 +45,7 @@ func Test_runAddCmdLedgerWithCustomCoinType(t *testing.T) {
 	// Prepare a keybase
 	kbHome := t.TempDir()
 
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := coreumconfig.NewEncodingConfig().Codec
 	clientCtx := client.Context{}.WithKeyringDir(kbHome).WithCodec(cdc)
 	ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
 
@@ -96,7 +97,7 @@ func Test_runAddCmdLedger(t *testing.T) {
 
 	mockIn := testutil.ApplyMockIODiscardOutErr(cmd)
 	kbHome := t.TempDir()
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := coreumconfig.NewEncodingConfig().Codec
 
 	clientCtx := client.Context{}.WithKeyringDir(kbHome).WithCodec(cdc)
 	ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
@@ -137,7 +138,7 @@ func Test_runAddCmdLedger(t *testing.T) {
 }
 
 func Test_runAddCmdLedgerDryRun(t *testing.T) {
-	cdc := clienttestutil.MakeTestCodec(t)
+	cdc := coreumconfig.NewEncodingConfig().Codec
 	testData := []struct {
 		name  string
 		args  []string
@@ -164,7 +165,6 @@ func Test_runAddCmdLedgerDryRun(t *testing.T) {
 	}
 
 	for _, tt := range testData {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := AddKeyCommand()
 			cmd.Flags().AddFlagSet(Commands("home").PersistentFlags())

@@ -1,12 +1,14 @@
-//nolint:funlen,godot,staticcheck,nestif,errorlint
+//nolint:funlen,godot,nestif,errorlint
 package keys
 
 import (
 	"errors"
 	"fmt"
 
+	sdkerrors "cosmossdk.io/errors"
 	"github.com/cometbft/cometbft/libs/cli"
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/multisig"
 	"github.com/cosmos/cosmos-sdk/crypto/ledger"
@@ -142,15 +144,15 @@ func runShowCmd(cmd *cobra.Command, args []string) (err error) {
 
 	if isShowDevice {
 		if isShowPubKey {
-			return fmt.Errorf("the device flag (-d) can only be used for addresses not pubkeys")
+			return errors.New("the device flag (-d) can only be used for addresses not pubkeys")
 		}
 		if bechPrefix != "acc" {
-			return fmt.Errorf("the device flag (-d) can only be used for accounts")
+			return errors.New("the device flag (-d) can only be used for accounts")
 		}
 
 		// Override and show in the device
 		if k.GetType() != keyring.TypeLedger {
-			return fmt.Errorf("the device flag (-d) can only be used for accounts stored in devices")
+			return errors.New("the device flag (-d) can only be used for accounts stored in devices")
 		}
 
 		ledgerItem := k.GetLedger()
@@ -175,7 +177,7 @@ func fetchKey(kb keyring.Keyring, keyref string) (*keyring.Record, error) {
 	// if the key is not there or if we have a problem with a keyring itself then we move to a
 	// fallback: searching for key by address.
 
-	if err == nil || !sdkerr.IsOf(err, sdkerr.ErrIO, sdkerr.ErrKeyNotFound) {
+	if err == nil || !sdkerrors.IsOf(err, sdkerr.ErrIO, sdkerr.ErrKeyNotFound) {
 		return k, err
 	}
 
@@ -185,12 +187,12 @@ func fetchKey(kb keyring.Keyring, keyref string) (*keyring.Record, error) {
 	}
 
 	k, err = kb.KeyByAddress(accAddr)
-	return k, sdkerr.Wrap(err, "Invalid key")
+	return k, sdkerrors.Wrap(err, "Invalid key")
 }
 
 func validateMultisigThreshold(k, nKeys int) error {
 	if k <= 0 {
-		return fmt.Errorf("threshold must be a positive integer")
+		return errors.New("threshold must be a positive integer")
 	}
 	if nKeys < k {
 		return fmt.Errorf(
@@ -204,9 +206,9 @@ func getBechKeyOut(bechPrefix string) (bechKeyOutFn, error) {
 	case sdk.PrefixAccount:
 		return overridekeyring.MkAccKeyOutput, nil
 	case sdk.PrefixValidator:
-		return keyring.MkValKeyOutput, nil
+		return keys.MkValKeyOutput, nil
 	case sdk.PrefixConsensus:
-		return keyring.MkConsKeyOutput, nil
+		return keys.MkConsKeyOutput, nil
 	}
 
 	return nil, fmt.Errorf("invalid Bech32 prefix encoding provided: %s", bechPrefix)
