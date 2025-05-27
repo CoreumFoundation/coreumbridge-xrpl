@@ -145,7 +145,7 @@ func TestSendXRPLOriginatedTokensFromXRPLToCoreumAndBack(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, fees, 1)
 		expectedFees := bridgingFee.MulRaw(5).QuoRaw(int64(envCfg.RelayersCount))
-		require.EqualValues(t, expectedFees.String(), fees.AmountOf(registeredXRPLToken.CoreumDenom).String())
+		require.Equal(t, expectedFees.String(), fees.AmountOf(registeredXRPLToken.CoreumDenom).String())
 	}
 }
 

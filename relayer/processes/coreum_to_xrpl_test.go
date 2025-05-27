@@ -682,7 +682,7 @@ func multiSignOperationFromMultipleSignersWithLastInvalidSignature(
 	bridgeXRPLAddress rippledata.Account,
 	signingFunc func(*testing.T, *xrpl.PrivKeyTxSigner, rippledata.Account, coreum.Operation) rippledata.Signer,
 ) (coreum.Operation, []rippledata.Signer) {
-	require.Equal(t, len(xrplTxSigners), len(contractRelayers))
+	require.Len(t, contractRelayers, len(xrplTxSigners))
 	require.Greater(t, len(xrplTxSigners), 2)
 	operationWithSignatures := operation
 
