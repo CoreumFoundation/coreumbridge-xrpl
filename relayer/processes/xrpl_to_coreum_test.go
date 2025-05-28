@@ -23,6 +23,8 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 	recipientXRPLAddress := xrpl.GenPrivKeyTxSigner().Account()
 	issuerAccount := xrpl.GenPrivKeyTxSigner().Account()
 
+	ctx := context.Background()
+
 	// tecPATH_PARTIAL
 	failTxResult := rippledata.TransactionResult(101)
 	// tefBAD_AUTH
@@ -713,7 +715,7 @@ func TestXRPLToCoreumProcess_Start(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx, cancel := context.WithCancel(t.Context())
+			ctx, cancel := context.WithCancel(ctx)
 			t.Cleanup(cancel)
 
 			ctrl := gomock.NewController(t)
