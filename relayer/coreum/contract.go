@@ -35,11 +35,11 @@ const (
 	// RelayerCoreumMemoPrefix is memo prefix for the relayer transaction.
 	RelayerCoreumMemoPrefix = "Coreum XRPL bridge relayer version:"
 
-	eventAttributeAction           = "action"
-	eventAttributeHash             = "hash"
-	eventAttributeThresholdReached = "threshold_reached"
-	eventAttributeOperationID      = "operation_id"
-	eventValueSaveAction           = "save_evidence"
+	eventAttributeAction            = "action"
+	eventAttributeHash              = "hash"
+	eventAttributeThresholdReached  = "threshold_reached"
+	eventAttributeOperationSequence = "operation_id"
+	eventValueSaveAction            = "save_evidence"
 )
 
 // ExecMethod is contract exec method.
@@ -264,8 +264,8 @@ type Operation struct {
 	XRPLBaseFee     uint32        `json:"xrpl_base_fee"`
 }
 
-// GetOperationID returns operation ID.
-func (o Operation) GetOperationID() uint32 {
+// GetOperationSequence returns operation sequence.
+func (o Operation) GetOperationSequence() uint32 {
 	if o.TicketSequence != 0 {
 		return o.TicketSequence
 	}
@@ -282,9 +282,9 @@ type SendToXRPLRequest struct {
 
 // SaveSignatureRequest defines single request to save relayer signature.
 type SaveSignatureRequest struct {
-	OperationID      uint32
-	OperationVersion uint32
-	Signature        string
+	OperationSequence uint32
+	OperationVersion  uint32
+	Signature         string
 }
 
 // PendingRefund holds the pending refund information.
@@ -377,9 +377,9 @@ type rotateKeysRequest struct {
 }
 
 type saveSignatureRequest struct {
-	OperationID      uint32 `json:"operation_id"`
-	OperationVersion uint32 `json:"operation_version"`
-	Signature        string `json:"signature"`
+	OperationSequence uint32 `json:"operation_id"`
+	OperationVersion  uint32 `json:"operation_version"`
+	Signature         string `json:"signature"`
 }
 
 type recoverXRPLTokenRegistrationRequest struct {
@@ -421,7 +421,7 @@ type updateProhibitedXRPLAddressesRequest struct {
 }
 
 type cancelPendingOperationRequest struct {
-	OperationID uint32 `json:"operation_id"`
+	OperationSequence uint32 `json:"operation_id"`
 }
 
 type xrplTransactionEvidenceTicketsAllocationOperationResult struct {
@@ -942,7 +942,7 @@ func (c *ContractClient) RecoverTickets(
 func (c *ContractClient) SaveSignature(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	operationID uint32,
+	operationSequence uint32,
 	operationVersion uint32,
 	signature string,
 ) (*sdk.TxResponse, error) {
@@ -950,9 +950,9 @@ func (c *ContractClient) SaveSignature(
 		ctx,
 		sender,
 		SaveSignatureRequest{
-			OperationID:      operationID,
-			OperationVersion: operationVersion,
-			Signature:        signature,
+			OperationSequence: operationSequence,
+			OperationVersion:  operationVersion,
+			Signature:         signature,
 		},
 	)
 }
@@ -968,9 +968,9 @@ func (c *ContractClient) SaveMultipleSignatures(
 		execRequests = append(execRequests, execRequest{
 			Body: map[ExecMethod]saveSignatureRequest{
 				ExecMethodSaveSignature: {
-					OperationID:      req.OperationID,
-					OperationVersion: req.OperationVersion,
-					Signature:        req.Signature,
+					OperationSequence: req.OperationSequence,
+					OperationVersion:  req.OperationVersion,
+					Signature:         req.Signature,
 				},
 			},
 		})
@@ -1219,12 +1219,12 @@ func (c *ContractClient) UpdateXRPLBaseFee(
 func (c *ContractClient) CancelPendingOperation(
 	ctx context.Context,
 	sender sdk.AccAddress,
-	operationID uint32,
+	operationSequence uint32,
 ) (*sdk.TxResponse, error) {
 	txRes, err := c.execute(ctx, sender, execRequest{
 		Body: map[ExecMethod]cancelPendingOperationRequest{
 			ExecCancelPendingOperation: {
-				OperationID: operationID,
+				OperationSequence: operationSequence,
 			},
 		},
 	})
@@ -1535,12 +1535,12 @@ func (c *ContractClient) GetCoreumToXRPLTracingInfo(
 		if payload.SendToXRPL == nil {
 			continue
 		}
-		operationIDs, err := c.getSendToXRPLOperationIDs(ctx, *payload.SendToXRPL, tx.Height)
+		operationSequences, err := c.getSendToXRPLOperationSequences(ctx, *payload.SendToXRPL, tx.Height)
 		if err != nil {
 			return CoreumToXRPLTracingInfo{}, err
 		}
-		for _, operationID := range operationIDs {
-			evidenceToTxs, xrplTxHashes, err := c.getXRPLTxsFromSaveTxResultEvidenceForOperation(ctx, operationID)
+		for _, operationSequence := range operationSequences {
+			evidenceToTxs, xrplTxHashes, err := c.getXRPLTxsFromSaveTxResultEvidenceForOperation(ctx, operationSequence)
 			if err != nil {
 				return CoreumToXRPLTracingInfo{}, err
 			}
@@ -1554,12 +1554,12 @@ func (c *ContractClient) GetCoreumToXRPLTracingInfo(
 
 func (c *ContractClient) getXRPLTxsFromSaveTxResultEvidenceForOperation(
 	ctx context.Context,
-	operationID uint32,
+	operationSequence uint32,
 ) ([]DataToTx[XRPLTransactionResultEvidence], []string, error) {
 	txs, err := c.getContractTransactionsByWasmEventAttributes(ctx,
 		map[string]string{
-			eventAttributeAction:      eventValueSaveAction,
-			eventAttributeOperationID: strconv.FormatUint(uint64(operationID), 10),
+			eventAttributeAction:            eventValueSaveAction,
+			eventAttributeOperationSequence: strconv.FormatUint(uint64(operationSequence), 10),
 		},
 	)
 	if err != nil {
@@ -1875,7 +1875,7 @@ func (c *ContractClient) decodeExecutePayload(txAny *sdk.TxResponse) ([]ExecuteP
 	return executePayloads, nil
 }
 
-func (c *ContractClient) getSendToXRPLOperationIDs(
+func (c *ContractClient) getSendToXRPLOperationSequences(
 	ctx context.Context,
 	sendReq SendToXRPLRequest,
 	txHeight int64,
@@ -1893,23 +1893,23 @@ func (c *ContractClient) getSendToXRPLOperationIDs(
 	}
 
 	operationsBeforeMap := lo.SliceToMap(operationsBefore, func(operation Operation) (uint32, Operation) {
-		return operation.GetOperationID(), operation
+		return operation.GetOperationSequence(), operation
 	})
 
-	operationIDs := make([]uint32, 0)
+	operationSequences := make([]uint32, 0)
 	for _, operation := range operationsAfter {
-		if _, ok := operationsBeforeMap[operation.GetOperationID()]; !ok {
+		if _, ok := operationsBeforeMap[operation.GetOperationSequence()]; !ok {
 			if operation.OperationType.CoreumToXRPLTransfer == nil {
 				continue
 			}
 			if operation.OperationType.CoreumToXRPLTransfer.Recipient != sendReq.Recipient {
 				continue
 			}
-			operationIDs = append(operationIDs, operation.GetOperationID())
+			operationSequences = append(operationSequences, operation.GetOperationSequence())
 		}
 	}
 
-	return operationIDs, nil
+	return operationSequences, nil
 }
 
 // ******************** Context ********************
