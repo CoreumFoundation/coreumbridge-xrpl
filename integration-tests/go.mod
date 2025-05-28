@@ -1,6 +1,8 @@
 module github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests
 
-go 1.24.3
+go 1.24
+
+toolchain go1.24.2
 
 // same replacements as in coreum
 replace (
