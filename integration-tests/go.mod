@@ -2,8 +2,6 @@ module github.com/CoreumFoundation/coreumbridge-xrpl/integration-tests
 
 go 1.24
 
-toolchain go1.24.2
-
 // same replacements as in coreum
 replace (
 	// cosmos keyring
@@ -22,7 +20,7 @@ require (
 	cosmossdk.io/math v1.5.0
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a
 	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250526103302-5a3f05b11008
-	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v0.0.0-20250527143644-cbcab8dddcfd
+	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
 	github.com/CosmWasm/wasmd v0.54.0
 	github.com/cosmos/cosmos-sdk v0.50.13
 	github.com/google/uuid v1.6.0
@@ -248,3 +246,5 @@ require (
 	pgregory.net/rapid v1.1.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace github.com/CoreumFoundation/coreumbridge-xrpl/relayer => ../relayer

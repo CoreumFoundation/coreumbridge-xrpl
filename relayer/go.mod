@@ -243,3 +243,5 @@ require (
 	nhooyr.io/websocket v1.8.11 // indirect
 	pgregory.net/rapid v1.1.0 // indirect
 )
+
+replace github.com/CoreumFoundation/coreumbridge-xrpl/relayer => ../relayer
