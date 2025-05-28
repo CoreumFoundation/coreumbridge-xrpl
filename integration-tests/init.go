@@ -19,6 +19,7 @@ var chains Chains
 
 // flag variables.
 var (
+	ctx       context.Context
 	coreumCfg CoreumChainConfig
 	xrplCfg   XRPLChainConfig
 	bridgeCfg BridgeConfig
@@ -42,6 +43,8 @@ func init() {
 	// this is the default address used in znet
 	flag.StringVar(&bridgeCfg.ContractAddress, "contract-address", "devcore14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sd4f0ak", "Smart contract address of the bridge (znet)")
 	flag.StringVar(&bridgeCfg.OwnerMnemonic, "owner-mnemonic", "analyst evil lucky job exhaust inform note where grant file already exit vibrant come finger spatial absorb enter aisle orange soldier false attend response", "Smart contract owner of the bridge (znet)")
+
+	ctx = context.Background()
 
 	// accept testing flags
 	testing.Init()
@@ -73,7 +76,7 @@ func init() {
 
 // NewTestingContext returns the configured coreum and xrpl chains and new context for the integration tests.
 func NewTestingContext(t *testing.T) (context.Context, Chains) {
-	testCtx, testCtxCancel := context.WithTimeout(t.Context(), 30*time.Minute)
+	testCtx, testCtxCancel := context.WithTimeout(ctx, 30*time.Minute)
 	t.Cleanup(func() {
 		require.NoError(t, testCtx.Err())
 		testCtxCancel()
