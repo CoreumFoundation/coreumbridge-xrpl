@@ -2,7 +2,7 @@ module github.com/CoreumFoundation/coreumbridge-xrpl/build
 
 go 1.24
 
-toolchain go1.24.3
+toolchain go1.24.2
 
 // CosmosSDK replacements
 replace (

@@ -1,6 +1,6 @@
 module github.com/CoreumFoundation/coreumbridge-xrpl/relayer
 
-go 1.24.3
+go 1.24.2
 
 // same replacements as in coreum
 replace (
