@@ -1079,13 +1079,13 @@ func TestCancelPendingOperationCmd(t *testing.T) {
 	keyName := "owner"
 	owner := addKeyToTestKeyring(t, keyringDir, keyName, cli.CoreumKeyringSuffix, sdk.GetConfig().GetFullBIP44Path())
 
-	operationID := uint32(1)
+	operationSequence := uint32(1)
 	args := append([]string{
-		strconv.Itoa(int(operationID)),
+		strconv.Itoa(int(operationSequence)),
 		flagWithPrefix(cli.FlagKeyName), keyName,
 	}, initConfig(t)...)
 	args = append(args, testKeyringFlags(keyringDir)...)
-	bridgeClientMock.EXPECT().CancelPendingOperation(gomock.Any(), owner, operationID).Return(nil)
+	bridgeClientMock.EXPECT().CancelPendingOperation(gomock.Any(), owner, operationSequence).Return(nil)
 	executeCoreumTxCmd(
 		t,
 		mockBridgeClientProvider(bridgeClientMock),
