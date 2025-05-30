@@ -1,6 +1,8 @@
 module github.com/CoreumFoundation/coreumbridge-xrpl/build
 
-go 1.23.3
+go 1.24
+
+toolchain go1.24.3
 
 // CosmosSDK replacements
 replace (
@@ -16,10 +18,16 @@ replace (
 )
 
 require (
-	github.com/CoreumFoundation/coreum/build v0.0.0-20250417103402-9a7f9035f445
-	github.com/CoreumFoundation/crust v0.0.0-20250404130536-23de310e6eb8
-	github.com/CoreumFoundation/crust/znet v0.0.0-20250404130536-23de310e6eb8
+	github.com/CoreumFoundation/coreum/build v0.0.0-20250526103302-5a3f05b11008
+	github.com/CoreumFoundation/crust v0.0.0-20250530123432-a2daec21dfc1
+	github.com/CoreumFoundation/crust/znet v0.0.0-20250530123432-a2daec21dfc1
 	github.com/pkg/errors v0.9.1
+)
+
+require (
+	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a // indirect
+	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250526103302-5a3f05b11008 //indirect
+	github.com/CoreumFoundation/coreum/v6 v6.0.0-20250421142245-52bdcb2a0560 // indirect
 )
 
 require (
@@ -47,7 +55,6 @@ require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
-	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a // indirect
 	github.com/CosmWasm/wasmd v0.54.0 // indirect
 	github.com/CosmWasm/wasmvm/v2 v2.2.2 // indirect
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
@@ -116,6 +123,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gogo/googleapis v1.4.1 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/glog v1.2.4 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/mock v1.6.0 // indirect
@@ -193,12 +201,14 @@ require (
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/rubblelabs/ripple v0.0.0-20240109131116-f99dee0aa0f3 // indirect
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
+	github.com/samber/lo v1.49.1
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/shamaton/msgpack/v2 v2.2.2 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/spf13/viper v1.20.0 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
@@ -219,8 +229,12 @@ require (
 	go.opentelemetry.io/otel/sdk v1.32.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.35.0 // indirect
+	golang.org/x/exp v0.0.0-20250215185904-eff6e970281f // indirect
+	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/net v0.36.0 // indirect
 	golang.org/x/oauth2 v0.25.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
@@ -240,15 +254,4 @@ require (
 	nhooyr.io/websocket v1.8.11 // indirect
 	pgregory.net/rapid v1.1.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
-)
-
-require (
-	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250526103302-5a3f05b11008 //indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/samber/lo v1.49.1
-	github.com/spf13/pflag v1.0.6 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/exp v0.0.0-20250215185904-eff6e970281f // indirect
-	golang.org/x/mod v0.23.0 // indirect
 )
