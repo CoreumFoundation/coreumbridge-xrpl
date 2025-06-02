@@ -187,7 +187,7 @@ func fetchKey(kb keyring.Keyring, keyref string) (*keyring.Record, error) {
 	}
 
 	k, err = kb.KeyByAddress(accAddr)
-	return k, sdkerrors.Wrap(err, "Invalid key")
+	return k, sdkerrors.Wrap(err, "invalid key")
 }
 
 func validateMultisigThreshold(k, nKeys int) error {
