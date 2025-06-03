@@ -14,7 +14,7 @@ import (
 )
 
 func TestRPCClient_Submit(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -77,7 +77,7 @@ func TestRPCClient_Submit(t *testing.T) {
 }
 
 func TestRPCClient_AccountTx(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
