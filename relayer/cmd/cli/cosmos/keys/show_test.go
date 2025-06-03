@@ -63,7 +63,7 @@ func Test_runShowCmd(t *testing.T) {
 	clientCtx := client.Context{}.
 		WithKeyringDir(kbHome).
 		WithCodec(cdc)
-	ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
+	ctx := context.WithValue(t.Context(), client.ClientContextKey, &clientCtx)
 
 	cmd.SetArgs([]string{"invalid"})
 	require.EqualError(t, cmd.ExecuteContext(ctx), "invalid is not a valid name or address: decoding bech32 failed: invalid bech32 string length 7")

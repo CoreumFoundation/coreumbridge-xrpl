@@ -51,7 +51,7 @@ func Test_runDeleteCmd(t *testing.T) {
 		WithKeyringDir(kbHome).
 		WithCodec(cdc)
 
-	ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
+	ctx := context.WithValue(t.Context(), client.ClientContextKey, &clientCtx)
 
 	err = cmd.ExecuteContext(ctx)
 	require.Error(t, err)

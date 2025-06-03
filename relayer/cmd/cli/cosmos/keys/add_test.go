@@ -35,7 +35,7 @@ func Test_runAddCmdBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	clientCtx := client.Context{}.WithKeyringDir(kbHome).WithInput(mockIn).WithCodec(cdc)
-	ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
+	ctx := context.WithValue(t.Context(), client.ClientContextKey, &clientCtx)
 
 	t.Cleanup(func() {
 		_ = kb.Delete("keyname1")
@@ -200,7 +200,7 @@ func Test_runAddCmdDryRun(t *testing.T) {
 				WithCodec(cdc).
 				WithKeyringDir(kbHome).
 				WithKeyring(kb)
-			ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
+			ctx := context.WithValue(t.Context(), client.ClientContextKey, &clientCtx)
 
 			path := sdk.GetConfig().GetFullBIP44Path()
 			_, err = kb.NewAccount("subkey", testdata.TestMnemonic, "", path, hd.Secp256k1)
@@ -241,7 +241,7 @@ func TestAddRecoverFileBackend(t *testing.T) {
 	kbHome := t.TempDir()
 
 	clientCtx := client.Context{}.WithKeyringDir(kbHome).WithInput(mockIn).WithCodec(cdc)
-	ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
+	ctx := context.WithValue(t.Context(), client.ClientContextKey, &clientCtx)
 
 	cmd.SetArgs([]string{
 		"keyname1",
