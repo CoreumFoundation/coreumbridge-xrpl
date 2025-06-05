@@ -20,7 +20,7 @@ replace (
 
 require (
 	cosmossdk.io/math v1.5.0
-	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a
+	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20250605161222-1d26ddd79ec6
 	github.com/CoreumFoundation/coreum/v5 v5.0.0-20250526103302-5a3f05b11008
 	github.com/CoreumFoundation/coreumbridge-xrpl/relayer v1.0.0
 	github.com/CosmWasm/wasmd v0.54.0
@@ -221,10 +221,9 @@ require (
 	go.opentelemetry.io/otel/sdk v1.32.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/mock v0.4.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.23.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/exp v0.0.0-20250215185904-eff6e970281f // indirect
