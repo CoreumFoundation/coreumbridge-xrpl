@@ -13,6 +13,7 @@ import (
 
 	"github.com/CoreumFoundation/coreum/build/coreum"
 	"github.com/CoreumFoundation/coreumbridge-xrpl/build/tools"
+	"github.com/CoreumFoundation/crust/build/docker"
 	"github.com/CoreumFoundation/crust/build/golang"
 	"github.com/CoreumFoundation/crust/build/types"
 	"github.com/CoreumFoundation/crust/znet/infra"
@@ -59,6 +60,19 @@ func RunIntegrationTests(name string) types.CommandFunc {
 			TimeoutCommit: 500 * time.Millisecond,
 			HomeDir:       filepath.Join(lo.Must(os.UserHomeDir()), ".crust", "znet"),
 			RootDir:       ".",
+		}
+
+		err := docker.RemoveImageByName(ctx, "ghcr.io/goreleaser/goreleaser-cross:v1.23.3")
+		if err != nil {
+			return errors.Wrap(err, "failed to remove goreleaser-cross:v1.23.3 image")
+		}
+		err = docker.RemoveImageByName(ctx, "ghcr.io/goreleaser/goreleaser-cross:v1.24.2")
+		if err != nil {
+			return errors.Wrap(err, "failed to remove goreleaser-cross:v1.24.2 image")
+		}
+		err = docker.RemoveImageByName(ctx, "ghcr.io/goreleaser/goreleaser-cross:v1.21.4")
+		if err != nil {
+			return errors.Wrap(err, "failed to remove goreleaser-cross:v1.21.4 image")
 		}
 
 		if err := znet.Remove(ctx, znetConfig); err != nil {

@@ -19,8 +19,8 @@ replace (
 
 require (
 	github.com/CoreumFoundation/coreum/build v0.0.0-20250417103402-9a7f9035f445
-	github.com/CoreumFoundation/crust v0.0.0-20250530123432-a2daec21dfc1
-	github.com/CoreumFoundation/crust/znet v0.0.0-20250530123432-a2daec21dfc1
+	github.com/CoreumFoundation/crust v0.0.0-20250606102718-eb10d7febf13
+	github.com/CoreumFoundation/crust/znet v0.0.0-20250606102718-eb10d7febf13
 	github.com/pkg/errors v0.9.1
 )
 
