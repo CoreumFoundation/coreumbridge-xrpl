@@ -49,7 +49,7 @@ integration-tests-xrpl:
 
 .PHONY: integration-tests-processes
 integration-tests-processes:
-	$(BUILDER) integration-tests/processes
+	$(BUILDER) integration-tests/processes > /dev/null
 
 .PHONY: integration-tests-contract
 integration-tests-contract:

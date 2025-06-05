@@ -51,7 +51,7 @@ func RunAllIntegrationTests(ctx context.Context, deps types.DepsFunc) error {
 func RunIntegrationTests(name string) types.CommandFunc {
 	return func(ctx context.Context, deps types.DepsFunc) error {
 		deps(BuildRelayerDockerImage, BuildSmartContract, tools.EnsureBridgeXRPLWASM,
-			coreum.BuildCoredLocally, coreum.BuildCoredDockerImage)
+			coreum.BuildCoredLocally)
 
 		znetConfig := &infra.ConfigFactory{
 			Profiles:      []string{apps.ProfileXRPLBridge},

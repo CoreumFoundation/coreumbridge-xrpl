@@ -235,6 +235,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a h1:1vgtS45y86pyFZ/n2RBHjKQhHRDK1VQek7NHbkPfkGU=
 github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a/go.mod h1:VD93vCHkxYaT/RhOesXTFgd/GQDW54tr0BqGi5JU1c0=
+github.com/CoreumFoundation/coreum-tools v0.4.1-0.20250605161222-1d26ddd79ec6 h1:cNHj15Ewh5bkzPVHM0GJiA89KUkymr5NCA8g0Jzx8Rc=
+github.com/CoreumFoundation/coreum-tools v0.4.1-0.20250605161222-1d26ddd79ec6/go.mod h1:A3ktFfEBKcujFSpsEPjBlyWGX0VxSOe49q80gknmHWE=
 github.com/CoreumFoundation/coreum/v5 v5.0.0-20250526103302-5a3f05b11008 h1:zuNtN9SzKYm2q8XWVwBp4zX0KBGv3lT8icA9vdsilh8=
 github.com/CoreumFoundation/coreum/v5 v5.0.0-20250526103302-5a3f05b11008/go.mod h1:LQbK4qqr0E1icUCcQT464isJfMeW2mybvX6XXkTpeGI=
 github.com/CosmWasm/wasmd v0.54.0 h1:/txsBehV1xnAi46H1xwuuY6D4NySujBy+wa5+ryItS8=
@@ -1121,6 +1123,7 @@ go.uber.org/zap v1.18.1/go.mod h1:xg/QME4nWcxGxrpdeYfq7UvYrLh66cuVKdrbD1XF/NI=
 go.uber.org/zap v1.21.0/go.mod h1:wjWOCqI0f2ZZrJF/UufIOkiC8ii6tm1iqIsLo76RfJw=
 go.uber.org/zap v1.23.0 h1:OjGQ5KQDEUawVHxNwQgPpiypGHOxo2mNZsOqTak4fFY=
 go.uber.org/zap v1.23.0/go.mod h1:D+nX8jyLsMHMYrln8A0rJjFt/T/9/bGgIhAqxv5URuY=
+go.uber.org/zap v1.27.0/go.mod h1:GB2qFLM7cTU87MWRP2mPIjqfIDnGu+VIO4V/SdhGo2E=
 golang.org/x/arch v0.3.0 h1:02VY4/ZcO/gBOH6PUaoiptASxtXU10jazRCP865E97k=
 golang.org/x/arch v0.3.0/go.mod h1:5om86z9Hs0C8fWVUuoMHwpExlXzs5Tkyp9hOrfG7pp8=
 golang.org/x/crypto v0.0.0-20180904163835-0709b304e793/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
