@@ -24,16 +24,16 @@ func BuildTicketCreateTxForMultiSigning(
 	if operation.TicketSequence != 0 {
 		tx.TicketSequence = &operation.TicketSequence
 	} else {
-		tx.TxBase.Sequence = operation.AccountSequence
+		tx.Sequence = operation.AccountSequence
 	}
 	// important for the multi-signing
-	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+	tx.SigningPubKey = &rippledata.PublicKey{}
 
 	fee, err := xrpl.GetMultiSigningTxFee(operation.XRPLBaseFee)
 	if err != nil {
 		return nil, err
 	}
-	tx.TxBase.Fee = fee
+	tx.Fee = fee
 
 	return &tx, nil
 }
@@ -62,13 +62,13 @@ func BuildTrustSetTxForMultiSigning(
 	}
 	tx.TicketSequence = &operation.TicketSequence
 	// important for the multi-signing
-	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+	tx.SigningPubKey = &rippledata.PublicKey{}
 
 	fee, err := xrpl.GetMultiSigningTxFee(operation.XRPLBaseFee)
 	if err != nil {
 		return nil, err
 	}
-	tx.TxBase.Fee = fee
+	tx.Fee = fee
 
 	return &tx, nil
 }
@@ -144,16 +144,16 @@ func BuildSignerListSetTxForMultiSigning(
 	if operation.TicketSequence != 0 {
 		tx.TicketSequence = &operation.TicketSequence
 	} else {
-		tx.TxBase.Sequence = operation.AccountSequence
+		tx.Sequence = operation.AccountSequence
 	}
 	// important for the multi-signing
-	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+	tx.SigningPubKey = &rippledata.PublicKey{}
 
 	fee, err := xrpl.GetMultiSigningTxFee(operation.XRPLBaseFee)
 	if err != nil {
 		return nil, err
 	}
-	tx.TxBase.Fee = fee
+	tx.Fee = fee
 
 	return &tx, nil
 }
@@ -183,12 +183,12 @@ func buildPaymentTx(
 	}
 	tx.TicketSequence = &operation.TicketSequence
 	// important for the multi-signing
-	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+	tx.SigningPubKey = &rippledata.PublicKey{}
 
 	fee, err := xrpl.GetMultiSigningTxFee(operation.XRPLBaseFee)
 	if err != nil {
 		return rippledata.Payment{}, err
 	}
-	tx.TxBase.Fee = fee
+	tx.Fee = fee
 	return tx, nil
 }

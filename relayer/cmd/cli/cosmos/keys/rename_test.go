@@ -44,7 +44,7 @@ func Test_runRenameCmd(t *testing.T) {
 		WithKeyringDir(kbHome).
 		WithCodec(cdc)
 
-	ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
+	ctx := context.WithValue(t.Context(), client.ClientContextKey, &clientCtx)
 
 	// rename a key 'blah' which doesnt exist
 	cmd.SetArgs([]string{"blah", "blaah", fmt.Sprintf("--%s=%s", flags.FlagHome, kbHome)})

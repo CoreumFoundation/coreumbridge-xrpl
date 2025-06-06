@@ -1044,57 +1044,6 @@ func (b *BridgeClient) UpdateProhibitedXRPLAddresses(
 	return nil
 }
 
-func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
-	ctx context.Context,
-	relayers []RelayerConfig,
-) ([]coreum.Relayer, []rippledata.SignerEntry, error) {
-	coreumAuthClient := authtypes.NewQueryClient(b.coreumClientCtx)
-	contractRelayers := make([]coreum.Relayer, 0, len(relayers))
-	xrplSignerEntries := make([]rippledata.SignerEntry, 0)
-	for _, relayer := range relayers {
-		if _, err := coreumAuthClient.Account(ctx, &authtypes.QueryAccountRequest{
-			Address: relayer.CoreumAddress,
-		}); err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to get coreum account by address:%s", relayer.CoreumAddress)
-		}
-		xrplAddress, err := rippledata.NewAccountFromAddress(relayer.XRPLAddress)
-		if err != nil {
-			return nil, nil, errors.Wrapf(
-				err,
-				"failed to convert XRPL address string to rippledata.Account, address:%s",
-				relayer.XRPLAddress,
-			)
-		}
-		xrplAccInfo, err := b.xrplRPCClient.AccountInfo(ctx, *xrplAddress)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to get XRPL account by address:%s", xrplAddress.String())
-		}
-		if xrplAccInfo.AccountData.Balance.Float() < xrpl.ReserveToActivateAccount {
-			return nil, nil, errors.Errorf(
-				"insufficient XRPL relayer account balance, required:%f, current:%f",
-				xrpl.ReserveToActivateAccount, xrplAccInfo.AccountData.Balance.Float(),
-			)
-		}
-		relayerCoreumAddress, err := sdk.AccAddressFromBech32(relayer.CoreumAddress)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to parse relayerCoreumAddress:%s", relayer.CoreumAddress)
-		}
-		contractRelayers = append(contractRelayers, coreum.Relayer{
-			CoreumAddress: relayerCoreumAddress,
-			XRPLAddress:   relayer.XRPLAddress,
-			XRPLPubKey:    relayer.XRPLPubKey,
-		})
-		xrplSignerEntries = append(xrplSignerEntries, rippledata.SignerEntry{
-			SignerEntry: rippledata.SignerEntryItem{
-				Account:      xrplAddress,
-				SignerWeight: lo.ToPtr(uint16(1)),
-			},
-		})
-	}
-
-	return contractRelayers, xrplSignerEntries, nil
-}
-
 // HaltBridge halts the bridge.
 func (b *BridgeClient) HaltBridge(
 	ctx context.Context,
@@ -1234,6 +1183,57 @@ func (b *BridgeClient) GetCoreumToXRPLTracingInfo(
 	}
 
 	return coreumToXRPLTracingInfo, nil
+}
+
+func (b *BridgeClient) buildContractRelayersFromRelayersConfig(
+	ctx context.Context,
+	relayers []RelayerConfig,
+) ([]coreum.Relayer, []rippledata.SignerEntry, error) {
+	coreumAuthClient := authtypes.NewQueryClient(b.coreumClientCtx)
+	contractRelayers := make([]coreum.Relayer, 0, len(relayers))
+	xrplSignerEntries := make([]rippledata.SignerEntry, 0)
+	for _, relayer := range relayers {
+		if _, err := coreumAuthClient.Account(ctx, &authtypes.QueryAccountRequest{
+			Address: relayer.CoreumAddress,
+		}); err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to get coreum account by address:%s", relayer.CoreumAddress)
+		}
+		xrplAddress, err := rippledata.NewAccountFromAddress(relayer.XRPLAddress)
+		if err != nil {
+			return nil, nil, errors.Wrapf(
+				err,
+				"failed to convert XRPL address string to rippledata.Account, address:%s",
+				relayer.XRPLAddress,
+			)
+		}
+		xrplAccInfo, err := b.xrplRPCClient.AccountInfo(ctx, *xrplAddress)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to get XRPL account by address:%s", xrplAddress.String())
+		}
+		if xrplAccInfo.AccountData.Balance.Float() < xrpl.ReserveToActivateAccount {
+			return nil, nil, errors.Errorf(
+				"insufficient XRPL relayer account balance, required:%f, current:%f",
+				xrpl.ReserveToActivateAccount, xrplAccInfo.AccountData.Balance.Float(),
+			)
+		}
+		relayerCoreumAddress, err := sdk.AccAddressFromBech32(relayer.CoreumAddress)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to parse relayerCoreumAddress:%s", relayer.CoreumAddress)
+		}
+		contractRelayers = append(contractRelayers, coreum.Relayer{
+			CoreumAddress: relayerCoreumAddress,
+			XRPLAddress:   relayer.XRPLAddress,
+			XRPLPubKey:    relayer.XRPLPubKey,
+		})
+		xrplSignerEntries = append(xrplSignerEntries, rippledata.SignerEntry{
+			SignerEntry: rippledata.SignerEntryItem{
+				Account:      xrplAddress,
+				SignerWeight: lo.ToPtr(uint16(1)),
+			},
+		})
+	}
+
+	return contractRelayers, xrplSignerEntries, nil
 }
 
 func (b *BridgeClient) validateXRPLBridgeAccountBalance(

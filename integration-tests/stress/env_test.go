@@ -78,7 +78,7 @@ func NewEnv(t *testing.T, cfg EnvConfig) *Env {
 	)
 
 	// import contract owner mnemonic
-	contractOwner := chains.Coreum.ChainContext.ImportMnemonic(bridgeCfg.OwnerMnemonic)
+	contractOwner := chains.Coreum.ImportMnemonic(bridgeCfg.OwnerMnemonic)
 
 	return &Env{
 		Cfg:            cfg,

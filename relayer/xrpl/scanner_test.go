@@ -232,7 +232,7 @@ func TestAccountScanner_ScanTxs(t *testing.T) {
 			)
 			txsCh := make(chan rippledata.TransactionWithMetaData)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 				spawn("scan", parallel.Continue, func(ctx context.Context) error {
 					return s.ScanTxs(ctx, txsCh)

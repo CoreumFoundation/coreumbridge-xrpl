@@ -1,7 +1,6 @@
 package tracing_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,14 +9,14 @@ import (
 )
 
 func TestWithTracingID(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	ctx = tracing.WithTracingID(ctx)
 	tracingID := tracing.GetTracingID(ctx)
 	require.NotEmpty(t, tracingID)
 }
 
 func TestWithTracingProcess(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	const process = "pr"
 	ctx = tracing.WithTracingProcess(ctx, process)
 	gotProcess := tracing.GetTracingProcess(ctx)
@@ -25,7 +24,7 @@ func TestWithTracingProcess(t *testing.T) {
 }
 
 func TestWithTracingXRPLTxHash(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	const xrplTxHash = "hash"
 	ctx = tracing.WithTracingXRPLTxHash(ctx, xrplTxHash)
 	gotXRPLTxHash := tracing.GetTracingXRPLTxHash(ctx)

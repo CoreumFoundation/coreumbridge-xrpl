@@ -92,7 +92,7 @@ HbP+c6JmeJy9JXe2rbbF1QtCX1gLqGcDQPBXiCtFvP7/8wTZtVOPj8vREzhZ9ElO
 				WithKeyring(kb).
 				WithInput(mockIn).
 				WithCodec(cdc)
-			ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
+			ctx := context.WithValue(t.Context(), client.ClientContextKey, &clientCtx)
 
 			t.Cleanup(cleanupKeys(t, kb, "keyname1"))
 
@@ -152,7 +152,7 @@ func Test_runImportHexCmd(t *testing.T) {
 				WithKeyring(kb).
 				WithInput(mockIn).
 				WithCodec(cdc)
-			ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
+			ctx := context.WithValue(t.Context(), client.ClientContextKey, &clientCtx)
 
 			t.Cleanup(cleanupKeys(t, kb, "keyname1"))
 

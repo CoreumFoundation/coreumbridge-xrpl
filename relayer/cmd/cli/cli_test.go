@@ -141,7 +141,7 @@ func executeCmdWithOutputOption(t *testing.T, cmd *cobra.Command, outOpt string,
 		WithLegacyAmino(encodingConfig.Amino).
 		WithInput(os.Stdin).
 		WithOutputFormat(outOpt)
-	ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
+	ctx := context.WithValue(t.Context(), client.ClientContextKey, &clientCtx)
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		require.NoError(t, err)

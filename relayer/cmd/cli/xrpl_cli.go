@@ -89,11 +89,8 @@ $ send-from-xrpl-to-coreum 1000000 %s %s %s --%s sender
 					return errors.Wrapf(err, "failed to convert currency string to rippledata.Currency: %s", args[1])
 				}
 
-				isNative := false
-				if xrpl.ConvertCurrencyToString(currency) == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
-					issuer.String() == xrpl.XRPTokenIssuer.String() {
-					isNative = true
-				}
+				isNative := xrpl.ConvertCurrencyToString(currency) == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
+					issuer.String() == xrpl.XRPTokenIssuer.String()
 
 				value, err := rippledata.NewValue(args[0], isNative)
 				if err != nil {
@@ -152,11 +149,8 @@ $ set-trust-set 1e80 %s %s --%s sender
 					return errors.Wrapf(err, "failed to convert currency string to rippledata.Currency: %s", args[1])
 				}
 
-				isNative := false
-				if xrpl.ConvertCurrencyToString(currency) == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
-					issuer.String() == xrpl.XRPTokenIssuer.String() {
-					isNative = true
-				}
+				isNative := xrpl.ConvertCurrencyToString(currency) == xrpl.ConvertCurrencyToString(xrpl.XRPTokenCurrency) &&
+					issuer.String() == xrpl.XRPTokenIssuer.String()
 
 				value, err := rippledata.NewValue(args[0], isNative)
 				if err != nil {

@@ -510,46 +510,6 @@ func (c *RPCClient) RipplePathFind(
 	return result, nil
 }
 
-func (c *RPCClient) callRPC(ctx context.Context, method string, params, result any) error {
-	request := RPCRequest{
-		Method: method,
-		Params: []any{
-			params,
-		},
-	}
-	c.log.Debug(ctx, "Executing XRPL RPC request", zap.Any("request", request))
-
-	err := c.httpClient.DoJSON(ctx, http.MethodPost, c.cfg.URL, request, func(resBytes []byte) error {
-		c.log.Debug(ctx, "Received XRPL RPC result", zap.String("result", string(resBytes)))
-		errResponse := RPCResponse{
-			Result: &RPCError{},
-		}
-		if err := json.Unmarshal(resBytes, &errResponse); err != nil {
-			return errors.Wrapf(err, "failed to decode http result to error result, raw http result:%s", string(resBytes))
-		}
-		errResult, ok := errResponse.Result.(*RPCError)
-		if !ok {
-			panic("failed to cast result to RPCError")
-		}
-		if errResult.Code != 0 || strings.TrimSpace(errResult.Name) != "" {
-			return errResult
-		}
-		response := RPCResponse{
-			Result: result,
-		}
-		if err := json.Unmarshal(resBytes, &response); err != nil {
-			return errors.Wrapf(err, "failed decode http result to expected struct, raw http result:%s", string(resBytes))
-		}
-
-		return nil
-	})
-	if err != nil {
-		return errors.Wrap(err, "failed to call RPC")
-	}
-
-	return nil
-}
-
 // AutoFillTx add seq number and fee for the transaction.
 func (c *RPCClient) AutoFillTx(
 	ctx context.Context,
@@ -613,13 +573,54 @@ func (c *RPCClient) SubmitAndAwaitSuccess(ctx context.Context, tx rippledata.Tra
 // CalculateFee calculates fee for the transaction. It supports single and multiple signatures.
 // Check https://xrpl.org/transaction-cost.html#special-transaction-costs for more details.
 func (c *RPCClient) CalculateFee(txSignatureCount, baseFee uint32) (*rippledata.Value, error) {
-	if txSignatureCount == 0 {
+	switch txSignatureCount {
+	case 0:
 		return nil, errors.New("tx signature count must be greater than 0")
-	} else if txSignatureCount == 1 {
+	case 1:
 		// Single sig: base_fee
 		return rippledata.NewNativeValue(int64(baseFee))
 	}
 
 	// Multisig: base_fee × (1 + Number of Signatures Provided)
 	return rippledata.NewNativeValue(int64(baseFee * (1 + txSignatureCount)))
+}
+
+func (c *RPCClient) callRPC(ctx context.Context, method string, params, result any) error {
+	request := RPCRequest{
+		Method: method,
+		Params: []any{
+			params,
+		},
+	}
+	c.log.Debug(ctx, "Executing XRPL RPC request", zap.Any("request", request))
+
+	err := c.httpClient.DoJSON(ctx, http.MethodPost, c.cfg.URL, request, func(resBytes []byte) error {
+		c.log.Debug(ctx, "Received XRPL RPC result", zap.String("result", string(resBytes)))
+		errResponse := RPCResponse{
+			Result: &RPCError{},
+		}
+		if err := json.Unmarshal(resBytes, &errResponse); err != nil {
+			return errors.Wrapf(err, "failed to decode http result to error result, raw http result:%s", string(resBytes))
+		}
+		errResult, ok := errResponse.Result.(*RPCError)
+		if !ok {
+			panic("failed to cast result to RPCError")
+		}
+		if errResult.Code != 0 || strings.TrimSpace(errResult.Name) != "" {
+			return errResult
+		}
+		response := RPCResponse{
+			Result: result,
+		}
+		if err := json.Unmarshal(resBytes, &response); err != nil {
+			return errors.Wrapf(err, "failed decode http result to expected struct, raw http result:%s", string(resBytes))
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to call RPC")
+	}
+
+	return nil
 }

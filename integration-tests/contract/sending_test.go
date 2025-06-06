@@ -2942,7 +2942,7 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 			for _, asset := range assets {
 				if asset.registeredToken.CoreumDenom == fee.Denom {
 					found = true
-					assert.EqualValues(t, fee.Amount.String(), asset.bridgingFee.Quo(sdkmath.NewInt(int64(len(relayers)))).String())
+					assert.Equal(t, fee.Amount.String(), asset.bridgingFee.Quo(sdkmath.NewInt(int64(len(relayers)))).String())
 					break
 				}
 			}
@@ -2972,7 +2972,7 @@ func TestFeeCalculations_MultipleAssetsAndPartialClaim(t *testing.T) {
 		remainderFees := initialFees.Sub(oneThirdOfFees...)
 		fees, err := contractClient.GetFeesCollected(ctx, relayer.CoreumAddress)
 		require.NoError(t, err)
-		require.EqualValues(t, remainderFees.String(), fees.String())
+		require.Equal(t, remainderFees.String(), fees.String())
 
 		// claim remainder of fees
 		_, err = contractClient.ClaimRelayerFees(ctx, relayer.CoreumAddress, remainderFees)
@@ -3399,7 +3399,7 @@ func claimFeesAndMakeAssertions(
 		require.NoError(t, err)
 		balanceChange := relayerBalanceAfterClaim.Balance.
 			Sub(*relayerBalanceBeforeClaim.Balance)
-		require.EqualValues(t, expectedFeeAmount.String(), balanceChange.Amount.String())
+		require.Equal(t, expectedFeeAmount.String(), balanceChange.Amount.String())
 
 		// assert fees are now collected
 		fees, err = contractClient.GetFeesCollected(ctx, relayer.CoreumAddress)
@@ -3408,7 +3408,7 @@ func claimFeesAndMakeAssertions(
 			require.Empty(t, fees, 0)
 		} else {
 			expectedRemainder := remainderAmount.QuoRaw(int64(len(relayers)))
-			require.EqualValues(t, fees[0].Amount.String(), expectedRemainder.String())
+			require.Equal(t, fees[0].Amount.String(), expectedRemainder.String())
 		}
 	}
 }

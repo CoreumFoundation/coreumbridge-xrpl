@@ -1,7 +1,6 @@
 package runner_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,7 +19,7 @@ func TestInitAndReadConfig(t *testing.T) {
 		Format: logger.YamlConsoleLoggerFormat,
 	})
 	require.NoError(t, err)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	defaultCfg := runner.DefaultConfig()
 	yamlStringConfig, err := yaml.Marshal(defaultCfg)

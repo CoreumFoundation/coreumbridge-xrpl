@@ -250,7 +250,7 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	}
 	chains.XRPL.AutoFillTx(ctx, t, &createTicketsTx, senderAcc)
 	// reset sequence and add ticket
-	createTicketsTx.TxBase.Sequence = 0
+	createTicketsTx.Sequence = 0
 	createTicketsTx.TicketSequence = createdTickets[0].TicketSequence
 	require.NoError(t, chains.XRPL.SignAndSubmitTx(ctx, t, &createTicketsTx, senderAcc))
 
@@ -272,7 +272,7 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	}
 	chains.XRPL.AutoFillTx(ctx, t, &xrpPaymentTx, senderAcc)
 	// reset sequence and add ticket
-	xrpPaymentTx.TxBase.Sequence = 0
+	xrpPaymentTx.Sequence = 0
 	xrpPaymentTx.TicketSequence = createdTickets[0].TicketSequence
 
 	t.Logf("Recipient account balance before: %s", chains.XRPL.GetAccountBalances(ctx, t, recipientAcc))
@@ -300,7 +300,7 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	}
 	chains.XRPL.AutoFillTx(ctx, t, &fooPaymentTx, senderAcc)
 	// reset sequence and add ticket
-	fooPaymentTx.TxBase.Sequence = 0
+	fooPaymentTx.Sequence = 0
 	fooPaymentTx.TicketSequence = ticketForFailingTx
 	// there is no trust set so the tx should fail and use the ticket
 	require.ErrorContains(
@@ -319,7 +319,7 @@ func TestCreateAndUseTicketForPaymentAndTicketsCreation(t *testing.T) {
 	}
 	chains.XRPL.AutoFillTx(ctx, t, &xrpPaymentTx, senderAcc)
 	// reset sequence and add ticket
-	xrpPaymentTx.TxBase.Sequence = 0
+	xrpPaymentTx.Sequence = 0
 	xrpPaymentTx.TicketSequence = ticketForFailingTx
 	// the ticket is used in prev failed transaction so can't be used here
 	require.ErrorContains(t, chains.XRPL.SignAndSubmitTx(ctx, t, &fooPaymentTx, senderAcc), "Ticket is not in ledger")
@@ -1031,7 +1031,7 @@ func TestXRPLClawback(t *testing.T) {
 	require.NoError(t, chains.XRPL.AutoFillSignAndSubmitTx(ctx, t, &clawbackTx, issuerClawbackAcc))
 	balancesAfter = chains.XRPL.GetAccountBalances(ctx, t, recipientAcc)
 	t.Logf("Recipient account balances after: %s", balancesAfter)
-	require.True(t, balancesAfter[currencyIssuerClawbackKey].Value.IsZero())
+	require.True(t, balancesAfter[currencyIssuerClawbackKey].IsZero())
 
 	// try to do the clawback after the issuance
 	fooNoClawbackCurrencyTrustSetTx := rippledata.TrustSet{
@@ -1116,7 +1116,7 @@ func buildXrpPaymentTxForMultiSigning(
 	}
 	xrplChain.AutoFillTx(ctx, t, &tx, from)
 	// important for the multi-signing
-	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+	tx.SigningPubKey = &rippledata.PublicKey{}
 
 	return tx
 }
@@ -1148,7 +1148,7 @@ func buildCreateTicketsTxForMultiSigning(
 		tx.TicketSequence = ticketSeq
 	}
 	// important for the multi-signing
-	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+	tx.SigningPubKey = &rippledata.PublicKey{}
 
 	return tx
 }
@@ -1179,7 +1179,7 @@ func buildUpdateSignerListSetTxForMultiSigning(
 	}
 	xrplChain.AutoFillTx(ctx, t, &tx, from)
 	// important for the multi-signing
-	tx.TxBase.SigningPubKey = &rippledata.PublicKey{}
+	tx.SigningPubKey = &rippledata.PublicKey{}
 
 	if ticketSeq != nil {
 		tx.Sequence = 0

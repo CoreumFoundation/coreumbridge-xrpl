@@ -216,7 +216,7 @@ func FuzzAmountConversionCoreumToXRPLAndBack(f *testing.F) {
 		coreumAmount, err := processes.ConvertXRPLAmountToCoreumAmount(rippleAmount)
 		require.NoError(t, err)
 
-		require.EqualValues(t, initial.String(), coreumAmount.String())
+		require.Equal(t, initial.String(), coreumAmount.String())
 	})
 }
 

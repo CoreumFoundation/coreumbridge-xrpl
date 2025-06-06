@@ -29,7 +29,7 @@ func TestStress(t *testing.T) {
 	envCfg := DefaultEnvConfig()
 	env := NewEnv(t, envCfg)
 
-	ctx, cancel := context.WithTimeout(context.Background(), envCfg.TestTimeout)
+	ctx, cancel := context.WithTimeout(t.Context(), envCfg.TestTimeout)
 	t.Cleanup(cancel)
 
 	type testCase struct {

@@ -86,7 +86,7 @@ func Test_taskWithRestartOnError(t *testing.T) {
 	for i, tc := range tests {
 		t.Run(fmt.Sprintf("counter-%v", i), func(tt *testing.T) {
 			tt.Parallel()
-			ctx, cancelF := context.WithTimeout(context.Background(), tc.runTimeout)
+			ctx, cancelF := context.WithTimeout(t.Context(), tc.runTimeout)
 			defer cancelF()
 
 			c := newCounter()

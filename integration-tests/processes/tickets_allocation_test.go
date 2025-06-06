@@ -227,7 +227,7 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, availableTicketsAfterReallocation, int(envCfg.UsedTicketSequenceThreshold))
 	// check that tickets are used
-	require.NotEqualValues(t, initialAvailableTickets, availableTicketsAfterReallocation)
+	require.NotEqual(t, initialAvailableTickets, availableTicketsAfterReallocation)
 
 	// use re-allocated tickets
 	for range numberOfXRPLTokensToRegister {
@@ -245,8 +245,8 @@ func TestTicketsReAllocationByTheXRPLTokenRegistration(t *testing.T) {
 	runnerEnv.AwaitNoPendingOperations(ctx, t)
 	availableTicketsAfterSecondReallocation, err := runnerEnv.ContractClient.GetAvailableTickets(ctx)
 	require.NoError(t, err)
-	require.NotEqualValues(t, initialAvailableTickets, availableTicketsAfterSecondReallocation)
-	require.NotEqualValues(t, availableTicketsAfterReallocation, availableTicketsAfterSecondReallocation)
+	require.NotEqual(t, initialAvailableTickets, availableTicketsAfterSecondReallocation)
+	require.NotEqual(t, availableTicketsAfterReallocation, availableTicketsAfterSecondReallocation)
 }
 
 func TestSendXRPLOriginatedTokenFromXRPLToCoreumWithTicketsReallocation(t *testing.T) {
