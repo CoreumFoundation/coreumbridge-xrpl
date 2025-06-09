@@ -5,7 +5,7 @@ mod tests {
     use coreum_wasm_sdk::types::cosmos::bank::v1beta1::QueryTotalSupplyRequest;
     use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
     use coreum_wasm_sdk::{
-        assetft::{FREEZING, IBC, MINTING},
+        deprecated::assetft::{FREEZING, IBC, MINTING},
         types::{
             coreum::asset::ft::v1::{
                 MsgIssue, QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
@@ -14,7 +14,7 @@ mod tests {
         },
     };
     use cosmwasm_std::{coin, coins, Addr, Coin, Uint128};
-    use rand::{distributions::Alphanumeric, thread_rng, Rng};
+    use rand::{distr::Alphanumeric, thread_rng, Rng};
     use ripple_keypairs::Seed;
     use sha2::{Digest, Sha256};
     use std::collections::HashMap;
@@ -521,7 +521,10 @@ mod tests {
                 send_commission_rate: "0".to_string(),
                 uri: "".to_string(),
                 uri_hash: "".to_string(),
-                version: 1
+                version: 1,
+                extension_cw_address: "".to_string(),
+                admin: contract_addr.clone(),
+                dex_settings: None,
             }
         );
     }
@@ -2208,6 +2211,8 @@ mod tests {
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &signer,
             )
@@ -2734,6 +2739,8 @@ mod tests {
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &sender,
             )
@@ -4039,6 +4046,8 @@ mod tests {
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &sender,
             )
@@ -5064,6 +5073,8 @@ mod tests {
                         send_commission_rate: "0".to_string(),
                         uri: "uri".to_string(),
                         uri_hash: "uri_hash".to_string(),
+                        extension_settings: None,
+                        dex_settings: None,
                     },
                     &signer,
                 )
@@ -5433,6 +5444,8 @@ mod tests {
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &receiver,
             )
@@ -7377,6 +7390,8 @@ mod tests {
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &sender,
             )
@@ -7570,6 +7585,8 @@ mod tests {
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &signer,
             )
@@ -8698,6 +8715,8 @@ mod tests {
                     send_commission_rate: "1000000000000000000".to_string(), // 1e18 = 100%
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &signer,
             )
@@ -10171,7 +10190,9 @@ mod tests {
         let cancel_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::CancelPendingOperation { operation_sequence: 50 },
+                &ExecuteMsg::CancelPendingOperation {
+                    operation_sequence: 50,
+                },
                 &vec![],
                 &signer,
             )

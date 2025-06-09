@@ -1,4 +1,4 @@
-use coreum_wasm_sdk::{assetft, core::CoreumMsg};
+use coreum_wasm_sdk::deprecated::{assetft, core::CoreumMsg};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{coin, Addr, Coin, CosmosMsg, Response, Storage, Uint128};
 

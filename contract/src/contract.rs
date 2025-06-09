@@ -34,8 +34,8 @@ use crate::{
 };
 
 use coreum_wasm_sdk::{
-    assetft::{self, Msg::Issue, ParamsResponse, Query, IBC, MINTING},
-    core::{CoreumMsg, CoreumQueries, CoreumResult},
+    deprecated::assetft::{Msg::Issue, Msg::Mint, ParamsResponse, Query, IBC, MINTING},
+    deprecated::core::{CoreumMsg, CoreumQueries, CoreumResult},
 };
 use cosmwasm_std::{
     coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps,
@@ -619,16 +619,15 @@ fn save_evidence(
                         remainder,
                     )?;
 
-                    let mint_msg_fees = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
+                    let mint_msg_fees = CosmosMsg::from(CoreumMsg::AssetFT(Mint {
                         coin: coin(fee_collected.u128(), token.coreum_denom.clone()),
                         recipient: None,
                     }));
 
-                    let mint_msg_for_recipient =
-                        CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Mint {
-                            coin: coin(amount_to_send.u128(), token.coreum_denom),
-                            recipient: Some(recipient.to_string()),
-                        }));
+                    let mint_msg_for_recipient = CosmosMsg::from(CoreumMsg::AssetFT(Mint {
+                        coin: coin(amount_to_send.u128(), token.coreum_denom),
+                        recipient: Some(recipient.to_string()),
+                    }));
 
                     response = response.add_messages([mint_msg_fees, mint_msg_for_recipient]);
                 }
