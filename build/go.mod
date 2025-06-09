@@ -1,6 +1,8 @@
 module github.com/CoreumFoundation/coreumbridge-xrpl/build
 
-go 1.23.3
+go 1.24
+
+toolchain go1.24.2
 
 // CosmosSDK replacements
 replace (
@@ -17,8 +19,8 @@ replace (
 
 require (
 	github.com/CoreumFoundation/coreum/build v0.0.0-20250417103402-9a7f9035f445
-	github.com/CoreumFoundation/crust v0.0.0-20250404130536-23de310e6eb8
-	github.com/CoreumFoundation/crust/znet v0.0.0-20250404130536-23de310e6eb8
+	github.com/CoreumFoundation/crust v0.0.0-20250609061659-5bcd4773c685
+	github.com/CoreumFoundation/crust/znet v0.0.0-20250609061659-5bcd4773c685
 	github.com/pkg/errors v0.9.1
 )
 
@@ -48,6 +50,7 @@ require (
 	github.com/99designs/keyring v1.2.2 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a // indirect
+	github.com/CoreumFoundation/coreum/v6 v6.0.0-20250421142245-52bdcb2a0560 // indirect
 	github.com/CosmWasm/wasmd v0.54.0 // indirect
 	github.com/CosmWasm/wasmvm/v2 v2.2.2 // indirect
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect

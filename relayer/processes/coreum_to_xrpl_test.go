@@ -440,7 +440,7 @@ func TestCoreumToXRPLProcess_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			t.Cleanup(cancel)
 
 			ctrl := gomock.NewController(t)
@@ -682,7 +682,7 @@ func multiSignOperationFromMultipleSignersWithLastInvalidSignature(
 	bridgeXRPLAddress rippledata.Account,
 	signingFunc func(*testing.T, *xrpl.PrivKeyTxSigner, rippledata.Account, coreum.Operation) rippledata.Signer,
 ) (coreum.Operation, []rippledata.Signer) {
-	require.Equal(t, len(xrplTxSigners), len(contractRelayers))
+	require.Len(t, contractRelayers, len(xrplTxSigners))
 	require.Greater(t, len(xrplTxSigners), 2)
 	operationWithSignatures := operation
 

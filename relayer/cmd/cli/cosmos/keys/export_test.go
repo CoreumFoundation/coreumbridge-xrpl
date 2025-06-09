@@ -100,7 +100,7 @@ func Test_runExportCmd(t *testing.T) {
 				WithKeyring(kb).
 				WithInput(mockInBuf).
 				WithCodec(cdc)
-			ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
+			ctx := context.WithValue(t.Context(), client.ClientContextKey, &clientCtx)
 
 			err = cmd.ExecuteContext(ctx)
 			if tc.mustFail {
