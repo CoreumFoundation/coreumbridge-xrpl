@@ -1,6 +1,6 @@
-use coreum_wasm_sdk::deprecated::{assetft, core::CoreumMsg};
+use coreum_wasm_sdk::types::{coreum::asset::ft::v1::MsgBurn, cosmos::base::v1beta1::Coin};
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{coin, Addr, Coin, CosmosMsg, Response, Storage, Uint128};
+use cosmwasm_std::{coin, Addr, Coin as wasmCoin, CosmosMsg, Response, Storage, Uint128};
 
 use crate::{
     contract::{convert_amount_decimals, XRPL_TOKENS_DECIMALS},
@@ -124,7 +124,7 @@ pub fn handle_operation(
     tx_hash: &Option<String>,
     operation_sequence: u64,
     ticket_sequence: Option<u64>,
-    response: &mut Response<CoreumMsg>,
+    response: &mut Response,
 ) -> Result<(), ContractError> {
     match &operation.operation_type {
         // We check that if the operation was a ticket allocation, the result is also for a ticket allocation
@@ -203,7 +203,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
     transaction_result: &TransactionResult,
     tx_hash: Option<String>,
     operation_sequence: u64,
-    response: &mut Response<CoreumMsg>,
+    response: &mut Response,
 ) -> Result<(), ContractError> {
     let pending_operation = PENDING_OPERATIONS
         .load(storage, operation_sequence)
@@ -226,9 +226,16 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                     let amount_sent = max_amount.unwrap_or(amount);
                     // If transaction was accepted and the token that was sent back was an XRPL originated token, we must burn the token amount
                     if transaction_result.eq(&TransactionResult::Accepted) {
-                        let burn_msg = CosmosMsg::from(CoreumMsg::AssetFT(assetft::Msg::Burn {
-                            coin: coin(amount_sent.u128(), xrpl_token.coreum_denom),
-                        }));
+                        let burn_msg = CosmosMsg::Any(
+                            MsgBurn {
+                                sender: sender.to_string(),
+                                coin: Some(Coin {
+                                    amount: amount_sent.to_string(),
+                                    denom: xrpl_token.coreum_denom,
+                                }),
+                            }
+                            .to_any(),
+                        );
 
                         *response = response.to_owned().add_message(burn_msg);
                     } else {
@@ -288,7 +295,7 @@ pub fn store_pending_refund(
     pending_operation_sequence: String,
     xrpl_tx_hash: Option<String>,
     receiver: Addr,
-    coin: Coin,
+    coin: wasmCoin,
 ) -> Result<(), ContractError> {
     // We store the pending refund for this user and this pending_operation_sequence
     let pending_refund = PendingRefund {
@@ -311,7 +318,7 @@ pub fn remove_pending_refund(
     storage: &mut dyn Storage,
     sender: &Addr,
     pending_refund_id: String,
-) -> Result<Coin, ContractError> {
+) -> Result<wasmCoin, ContractError> {
     // If pending refund is not found we return the error
     let pending_refund = PENDING_REFUNDS
         .load(storage, (sender.clone(), pending_refund_id.clone()))

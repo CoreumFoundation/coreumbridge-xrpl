@@ -33,12 +33,12 @@ use crate::{
     },
 };
 
-use coreum_wasm_sdk::{
-    deprecated::assetft::{Msg::Issue, Msg::Mint, ParamsResponse, Query, IBC, MINTING},
-    deprecated::core::{CoreumMsg, CoreumQueries, CoreumResult},
+use coreum_wasm_sdk::types::coreum::asset::ft::v1::{
+    Feature, MsgIssue, MsgMint, QueryParamsRequest,
 };
+use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin;
 use cosmwasm_std::{
-    coin, coins, entry_point, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps,
+    coins, entry_point, to_json_binary, Addr, BankMsg, Binary, Coin as wasmCoin, CosmosMsg, Deps,
     DepsMut, Empty, Env, MessageInfo, Order, Response, StdResult, Storage, Uint128,
 };
 use cw2::set_contract_version;
@@ -100,11 +100,11 @@ pub const INITIAL_PROHIBITED_XRPL_ADDRESSES: [&str; 5] = [
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut<CoreumQueries>,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     initialize_owner(
         deps.storage,
@@ -157,18 +157,24 @@ pub fn instantiate(
     CONFIG.save(deps.storage, &config)?;
 
     // We will issue the XRP token during instantiation. We don't need to register it
-    let xrp_issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
-        symbol: XRP_SYMBOL.to_string(),
-        subunit: XRP_SUBUNIT.to_string(),
-        precision: XRP_DECIMALS,
-        initial_amount: Uint128::zero(),
-        description: None,
-        features: Some(vec![MINTING, IBC]),
-        burn_rate: "0.0".to_string(),
-        send_commission_rate: "0.0".to_string(),
-        uri: None,
-        uri_hash: None,
-    }));
+    let xrp_issue_msg = CosmosMsg::Any(
+        MsgIssue {
+            symbol: XRP_SYMBOL.to_string(),
+            subunit: XRP_SUBUNIT.to_string(),
+            precision: XRP_DECIMALS,
+            initial_amount: Uint128::zero().to_string(),
+            description: "".to_string(),
+            features: vec![Feature::Minting as i32, Feature::Ibc as i32],
+            burn_rate: "0.0".to_string(),
+            send_commission_rate: "0.0".to_string(),
+            uri: "".to_string(),
+            uri_hash: "".to_string(),
+            issuer: config.bridge_xrpl_address,
+            extension_settings: None,
+            dex_settings: None,
+        }
+        .to_any(),
+    );
 
     let xrp_coreum_denom = format!("{}-{}", XRP_SUBUNIT, env.contract.address).to_lowercase();
 
@@ -198,11 +204,11 @@ pub fn instantiate(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    deps: DepsMut<CoreumQueries>,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateOwnership(action) => {
             update_ownership(deps.into_empty(), env, info, action)
@@ -348,7 +354,7 @@ fn update_ownership(
     env: Env,
     info: MessageInfo,
     action: Action,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     let ownership = cw_ownable::update_ownership(deps, &env.block, &info.sender, action)?;
     Ok(Response::new()
         .add_attribute("sender", info.sender)
@@ -365,7 +371,7 @@ fn register_coreum_token(
     sending_precision: i32,
     max_holding_amount: Uint128,
     bridging_fee: Uint128,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(deps.storage, &sender, &ContractActions::RegisterCoreumToken)?;
     assert_bridge_active(deps.as_ref())?;
 
@@ -425,7 +431,7 @@ fn register_coreum_token(
 
 #[allow(clippy::too_many_arguments)]
 fn register_xrpl_token(
-    deps: DepsMut<CoreumQueries>,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     issuer: String,
@@ -433,7 +439,7 @@ fn register_xrpl_token(
     sending_precision: i32,
     max_holding_amount: Uint128,
     bridging_fee: Uint128,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &info.sender,
@@ -466,18 +472,24 @@ fn register_xrpl_token(
     // Symbol and subunit we will use for the issued token in Coreum
     let symbol_and_subunit = format!("{XRPL_DENOM_PREFIX}{hex_string}");
 
-    let issue_msg = CosmosMsg::from(CoreumMsg::AssetFT(Issue {
-        symbol: symbol_and_subunit.to_uppercase(),
-        subunit: symbol_and_subunit.clone(),
-        precision: XRPL_TOKENS_DECIMALS,
-        initial_amount: Uint128::zero(),
-        description: None,
-        features: Some(vec![MINTING, IBC]),
-        burn_rate: "0.0".to_string(),
-        send_commission_rate: "0.0".to_string(),
-        uri: None,
-        uri_hash: None,
-    }));
+    let issue_msg = CosmosMsg::Any(
+        MsgIssue {
+            symbol: symbol_and_subunit.to_uppercase(),
+            subunit: symbol_and_subunit.clone(),
+            precision: XRPL_TOKENS_DECIMALS,
+            initial_amount: Uint128::zero().to_string(),
+            description: "".to_string(),
+            features: vec![Feature::Minting as i32, Feature::Ibc as i32],
+            burn_rate: "0.0".to_string(),
+            send_commission_rate: "0.0".to_string(),
+            uri: "".to_string(),
+            uri_hash: "".to_string(),
+            issuer: issuer.clone(),
+            extension_settings: None,
+            dex_settings: None,
+        }
+        .to_any(),
+    );
 
     // Denom that token will have in Coreum
     let denom = format!("{}-{}", symbol_and_subunit, env.contract.address).to_lowercase();
@@ -533,7 +545,7 @@ fn save_evidence(
     env: Env,
     sender: Addr,
     evidence: Evidence,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
@@ -619,15 +631,29 @@ fn save_evidence(
                         remainder,
                     )?;
 
-                    let mint_msg_fees = CosmosMsg::from(CoreumMsg::AssetFT(Mint {
-                        coin: coin(fee_collected.u128(), token.coreum_denom.clone()),
-                        recipient: None,
-                    }));
+                    let mint_msg_fees = CosmosMsg::Any(
+                        MsgMint {
+                            sender: issuer.clone(),
+                            coin: Some(Coin {
+                                amount: fee_collected.to_string(),
+                                denom: token.coreum_denom.clone(),
+                            }),
+                            recipient: "".to_string(),
+                        }
+                        .to_any(),
+                    );
 
-                    let mint_msg_for_recipient = CosmosMsg::from(CoreumMsg::AssetFT(Mint {
-                        coin: coin(amount_to_send.u128(), token.coreum_denom),
-                        recipient: Some(recipient.to_string()),
-                    }));
+                    let mint_msg_for_recipient = CosmosMsg::Any(
+                        MsgMint {
+                            sender: issuer.clone(),
+                            coin: Some(Coin {
+                                amount: amount_to_send.to_string(),
+                                denom: token.coreum_denom.clone(),
+                            }),
+                            recipient: recipient.to_string(),
+                        }
+                        .to_any(),
+                    );
 
                     response = response.add_messages([mint_msg_fees, mint_msg_for_recipient]);
                 }
@@ -770,7 +796,7 @@ fn recover_tickets(
     sender: Addr,
     account_sequence: u64,
     number_of_tickets: Option<u32>,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
@@ -829,7 +855,7 @@ fn recover_xrpl_token_registration(
     sender: Addr,
     issuer: String,
     currency: String,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
@@ -885,7 +911,7 @@ fn save_signature(
     operation_sequence: u64,
     operation_version: u64,
     signature: &str,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
@@ -913,7 +939,7 @@ fn send_to_xrpl(
     info: MessageInfo,
     recipient: String,
     deliver_amount: Option<Uint128>,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     assert_bridge_active(deps.as_ref())?;
     // Check that we are only sending 1 type of coin
     let funds = one_coin(&info)?;
@@ -1089,7 +1115,7 @@ fn update_xrpl_token(
     sending_precision: Option<i32>,
     bridging_fee: Option<Uint128>,
     max_holding_amount: Option<Uint128>,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
@@ -1145,7 +1171,7 @@ fn update_coreum_token(
     sending_precision: Option<i32>,
     bridging_fee: Option<Uint128>,
     max_holding_amount: Option<Uint128>,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
@@ -1188,7 +1214,7 @@ fn update_xrpl_base_fee(
     deps: DepsMut,
     sender: Addr,
     xrpl_base_fee: u64,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
@@ -1232,8 +1258,8 @@ fn update_xrpl_base_fee(
 fn claim_relayer_fees(
     deps: DepsMut,
     sender: Addr,
-    amounts: Vec<Coin>,
-) -> CoreumResult<ContractError> {
+    amounts: Vec<wasmCoin>,
+) -> Result<Response, ContractError> {
     assert_bridge_active(deps.as_ref())?;
 
     // If fees were never collected for this address we don't allow the claim
@@ -1261,7 +1287,7 @@ fn claim_pending_refund(
     deps: DepsMut,
     sender: Addr,
     pending_refund_id: String,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     assert_bridge_active(deps.as_ref())?;
     let coin = remove_pending_refund(deps.storage, &sender, pending_refund_id)?;
 
@@ -1276,7 +1302,7 @@ fn claim_pending_refund(
         .add_message(send_msg))
 }
 
-fn halt_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
+fn halt_bridge(deps: DepsMut, sender: Addr) -> Result<Response, ContractError> {
     check_authorization(deps.as_ref().storage, &sender, &ContractActions::HaltBridge)?;
     // No point halting a bridge that is already halted
     assert_bridge_active(deps.as_ref())?;
@@ -1287,7 +1313,7 @@ fn halt_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
         .add_attribute("sender", sender))
 }
 
-fn resume_bridge(deps: DepsMut, sender: Addr) -> CoreumResult<ContractError> {
+fn resume_bridge(deps: DepsMut, sender: Addr) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
@@ -1312,7 +1338,7 @@ fn rotate_keys(
     sender: Addr,
     new_relayers: Vec<Relayer>,
     new_evidence_threshold: u32,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(deps.as_ref().storage, &sender, &ContractActions::RotateKeys)?;
 
     // If there is already a pending rotate keys ongoing, we don't allow another one until that one is confirmed
@@ -1351,7 +1377,7 @@ fn update_prohibited_xrpl_addresses(
     deps: DepsMut,
     sender: Addr,
     prohibited_xrpl_addresses: Vec<String>,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
@@ -1384,7 +1410,7 @@ fn cancel_pending_operation(
     deps: DepsMut,
     sender: Addr,
     operation_sequence: u64,
-) -> CoreumResult<ContractError> {
+) -> Result<Response, ContractError> {
     check_authorization(
         deps.as_ref().storage,
         &sender,
@@ -1675,12 +1701,11 @@ fn query_prohibited_xrpl_addresses(deps: Deps) -> ProhibitedXRPLAddressesRespons
 
 // ********** Helpers **********
 
-fn check_issue_fee(deps: &DepsMut<CoreumQueries>, info: &MessageInfo) -> Result<(), ContractError> {
-    let query_params_res: ParamsResponse = deps
-        .querier
-        .query(&CoreumQueries::AssetFT(Query::Params {}).into())?;
+fn check_issue_fee(deps: &DepsMut, info: &MessageInfo) -> Result<(), ContractError> {
+    let query_params_req = QueryParamsRequest {};
+    let query_params_res = query_params_req.query(&deps.querier)?;
 
-    if query_params_res.params.issue_fee != one_coin(info)? {
+    if query_params_res.params.unwrap().issue_fee != Some(Coin::from(one_coin(info)?)) {
         return Err(ContractError::InvalidFundsAmount {});
     }
 
