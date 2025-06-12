@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, env};
 
 use crate::{
     address::{validate_xrpl_address, validate_xrpl_address_format},
@@ -157,19 +157,19 @@ pub fn instantiate(
     CONFIG.save(deps.storage, &config)?;
 
     // We will issue the XRP token during instantiation. We don't need to register it
-    let xrp_issue_msg = CosmosMsg::Any(
+    let xrp_issue_msg: CosmosMsg = CosmosMsg::Any(
         MsgIssue {
             symbol: XRP_SYMBOL.to_string(),
             subunit: XRP_SUBUNIT.to_string(),
             precision: XRP_DECIMALS,
-            initial_amount: Uint128::zero().to_string(),
+            initial_amount: "0".to_string(),
             description: "".to_string(),
             features: vec![Feature::Minting as i32, Feature::Ibc as i32],
-            burn_rate: "0.0".to_string(),
-            send_commission_rate: "0.0".to_string(),
+            burn_rate: "0".to_string(),
+            send_commission_rate: "0".to_string(),
             uri: "".to_string(),
             uri_hash: "".to_string(),
-            issuer: config.bridge_xrpl_address,
+            issuer: env.contract.address.to_string(),
             extension_settings: None,
             dex_settings: None,
         }
@@ -477,11 +477,11 @@ fn register_xrpl_token(
             symbol: symbol_and_subunit.to_uppercase(),
             subunit: symbol_and_subunit.clone(),
             precision: XRPL_TOKENS_DECIMALS,
-            initial_amount: Uint128::zero().to_string(),
+            initial_amount: "0".to_string(),
             description: "".to_string(),
             features: vec![Feature::Minting as i32, Feature::Ibc as i32],
-            burn_rate: "0.0".to_string(),
-            send_commission_rate: "0.0".to_string(),
+            burn_rate: "0".to_string(),
+            send_commission_rate: "0".to_string(),
             uri: "".to_string(),
             uri_hash: "".to_string(),
             issuer: issuer.clone(),
