@@ -274,7 +274,7 @@ func TestSendFromXRPLToCoreumXRPLOriginatedTokenWithMaxAmount(t *testing.T) {
 	_, err = contractClient.SendXRPLToCoreumTransferEvidence(
 		ctx, relayers[0].CoreumAddress, xrplToCoreumTransferEvidenceWithHightAmount,
 	)
-	require.ErrorContains(t, err, "invalid Uint128")
+	require.ErrorContains(t, err, "number too large to fit in target type")
 	// send max amount
 	xrplToCoreumTransferEvidence := xrplToCoreumTransferEvidenceWithHightAmount
 	xrplToCoreumTransferEvidence.Amount = coreum.MaxContractAmount

@@ -1,11 +1,10 @@
 [package]
 name = "coreumbridge-xrpl"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Coreum"]
 edition = "2021"
 
 [features]
-backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [lib]
@@ -25,22 +24,26 @@ overflow-checks = true
 
 [dependencies]
 bs58 = "0.5.0"
-coreum-wasm-sdk = "0.2.4"
-cosmwasm-schema = "1.5.3"
-cosmwasm-std = { version = "1.5.4", features = ["cosmwasm_1_1"] }
-cw-ownable = "0.5.1"
-cw-storage-plus = "1.2.0"
-cw-utils = "1.0.3"
-cw2 = "1.1.2"
+coreum-wasm-sdk = "1.2.1"
+cosmwasm-schema = "2.2.2"
+cosmwasm-std = { version = "2.2.2", features = [
+    "cosmwasm_1_1",
+    "cosmwasm_2_0",
+    "stargate",
+] }
+cw-ownable = "2.1.0"
+cw-storage-plus = "2.0.0"
+cw-utils = "2.0.0"
+cw2 = "2.0.0"
 hex = "0.4.3"
 serde_json = "1.0.113"
 sha2 = "0.10.8"
-thiserror = "1.0.56"
+thiserror = "2.0.12"
 
 [dev-dependencies]
-coreum-test-tube = {git = 'https://github.com/CoreumFoundation/test-tube.git'}
+coreum-test-tube = { git = 'https://github.com/CoreumFoundation/test-tube.git' }
 ripple-keypairs = "0.1.0"
-rand = "0.8.5"
+rand = "0.9.1"
 
 [patch.crates-io]
-ripple-keypairs = {git = 'https://github.com/CoreumFoundation/ripple-keypairs-rust.git'}
+ripple-keypairs = { git = 'https://github.com/CoreumFoundation/ripple-keypairs-rust.git' }
