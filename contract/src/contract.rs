@@ -344,7 +344,7 @@ pub fn execute(
             prohibited_xrpl_addresses,
         ),
         ExecuteMsg::CancelPendingOperation { operation_sequence } => {
-            cancel_pending_operation(deps.into_empty(), info.sender, operation_sequence)
+            cancel_pending_operation(deps.into_empty(), env, info.sender, operation_sequence)
         }
     }
 }
@@ -484,9 +484,9 @@ fn register_xrpl_token(
             send_commission_rate: "0".to_string(),
             uri: "".to_string(),
             uri_hash: "".to_string(),
-            issuer: issuer.clone(),
             extension_settings: None,
             dex_settings: None,
+            issuer: env.contract.address.to_string(),
         }
         .to_any(),
     );
@@ -633,7 +633,7 @@ fn save_evidence(
 
                     let mint_msg_fees = CosmosMsg::Any(
                         MsgMint {
-                            sender: issuer.clone(),
+                            sender: env.contract.address.to_string(),
                             coin: Some(Coin {
                                 amount: fee_collected.to_string(),
                                 denom: token.coreum_denom.clone(),
@@ -645,7 +645,7 @@ fn save_evidence(
 
                     let mint_msg_for_recipient = CosmosMsg::Any(
                         MsgMint {
-                            sender: issuer.clone(),
+                            sender: env.contract.address.to_string(),
                             coin: Some(Coin {
                                 amount: amount_to_send.to_string(),
                                 denom: token.coreum_denom.clone(),
@@ -737,6 +737,7 @@ fn save_evidence(
                 // We run the handler for the operation, routing to the correct handler for each operation type
                 handle_operation(
                     deps.storage,
+                    env.contract.address,
                     &operation,
                     &operation_result,
                     &transaction_result,
@@ -1408,6 +1409,7 @@ fn update_prohibited_xrpl_addresses(
 
 fn cancel_pending_operation(
     deps: DepsMut,
+    env: Env,
     sender: Addr,
     operation_sequence: u64,
 ) -> Result<Response, ContractError> {
@@ -1429,6 +1431,7 @@ fn cancel_pending_operation(
     // We handle the operation with an invalid result
     handle_operation(
         deps.storage,
+        env.contract.address,
         &operation,
         &operation_result,
         transaction_result,

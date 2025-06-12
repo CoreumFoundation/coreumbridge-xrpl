@@ -118,6 +118,7 @@ pub fn create_pending_operation(
 #[allow(clippy::too_many_arguments)]
 pub fn handle_operation(
     storage: &mut dyn Storage,
+    signer: Addr,
     operation: &Operation,
     operation_result: &Option<OperationResult>,
     transaction_result: &TransactionResult,
@@ -157,6 +158,7 @@ pub fn handle_operation(
         OperationType::CoreumToXRPLTransfer { .. } => {
             handle_coreum_to_xrpl_transfer_confirmation(
                 storage,
+                signer,
                 transaction_result,
                 tx_hash.clone(),
                 operation_sequence,
@@ -200,6 +202,7 @@ pub fn handle_trust_set_confirmation(
 
 pub fn handle_coreum_to_xrpl_transfer_confirmation(
     storage: &mut dyn Storage,
+    signer: Addr,
     transaction_result: &TransactionResult,
     tx_hash: Option<String>,
     operation_sequence: u64,
@@ -228,7 +231,7 @@ pub fn handle_coreum_to_xrpl_transfer_confirmation(
                     if transaction_result.eq(&TransactionResult::Accepted) {
                         let burn_msg = CosmosMsg::Any(
                             MsgBurn {
-                                sender: sender.to_string(),
+                                sender: signer.to_string(),
                                 coin: Some(Coin {
                                     amount: amount_sent.to_string(),
                                     denom: xrpl_token.coreum_denom,
