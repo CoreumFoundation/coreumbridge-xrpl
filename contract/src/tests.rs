@@ -11,7 +11,7 @@ mod tests {
         cosmos::bank::v1beta1::MsgSend,
     };
     use cosmwasm_std::{coin, coins, Addr, Coin, Uint128};
-    use rand::{distr::Alphanumeric, thread_rng, Rng};
+    use rand::{distr::Alphanumeric, rng, Rng};
     use ripple_keypairs::Seed;
     use sha2::{Digest, Sha256};
     use std::collections::HashMap;
@@ -127,7 +127,7 @@ mod tests {
 
     pub fn generate_hash() -> String {
         String::from_utf8(
-            thread_rng()
+            rng()
                 .sample_iter(&Alphanumeric)
                 .take(20)
                 .collect::<Vec<_>>(),
@@ -145,7 +145,7 @@ mod tests {
     pub fn generate_invalid_xrpl_address() -> String {
         let mut address = 'r'.to_string();
         let mut rand = String::from_utf8(
-            thread_rng()
+            rng()
                 .sample_iter(&Alphanumeric)
                 .take(30)
                 .collect::<Vec<_>>(),
@@ -163,7 +163,7 @@ mod tests {
 
     pub fn generate_xrpl_pub_key() -> String {
         String::from_utf8(
-            thread_rng()
+            rng()
                 .sample_iter(&Alphanumeric)
                 .take(52)
                 .collect::<Vec<_>>(),
