@@ -1,20 +1,17 @@
 #[cfg(test)]
 mod tests {
     use coreum_test_tube::{Account, AssetFT, Bank, CoreumTestApp, Module, SigningAccount, Wasm};
-    use coreum_wasm_sdk::types::coreum::asset::ft::v1::{MsgFreeze, MsgUnfreeze};
+    use coreum_wasm_sdk::types::coreum::asset::ft::v1::{Feature, MsgFreeze, MsgUnfreeze};
     use coreum_wasm_sdk::types::cosmos::bank::v1beta1::QueryTotalSupplyRequest;
     use coreum_wasm_sdk::types::cosmos::base::v1beta1::Coin as BaseCoin;
-    use coreum_wasm_sdk::{
-        assetft::{FREEZING, IBC, MINTING},
-        types::{
-            coreum::asset::ft::v1::{
-                MsgIssue, QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
-            },
-            cosmos::bank::v1beta1::MsgSend,
+    use coreum_wasm_sdk::types::{
+        coreum::asset::ft::v1::{
+            MsgIssue, QueryBalanceRequest, QueryParamsRequest, QueryTokensRequest, Token,
         },
+        cosmos::bank::v1beta1::MsgSend,
     };
     use cosmwasm_std::{coin, coins, Addr, Coin, Uint128};
-    use rand::{distributions::Alphanumeric, thread_rng, Rng};
+    use rand::{distr::Alphanumeric, rng, Rng};
     use ripple_keypairs::Seed;
     use sha2::{Digest, Sha256};
     use std::collections::HashMap;
@@ -130,7 +127,7 @@ mod tests {
 
     pub fn generate_hash() -> String {
         String::from_utf8(
-            thread_rng()
+            rng()
                 .sample_iter(&Alphanumeric)
                 .take(20)
                 .collect::<Vec<_>>(),
@@ -148,7 +145,7 @@ mod tests {
     pub fn generate_invalid_xrpl_address() -> String {
         let mut address = 'r'.to_string();
         let mut rand = String::from_utf8(
-            thread_rng()
+            rng()
                 .sample_iter(&Alphanumeric)
                 .take(30)
                 .collect::<Vec<_>>(),
@@ -166,7 +163,7 @@ mod tests {
 
     pub fn generate_xrpl_pub_key() -> String {
         String::from_utf8(
-            thread_rng()
+            rng()
                 .sample_iter(&Alphanumeric)
                 .take(52)
                 .collect::<Vec<_>>(),
@@ -516,12 +513,18 @@ mod tests {
                 precision: 6,
                 description: "".to_string(),
                 globally_frozen: false,
-                features: vec![MINTING.try_into().unwrap(), IBC.try_into().unwrap()],
+                features: vec![
+                    Feature::Minting.try_into().unwrap(),
+                    Feature::Ibc.try_into().unwrap()
+                ],
                 burn_rate: "0".to_string(),
                 send_commission_rate: "0".to_string(),
                 uri: "".to_string(),
                 uri_hash: "".to_string(),
-                version: 1
+                version: 1,
+                extension_cw_address: "".to_string(),
+                admin: contract_addr.clone(),
+                dex_settings: None,
             }
         );
     }
@@ -2203,11 +2206,13 @@ mod tests {
                     precision: decimals,
                     initial_amount: initial_amount.to_string(),
                     description: "description".to_string(),
-                    features: vec![MINTING as i32, FREEZING as i32],
+                    features: vec![Feature::Minting as i32, Feature::Freezing as i32],
                     burn_rate: "0".to_string(),
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &signer,
             )
@@ -2729,11 +2734,13 @@ mod tests {
                     precision: decimals,
                     initial_amount: initial_amount.to_string(),
                     description: "description".to_string(),
-                    features: vec![MINTING as i32],
+                    features: vec![Feature::Minting as i32],
                     burn_rate: "0".to_string(),
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &sender,
             )
@@ -4034,11 +4041,13 @@ mod tests {
                     precision: decimals,
                     initial_amount: initial_amount.to_string(),
                     description: "description".to_string(),
-                    features: vec![MINTING as i32],
+                    features: vec![Feature::Minting as i32],
                     burn_rate: "0".to_string(),
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &sender,
             )
@@ -5059,11 +5068,13 @@ mod tests {
                         precision: 6,
                         initial_amount: "100000000000000".to_string(),
                         description: "description".to_string(),
-                        features: vec![MINTING as i32],
+                        features: vec![Feature::Minting as i32],
                         burn_rate: "0".to_string(),
                         send_commission_rate: "0".to_string(),
                         uri: "uri".to_string(),
                         uri_hash: "uri_hash".to_string(),
+                        extension_settings: None,
+                        dex_settings: None,
                     },
                     &signer,
                 )
@@ -5428,11 +5439,13 @@ mod tests {
                     precision: decimals,
                     initial_amount: initial_amount.to_string(),
                     description: "description".to_string(),
-                    features: vec![MINTING as i32],
+                    features: vec![Feature::Minting as i32],
                     burn_rate: "0".to_string(),
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &receiver,
             )
@@ -7372,11 +7385,13 @@ mod tests {
                     precision: decimals,
                     initial_amount: initial_amount.to_string(),
                     description: "description".to_string(),
-                    features: vec![MINTING as i32],
+                    features: vec![Feature::Minting as i32],
                     burn_rate: "0".to_string(),
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &sender,
             )
@@ -7565,11 +7580,13 @@ mod tests {
                     precision: 6,
                     initial_amount: "100000000".to_string(),
                     description: "description".to_string(),
-                    features: vec![MINTING as i32],
+                    features: vec![Feature::Minting as i32],
                     burn_rate: "0".to_string(),
                     send_commission_rate: "0".to_string(),
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &signer,
             )
@@ -8693,11 +8710,13 @@ mod tests {
                     precision: decimals,
                     initial_amount: initial_amount.to_string(),
                     description: "description".to_string(),
-                    features: vec![MINTING as i32],
+                    features: vec![Feature::Minting as i32],
                     burn_rate: "1000000000000000000".to_string(), // 1e18 = 100%
                     send_commission_rate: "1000000000000000000".to_string(), // 1e18 = 100%
                     uri: "uri".to_string(),
                     uri_hash: "uri_hash".to_string(),
+                    extension_settings: None,
+                    dex_settings: None,
                 },
                 &signer,
             )
@@ -10171,7 +10190,9 @@ mod tests {
         let cancel_error = wasm
             .execute::<ExecuteMsg>(
                 &contract_addr,
-                &ExecuteMsg::CancelPendingOperation { operation_sequence: 50 },
+                &ExecuteMsg::CancelPendingOperation {
+                    operation_sequence: 50,
+                },
                 &vec![],
                 &signer,
             )
