@@ -19,8 +19,8 @@ replace (
 
 require (
 	github.com/CoreumFoundation/coreum/build v0.0.0-20250611112550-0321bdd4a56f
-	github.com/CoreumFoundation/crust v0.0.0-20250609061659-5bcd4773c685
-	github.com/CoreumFoundation/crust/znet v0.0.0-20250609061659-5bcd4773c685
+	github.com/CoreumFoundation/crust v0.0.0-20250625092209-5513395e7c4d
+	github.com/CoreumFoundation/crust/znet v0.0.0-20250625092209-5513395e7c4d
 	github.com/pkg/errors v0.9.1
 )
 
@@ -49,7 +49,7 @@ require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
-	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20241202115740-dbc6962a4d0a // indirect
+	github.com/CoreumFoundation/coreum-tools v0.4.1-0.20250609122637-9e62accb7083 // indirect
 	github.com/CoreumFoundation/coreum/v6 v6.0.0-20250421142245-52bdcb2a0560 // indirect
 	github.com/CosmWasm/wasmd v0.54.1 // indirect
 	github.com/CosmWasm/wasmvm/v2 v2.2.4 // indirect
