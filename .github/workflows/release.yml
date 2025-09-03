@@ -20,6 +20,8 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build binaries
         run: make release
+      - name: Build contract
+        run: make build-contract
       - name: Build and publish images
         run: make release-images
       - name: Check Tag
@@ -37,7 +39,8 @@ jobs:
           ln bin/.cache/coreumbridge-xrpl-relayer/docker.linux.arm64/bin/coreumbridge-xrpl-relayer coreumbridge-xrpl-relayer-linux-arm64
           ln bin/.cache/coreumbridge-xrpl-relayer/docker.darwin.amd64/bin/coreumbridge-xrpl-relayer coreumbridge-xrpl-relayer-darwin-amd64
           ln bin/.cache/coreumbridge-xrpl-relayer/docker.darwin.arm64/bin/coreumbridge-xrpl-relayer coreumbridge-xrpl-relayer-darwin-arm64
-          sha256sum coreumbridge-xrpl-relayer-* > checksums.txt
+          ln contract/artifacts/coreumbridge_xrpl.wasm coreumbridge_xrpl.wasm
+          sha256sum coreumbridge-xrpl-relayer-* coreumbridge_xrpl.wasm > checksums.txt
       - name: Create release
         if: steps.check-tag.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
@@ -49,6 +52,7 @@ jobs:
             coreumbridge-xrpl-relayer-linux-arm64
             coreumbridge-xrpl-relayer-darwin-amd64
             coreumbridge-xrpl-relayer-darwin-arm64
+            coreumbridge_xrpl.wasm
             checksums.txt
       - name: Create release candidate
         if: steps.check-tag.outputs.release_candidate == 'true'
@@ -62,4 +66,5 @@ jobs:
             coreumbridge-xrpl-relayer-linux-arm64
             coreumbridge-xrpl-relayer-darwin-amd64
             coreumbridge-xrpl-relayer-darwin-arm64
+            coreumbridge_xrpl.wasm
             checksums.txt
