@@ -12,6 +12,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
       - name: Lint contract
         run: make lint-contract
       - name: Build contract
