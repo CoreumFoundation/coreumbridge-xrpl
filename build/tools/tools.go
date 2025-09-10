@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	// CoreumBridgeXRPLWASMV110 is the previous version of bridge smart contract.
-	CoreumBridgeXRPLWASMV110 tools.Name = "coreumbridge-xrpl-wasm-v1.1.0"
+	// CoreumBridgeXRPLWASMV117 is the previous version of bridge smart contract.
+	CoreumBridgeXRPLWASMV117 tools.Name = "coreumbridge-xrpl-wasm-v1.1.7"
 
 	// Mockgen is used to generate mock files.
 	Mockgen tools.Name = "mockgen"
@@ -19,15 +19,15 @@ const (
 var Tools = []tools.Tool{
 	// https://github.com/CoreumFoundation/coreumbridge-xrpl/releases
 	tools.BinaryTool{
-		Name:    CoreumBridgeXRPLWASMV110,
-		Version: "v1.1.0",
+		Name:    CoreumBridgeXRPLWASMV117,
+		Version: "v1.1.7",
 		Local:   true,
 		Sources: tools.Sources{
 			tools.TargetPlatformLocal: {
-				URL:  "https://github.com/CoreumFoundation/coreumbridge-xrpl/releases/download/v1.1.0/coreumbridge_xrpl.wasm",
-				Hash: "sha256:9e458f31599f20a8c608056ca89ed82cc00f97c8d2ff415dd83fb95389e3e32f",
+				URL:  "https://github.com/CoreumFoundation/coreumbridge-xrpl/releases/download/v1.1.7/coreumbridge_xrpl.wasm",
+				Hash: "sha256:02a4cdb98ee891664ee5081209a1b55a7c7e3e4b01455009f4466b3a280de6dc",
 				Binaries: map[string]string{
-					"bin/coreumbridge-xrpl-v1.1.0.wasm": "coreumbridge_xrpl.wasm",
+					"bin/coreumbridge-xrpl-v1.1.7.wasm": "coreumbridge_xrpl.wasm",
 				},
 			},
 		},
@@ -43,7 +43,7 @@ var Tools = []tools.Tool{
 
 // EnsureBridgeXRPLWASM ensures bridge smart contract is available.
 func EnsureBridgeXRPLWASM(ctx context.Context, _ types.DepsFunc) error {
-	return tools.Ensure(ctx, CoreumBridgeXRPLWASMV110, tools.TargetPlatformLocal)
+	return tools.Ensure(ctx, CoreumBridgeXRPLWASMV117, tools.TargetPlatformLocal)
 }
 
 // EnsureMockgen ensures that mockgen is available.
